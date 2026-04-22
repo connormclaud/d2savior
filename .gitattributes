@@ -1,0 +1,34 @@
+# Line endings
+* text=auto
+
+# Python files
+*.py text eol=lf
+
+# Data files
+*.txt text eol=lf
+*.csv text eol=lf
+
+# JSON files
+*.json text eol=lf
+
+# Configuration files
+*.md text eol=lf
+*.rst text eol=lf
+
+# Binary files
+*.zip binary
+*.rar binary
+*.7z binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# Merge strategies
+*.py merge=ours
+*.json merge=ours
+
+# Other file types
+Makefile text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf

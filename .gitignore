@@ -1,0 +1,49 @@
+# Python related
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# Editor related
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS related
+Thumbs.db
+.DS_Store
+
+# Testing related
+.coverage
+coverage/
+
+# Build related
+build/
+dist/
+*.egg-info/
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Data files (if any large files)
+*.zip
+*.rar
+*.7z
+
+# Local configuration files
+local_config.py
+config.local.py
+
+# Other temporary directories
+tmp/
+temp/
