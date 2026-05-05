@@ -13,9 +13,10 @@
 | 差异点 | 0x63 | 0x69 |
 |--------|------|------|
 | 角色名称 | 0x0014 (16字节直接存储) | previewData 内偏移 0x7C (96字节, UTF-8) |
-| charType/charFlags | 1字节 | 4字节 (charFlags) |
-| 新增字段 | 无 | createTime, lastSaveTime, playTime, previewData |
+| charType/charFlags | 1字节 (charType) | 4字节 (charFlags, 含Progression位) |
+| 时间字段 | createTime(0) + dwTime(有效) + playTime(0xFFFFFFFF) | createTime(0) + lastSaveTime(有效) + playTime(0xFFFFFFFF) |
 | 雇佣兵数据 | dwMercControl/wMercName/wMercType/dwMercExp | mercFlags/mercSeed/mercNameIndex/mercHirelingId/mercExperience |
+| 预览数据 | previewPrefix(76字节) + NamePTR(64字节) + previewSuffix(4字节) | previewData(228字节, 含gameVersion/SaveTimes/Name) |
 
 ### 2.2 物品解析
 
@@ -48,9 +49,18 @@
 
 ### 3.4 资料片判断
 
-0x69 版本通过 gameVersion > 1 判断是否为术士君临资料片。
+0x69 版本 (v104+) 通过 `previewData[0x49]` (gameVersion) 判断游戏模式：
+- gameVersion >= 3: 术士君临 (ReignOfTheWarlock)
+- gameVersion >= 2: 资料片 (Expansion)
+- gameVersion == 1: 经典版 (Classic)
 
-### 3.5 Huffman 编码
+v103 及以下版本使用 `charFlags & 0x20` 判断资料片。
+
+### 3.5 时间字段
+
+v104+ 版本中 createTime 和 playTime 均为无效默认值（0 和 0xFFFFFFFF），实际可用的时间数据是 lastSaveTime（Unix 时间戳）。v103 及以下版本对应字段为 dwTime。
+
+### 3.6 Huffman 编码
 
 0x69 版本使用 Huffman 编码压缩物品类型名称，编码表存储在 `huffman_tree.json` 中。
 

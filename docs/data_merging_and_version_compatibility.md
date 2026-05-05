@@ -175,7 +175,7 @@ def get_version_data(self, version: int) -> Optional[VersionData]:
 ### 5.1 get_item_meta
 
 ```python
-def get_item_meta(type_id: bytes, version: int = 0) -> Optional[CItemMetaData]:
+def get_item_meta(type_id: bytes, version: int = 0) -> Optional[ItemMetaData]:
     # 1. 优先从 D2DataManager 获取版本化数据
     d2data_manager = get_d2data_manager()
     if d2data_manager is not None:
@@ -193,7 +193,7 @@ def get_item_meta(type_id: bytes, version: int = 0) -> Optional[CItemMetaData]:
 ### 5.2 get_property_meta
 
 ```python
-def get_property_meta(prop_id: int, version: int) -> Optional[CPropertyMetaDataItem]:
+def get_property_meta(prop_id: int, version: int) -> Optional[PropertyMetaDataItem]:
     d2data_manager = get_d2data_manager()
     if d2data_manager is not None:
         result = d2data_manager.get_property_meta(prop_id, version)

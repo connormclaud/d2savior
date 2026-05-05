@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from core.d2s_struct import CD2S_Struct
+from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 
 class TestCharacterNameEncoding(unittest.TestCase):
@@ -18,13 +18,13 @@ class TestCharacterNameEncoding(unittest.TestCase):
             *name_bytes.ljust(16, b'\x00'),
             0x00,  # charType
             0x00,  # charTitle
-            0x00, 0x00,  # unkown1
+            0x00, 0x00,  # unknown1
             0x00,  # charClass
-            0x00, 0x00,  # unkown2
+            0x00, 0x00,  # unknown2
             0x01,  # charLevel
-            0x00, 0x00, 0x00, 0x00,  # unkown3
+            0x00, 0x00, 0x00, 0x00,  # unknown3
             0x00, 0x00, 0x00, 0x00,  # dwTime
-            0x00, 0x00, 0x00, 0x00,  # unkown4
+            0x00, 0x00, 0x00, 0x00,  # unknown4
             # dwSkillKey (16*4 bytes)
             *[0x00]*64,
             0x00, 0x00, 0x00, 0x00,  # dwLeftSkill1
@@ -38,18 +38,18 @@ class TestCharacterNameEncoding(unittest.TestCase):
             # Town (3 bytes)
             0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,  # dwMapSeed
-            0x00, 0x00,  # unkown5
+            0x00, 0x00,  # unknown5
             0x00,  # bMercDead
-            0x00,  # unkown6
+            0x00,  # unknown6
             0x00, 0x00, 0x00, 0x00,  # dwMercControl
             0x00, 0x00,  # wMercName
             0x00, 0x00,  # wMercType
             0x00, 0x00, 0x00, 0x00,  # dwMercExp
-            # unkown7 (0x4C bytes)
+            # unknown7 (0x4C bytes)
             *[0x00]*76,
             # NamePTR (0x40 bytes)
             *nameptr_bytes.ljust(64, b'\x00'),
-            0x00, 0x00, 0x00, 0x00,  # unkown8
+            0x00, 0x00, 0x00, 0x00,  # unknown8
             # QuestInfo
             0x51, 0x55, 0x45, 0x53,  # dwMajic
             0x05, 0x00, 0x00, 0x00,  # dwActs
@@ -58,7 +58,7 @@ class TestCharacterNameEncoding(unittest.TestCase):
             *[0x00]*3*124,
             # Waypoints
             0x53, 0x57,  # wMajic
-            0x00, 0x00, 0x00, 0x00,  # unkown
+            0x00, 0x00, 0x00, 0x00,  # unknown
             0x60, 0x00,  # wSize
             # wp (3 instances)
             *[0x00]*3*24,
@@ -82,8 +82,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
         )
         
         bs = IBitStream(test_data)
-        char_data = CD2S_Struct()
-        char_data.read_data(bs)
+        char_data = D2SStruct()
+        char_data.deserialize(bs)
         
         name = char_data.get_char_name()
         self.assertEqual(name, "TestChar")
@@ -98,8 +98,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
         )
         
         bs = IBitStream(test_data)
-        char_data = CD2S_Struct()
-        char_data.read_data(bs)
+        char_data = D2SStruct()
+        char_data.deserialize(bs)
         
         name = char_data.get_char_name()
         self.assertEqual(name, "测试角色")
@@ -114,8 +114,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
         )
         
         bs = IBitStream(test_data)
-        char_data = CD2S_Struct()
-        char_data.read_data(bs)
+        char_data = D2SStruct()
+        char_data.deserialize(bs)
         
         name = char_data.get_char_name()
         self.assertEqual(name, "")
@@ -130,8 +130,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
         )
         
         bs = IBitStream(test_data)
-        char_data = CD2S_Struct()
-        char_data.read_data(bs)
+        char_data = D2SStruct()
+        char_data.deserialize(bs)
         
         name = char_data.get_char_name()
         self.assertEqual(name, "Test")
@@ -147,8 +147,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
         )
         
         bs = IBitStream(test_data)
-        char_data = CD2S_Struct()
-        char_data.read_data(bs)
+        char_data = D2SStruct()
+        char_data.deserialize(bs)
         
         name = char_data.get_char_name()
         self.assertEqual(name, special_name)

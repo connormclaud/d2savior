@@ -6,12 +6,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.huffman import HuffmanDecoder, get_huffman
 from core.item import (
-    CItemMetaData, CItemMetaDataManager,
-    CPropertyMetaData, CPropertyMetaDataItem, CPropertyField,
+    ItemMetaData, ItemMetaDataManager,
+    PropertyMetaData, PropertyMetaDataItem, PropertyField,
     parse_itemdata_txt, parse_property_txt,
     is_d2r, is_ptr24_and_above, is_valid_version,
-    CEar, CLongName, CGoldQuantity, CPropertyList,
-    CExtItemInfo, CTypeSpecificInfo, CItemInfo, CD2Item,
+    Ear, LongName, GoldQuantity, PropertyList,
+    ExtItemInfo, TypeSpecificInfo, ItemInfo, D2Item,
     init_item_data, get_item_meta, get_property_meta
 )
 from core.ibitstream import IBitStream
@@ -20,7 +20,7 @@ from core.obitstream import OBitStream
 
 class TestItemMetaData(unittest.TestCase):
     def test_item_meta_data_creation(self):
-        item = CItemMetaData(
+        item = ItemMetaData(
             type_id=b'elx ',
             pic_index=0,
             name_index=0,
@@ -34,8 +34,8 @@ class TestItemMetaData(unittest.TestCase):
         self.assertEqual(item.type_name, 'elx')
 
     def test_item_meta_data_manager(self):
-        manager = CItemMetaDataManager()
-        item = CItemMetaData(type_id=b'test', equip=1)
+        manager = ItemMetaDataManager()
+        item = ItemMetaData(type_id=b'test', equip=1)
         manager.add_item(item)
         
         found = manager.get_item(b'test')
@@ -46,8 +46,8 @@ class TestItemMetaData(unittest.TestCase):
         self.assertIsNone(not_found)
 
     def test_item_meta_data_by_name(self):
-        manager = CItemMetaDataManager()
-        item = CItemMetaData(type_id=b'cap ', equip=1)
+        manager = ItemMetaDataManager()
+        item = ItemMetaData(type_id=b'cap ', equip=1)
         manager.add_item(item)
         
         found = manager.get_item_by_name('cap')
@@ -59,16 +59,16 @@ class TestItemMetaData(unittest.TestCase):
 
 class TestPropertyMetaData(unittest.TestCase):
     def test_property_field(self):
-        field = CPropertyField(bits=8, base=-32, min_val=0, max_val=255)
+        field = PropertyField(bits=8, base=-32, min_val=0, max_val=255)
         self.assertEqual(field.bits, 8)
         self.assertEqual(field.base, -32)
 
     def test_property_meta_data_item(self):
         fields = [
-            CPropertyField(bits=8, base=-32),
-            CPropertyField(bits=7, base=0)
+            PropertyField(bits=8, base=-32),
+            PropertyField(bits=7, base=0)
         ]
-        item = CPropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=15)
+        item = PropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=15)
         
         self.assertEqual(item.bits_sum, 15)
         
@@ -76,9 +76,9 @@ class TestPropertyMetaData(unittest.TestCase):
         self.assertEqual(len(params), 2)
 
     def test_property_meta_data(self):
-        meta = CPropertyMetaData()
-        item1 = CPropertyMetaDataItem(ver_min=0, bits_sum=8)
-        item2 = CPropertyMetaDataItem(ver_min=0x63, bits_sum=10)
+        meta = PropertyMetaData()
+        item1 = PropertyMetaDataItem(ver_min=0, bits_sum=8)
+        item2 = PropertyMetaDataItem(ver_min=0x63, bits_sum=10)
         
         meta.add_item(item1)
         meta.add_item(item2)
@@ -127,13 +127,13 @@ class TestVersionFunctions(unittest.TestCase):
 
 class TestCEar(unittest.TestCase):
     def test_ear_creation(self):
-        ear = CEar("TestName")
+        ear = Ear("TestName")
         self.assertEqual(ear.sEarName, "TestName")
         self.assertEqual(ear.iEarClass, 0)
         self.assertEqual(ear.iEarLevel, 1)
 
     def test_ear_is_valid(self):
-        ear = CEar()
+        ear = Ear()
         self.assertTrue(ear.is_valid())
         ear.iEarLevel = 0
         self.assertFalse(ear.is_valid())
@@ -141,7 +141,7 @@ class TestCEar(unittest.TestCase):
 
 class TestCLongName(unittest.TestCase):
     def test_long_name_creation(self):
-        name = CLongName()
+        name = LongName()
         self.assertEqual(name.iName1, 0)
         self.assertEqual(name.iName2, 0)
         self.assertFalse(name.bPref1)
@@ -150,38 +150,38 @@ class TestCLongName(unittest.TestCase):
 
 class TestCGoldQuantity(unittest.TestCase):
     def test_gold_quantity_creation(self):
-        gold = CGoldQuantity()
+        gold = GoldQuantity()
         self.assertFalse(gold.bNotGold)
         self.assertEqual(gold.wQuantity, 0)
 
 
 class TestCPropertyList(unittest.TestCase):
     def test_property_list_creation(self):
-        prop_list = CPropertyList()
+        prop_list = PropertyList()
         self.assertEqual(len(prop_list.mProperty), 0)
         self.assertEqual(prop_list.ext_sockets(), 0)
         self.assertFalse(prop_list.is_indestructible())
 
     def test_property_list_ext_sockets(self):
-        prop_list = CPropertyList()
+        prop_list = PropertyList()
         prop_list.mProperty = [(194, 0, 2), (0, 0, 10)]
         self.assertEqual(prop_list.ext_sockets(), 2)
 
     def test_property_list_is_indestructible(self):
-        prop_list = CPropertyList()
+        prop_list = PropertyList()
         prop_list.mProperty = [(152, 0, 1)]
         self.assertTrue(prop_list.is_indestructible())
 
 
 class TestCExtItemInfo(unittest.TestCase):
     def test_ext_item_info_creation(self):
-        ext_info = CExtItemInfo()
+        ext_info = ExtItemInfo()
         self.assertEqual(ext_info.nGems, 0)
         self.assertEqual(ext_info.dwGUID, 0)
         self.assertEqual(ext_info.iQuality, 2)
 
     def test_ext_item_info_is_set(self):
-        ext_info = CExtItemInfo()
+        ext_info = ExtItemInfo()
         self.assertFalse(ext_info.is_set())
         ext_info.iQuality = 5
         self.assertTrue(ext_info.is_set())
@@ -189,57 +189,57 @@ class TestCExtItemInfo(unittest.TestCase):
 
 class TestCTypeSpecificInfo(unittest.TestCase):
     def test_type_specific_info_creation(self):
-        type_info = CTypeSpecificInfo()
+        type_info = TypeSpecificInfo()
         self.assertFalse(type_info.iDefence.exist())
         self.assertFalse(type_info.iMaxDurability.exist())
 
     def test_type_specific_info_sockets(self):
-        type_info = CTypeSpecificInfo()
+        type_info = TypeSpecificInfo()
         type_info.iSocket.ensure(3)
         self.assertEqual(type_info.sockets(), (3, 0))
 
     def test_type_specific_info_defence(self):
-        type_info = CTypeSpecificInfo()
+        type_info = TypeSpecificInfo()
         type_info.iDefence.ensure(110)
         self.assertEqual(type_info.get_defence(), 100)
 
 
 class TestCItemInfo(unittest.TestCase):
     def test_item_info_creation(self):
-        item_info = CItemInfo()
+        item_info = ItemInfo()
         self.assertEqual(item_info.sTypeName, b'    ')
         self.assertIsNone(item_info.pExtItemInfo)
         self.assertIsNone(item_info.pTpSpInfo)
 
     def test_item_info_is_gold(self):
-        item_info = CItemInfo()
+        item_info = ItemInfo()
         item_info.sTypeName = b'gld '
         self.assertTrue(item_info.is_gold())
 
     def test_item_info_is_box(self):
-        item_info = CItemInfo()
+        item_info = ItemInfo()
         item_info.sTypeName = b'box '
         self.assertTrue(item_info.is_box())
 
 
 class TestCD2Item(unittest.TestCase):
     def test_d2_item_creation(self):
-        item = CD2Item()
+        item = D2Item()
         self.assertEqual(item.wMajic, 0x4D4A)
         self.assertFalse(item.bEar)
         self.assertTrue(item.bSimple)
         self.assertEqual(item.iLocation, 0)
 
     def test_d2_item_quality(self):
-        item = CD2Item()
+        item = D2Item()
         self.assertEqual(item.quality(), 2)
 
     def test_d2_item_is_set(self):
-        item = CD2Item()
+        item = D2Item()
         self.assertFalse(item.is_set())
 
     def test_d2_item_is_rune_word(self):
-        item = CD2Item()
+        item = D2Item()
         self.assertFalse(item.is_rune_word())
 
 
@@ -284,9 +284,9 @@ class TestCD2ItemVersionDifferences(unittest.TestCase):
         
         obs = self._build_simple_item_d2r(0x63, b'elx ')
         bs = IBitStream(obs.get_data())
-        item = CD2Item()
+        item = D2Item()
         try:
-            item.read_data(bs, 0x63, True)
+            item.deserialize(bs, 0x63, True)
             self.assertTrue(item.bSimple)
         except (ValueError, Exception):
             self.skipTest("Bitstream data insufficient for full item parse")
@@ -298,16 +298,16 @@ class TestCD2ItemVersionDifferences(unittest.TestCase):
         
         obs = self._build_simple_item_d2r(0x69, b'elx ')
         bs = IBitStream(obs.get_data())
-        item = CD2Item()
+        item = D2Item()
         try:
-            item.read_data(bs, 0x69, True)
+            item.deserialize(bs, 0x69, True)
             self.assertTrue(item.bSimple)
         except (ValueError, Exception):
             self.skipTest("Bitstream data insufficient for full item parse")
     
     def test_d2r_flags_rune_word_bit(self):
         """测试 D2R flags 中 bRuneWord 位 (0x04000000)"""
-        item = CD2Item()
+        item = D2Item()
         self.assertFalse(item.bRuneWord)
     
     def test_d2r_flags_chronicle_bits(self):
@@ -319,7 +319,7 @@ class TestCD2ItemVersionDifferences(unittest.TestCase):
     
     def test_item_version_0x69_quantity_flag(self):
         """测试 0x69 版本 quantity 使用 flag 而非 is_stacked"""
-        from core.item import CTypeSpecificInfo
+        from core.item import TypeSpecificInfo
         meta = get_item_meta(b'elx ', 0x69)
         if meta:
             self.assertFalse(meta.is_stacked)
@@ -402,8 +402,8 @@ class TestPropertyParsing(unittest.TestCase):
             self._has_property_file = False
 
     def test_property_parse_single_field(self):
-        fields = [CPropertyField(bits=8, base=-32, min_val=0, max_val=255)]
-        item = CPropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=8)
+        fields = [PropertyField(bits=8, base=-32, min_val=0, max_val=255)]
+        item = PropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=8)
         
         params = item.parse(0)
         self.assertEqual(len(params), 1)
@@ -417,10 +417,10 @@ class TestPropertyParsing(unittest.TestCase):
 
     def test_property_parse_multiple_fields(self):
         fields = [
-            CPropertyField(bits=8, base=-32, min_val=0, max_val=255),
-            CPropertyField(bits=7, base=0, min_val=0, max_val=127)
+            PropertyField(bits=8, base=-32, min_val=0, max_val=255),
+            PropertyField(bits=7, base=0, min_val=0, max_val=127)
         ]
-        item = CPropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=15)
+        item = PropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=15)
         
         params = item.parse(0)
         self.assertEqual(len(params), 2)
@@ -436,10 +436,10 @@ class TestPropertyParsing(unittest.TestCase):
 
     def test_property_get_value(self):
         fields = [
-            CPropertyField(bits=8, base=-32, min_val=0, max_val=255),
-            CPropertyField(bits=7, base=0, min_val=0, max_val=127)
+            PropertyField(bits=8, base=-32, min_val=0, max_val=255),
+            PropertyField(bits=7, base=0, min_val=0, max_val=127)
         ]
-        item = CPropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=15)
+        item = PropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=15)
         
         success, value = item.get_value([0, 0])
         self.assertTrue(success)
@@ -451,10 +451,10 @@ class TestPropertyParsing(unittest.TestCase):
 
     def test_property_roundtrip(self):
         fields = [
-            CPropertyField(bits=8, base=-32, min_val=0, max_val=255),
-            CPropertyField(bits=7, base=0, min_val=0, max_val=127)
+            PropertyField(bits=8, base=-32, min_val=0, max_val=255),
+            PropertyField(bits=7, base=0, min_val=0, max_val=127)
         ]
-        item = CPropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=15)
+        item = PropertyMetaDataItem(ver_min=0, fields=fields, default_value=0, bits_sum=15)
         
         original_value = 0x1234
         params = item.parse(original_value)
@@ -463,7 +463,7 @@ class TestPropertyParsing(unittest.TestCase):
         self.assertEqual(original_value, reconstructed)
 
     def test_property_list_get_parsed_properties(self):
-        prop_list = CPropertyList()
+        prop_list = PropertyList()
         prop_list.mProperty = [(0, 0, 32), (1, 0, 64)]
         prop_list._version = 0x60
         

@@ -105,6 +105,8 @@ class LanguageData:
 
 _g_language: Optional[LanguageData] = None
 _g_item_modifiers: Dict[str, str] = {}
+_g_item_modifiers_raw: list = []
+_g_item_modifiers_lang: str = 'enUS'
 
 
 def init_language(filepath: str = None, lang_index: int = 1) -> bool:
@@ -116,7 +118,7 @@ def init_language(filepath: str = None, lang_index: int = 1) -> bool:
 
 
 def init_item_modifiers(filepath: str, lang_key: str = 'enUS') -> bool:
-    global _g_item_modifiers
+    global _g_item_modifiers, _g_item_modifiers_raw, _g_item_modifiers_lang
     import json
     if not os.path.exists(filepath):
         return False
@@ -124,14 +126,35 @@ def init_item_modifiers(filepath: str, lang_key: str = 'enUS') -> bool:
     with open(filepath, 'r', encoding='utf-8-sig') as f:
         data = json.load(f)
     
-    _g_item_modifiers = {}
-    for item in data:
-        key = item.get('Key', '')
-        text = item.get(lang_key, item.get('enUS', ''))
-        if key and text:
-            _g_item_modifiers[key] = text
+    _g_item_modifiers_raw = data
+    _g_item_modifiers_lang = lang_key
+    _rebuild_item_modifiers()
     
     return True
+
+
+def _rebuild_item_modifiers():
+    global _g_item_modifiers
+    _g_item_modifiers = {}
+    fallback_lang = 'zhTW' if _g_item_modifiers_lang == 'zhCN' else ('zhCN' if _g_item_modifiers_lang == 'zhTW' else None)
+    for item in _g_item_modifiers_raw:
+        key = item.get('Key', '')
+        text = item.get(_g_item_modifiers_lang, '')
+        if not text and fallback_lang:
+            text = item.get(fallback_lang, '')
+        if not text:
+            text = item.get('enUS', '')
+        if key and text:
+            _g_item_modifiers[key] = text
+
+
+init_item_modifiers.set_lang = lambda lang_key: _set_item_modifiers_lang(lang_key)
+
+
+def _set_item_modifiers_lang(lang_key: str):
+    global _g_item_modifiers_lang
+    _g_item_modifiers_lang = lang_key
+    _rebuild_item_modifiers()
 
 
 def get_item_modifier(key: str) -> str:
@@ -186,6 +209,13 @@ _DEFAULT_SKILL_TAB_NAMES = {
 
 
 def get_class_name(class_id: int) -> str:
+    from core.localized_data import get_localized_data
+    loc = get_localized_data()
+    if loc:
+        result = loc.get_class_name(class_id)
+        if result:
+            return result
+
     lang = get_language()
     if lang:
         result = lang.get_section_string('class_name', class_id)
@@ -195,28 +225,33 @@ def get_class_name(class_id: int) -> str:
 
 
 def get_skill_name(skill_id: int) -> Tuple[str, int]:
+    from core.localized_data import get_localized_data
+    class_id = -1
+    if 6 <= skill_id < 156:
+        class_id = (skill_id - 6) // 30
+    elif 221 <= skill_id < 281:
+        class_id = (skill_id - 221) // 30 + 5
+
+    loc = get_localized_data()
+    if loc:
+        result = loc.get_skill_name_by_id(skill_id)
+        if result:
+            return result, class_id
+
     from core.d2data import get_d2data
     d2data = get_d2data()
-    
+
     if d2data:
         name = d2data.get_skill_name(skill_id)
         if name:
-            lang = get_language()
-            class_id = -1
-            if 6 <= skill_id < 156:
-                class_id = (skill_id - 6) // 30
-            elif 221 <= skill_id < 281:
-                class_id = (skill_id - 221) // 30 + 5
             return name, class_id
-    
+
     lang = get_language()
     if 6 <= skill_id < 156:
-        class_id = (skill_id - 6) // 30
         skill_index = (skill_id - 6) % 30
         name = lang.get_section_string('skill_name', class_id * CLASS_SKILL_NAME_SIZE + skill_index) if lang else ''
         return name, class_id
     elif 221 <= skill_id < 281:
-        class_id = (skill_id - 221) // 30 + 5
         skill_index = (skill_id - 221) % 30
         name = lang.get_section_string('skill_name', class_id * CLASS_SKILL_NAME_SIZE + skill_index) if lang else ''
         return name, class_id
@@ -228,6 +263,13 @@ def get_skill_name(skill_id: int) -> Tuple[str, int]:
 
 
 def get_skill_tab_name(tab: int, class_id: int) -> str:
+    from core.localized_data import get_localized_data
+    loc = get_localized_data()
+    if loc:
+        result = loc.get_skill_tab_name(tab, class_id)
+        if result:
+            return result
+
     lang = get_language()
     if lang:
         result = lang.get_section_string('skill_tab_name', class_id * CLASS_SKILL_TAB_SIZE + tab)
@@ -237,6 +279,22 @@ def get_skill_tab_name(tab: int, class_id: int) -> str:
 
 
 def get_monster_name(monster_id: int) -> str:
+    from core.localized_data import get_localized_data
+    loc = get_localized_data()
+    if loc:
+        from core.d2data import get_d2data_manager
+        mgr = get_d2data_manager()
+        if mgr:
+            for ver in (0x69, 0x63):
+                vd = mgr.get_version_data(ver)
+                if vd:
+                    mon = vd.monsters.get(monster_id) if hasattr(vd, 'monsters') else None
+                    if mon and hasattr(mon, 'name') and mon.name:
+                        result = loc.get_monster_name(mon.name)
+                        if result and result != mon.name:
+                            return result
+                    break
+
     lang = get_language()
     if lang:
         return lang.get_section_string('monster_name', monster_id)
@@ -274,6 +332,21 @@ def get_property_tooltip(prop_id: int) -> str:
     return ''
 
 
+_CLASS_SKILL_LEVEL_KEYS = {
+    0: 'ModStr3a', 1: 'ModStr3b', 2: 'ModStr3c', 3: 'ModStr3d',
+    4: 'ModStr3e', 5: 'ModStre8a', 6: 'ModStre8b', 7: 'ModStr3a',
+}
+
+_CHANCE_CAST_KEYS = {
+    195: 'ItemExpansiveChancX',
+    196: 'ModitemskonKill',
+    197: 'Moditemskondeath',
+    198: 'ItemExpansiveChanc1',
+    199: 'ModitemskonLevel',
+    201: 'ItemExpansiveChanc2',
+}
+
+
 def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str:
     from core.d2data import get_d2data
     d2data = get_d2data()
@@ -306,12 +379,25 @@ def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str
         a[2] = a[2] // 25 if a[2] else 0
     elif prop_id == 83:
         class_name = get_class_name(a[0])
+        tpl_key = _CLASS_SKILL_LEVEL_KEYS.get(a[0])
+        if tpl_key:
+            tpl = get_item_modifier(tpl_key)
+            if tpl and ('%+d' in tpl or '%d' in tpl):
+                return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1]))
         return f'+{a[1]} to {class_name} Skill Levels'
     elif prop_id == 97:
         skill_name, class_id = get_skill_name(a[0])
+        stat = d2data.get_stat(prop_id) if d2data else None
+        if stat and stat.descstrpos:
+            tpl = get_item_modifier(stat.descstrpos)
+            if tpl and ('%+d' in tpl or '%d' in tpl or '%s' in tpl):
+                return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1])).replace('%s', skill_name)
         return f'+{a[1]} to {skill_name}'
     elif prop_id == 151:
         skill_name, _ = get_skill_name(a[0])
+        tpl = get_item_modifier('ModitemAura')
+        if tpl and ('%d' in tpl or '%s' in tpl):
+            return tpl.replace('%d', str(a[1])).replace('%s', skill_name)
         return f'Level {a[1]} {skill_name} Aura When Equipped'
     elif prop_id == 98:
         if 1 <= a[0] <= 5:
@@ -322,14 +408,27 @@ def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str
             return time_name
         return prop_name
     elif prop_id == 73:
+        stat = d2data.get_stat(prop_id) if d2data else None
+        if stat and stat.descstrpos:
+            tpl = get_item_modifier(stat.descstrpos)
+            if tpl and ('%+d' in tpl or '%d' in tpl):
+                return tpl.replace('%+d', f'{a[0]:+d}').replace('%d', str(a[0]))
         return f'+{a[0]} to Maximum Durability'
     elif prop_id == 88:
         return 'Double Potion Duration'
     elif prop_id == 92:
+        tpl = get_item_modifier('ItemStats1p')
+        if tpl and '%d' in tpl:
+            return tpl % a[0]
         return f'Required Level: {a[0]}'
     elif prop_id == 107:
         skill_name, class_id = get_skill_name(a[0])
         class_name = get_class_name(class_id) if class_id >= 0 else ''
+        stat = d2data.get_stat(prop_id) if d2data else None
+        if stat and stat.descstrpos:
+            tpl = get_item_modifier(stat.descstrpos)
+            if tpl and ('%+d' in tpl or '%d' in tpl or '%s' in tpl):
+                return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1])).replace('%s', skill_name)
         if class_name:
             return f'+{a[1]} to {skill_name} ({class_name} Only)'
         return f'+{a[1]} to {skill_name}'
@@ -339,24 +438,55 @@ def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str
         a[0], a[1] = a[1], a[0]
     elif prop_id == 155:
         monster_name = get_monster_name(a[0])
+        tpl = get_item_modifier('Moditemreanimas')
+        if tpl and ('%0' in tpl or '%1' in tpl):
+            return tpl.replace('%0%%', f'{a[1]}%%').replace('%1', monster_name).replace('%0', str(a[1]))
         return f'{a[1]}% Reanimate as: {monster_name}'
     elif prop_id == 159:
+        stat = d2data.get_stat(prop_id) if d2data else None
+        if stat and stat.descstrpos:
+            tpl = get_item_modifier(stat.descstrpos)
+            if tpl and ('%+d' in tpl or '%d' in tpl):
+                return tpl.replace('%+d', f'{a[0]:+d}').replace('%d', str(a[0]))
         return f'+{a[0]} to Minimum Throw Damage'
     elif prop_id == 160:
+        stat = d2data.get_stat(prop_id) if d2data else None
+        if stat and stat.descstrpos:
+            tpl = get_item_modifier(stat.descstrpos)
+            if tpl and ('%+d' in tpl or '%d' in tpl):
+                return tpl.replace('%+d', f'{a[0]:+d}').replace('%d', str(a[0]))
         return f'+{a[0]} to Maximum Throw Damage'
     elif prop_id in (179, 180):
         monster_name = get_monster_name(a[0])
+        stat = d2data.get_stat(prop_id) if d2data else None
+        if stat and stat.descstrpos:
+            tpl = get_item_modifier(stat.descstrpos)
+            if tpl and ('%+d' in tpl or '%d' in tpl or '%s' in tpl):
+                return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1])).replace('%s', monster_name)
         if prop_id == 179:
             return f'+{a[1]}% to Attack Rating versus {monster_name}'
         return f'+{a[1]}% to Damage versus {monster_name}'
     elif prop_id == 188:
         skill_tab_name = get_skill_tab_name(a[0], a[1])
         class_name = get_class_name(a[1])
-        return f'+{a[2]} to {skill_tab_name} ({class_name} Only)'
+        if skill_tab_name:
+            return f'+{a[2]} to {skill_tab_name}'
     elif prop_id in (195, 196, 197, 198, 199, 201):
+        level = a[0]
         skill_name, _ = get_skill_name(a[1])
-        chance = a[0]
-        level = a[2]
+        chance = a[2]
+        tpl_key = _CHANCE_CAST_KEYS.get(prop_id)
+        if tpl_key:
+            tpl = get_item_modifier(tpl_key)
+            if tpl and ('%d' in tpl or '%s' in tpl):
+                result = tpl
+                if '%0' in result:
+                    result = result.replace('%0%%', f'{chance}%%').replace('%0', str(chance))
+                    result = result.replace('%1', str(level)).replace('%2', skill_name)
+                else:
+                    result = result.replace('%d%%', f'{chance}%').replace('%d', str(level))
+                    result = result.replace('%s', skill_name)
+                return result
         if prop_id == 195:
             return f'{chance}% Chance to cast level {level} {skill_name} on attack'
         elif prop_id == 196:
@@ -370,8 +500,26 @@ def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str
         elif prop_id == 201:
             return f'{chance}% Chance to cast level {level} {skill_name} when struck'
     elif prop_id == 204:
+        level = a[0]
         skill_name, _ = get_skill_name(a[1])
-        return f'Level {a[0]} {skill_name} ({a[2]}/{a[3]} Charges)'
+        stat = d2data.get_stat(prop_id) if d2data else None
+        if stat and stat.descstrpos:
+            tpl = get_item_modifier(stat.descstrpos)
+            if tpl and ('%d' in tpl or '%s' in tpl):
+                result = tpl
+                if '%0' in result:
+                    result = result.replace('%0', str(level)).replace('%1', skill_name)
+                    result = result.replace('%2', str(a[2])).replace('%3', str(a[3]))
+                else:
+                    result = result.replace('%d', str(level), 1)
+                    result = result.replace('%s', skill_name, 1)
+                    remaining = result
+                    for val in [a[2], a[3]]:
+                        if '%d' in remaining:
+                            remaining = remaining.replace('%d', str(val), 1)
+                    result = remaining
+                return result
+        return f'Level {level} {skill_name} ({a[2]}/{a[3]} Charges)'
     elif prop_id in range(214, 251):
         from core.item import get_stat_cost
         sc = get_stat_cost(prop_id)
@@ -380,6 +528,12 @@ def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str
         elif sc and sc.val_shift > 0:
             a[0] = a[0] / (1 << sc.val_shift)
         if prop_id == 237:
+            stat = d2data.get_stat(prop_id) if d2data else None
+            if stat and stat.descstrpos:
+                tpl = get_item_modifier(stat.descstrpos)
+                if tpl and ('%+d' in tpl or '%d' in tpl or '%g' in tpl or '%+g' in tpl):
+                    val = a[0]
+                    return tpl.replace('%+g', f'{val:+g}').replace('%g', f'{val:g}').replace('%+d', f'{val:+g}').replace('%d', f'{val:g}')
             return f'+{a[0]:g} Poison Absorb (Based on Character Level)'
     elif prop_id in (252, 253):
         a[0] = 100 // a[0] if a[0] else 0

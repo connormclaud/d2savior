@@ -1,0 +1,22 @@
+[
+  {"Key": "Level", "enUS": "Level", "zhCN": "等级"},
+  {"Key": "Gold", "enUS": "Gold", "zhCN": "金币"},
+  {"Key": "Quantity", "enUS": "Quantity", "zhCN": "数量"},
+  {"Key": "Defense", "enUS": "Defense", "zhCN": "防御"},
+  {"Key": "One-Hand Damage", "enUS": "One-Hand Damage", "zhCN": "单手伤害"},
+  {"Key": "Two-Hand Damage", "enUS": "Two-Hand Damage", "zhCN": "双手伤害"},
+  {"Key": "Durability", "enUS": "Durability", "zhCN": "耐久度"},
+  {"Key": "Indestructible", "enUS": "Indestructible", "zhCN": "无法破坏"},
+  {"Key": "Ethereal", "enUS": "Ethereal", "zhCN": "无形"},
+  {"Key": "Sockets", "enUS": "Sockets", "zhCN": "镶孔"},
+  {"Key": "Socketed", "enUS": "Socketed", "zhCN": "已镶孔"},
+  {"Key": "Unidentified", "enUS": "Unidentified", "zhCN": "未鉴定"},
+  {"Key": "Ear", "enUS": "Ear", "zhCN": "耳朵"},
+  {"Key": "Required Level", "enUS": "Required Level", "zhCN": "需求等级"},
+  {"Key": "Required Strength", "enUS": "Required Strength", "zhCN": "需求力量"},
+  {"Key": "Required Dexterity", "enUS": "Required Dexterity", "zhCN": "需求敏捷"},
+  {"Key": "DurabilityOf", "enUS": "{0} of {1}", "zhCN": "{0}/{1}"},
+  {"Key": "Throw Damage", "enUS": "Throw Damage", "zhCN": "投掷伤害"},
+  {"Key": "Set Item", "enUS": "Set Item", "zhCN": "套装物品"},
+  {"Key": "Unique", "enUS": "Unique", "zhCN": "暗金"}
+]

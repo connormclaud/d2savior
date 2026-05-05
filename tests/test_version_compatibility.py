@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.item import (
     get_item_meta, get_property_meta,
-    CD2Item, CPropertyList
+    D2Item, PropertyList
 )
 from core.d2data import init_d2data, get_d2data_manager
 from core.obitstream import OBitStream
@@ -161,8 +161,8 @@ class TestVersionCompatibility(unittest.TestCase):
         obs.align_byte()
         
         bs = IBitStream(obs.get_data())
-        prop_list = CPropertyList()
-        prop_list.read_data(bs, 0x60)
+        prop_list = PropertyList()
+        prop_list.deserialize(bs, 0x60)
         
         self.assertEqual(len(prop_list.mProperty), 1)
         self.assertEqual(prop_list.mProperty[0][0], 0)
@@ -186,8 +186,8 @@ class TestVersionCompatibility(unittest.TestCase):
         obs.align_byte()
         
         bs = IBitStream(obs.get_data())
-        prop_list = CPropertyList()
-        prop_list.read_data(bs, 0x63)
+        prop_list = PropertyList()
+        prop_list.deserialize(bs, 0x63)
         
         self.assertTrue(prop_list._use_stat_cost)
         self.assertGreaterEqual(len(prop_list.mProperty), 1)
@@ -214,8 +214,8 @@ class TestVersionCompatibility(unittest.TestCase):
         obs.align_byte()
         
         bs = IBitStream(obs.get_data())
-        prop_list = CPropertyList()
-        prop_list.read_data(bs, 0x63)
+        prop_list = PropertyList()
+        prop_list.deserialize(bs, 0x63)
         
         self.assertTrue(prop_list._use_stat_cost)
         found_151 = [p for p in prop_list.mProperty if p[0] == 151]
@@ -241,8 +241,8 @@ class TestVersionCompatibility(unittest.TestCase):
         obs.align_byte()
         
         bs = IBitStream(obs.get_data())
-        prop_list = CPropertyList()
-        prop_list.read_data(bs, 0x63)
+        prop_list = PropertyList()
+        prop_list.deserialize(bs, 0x63)
         
         self.assertTrue(prop_list._use_stat_cost)
         found_152 = [p for p in prop_list.mProperty if p[0] == 152]
@@ -268,8 +268,8 @@ class TestVersionCompatibility(unittest.TestCase):
         obs.align_byte()
         
         bs = IBitStream(obs.get_data())
-        prop_list = CPropertyList()
-        prop_list.read_data(bs, 0x63)
+        prop_list = PropertyList()
+        prop_list.deserialize(bs, 0x63)
         
         self.assertTrue(prop_list._use_stat_cost)
         found_17 = [p for p in prop_list.mProperty if p[0] == 17]
@@ -282,10 +282,10 @@ class TestVersionCompatibility(unittest.TestCase):
         if not self._has_merged_data:
             self.skipTest("Version data not loaded")
         
-        item_63 = CD2Item()
+        item_63 = D2Item()
         self.assertEqual(item_63.wMajic, 0x4D4A)
         
-        item_69 = CD2Item()
+        item_69 = D2Item()
         self.assertEqual(item_69.wMajic, 0x4D4A)
     
 

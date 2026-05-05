@@ -1,6 +1,10 @@
-from core.item import CD2Item, CItemList, init_item_data
+from core.item import D2Item, ItemList, init_item_data
+from core.enums import (
+    PLAYER_STATS_MAGIC, ITEM_LIST_MAGIC, MERCENARY_MAGIC,
+    GOLEM_MAGIC_1, GOLEM_MAGIC_2, DEMON_MAGIC, PLAYER_STATS_BITS_COUNT
+)
 
-class CQuestInfoData:
+class QuestInfoData:
     def __init__(self):
         self.wIntroduced1 = 0
         self.wActI = [0] * 6
@@ -22,7 +26,7 @@ class CQuestInfoData:
         self.unknown3 = 0
         self.unknown4 = [0] * 6
     
-    def read_data(self, bs):
+    def deserialize(self, bs):
         self.wIntroduced1 = bs.read_word()
         for i in range(6):
             self.wActI[i] = bs.read_word()
@@ -50,58 +54,107 @@ class CQuestInfoData:
         self.unknown3 = bs.read_byte()
         for i in range(6):
             self.unknown4[i] = bs.read_word()
+    
+    def serialize(self, bs):
+        bs.write_word(self.wIntroduced1)
+        for i in range(6):
+            bs.write_word(self.wActI[i])
+        bs.write_word(self.wTraval1)
+        bs.write_word(self.wIntroduced2)
+        for i in range(6):
+            bs.write_word(self.wActII[i])
+        bs.write_word(self.wTraval2)
+        bs.write_word(self.wIntroduced3)
+        for i in range(6):
+            bs.write_word(self.wActIII[i])
+        bs.write_word(self.wTraval3)
+        bs.write_word(self.wIntroduced4)
+        for i in range(3):
+            bs.write_word(self.wActIV[i])
+        bs.write_word(self.wTraval4)
+        for i in range(3):
+            bs.write_word(self.unknown1[i])
+        bs.write_word(self.wIntroduced5)
+        for i in range(2):
+            bs.write_word(self.unknown2[i])
+        for i in range(6):
+            bs.write_word(self.wActV[i])
+        bs.write_byte(self.bResetStats)
+        bs.write_byte(self.unknown3)
+        for i in range(6):
+            bs.write_word(self.unknown4[i])
 
-class CQuestInfo:
+class QuestInfo:
     def __init__(self):
         self.dwMajic = 0
         self.dwActs = 0
         self.wSize = 0
-        self.QIData = [CQuestInfoData() for _ in range(3)]
+        self.QIData = [QuestInfoData() for _ in range(3)]
     
-    def read_data(self, bs):
+    def deserialize(self, bs):
         self.dwMajic = bs.read_dword()
         self.dwActs = bs.read_dword()
         self.wSize = bs.read_word()
         for i in range(3):
-            self.QIData[i].read_data(bs)
-
-class CWaypointData:
-    def __init__(self):
-        self.unkown = 0
-        self.Waypoints = [0] * 5
-        self.unkown2 = [0] * 17
+            self.QIData[i].deserialize(bs)
     
-    def read_data(self, bs):
-        self.unkown = bs.read_word()
+    def serialize(self, bs):
+        bs.write_dword(self.dwMajic)
+        bs.write_dword(self.dwActs)
+        bs.write_word(self.wSize)
+        for i in range(3):
+            self.QIData[i].serialize(bs)
+
+class WaypointData:
+    def __init__(self):
+        self.unknown = 0
+        self.Waypoints = [0] * 5
+        self.unknown2 = [0] * 17
+    
+    def deserialize(self, bs):
+        self.unknown = bs.read_word()
         for i in range(5):
             self.Waypoints[i] = bs.read_byte()
         for i in range(17):
-            self.unkown2[i] = bs.read_byte()
+            self.unknown2[i] = bs.read_byte()
+    
+    def serialize(self, bs):
+        bs.write_word(self.unknown)
+        for i in range(5):
+            bs.write_byte(self.Waypoints[i])
+        for i in range(17):
+            bs.write_byte(self.unknown2[i])
 
-class CWaypoints:
+class Waypoints:
     def __init__(self):
         self.wMajic = 0
-        self.unkown = 0
+        self.unknown = 0
         self.wSize = 0
-        self.wp = [CWaypointData() for _ in range(3)]
+        self.wp = [WaypointData() for _ in range(3)]
     
-    def read_data(self, bs):
+    def deserialize(self, bs):
         self.wMajic = bs.read_word()
-        self.unkown = bs.read_dword()
+        self.unknown = bs.read_dword()
         self.wSize = bs.read_word()
         for i in range(3):
-            self.wp[i].read_data(bs)
+            self.wp[i].deserialize(bs)
+    
+    def serialize(self, bs):
+        bs.write_word(self.wMajic)
+        bs.write_dword(self.unknown)
+        bs.write_word(self.wSize)
+        for i in range(3):
+            self.wp[i].serialize(bs)
 
-class CPlayerStats:
+class PlayerStats:
     def __init__(self):
         self.wMajic = 0
         self.m_adwValue = [0] * 0x10
         self.iEnd = 0
     
-    def read_data(self, bs):
-        PLAYER_STATS_BITS_COUNT = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
+    def deserialize(self, bs):
         self.wMajic = bs.read_word()
-        if self.wMajic != 0x6667:
+        if self.wMajic != PLAYER_STATS_MAGIC:
             return
         self.m_adwValue = [0] * 0x10
         while True:
@@ -113,91 +166,131 @@ class CPlayerStats:
             except ValueError:
                 break
         bs.align_byte()
+    
+    def serialize(self, bs):
+        bs.write_word(self.wMajic)
+        
+        for i in range(0x10):
+            if self.m_adwValue[i] != 0:
+                bs.write_bits(9, i)
+                bs.write_bits(PLAYER_STATS_BITS_COUNT[i], self.m_adwValue[i])
+        
+        bs.write_bits(9, 0x1FF)
+        bs.align_byte()
 
-class CCharSkills:
+class CharSkills:
     def __init__(self):
         self.wMagic = 0
         self.bSkillLevel = [0] * 30
     
-    def read_data(self, bs):
+    def deserialize(self, bs):
         self.wMagic = bs.read_word()
         for i in range(30):
             self.bSkillLevel[i] = bs.read_byte()
+    
+    def serialize(self, bs):
+        bs.write_word(self.wMagic)
+        for i in range(30):
+            bs.write_byte(self.bSkillLevel[i])
 
-class CCorpseData:
+class CorpseData:
     def __init__(self):
         self.unknown = b''
         self.stItems = None
     
-    def read_data(self, bs, version):
+    def deserialize(self, bs, version):
         self.unknown = bs.data[bs.bytes_pos:bs.bytes_pos+12]
         bs.bytes_pos += 12
-        self.stItems = CItemList()
-        self.stItems.read_data(bs, version)
+        self.stItems = ItemList()
+        self.stItems.deserialize(bs, version)
+    
+    def serialize(self, bs, version):
+        bs.write_bytes(self.unknown)
+        if self.stItems:
+            self.stItems.serialize(bs, version)
 
-class CCorpse:
+class Corpse:
     def __init__(self):
         self.wMagic = 0
         self.wCount = 0
         self.pCorpseData = None
     
-    def read_data(self, bs, version):
+    def deserialize(self, bs, version):
         self.wMagic = bs.read_word()
         self.wCount = bs.read_word()
-        if self.wMagic != 0x4D4A:
+        if self.wMagic != ITEM_LIST_MAGIC:
             # 不是CCorpse，回退并返回
             bs.seek_back_bytes(4)
             return
         if self.wCount > 0:
-            self.pCorpseData = CCorpseData()
-            self.pCorpseData.read_data(bs, version)
+            self.pCorpseData = CorpseData()
+            self.pCorpseData.deserialize(bs, version)
     
     def has_corpse(self):
         return self.wCount > 0 and self.pCorpseData is not None
+    
+    def serialize(self, bs, version):
+        bs.write_word(self.wMagic)
+        bs.write_word(self.wCount)
+        if self.pCorpseData:
+            self.pCorpseData.serialize(bs, version)
 
-class CMercenary:
+class Mercenary:
     def __init__(self):
         self.wMagic = 0
         self.stItems = None
     
-    def read_data(self, bs, has_mercenary, version):
+    def deserialize(self, bs, has_mercenary, version):
         self.wMagic = bs.read_word()
-        if self.wMagic != 0x666A:
+        if self.wMagic != MERCENARY_MAGIC:
             # 不是CMercenary，回退并返回
             bs.seek_back_bytes(2)
             return
         if has_mercenary:
-            self.stItems = CItemList()
-            self.stItems.read_data(bs, version)
+            self.stItems = ItemList()
+            self.stItems.deserialize(bs, version)
+    
+    def serialize(self, bs, has_mercenary, version):
+        bs.write_word(self.wMagic)
+        if has_mercenary and self.stItems:
+            self.stItems.serialize(bs, version)
 
-class CGolem:
+class Golem:
     def __init__(self):
         self.wMagic = 0
         self.bHasGolem = 0
         self.pItem = None
     
-    def read_data(self, bs, version):
+    def deserialize(self, bs, version):
         self.wMagic = bs.read_word()
         self.bHasGolem = bs.read_byte()
-        if self.wMagic not in [0x666B, 0x6669]:
+        if self.wMagic not in [GOLEM_MAGIC_1, GOLEM_MAGIC_2]:
             bs.seek_back_bytes(3)
             return
         if self.bHasGolem:
-            self.pItem = CD2Item()
-            self.pItem.read_data(bs, version)
+            self.pItem = D2Item()
+            self.pItem.deserialize(bs, version)
+    
+    def serialize(self, bs, version):
+        bs.write_word(self.wMagic)
+        bs.write_byte(self.bHasGolem)
+        if self.bHasGolem and self.pItem:
+            self.pItem.serialize(bs, version, False)
 
-class CDemon:
+class Demon:
     def __init__(self):
         self.sectionVersion = 0
         self.wMagic = 0
         self.hasDemon = False
         self.padding = 0
         self.demonData = None
+        self._raw_data = b''
     
-    def read_data(self, bs):
+    def deserialize(self, bs):
+        start_pos = bs.bytes_pos
         self.sectionVersion = bs.read_word()
         self.wMagic = bs.read_word()
-        if self.wMagic != 0x666C:
+        if self.wMagic != DEMON_MAGIC:
             bs.seek_back_bytes(4)
             return
         has_demon_byte = bs.read_byte()
@@ -205,6 +298,11 @@ class CDemon:
         self.padding = bs.read_byte()
         if self.hasDemon:
             self._read_demon_data(bs)
+        
+        end_pos = bs.bytes_pos
+        bs.bytes_pos = start_pos
+        self._raw_data = bs.data[start_pos:end_pos]
+        bs.bytes_pos = end_pos
     
     def _read_demon_data(self, bs):
         stat_data_size = bs.read_word()
@@ -232,8 +330,12 @@ class CDemon:
         if stat_data_size > 0:
             bs.data[bs.bytes_pos:bs.bytes_pos+stat_data_size]
             bs.bytes_pos += stat_data_size
+    
+    def serialize(self, bs):
+        if self._raw_data:
+            bs.write_bytes(self._raw_data)
 
-class CD2S_Struct:
+class D2SStruct:
     def __init__(self):
         self.dwMajic = 0
         self.dwVersion = 0
@@ -271,19 +373,19 @@ class CD2S_Struct:
         self.wMercType = 0
         self.dwMercExp = 0
         
-        self.QuestInfo = CQuestInfo()
-        self.Waypoints = CWaypoints()
+        self.QuestInfo = QuestInfo()
+        self.Waypoints = Waypoints()
         self.NPC = b''
-        self.PlayerStats = CPlayerStats()
-        self.Skills = CCharSkills()
-        self.ItemList = CItemList()
-        self.stCorpse = CCorpse()
-        self.stMercenary = CMercenary()
-        self.stGolem = CGolem()
-        self.stDemon = CDemon()
+        self.PlayerStats = PlayerStats()
+        self.Skills = CharSkills()
+        self.ItemList = ItemList()
+        self.stCorpse = Corpse()
+        self.stMercenary = Mercenary()
+        self.stGolem = Golem()
+        self.stDemon = Demon()
         self.gameVersion = 0
     
-    def read_data(self, bs):
+    def deserialize(self, bs):
         self.dwMajic = bs.read_dword()
         self.dwVersion = bs.read_dword()
         self.dwSize = bs.read_dword()
@@ -297,6 +399,8 @@ class CD2S_Struct:
     
     def _read_data_v69(self, bs):
         self.charFlags = bs.read_dword()
+        self.charType = self.charFlags
+        self.charTitle = (self.charFlags >> 8) & 0x1F
         self.charClass = bs.read_byte()
         self.numStats = bs.read_byte()
         self.numSkills = bs.read_byte()
@@ -339,27 +443,27 @@ class CD2S_Struct:
         name_bytes = self.previewData[name_offset:name_offset+96]
         self.Name = name_bytes.split(b'\x00')[0]
         
-        self.QuestInfo.read_data(bs)
+        self.QuestInfo.deserialize(bs)
         
-        self.Waypoints.read_data(bs)
+        self.Waypoints.deserialize(bs)
         
         self.NPC = bs.data[bs.bytes_pos:bs.bytes_pos+0x34]
         bs.bytes_pos += 0x34
         
-        self.PlayerStats.read_data(bs)
+        self.PlayerStats.deserialize(bs)
         
-        self.Skills.read_data(bs)
+        self.Skills.deserialize(bs)
         
-        self.ItemList.read_data(bs, self.dwVersion)
+        self.ItemList.deserialize(bs, self.dwVersion)
         
-        self.stCorpse.read_data(bs, self.dwVersion)
+        self.stCorpse.deserialize(bs, self.dwVersion)
         
         if self.is_expansion():
-            self.stMercenary.read_data(bs, self.has_mercenary(), self.dwVersion)
-            self.stGolem.read_data(bs, self.dwVersion)
+            self.stMercenary.deserialize(bs, self.has_mercenary(), self.dwVersion)
+            self.stGolem.deserialize(bs, self.dwVersion)
         
         if self.dwVersion >= 0x69 and self.gameVersion >= 3:
-            self.stDemon.read_data(bs)
+            self.stDemon.deserialize(bs)
         
         bs.align_byte()
     
@@ -371,13 +475,13 @@ class CD2S_Struct:
         self.charFlags = charType
         self.charType = charType
         self.charTitle = bs.read_byte()
-        self.unkown1 = bs.read_word()
+        self.numStatsNumSkills = bs.read_word()
         self.charClass = bs.read_byte()
-        self.unkown2 = bs.read_word()
+        self.padding1 = bs.read_word()
         self.charLevel = bs.read_byte()
-        self.unkown3 = bs.read_dword()
+        self.createTime = bs.read_dword()
         self.dwTime = bs.read_dword()
-        self.unkown4 = bs.read_dword()
+        self.playTime = bs.read_dword()
         
         for i in range(16):
             self.dwSkillKey[i] = bs.read_dword()
@@ -398,48 +502,47 @@ class CD2S_Struct:
         bs.bytes_pos += 3
         
         self.dwMapSeed = bs.read_dword()
-        self.unkown5 = bs.read_word()
+        self.mercFlagsLow = bs.read_word()
         self.bMercDead = bs.read_byte()
-        self.unkown6 = bs.read_byte()
+        self.mercFlagsHigh = bs.read_byte()
         self.dwMercControl = bs.read_dword()
         self.wMercName = bs.read_word()
         self.wMercType = bs.read_word()
         self.dwMercExp = bs.read_dword()
         
-        # 读取unkown7
-        self.unkown7 = bs.data[bs.bytes_pos:bs.bytes_pos+0x4C]
+        self.previewPrefix = bs.data[bs.bytes_pos:bs.bytes_pos+0x4C]
         bs.bytes_pos += 0x4C
         
         self.NamePTR = bs.data[bs.bytes_pos:bs.bytes_pos+0x40]
         bs.bytes_pos += 0x40
         
-        self.unkown8 = bs.read_dword()
+        self.previewSuffix = bs.read_dword()
         
-        self.QuestInfo.read_data(bs)
+        self.QuestInfo.deserialize(bs)
         
         # 读取传送点信息
-        self.Waypoints.read_data(bs)
+        self.Waypoints.deserialize(bs)
         
         # 读取NPC信息
         self.NPC = bs.data[bs.bytes_pos:bs.bytes_pos+0x34]
         bs.bytes_pos += 0x34
         
         # 读取人物属性
-        self.PlayerStats.read_data(bs)
+        self.PlayerStats.deserialize(bs)
         
         # 读取技能信息
-        self.Skills.read_data(bs)
+        self.Skills.deserialize(bs)
         
         # 读取物品列表
-        self.ItemList.read_data(bs, self.dwVersion)
+        self.ItemList.deserialize(bs, self.dwVersion)
         
         # 读取尸体
-        self.stCorpse.read_data(bs, self.dwVersion)
+        self.stCorpse.deserialize(bs, self.dwVersion)
         
         # 如果是扩展版，读取雇佣兵和石魔
         if self.is_expansion():
-            self.stMercenary.read_data(bs, self.has_mercenary(), self.dwVersion)
-            self.stGolem.read_data(bs, self.dwVersion)
+            self.stMercenary.deserialize(bs, self.has_mercenary(), self.dwVersion)
+            self.stGolem.deserialize(bs, self.dwVersion)
         
         bs.align_byte()
     
@@ -518,4 +621,131 @@ class CD2S_Struct:
             15: "Matriarch/Patriarch",
         }
         return title_names.get(title, f"Unknown({title})")
+    
+    def serialize(self, bs):
+        bs.write_dword(self.dwMajic)
+        bs.write_dword(self.dwVersion)
+        bs.write_dword(self.dwSize)
+        bs.write_dword(self.dwCRC)
+        bs.write_dword(self.dwWeaponSet)
+        
+        if self.dwVersion >= 0x69:
+            self._serialize_v69(bs)
+        else:
+            self._serialize_common(bs)
+    
+    def _serialize_v69(self, bs):
+        bs.write_dword(self.charFlags)
+        bs.write_byte(self.charClass)
+        bs.write_byte(self.numStats)
+        bs.write_byte(self.numSkills)
+        bs.write_byte(self.charLevel)
+        bs.write_dword(self.createTime)
+        bs.write_dword(self.lastSaveTime)
+        bs.write_dword(self.playTime)
+        
+        for i in range(16):
+            bs.write_dword(self.dwSkillKey[i])
+        
+        bs.write_dword(self.dwLeftSkill1)
+        bs.write_dword(self.dwRightSkill1)
+        bs.write_dword(self.dwLeftSkill2)
+        bs.write_dword(self.dwRightSkill2)
+        
+        bs.write_bytes(self.outfit)
+        bs.write_bytes(self.colors)
+        bs.write_bytes(self.Town)
+        
+        bs.write_dword(self.dwMapSeed)
+        
+        bs.write_dword(self.mercFlags)
+        bs.write_dword(self.mercSeed)
+        bs.write_word(self.mercNameIndex)
+        bs.write_word(self.mercHirelingId)
+        bs.write_dword(self.mercExperience)
+        
+        bs.write_bytes(self.previewData)
+        
+        self.QuestInfo.serialize(bs)
+        self.Waypoints.serialize(bs)
+        bs.write_bytes(self.NPC)
+        self.PlayerStats.serialize(bs)
+        self.Skills.serialize(bs)
+        self.ItemList.serialize(bs, self.dwVersion)
+        self.stCorpse.serialize(bs, self.dwVersion)
+        
+        if self.is_expansion():
+            self.stMercenary.serialize(bs, self.has_mercenary(), self.dwVersion)
+            self.stGolem.serialize(bs, self.dwVersion)
+        
+        if self.dwVersion >= 0x69 and self.gameVersion >= 3:
+            self.stDemon.serialize(bs)
+        
+        bs.align_byte()
+    
+    def _serialize_common(self, bs):
+        bs.write_bytes(self.Name)
+        bs.write_byte(self.charType)
+        bs.write_byte(self.charTitle)
+        bs.write_word(self.numStatsNumSkills)
+        bs.write_byte(self.charClass)
+        bs.write_word(self.padding1)
+        bs.write_byte(self.charLevel)
+        bs.write_dword(self.createTime)
+        bs.write_dword(self.dwTime)
+        bs.write_dword(self.playTime)
+        
+        for i in range(16):
+            bs.write_dword(self.dwSkillKey[i])
+        
+        bs.write_dword(self.dwLeftSkill1)
+        bs.write_dword(self.dwRightSkill1)
+        bs.write_dword(self.dwLeftSkill2)
+        bs.write_dword(self.dwRightSkill2)
+        
+        bs.write_bytes(self.outfit)
+        bs.write_bytes(self.colors)
+        bs.write_bytes(self.Town)
+        
+        bs.write_dword(self.dwMapSeed)
+        bs.write_word(self.mercFlagsLow)
+        bs.write_byte(self.bMercDead)
+        bs.write_byte(self.mercFlagsHigh)
+        bs.write_dword(self.dwMercControl)
+        bs.write_word(self.wMercName)
+        bs.write_word(self.wMercType)
+        bs.write_dword(self.dwMercExp)
+        
+        bs.write_bytes(self.previewPrefix)
+        bs.write_bytes(self.NamePTR)
+        bs.write_dword(self.previewSuffix)
+        
+        self.QuestInfo.serialize(bs)
+        self.Waypoints.serialize(bs)
+        bs.write_bytes(self.NPC)
+        self.PlayerStats.serialize(bs)
+        self.Skills.serialize(bs)
+        self.ItemList.serialize(bs, self.dwVersion)
+        self.stCorpse.serialize(bs, self.dwVersion)
+        
+        if self.is_expansion():
+            self.stMercenary.serialize(bs, self.has_mercenary(), self.dwVersion)
+            self.stGolem.serialize(bs, self.dwVersion)
+        
+        bs.align_byte()
+    
+    def calculate_checksum(self, data: bytes) -> int:
+        checksum = 0
+        for i, b in enumerate(data):
+            if 0x0C <= i < 0x10:
+                b = 0
+            checksum = ((checksum << 1) | (checksum >> 31)) + b
+            checksum &= 0xFFFFFFFF
+        return checksum
+    
+    def update_checksum(self, data: bytes) -> bytes:
+        data = bytearray(data)
+        checksum = self.calculate_checksum(data)
+        data[0x0C:0x10] = checksum.to_bytes(4, 'little')
+        return bytes(data)
     

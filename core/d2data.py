@@ -76,9 +76,17 @@ class UniqueItemInfo:
 
 
 @dataclass
+class SetItemInfo:
+    name: str = ''
+    set_id: int = 0
+
+
+@dataclass
 class RuneWordInfo:
     name: str = ''
     runeword_id: int = 0
+    rune_codes: list = field(default_factory=list)
+    key: str = ''
 
 
 @dataclass
@@ -121,6 +129,7 @@ class ItemTypeInfo:
     pSpell: int = 0
     spellicon: int = 0
     spell_id: int = 0
+    belt_rows: int = 0
 
 
 @dataclass
@@ -134,10 +143,14 @@ class VersionData:
     magic_prefixes: Dict[int, MagicAffixInfo] = field(default_factory=dict)
     magic_suffixes: Dict[int, MagicAffixInfo] = field(default_factory=dict)
     unique_items: Dict[int, UniqueItemInfo] = field(default_factory=dict)
+    set_items: Dict[int, SetItemInfo] = field(default_factory=dict)
     runewords: Dict[int, RuneWordInfo] = field(default_factory=dict)
     skills: Dict[int, str] = field(default_factory=dict)
+    aura_skill_ids: Set[int] = field(default_factory=set)
     type_ancestors: Dict[str, Set[str]] = field(default_factory=dict)
     type_descendants: Dict[str, Set[str]] = field(default_factory=dict)
+    type_bodyloc: Dict[str, Tuple[int, int]] = field(default_factory=dict)
+    type_beltable: Set[str] = field(default_factory=set)
     item_manager: object = None
     prop_meta: Dict = field(default_factory=dict)
     stat_cost: Dict = field(default_factory=dict)
@@ -152,6 +165,36 @@ class VersionData:
         # 检查后代集合中是否包含指定的类型
         descendants = self.type_descendants.get(ancestor_code.lower(), set())
         return item_type_code.lower() in descendants
+
+    def is_beltable(self, item_code: str) -> bool:
+        if not item_code:
+            return False
+        code = item_code.lower().strip()
+        if code in self.type_beltable:
+            return True
+        for ancestor in self.type_ancestors.get(code, set()):
+            if ancestor in self.type_beltable:
+                return True
+        item_info = self.items.get(code)
+        if item_info:
+            item_type = getattr(item_info, 'type', '') or getattr(item_info, 'item_type', '')
+            if item_type:
+                it = item_type.lower().strip()
+                if it in self.type_beltable:
+                    return True
+                for ancestor in self.type_ancestors.get(it, set()):
+                    if ancestor in self.type_beltable:
+                        return True
+        return False
+
+    def get_belt_rows(self, item_code: str) -> int:
+        if not item_code:
+            return 0
+        code = item_code.lower().strip()
+        item_info = self.items.get(code)
+        if item_info and item_info.belt_rows > 0:
+            return item_info.belt_rows
+        return 0
 
 
 class D2DataLoader:
@@ -369,6 +412,13 @@ class D2DataLoader:
             if not code or code == 'xxx':
                 continue
             
+            BELT_COL_TO_ROWS = {0: 3, 1: 2, 3: 4, 4: 2, 5: 3, 6: 4}
+            item_type_col = get_col('type').lower().strip()
+            belt_rows = 0
+            if item_type_col == 'belt':
+                belt_col_val = get_int('belt', -1)
+                belt_rows = BELT_COL_TO_ROWS.get(belt_col_val, 0)
+
             item = ItemTypeInfo(
                 code=code,
                 name=get_col('name'),
@@ -406,6 +456,7 @@ class D2DataLoader:
                 questdiffcheck=get_bool('questdiffcheck'),
                 pSpell=get_int('pSpell'),
                 spellicon=get_int('spellicon'),
+                belt_rows=belt_rows,
             )
             
             items[code] = item
@@ -546,24 +597,134 @@ class D2DataLoader:
                     if runeword_id > 0 and name:
                         runewords[runeword_id] = RuneWordInfo(
                             name=name,
-                            runeword_id=runeword_id
+                            runeword_id=runeword_id,
+                            key=key
                         )
         except Exception:
             pass
         
         return runewords
     
-    def load_skills(self, filepath: str) -> Dict[int, str]:
-        skills = {}
+    def load_runes_txt(self, filepath: str, runewords: Dict[int, RuneWordInfo]) -> None:
+        if not os.path.exists(filepath):
+            return
+        
+        key_to_id = {}
+        for rw_id, rw_info in runewords.items():
+            if rw_info.key:
+                key_to_id[rw_info.key] = rw_id
+        
+        try:
+            with open(filepath, 'r', encoding='utf-8-sig') as f:
+                lines = f.readlines()
+            
+            if not lines:
+                return
+            
+            header = lines[0].strip().split('\t')
+            name_idx = header.index('Name') if 'Name' in header else 0
+            rune_fields = []
+            for i in range(1, 7):
+                field = f'Rune{i}'
+                if field in header:
+                    rune_fields.append(header.index(field))
+            
+            for line in lines[1:]:
+                parts = line.strip().split('\t')
+                if len(parts) <= name_idx:
+                    continue
+                name_val = parts[name_idx]
+                if name_val not in key_to_id:
+                    continue
+                
+                rw_id = key_to_id[name_val]
+                rune_codes = []
+                for idx in rune_fields:
+                    if idx < len(parts) and parts[idx]:
+                        rune_codes.append(parts[idx])
+                
+                if rune_codes and rw_id in runewords:
+                    runewords[rw_id].rune_codes = rune_codes
+        except Exception:
+            pass
+    
+    def load_set_items(self, filepath: str) -> Dict[int, SetItemInfo]:
+        set_items = {}
         
         if not os.path.exists(filepath):
-            return skills
+            return set_items
+        
+        import json
+        try:
+            with open(filepath, 'r', encoding='utf-8-sig') as f:
+                data = json.load(f)
+            
+            name_to_id = {}
+            for item in data:
+                if isinstance(item, dict):
+                    key = item.get('Key', '')
+                    item_id = item.get('id', 0)
+                    if key and item_id:
+                        name_to_id[key] = item_id
+            
+            set_item_names = [
+                "Civerb's Ward", "Civerb's Icon", "Civerb's Cudgel",
+                "Hsarus' Iron Heel", "Hsarus' Iron Fist", "Hsarus' Iron Stay",
+                "Cleglaw's Tooth", "Cleglaw's Claw", "Cleglaw's Pincers",
+                "Iratha's Collar", "Iratha's Cuff", "Iratha's Coil", "Iratha's Cord",
+                "Isenhart's Lightbrand", "Isenhart's Parry", "Isenhart's Case", "Isenhart's Horns",
+                "Vidala's Barb", "Vidala's Fetlock", "Vidala's Ambush", "Vidala's Snare",
+                "Milabrega's Orb", "Milabrega's Rod", "Milabrega's Diadem", "Milabrega's Robe",
+                "Cathan's Rule", "Cathan's Mesh", "Cathan's Visage", "Cathan's Sigil", "Cathan's Seal",
+                "Tancred's Crowbill", "Tancred's Spine", "Tancred's Hobnails", "Tancred's Weird", "Tancred's Skull",
+                "Sigon's Gage", "Sigon's Visor", "Sigon's Shelter", "Sigon's Sabot", "Sigon's Wrap", "Sigon's Guard",
+                "Infernal Cranium", "Infernal Torch", "Infernal Sign",
+                "Berserker's Headgear", "Berserker's Hauberk", "Berserker's Hatchet",
+                "Death's Hand", "Death's Guard", "Death's Touch",
+                "Angelic Sickle", "Angelic Mantle", "Angelic Halo", "Angelic Wings",
+                "Arctic Horn", "Arctic Furs", "Arctic Binding", "Arctic Mitts",
+                "Arcanna's Sign", "Arcanna's Deathwand", "Arcanna's Head", "Arcanna's Flesh",
+                "Natalya's Totem", "Natalya's Mark", "Natalya's Shadow", "Natalya's Soul",
+                "Aldur's Stony Gaze", "Aldur's Deception", "Aldur's Gauntlet", "Aldur's Advance",
+                "Immortal King's Will", "Immortal King's Soul Cage", "Immortal King's Detail", "Immortal King's Forge", "Immortal King's Pillar", "Immortal King's Stone Crusher",
+                "Tal Rasha's Fine-Spun Cloth", "Tal Rasha's Adjudication", "Tal Rasha's Lidless Eye", "Tal Rasha's Guardianship", "Tal Rasha's Horadric Crest",
+                "Griswold's Valor", "Griswold's Heart", "Griswold's Redemption", "Griswold's Honor",
+                "Trang-Oul's Guise", "Trang-Oul's Scales", "Trang-Oul's Wing", "Trang-Oul's Claws", "Trang-Oul's Girth",
+                "M'avina's True Sight", "M'avina's Embrace", "M'avina's Icy Clutch", "M'avina's Tenet", "M'avina's Caster",
+                "Telling of Beads", "Laying of Hands", "Rite of Passage", "Spiritual Custodian", "Credendum",
+                "Dangoon's Teaching", "Heaven's Taebaek", "Haemosu's Adament", "Ondal's Almighty",
+                "Guillaume's Face", "Wilhelm's Pride", "Magnus' Skin", "Wihtstan's Guard",
+                "Hwanin's Splendor", "Hwanin's Refuge", "Hwanin's Seal", "Hwanin's Justice",
+                "Sazabi's Cobalt Redeemer", "Sazabi's Ghost Liberator", "Sazabi's Mental Sheath",
+                "Bul-Kathos' Sacred Charge", "Bul-Kathos' Tribal Guardian",
+                "Cow King's Horns", "Cow King's Hide", "Cow King's Hoofs",
+                "Naj's Puzzler", "Naj's Light Plate", "Naj's Circlet",
+                "McAuley's Paragon", "McAuley's Riprap", "McAuley's Taboo", "McAuley's Superstition",
+            ]
+            
+            for idx, name in enumerate(set_item_names):
+                item_id = name_to_id.get(name, 0)
+                set_items[idx] = SetItemInfo(
+                    name=name,
+                    set_id=item_id
+                )
+        except Exception:
+            pass
+        
+        return set_items
+    
+    def load_skills(self, filepath: str) -> Tuple[Dict[int, str], Set[int]]:
+        skills = {}
+        aura_skill_ids = set()
+        
+        if not os.path.exists(filepath):
+            return skills, aura_skill_ids
         
         with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
             lines = f.readlines()
         
         if len(lines) < 1:
-            return skills
+            return skills, aura_skill_ids
         
         header = lines[0].strip().split('\t')
         col_map = {}
@@ -596,15 +757,26 @@ class D2DataLoader:
             
             if skill_id >= 0 and skill_name:
                 skills[skill_id] = skill_name
+            
+            aura_val = get_int('aura')
+            if aura_val == 1:
+                aura_skill_ids.add(skill_id)
         
-        return skills
+        return skills, aura_skill_ids
     
-    def load_itemtypes(self, filepath: str) -> Tuple[Dict[str, Set[str]], Dict[str, Set[str]]]:
+    BODYLOC_MAP = {
+        'head': 1, 'neck': 2, 'tors': 3, 'rarm': 4, 'larm': 5,
+        'rrin': 6, 'lrin': 7, 'belt': 8, 'feet': 9, 'glov': 10,
+    }
+    
+    def load_itemtypes(self, filepath: str) -> Tuple[Dict[str, Set[str]], Dict[str, Set[str]], Dict[str, Tuple[int, int]], Set[str]]:
         type_ancestors = {}
         type_descendants = {}
+        type_bodyloc = {}
+        beltable_codes = set()
         
         if not os.path.exists(filepath):
-            return type_ancestors, type_descendants
+            return type_ancestors, type_descendants, type_bodyloc, beltable_codes
         
         with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
             lines = f.readlines()
@@ -633,6 +805,8 @@ class D2DataLoader:
             code = get_col('code')
             equiv1 = get_col('equiv1')
             equiv2 = get_col('equiv2')
+            bodyloc1 = get_col('bodyloc1', '0')
+            bodyloc2 = get_col('bodyloc2', '0')
             
             if not type_name:
                 continue
@@ -640,10 +814,20 @@ class D2DataLoader:
             key = type_name.lower()
             type_equivs[key] = (equiv1.lower(), equiv2.lower())
             all_codes.add(key)
+            bl1 = self.BODYLOC_MAP.get(bodyloc1.lower(), 0) if bodyloc1 else 0
+            bl2 = self.BODYLOC_MAP.get(bodyloc2.lower(), 0) if bodyloc2 else 0
+            type_bodyloc[key] = (bl1, bl2)
             if code:
                 code_lower = code.lower()
                 type_equivs[code_lower] = (equiv1.lower(), equiv2.lower())
                 all_codes.add(code_lower)
+                type_bodyloc[code_lower] = (bl1, bl2)
+            
+            beltable = get_col('beltable', '0')
+            if beltable == '1':
+                beltable_codes.add(key)
+                if code:
+                    beltable_codes.add(code.lower())
         
         # 构建祖先关系
         for key in all_codes:
@@ -658,7 +842,7 @@ class D2DataLoader:
                     type_descendants[ancestor] = set()
                 type_descendants[ancestor].add(code)
         
-        return type_ancestors, type_descendants
+        return type_ancestors, type_descendants, type_bodyloc, beltable_codes
     
     def _build_ancestors(self, code: str, type_equivs: Dict[str, Tuple[str, str]], visited: Set[str] = None) -> Set[str]:
         if visited is None:
@@ -698,7 +882,7 @@ class D2DataLoader:
         
         # 加载itemtypes.txt（需要先加载，因为其他数据可能依赖它）
         itemtypes_path = self._resolve_path('itemtypes.txt', data_dir, fallback_dir)
-        version_data.type_ancestors, version_data.type_descendants = self.load_itemtypes(itemtypes_path)
+        version_data.type_ancestors, version_data.type_descendants, version_data.type_bodyloc, version_data.type_beltable = self.load_itemtypes(itemtypes_path)
         
         # 加载ItemStatCost.txt
         itemstatcost_path = self._resolve_path('ItemStatCost.txt', data_dir, fallback_dir)
@@ -735,13 +919,21 @@ class D2DataLoader:
         uniqueitems_path = self._resolve_path('uniqueitems.txt', data_dir, fallback_dir)
         version_data.unique_items = self.load_unique_items(uniqueitems_path)
         
+        # 加载set items
+        setitems_path = self._resolve_path(os.path.join('local', 'item-names.json'), data_dir, fallback_dir)
+        version_data.set_items = self.load_set_items(setitems_path)
+        
         # 加载runewords
         runewords_path = self._resolve_path(os.path.join('local', 'item-runes.json'), data_dir, fallback_dir)
         version_data.runewords = self.load_runewords(runewords_path)
         
+        # 加载runes.txt补充符文列表
+        runes_txt_path = self._resolve_path('runes.txt', data_dir, fallback_dir)
+        self.load_runes_txt(runes_txt_path, version_data.runewords)
+        
         # 加载skills.txt
         skills_path = self._resolve_path('skills.txt', data_dir, fallback_dir)
-        version_data.skills = self.load_skills(skills_path)
+        version_data.skills, version_data.aura_skill_ids = self.load_skills(skills_path)
         
         # 加载itemdata.txt（物品元数据）
         from core.item import parse_itemdata_txt, parse_property_txt, parse_itemstatcost_txt
@@ -878,6 +1070,14 @@ class D2DataManager:
             return data.unique_items.get(unique_id)
         return None
     
+    def get_set_item(self, set_id: int, version: int = None) -> Optional[SetItemInfo]:
+        """获取指定版本的set item信息"""
+        version = version or self.default_version
+        data = self.get_version_data(version)
+        if data:
+            return data.set_items.get(set_id)
+        return None
+    
     def get_runeword(self, runeword_id: int, version: int = None) -> Optional[RuneWordInfo]:
         """获取指定版本的runeword信息"""
         version = version or self.default_version
@@ -894,6 +1094,14 @@ class D2DataManager:
             return data.skills.get(skill_id, '')
         return ''
     
+    def get_aura_skill_ids(self, version: int = None) -> Set[int]:
+        """获取指定版本的aura技能ID集合"""
+        version = version or self.default_version
+        data = self.get_version_data(version)
+        if data:
+            return data.aura_skill_ids
+        return set()
+    
     def is_descendant(self, item_type_code: str, ancestor_code: str, version: int = None) -> bool:
         """检查item类型是否是指定祖先类型的后代"""
         version = version or self.default_version
@@ -901,6 +1109,21 @@ class D2DataManager:
         if data:
             return data.is_descendant(item_type_code, ancestor_code)
         return False
+    
+    def is_beltable(self, item_code: str, version: int = None) -> bool:
+        """检查物品是否可以放入腰带"""
+        version = version or self.default_version
+        data = self.get_version_data(version)
+        if data:
+            return data.is_beltable(item_code)
+        return False
+
+    def get_belt_rows(self, item_code: str, version: int = None) -> int:
+        version = version or self.default_version
+        data = self.get_version_data(version)
+        if data:
+            return data.get_belt_rows(item_code)
+        return 0
     
     def get_item_meta(self, type_id: bytes, version: int = 0) -> Optional[object]:
         """获取指定版本的物品元数据"""
@@ -962,6 +1185,9 @@ class D2DataWrapper:
     def get_unique_item(self, unique_id: int) -> Optional[UniqueItemInfo]:
         return self.manager.get_unique_item(unique_id)
     
+    def get_set_item(self, set_id: int, version: int = None) -> Optional[SetItemInfo]:
+        return self.manager.get_set_item(set_id, version)
+    
     def get_runeword(self, runeword_id: int) -> Optional[RuneWordInfo]:
         return self.manager.get_runeword(runeword_id)
     
@@ -970,6 +1196,9 @@ class D2DataWrapper:
     
     def is_descendant(self, item_type_code: str, ancestor_code: str) -> bool:
         return self.manager.is_descendant(item_type_code, ancestor_code)
+    
+    def is_beltable(self, item_code: str, version: int = None) -> bool:
+        return self.manager.is_beltable(item_code, version)
 
 
 def init_d2data(data_dir: str) -> bool:

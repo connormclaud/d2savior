@@ -48,6 +48,10 @@ class OBitStream():
 		self.append((value >> 16) & 0xFF, 8)
 		self.append((value >> 24) & 0xFF, 8)
 
+	def write_bytes(self, data):
+		for b in data:
+			self.append(b, 8)
+
 	def appendString(self, str_value):
 		for v in str_value:
 			self._v += ('{0:08b}'.format(ord(v)))[::-1]

@@ -2,7 +2,7 @@
 import sys
 import os
 import argparse
-from core.d2s_struct import CD2S_Struct
+from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 from core.item import init_item_data
 from core.property import init_language, format_property, init_item_modifiers
@@ -125,6 +125,22 @@ def format_item_info(item, indent="  "):
         flags.append("Personalized")
     if item.bQuest:
         flags.append("Quest")
+    if getattr(item, 'bNoSell', False):
+        flags.append("NoSell")
+    if getattr(item, 'bNamed', False):
+        flags.append("Named")
+    if getattr(item, 'bJustSaved', False):
+        flags.append("JustSaved")
+    if getattr(item, 'bLowQuality', False):
+        flags.append("LowQuality")
+    if getattr(item, 'bDisabled', False):
+        flags.append("Broken")
+    if getattr(item, 'bNew', False):
+        flags.append("InStore")
+    if getattr(item, 'bBadEquipped', False):
+        flags.append("NoEquip")
+    if getattr(item, 'bNewbie', False):
+        flags.append("StarterItem")
     if flags:
         result.append(f"{indent}Flags: {', '.join(flags)}")
     
@@ -268,7 +284,7 @@ def format_item_info(item, indent="  "):
     
     return result
 
-def format_char_info(char_data: CD2S_Struct):
+def format_char_info(char_data: D2SStruct):
     result = []
     result.append("=== Diablo II Character Info ===")
     char_name = char_data.get_char_name()
@@ -289,6 +305,19 @@ def format_char_info(char_data: CD2S_Struct):
     result.append(f"Character Title: 0x{char_title:X} ({char_title_name})")
     
     result.append(f"Weapon Set: {'I' if char_data.dwWeaponSet == 0 else 'II'}")
+    
+    if char_data.dwVersion >= 0x69:
+        result.append(f"Create Time: {getattr(char_data, 'createTime', 0)}")
+        result.append(f"Last Save Time: {getattr(char_data, 'lastSaveTime', 0)}")
+        result.append(f"Play Time: {getattr(char_data, 'playTime', 0)}")
+        result.append(f"Game Version: {getattr(char_data, 'gameVersion', 0)}")
+    else:
+        result.append(f"Create Time: {getattr(char_data, 'createTime', 0)}")
+        result.append(f"Play Time: {getattr(char_data, 'playTime', 0)}")
+        result.append(f"NumStats/NumSkills: 0x{getattr(char_data, 'numStatsNumSkills', 0):04X}")
+        result.append(f"Merc Dead: {'Yes' if getattr(char_data, 'bMercDead', 0) else 'No'}")
+        result.append(f"Merc Flags: 0x{getattr(char_data, 'mercFlagsLow', 0):04X}{getattr(char_data, 'mercFlagsHigh', 0):02X}")
+    
     result.append("")
     result.append("=== Player Stats ===")
     if char_data.PlayerStats.wMajic == 0x6667:
@@ -356,11 +385,23 @@ def format_char_info(char_data: CD2S_Struct):
     result.append("=== Mercenary ===")
     if char_data.is_expansion():
         if char_data.has_mercenary():
-            merc_name = getattr(char_data, 'wMercName', 0) or char_data.mercNameIndex
-            merc_type = getattr(char_data, 'wMercType', 0) or char_data.mercHirelingId
-            merc_exp = getattr(char_data, 'dwMercExp', 0) or char_data.mercExperience
-            result.append(f"Has mercenary (Name: {merc_name}, Type: {merc_type})")
-            result.append(f"Mercenary Exp: {merc_exp}")
+            if char_data.dwVersion >= 0x69:
+                merc_seed = getattr(char_data, 'mercSeed', 0)
+                merc_name = getattr(char_data, 'mercNameIndex', 0)
+                merc_type = getattr(char_data, 'mercHirelingId', 0)
+                merc_exp = getattr(char_data, 'mercExperience', 0)
+                merc_flags = getattr(char_data, 'mercFlags', 0)
+                result.append(f"Has mercenary (Name: {merc_name}, Type: {merc_type})")
+                result.append(f"Mercenary Seed: 0x{merc_seed:08X}")
+                result.append(f"Mercenary Exp: {merc_exp}")
+                result.append(f"Mercenary Flags: 0x{merc_flags:08X}")
+            else:
+                merc_name = getattr(char_data, 'wMercName', 0)
+                merc_type = getattr(char_data, 'wMercType', 0)
+                merc_exp = getattr(char_data, 'dwMercExp', 0)
+                result.append(f"Has mercenary (Name: {merc_name}, Type: {merc_type})")
+                result.append(f"Mercenary Exp: {merc_exp}")
+                result.append(f"Merc Dead: {'Yes' if getattr(char_data, 'bMercDead', 0) else 'No'}")
             if char_data.stMercenary.stItems:
                 result.append(f"Mercenary items: {char_data.stMercenary.stItems.nItems}")
         else:
@@ -447,8 +488,8 @@ def parse_d2s_file(file_path, debug=False):
             data = f.read()
         
         bs = IBitStream(data)
-        char_data = CD2S_Struct()
-        char_data.read_data(bs)
+        char_data = D2SStruct()
+        char_data.deserialize(bs)
         
         if debug:
             print(f"\n=== BitStream Final State ===")

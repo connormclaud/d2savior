@@ -14,13 +14,13 @@
 | 0x0014      | 16        | Name | 角色名称 (null 终止) |
 | 0x0024      | 1         | charType | 角色类型标志 |
 | 0x0025      | 1         | charTitle | 角色称号 |
-| 0x0026      | 2         | unknown | 未知 |
+| 0x0026      | 2         | numStatsNumSkills | 属性数量(高8位) + 技能数量(低8位) |
 | 0x0028      | 1         | charClass | 角色职业 |
-| 0x0029      | 2         | unknown | 未知 |
+| 0x0029      | 2         | padding1 | 填充 (固定 0x101E) |
 | 0x002C      | 1         | charLevel | 角色等级 |
-| 0x002D      | 4         | unknown | 未知 |
-| 0x0031      | 4         | dwTime | 创建时间 |
-| 0x0035      | 4         | unknown | 未知 |
+| 0x002D      | 4         | createTime | 创建时间 (0x63版本中通常为0) |
+| 0x0031      | 4         | dwTime | 最后保存时间 (Unix时间戳) |
+| 0x0035      | 4         | playTime | 游戏时间 (0x63版本中通常为0xFFFFFFFF, 未使用) |
 | 0x0039      | 64        | dwSkillKey[16] | 技能快捷键 |
 | 0x0079      | 4         | dwLeftSkill1 | 左手技能1 |
 | 0x007D      | 4         | dwRightSkill1 | 右手技能1 |
@@ -30,16 +30,16 @@
 | 0x0099      | 16        | colors[16] | 颜色 |
 | 0x00A9      | 3         | Town[3] | 城镇 |
 | 0x00AC      | 4         | dwMapSeed | 地图种子 |
-| 0x00B0      | 2         | unknown | 未知 |
+| 0x00B0      | 2         | mercFlagsLow | 雇佣兵标志低16位 |
 | 0x00B2      | 1         | bMercDead | 雇佣兵死亡标志 |
-| 0x00B3      | 1         | unknown | 未知 |
+| 0x00B3      | 1         | mercFlagsHigh | 雇佣兵标志高8位 |
 | 0x00B4      | 4         | dwMercControl | 雇佣兵控制 |
 | 0x00B8      | 2         | wMercName | 雇佣兵名称 |
 | 0x00BA      | 2         | wMercType | 雇佣兵类型 |
 | 0x00BC      | 4         | dwMercExp | 雇佣兵经验 |
-| 0x00C0      | 76        | unknown7 | 未知区域 |
+| 0x00C0      | 76        | previewPrefix | 预览数据前缀 (含装备预览+公会徽章+经验值) |
 | 0x010C      | 64        | NamePTR | 名称指针 (含Name) |
-| 0x014C      | 4         | unknown8 | 未知 |
+| 0x014C      | 4         | previewSuffix | 预览数据后缀 |
 | 可变        | 可变      | QuestInfo | 任务数据 |
 | 可变        | 可变      | Waypoints | 小站数据 |
 | 可变        | 可变      | NPC | NPC 信息 (0x34 字节) |
@@ -56,10 +56,16 @@ charType 字段包含多个布尔标志的位组合：
 
 | 位 | 标志 | 描述 |
 |----|------|------|
+| 0x01 | Init | 初始化标志 |
+| 0x02 | RealmChar | 战网角色 |
 | 0x04 | Hardcore | 硬核角色 |
 | 0x08 | Died | 曾经死亡 |
-| 0x20 | Expansion | 扩展版角色 |
+| 0x10 | SaveProcess | 保存处理中 |
+| 0x20 | Expansion | 资料片角色 |
 | 0x40 | Ladder | 天梯角色 |
+| 0x80 | NeedsRenaming | 需要重命名 |
+
+> 0x63 版本 (v97~v103) 使用 charType (1字节) 存储角色标志。0x69 版本 (v104+) 扩展为 charFlags (4字节)，其中 bit8~bit12 存储角色进度 (Progression)。
 
 ## 3. 角色职业 (charClass)
 
@@ -82,7 +88,7 @@ charType 字段包含多个布尔标志的位组合：
 | wSize | 2 | 数据大小 |
 | QIData[3] | 可变 | 3个难度的任务数据 |
 
-### 4.1 单个难度任务数据 (CQuestInfoData)
+### 4.1 单个难度任务数据 (QuestInfoData)
 
 | 字段 | 大小 (字节) | 描述 |
 |------|-----------|------|
@@ -108,20 +114,22 @@ charType 字段包含多个布尔标志的位组合：
 
 ## 5. 小站数据 (Waypoints)
 
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| wMajic | 2 | 魔法数 |
-| unknown | 4 | 未知 |
-| wSize | 2 | 数据大小 |
-| wp[3] | 可变 | 3个难度的小站数据 |
-
-### 5.1 单个难度小站数据 (CWaypointData)
+详细格式见 [waypoint_format.md](waypoint_format.md)。
 
 | 字段 | 大小 (字节) | 描述 |
 |------|-----------|------|
-| unknown | 2 | 未知 |
-| Waypoints[5] | 5 | 小站标志 (每字节8个标志) |
-| unknown2[17] | 17 | 未知 |
+| wMajic | 2 | 魔法数 (0x5357 = "WS") |
+| unknown | 4 | 版本号 (通常为 1) |
+| wSize | 2 | 数据大小 (0x0050 = 80) |
+| wp[3] | 72 | 3个难度的小站数据 (每个24字节) |
+
+### 5.1 单个难度小站数据 (WaypointData)
+
+| 字段 | 大小 (字节) | 描述 |
+|------|-----------|------|
+| unknown | 2 | 头部 (通常为 0x0102) |
+| Waypoints[5] | 5 | 小站标志位图 (39位有效 + 1位填充) |
+| unknown2[17] | 17 | 保留 (全0) |
 
 ## 6. 玩家属性 (PlayerStats)
 
@@ -171,7 +179,7 @@ charType 字段包含多个布尔标志的位组合：
 | wCount | 2 | 尸体数量 (0 或 1) |
 | CorpseData | 可变 | 尸体详细数据 (如果 wCount > 0) |
 
-### 9.1 尸体详细数据 (CCorpseData)
+### 9.1 尸体详细数据 (CorpseData)
 
 | 字段 | 大小 (字节) | 描述 |
 |------|-----------|------|
@@ -209,7 +217,23 @@ def has_mercenary(self):
 
 ```python
 def is_expansion(self):
-    # charType & 0x20 表示扩展版
-    # 或 QuestInfo.dwActs >= 5
-    return (self.charFlags & 0x20) != 0
+    # v97~v103: 使用 charType 的 Expansion 位
+    if (self.charFlags & 0x20) != 0:
+        return True
+    # 兜底: 任务数据中 Act 数 >= 5
+    if self.QuestInfo and self.QuestInfo.dwActs >= 5:
+        return True
+    return False
 ```
+
+## 14. 时间字段说明
+
+0x63 版本的时间字段：
+
+| 字段 | 描述 | 实际值 |
+|------|------|--------|
+| createTime | 创建时间 | 通常为 0 (0x63版本中未使用) |
+| dwTime | 最后保存时间 | Unix 时间戳，可正常转换为日期 |
+| playTime | 游戏时间 | 通常为 0xFFFFFFFF (0x63版本中未使用) |
+
+> 0x69 版本 (v104+) 中对应字段为 createTime、lastSaveTime、playTime，其中 createTime 和 playTime 同样为无效默认值，实际使用 lastSaveTime。

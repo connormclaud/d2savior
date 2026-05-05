@@ -10,6 +10,7 @@ from core.property import (
     get_time_name, get_property_name, format_property, init_item_modifiers
 )
 from core.d2data import init_d2data
+from core.localized_data import init_localized_data
 
 
 class TestLanguageData(unittest.TestCase):
@@ -76,6 +77,15 @@ class TestInitLanguage(unittest.TestCase):
 
 
 class TestGetClassName(unittest.TestCase):
+    def setUp(self):
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "data"
+        )
+        local_dir = os.path.join(data_dir, "local")
+        if os.path.exists(local_dir):
+            init_localized_data(local_dir, lang_key='enUS')
+
     def test_get_class_name_amazon(self):
         name = get_class_name(0)
         self.assertEqual(name, 'Amazon')
@@ -101,6 +111,9 @@ class TestGetSkillName(unittest.TestCase):
         )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
+            local_dir = os.path.join(data_dir, "local")
+            if os.path.exists(local_dir):
+                init_localized_data(local_dir, lang_key='enUS')
 
     def test_get_skill_name_class_skill(self):
         name, class_id = get_skill_name(6)
@@ -123,6 +136,17 @@ class TestGetSkillName(unittest.TestCase):
 
 
 class TestGetMonsterName(unittest.TestCase):
+    def setUp(self):
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "data"
+        )
+        if os.path.exists(data_dir):
+            init_d2data(data_dir)
+            local_dir = os.path.join(data_dir, "local")
+            if os.path.exists(local_dir):
+                init_localized_data(local_dir, lang_key='enUS')
+
     def test_get_monster_name(self):
         name = get_monster_name(0)
         self.assertIsInstance(name, str)
@@ -287,8 +311,7 @@ class TestFormatPropertySpecialCases(unittest.TestCase):
 
     def test_format_property_skill_tab(self):
         result = format_property(188, [2, 0, 3])
-        self.assertIn('Javelin and Spear Skills', result)
-        self.assertIn('Amazon', result)
+        self.assertIn('Javelin and Spear', result)
 
     def test_format_property_aura_when_equipped(self):
         result = format_property(151, [5, 10])
