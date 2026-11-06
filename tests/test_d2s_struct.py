@@ -174,9 +174,7 @@ class TestD2SStruct(unittest.TestCase):
         
         ps = PlayerStats()
         self.assertEqual(ps.magic, 0)
-        self.assertEqual(ps.wMajic, 0)
         self.assertEqual(len(ps.stat_values), 16)
-        self.assertEqual(len(ps.m_adwValue), 16)
     
     def test_player_stats_read_data(self):
         """测试 PlayerStats 从 bitstream 解析"""
@@ -198,11 +196,8 @@ class TestD2SStruct(unittest.TestCase):
         ps.deserialize(bs)
         
         self.assertEqual(ps.magic, 0x6667)
-        self.assertEqual(ps.wMajic, 0x6667)
         self.assertEqual(ps.stat_values[0], 50)
         self.assertEqual(ps.stat_values[3], 25)
-        self.assertEqual(ps.m_adwValue[0], 50)
-        self.assertEqual(ps.m_adwValue[3], 25)
     
     def test_player_stats_invalid_magic(self):
         """测试 PlayerStats 无效魔法数时跳过解析"""
@@ -217,7 +212,6 @@ class TestD2SStruct(unittest.TestCase):
         ps.deserialize(bs)
         
         self.assertNotEqual(ps.magic, 0x6667)
-        self.assertNotEqual(ps.wMajic, 0x6667)
     
     def test_player_stats_all_stats(self):
         """测试 PlayerStats 解析所有16个属性"""
@@ -245,7 +239,6 @@ class TestD2SStruct(unittest.TestCase):
             expected = min(test_values[i], max_val)
             self.assertEqual(ps.stat_values[i], expected,
                              f"Stat index {i}: expected {expected}, got {ps.stat_values[i]}")
-            self.assertEqual(ps.m_adwValue[i], expected)
 
     def test_demon_default(self):
         """测试 Demon 默认状态"""
@@ -445,10 +438,6 @@ class TestD2SStruct(unittest.TestCase):
         stats.stat_values[0xD] = 1234567  # exp
         stats.stat_values[0xE] = 10000    # gold
         stats.stat_values[0xF] = 2500000  # gold stash
-
-        # Compatibility check
-        self.assertEqual(stats.wMajic, PLAYER_STATS_MAGIC)
-        self.assertEqual(stats.m_adwValue[0], 100)
 
         self.assertEqual(stats.strength, 100)
         self.assertEqual(stats.energy, 50)

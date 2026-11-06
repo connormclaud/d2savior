@@ -151,17 +151,6 @@ class PlayerStats:
         self.magic = 0
         self.stat_values = [0] * 0x10
         self.iEnd = 0
-
-    # Transitional property aliases
-    @property
-    def wMajic(self) -> int: return self.magic
-    @wMajic.setter
-    def wMajic(self, v: int): self.magic = v
-
-    @property
-    def m_adwValue(self) -> list: return self.stat_values
-    @m_adwValue.setter
-    def m_adwValue(self, v: list): self.stat_values = v
     
     def deserialize(self, bs):
         self.magic = bs.read_word()
