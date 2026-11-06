@@ -117,6 +117,24 @@ class TestD2DataManager(unittest.TestCase):
         is_armor = self.manager.is_descendant('shie', 'armo', 0x63)
         self.assertTrue(is_armor, "类型继承关系判断错误")
 
+    def test_warlock_set_items_0x69(self):
+        """测试0x69版本术士套装物品数据"""
+        expected = {
+            127: ("Warlord's Lust", 27388),
+            128: ("Warlord's Conquest", 27389),
+            132: ("Bane's Oathmaker", 27641),
+            135: ("Horazon's Countenance", 27644),
+            136: ("Horazon's Dominion", 27645),
+            137: ("Horazon's Hold", 27646),
+            138: ("Horazon's Legacy", 27647),
+            139: ("Horazon's Secrets", 27648),
+        }
+        for idx, (name, item_id) in expected.items():
+            info = self.manager.get_set_item(idx, 0x69)
+            self.assertIsNotNone(info, f"Missing set item at index {idx}")
+            self.assertEqual(info.name, name)
+            self.assertEqual(info.set_id, item_id)
+
 
 if __name__ == '__main__':
     unittest.main()

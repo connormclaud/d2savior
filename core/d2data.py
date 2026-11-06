@@ -700,6 +700,9 @@ class D2DataLoader:
                 "Cow King's Horns", "Cow King's Hide", "Cow King's Hoofs",
                 "Naj's Puzzler", "Naj's Light Plate", "Naj's Circlet",
                 "McAuley's Paragon", "McAuley's Riprap", "McAuley's Taboo", "McAuley's Superstition",
+                "Warlord's Lust", "Warlord's Conquest", "Warlord's Mantle", "Warlord's Crushers", "Warlord's Authority",
+                "Bane's Oathmaker", "Bane's Wraithskin", "Bane's Authority",
+                "Horazon's Countenance", "Horazon's Dominion", "Horazon's Hold", "Horazon's Legacy", "Horazon's Secrets",
             ]
             
             for idx, name in enumerate(set_item_names):
