@@ -2150,31 +2150,6 @@ class ItemList:
         self.count = 0
         self.items: List[D2Item] = []
 
-    # Transitional property aliases
-    @property
-    def wMajic(self) -> int: return self.magic
-    @wMajic.setter
-    def wMajic(self, v: int): self.magic = v
-
-    @property
-    def wCount(self) -> int: return self.count
-    @wCount.setter
-    def wCount(self, v: int): self.count = v
-
-    @property
-    def nItems(self) -> int: return self.count
-    @nItems.setter
-    def nItems(self, v: int): self.count = v
-
-    @property
-    def ItemList(self) -> List[D2Item]: return self.items
-    @ItemList.setter
-    def ItemList(self, v: List[D2Item]): self.items = v
-
-    @property
-    def vItems(self) -> List[D2Item]: return self.items
-    @vItems.setter
-    def vItems(self, v: List[D2Item]): self.items = v
 
     def __len__(self) -> int:
         return len(self.items)

@@ -103,8 +103,8 @@ class TestSummaryMode(unittest.TestCase):
         
         class MockItemList:
             def __init__(self, items):
-                self.vItems = items
-                self.nItems = len(items)
+                self.items = items
+                self.count = len(items)
         
         tab1.Items = MockItemList([item1])
         stash.tabs.append(tab1)
@@ -185,9 +185,7 @@ class TestSummaryMode(unittest.TestCase):
         class MockItemList:
             def __init__(self, items):
                 self.items = items
-                self.vItems = items
                 self.count = len(items)
-                self.nItems = len(items)
 
         tab.Items = MockItemList(items)
         stash.tabs.append(tab)
@@ -227,11 +225,8 @@ class TestSummaryMode(unittest.TestCase):
         class MockItemList:
             def __init__(self, items):
                 self.magic = 0x4D4A
-                self.wMajic = 0x4D4A
                 self.items = items
-                self.vItems = items
                 self.count = len(items)
-                self.nItems = len(items)
 
         # Equipped Helm
         helm = D2Item()

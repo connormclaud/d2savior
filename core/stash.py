@@ -248,7 +248,7 @@ class SharedStash:
     def get_tab_items(self, index):
         tab = self.get_tab(index)
         if tab and tab.Items:
-            return tab.Items.vItems
+            return tab.Items.items
         return []
 
     def get_tab_gold(self, index):

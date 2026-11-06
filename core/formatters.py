@@ -603,7 +603,7 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     if char_data.stCorpse.has_corpse():
         result.append("Has corpse")
         if char_data.stCorpse.pCorpseData and char_data.stCorpse.pCorpseData.stItems:
-            result.append(f"Corpse items: {char_data.stCorpse.pCorpseData.stItems.nItems}")
+            result.append(f"Corpse items: {char_data.stCorpse.pCorpseData.stItems.count}")
     else:
         result.append("No corpse")
     result.append("")
@@ -621,8 +621,8 @@ def format_char_info(char_data: D2SStruct, resolver=None):
                 result.append(f"Mercenary Exp: {char_data.merc_experience}")
                 result.append(f"Merc Dead: {'Yes' if char_data.merc_is_dead else 'No'}")
             if char_data.stMercenary.stItems:
-                result.append(f"Mercenary items: {char_data.stMercenary.stItems.nItems}")
-                for i, item in enumerate(char_data.stMercenary.stItems.vItems):
+                result.append(f"Mercenary items: {char_data.stMercenary.stItems.count}")
+                for i, item in enumerate(char_data.stMercenary.stItems.items):
                     result.append(f"--- Mercenary Item {i} ---")
                     result.extend(_format_item_lines(item, version=char_data.dwVersion, resolver=resolver))
         else:
@@ -742,9 +742,9 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     if char_data.is_expansion() and char_data.has_mercenary():
         dead_str = " (Dead)" if char_data.merc_is_dead else ""
         result.append(f"Mercenary: Name Index {char_data.merc_name_id}, Type {char_data.merc_type_id}{dead_str}")
-        if char_data.stMercenary.stItems and char_data.stMercenary.stItems.vItems:
+        if char_data.stMercenary.stItems and char_data.stMercenary.stItems.items:
             result.append("Equipped:")
-            for m_item in char_data.stMercenary.stItems.vItems:
+            for m_item in char_data.stMercenary.stItems.items:
                 loc = ItemLocation(m_item.iLocation)
                 slot_str = ""
                 if loc == ItemLocation.EQUIPPED and m_item.iPosition in EquipSlot._value2member_map_:
@@ -798,7 +798,7 @@ def format_stash_info(stash: SharedStash, resolver=None) -> str:
         if tab.Gold:
             result.append(f"Gold: {tab.Gold}")
 
-        items = tab.Items.vItems if tab.Items else []
+        items = tab.Items.items if tab.Items else []
         version = tab.ItemFormat if tab.ItemFormat else 0x63
         tab_resolver = resolver if resolver is not None else GameDataResolver(version)
         if tab.TabType == STASH_TAB_TYPE_ADVANCED:
@@ -842,7 +842,7 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
         if tab.Gold:
             result.append(f"Gold: {tab.Gold}")
 
-        items = tab.Items.vItems if tab.Items else []
+        items = tab.Items.items if tab.Items else []
         version = tab.ItemFormat if tab.ItemFormat else 0x63
         cur_resolver = resolver if resolver is not None else GameDataResolver(version)
 
