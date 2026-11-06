@@ -176,14 +176,14 @@ class TestCPropertyList(unittest.TestCase):
 class TestCExtItemInfo(unittest.TestCase):
     def test_ext_item_info_creation(self):
         ext_info = ExtItemInfo()
-        self.assertEqual(ext_info.nGems, 0)
-        self.assertEqual(ext_info.dwGUID, 0)
-        self.assertEqual(ext_info.iQuality, 2)
+        self.assertEqual(ext_info.gems, 0)
+        self.assertEqual(ext_info.guid, 0)
+        self.assertEqual(ext_info.quality, 2)
 
     def test_ext_item_info_is_set(self):
         ext_info = ExtItemInfo()
         self.assertFalse(ext_info.is_set())
-        ext_info.iQuality = 5
+        ext_info.quality = 5
         self.assertTrue(ext_info.is_set())
 
 
