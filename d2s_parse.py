@@ -22,6 +22,56 @@ CLASS_SKILL_BASES = [
     373,  # Warlock (7)
 ]
 
+DIFFICULTY_NAMES = ["Normal", "Nightmare", "Hell"]
+
+WAYPOINTS_BY_ACT = [
+    ("Act I", [
+        "Rogue Encampment", "Cold Plains", "Stony Field", "Dark Wood",
+        "Black Marsh", "Outer Cloister", "Jail Level 1", "Inner Cloister",
+        "Catacombs Level 2"
+    ]),
+    ("Act II", [
+        "Lut Gholein", "Sewers Level 2", "Dry Hills", "Halls of the Dead Level 2",
+        "Far Oasis", "Lost City", "Palace Cellar Level 1", "Arcane Sanctuary",
+        "Canyon of the Magi"
+    ]),
+    ("Act III", [
+        "Kurast Docks", "Spider Forest", "Great Marsh", "Flayer Jungle",
+        "Lower Kurast", "Kurast Bazaar", "Upper Kurast", "Travincal",
+        "Durance of Hate Level 2"
+    ]),
+    ("Act IV", [
+        "The Pandemonium Fortress", "City of the Damned", "River of Flame"
+    ]),
+    ("Act V", [
+        "Harrogath", "Frigid Highlands", "Arreat Plateau", "Crystalline Passage",
+        "Glacial Trail", "Halls of Pain", "Frozen Tundra", "The Ancients' Way",
+        "Worldstone Keep Level 2"
+    ])
+]
+
+QUESTS_BY_ACT = [
+    ("Act I", [
+        "Den of Evil", "Sisters' Burial Grounds", "Tools of the Trade",
+        "The Search for Cain", "The Forgotten Tower", "Sisters to the Slaughter"
+    ]),
+    ("Act II", [
+        "Radament's Lair", "The Horadric Staff", "Tainted Sun",
+        "Arcane Sanctuary", "The Summoner", "The Seven Tombs"
+    ]),
+    ("Act III", [
+        "Lam Esen's Tome", "Khalim's Will", "Blade of the Old Religion",
+        "The Golden Bird", "The Blackened Temple", "The Guardian"
+    ]),
+    ("Act IV", [
+        "The Fallen Angel", "Terror's End", "Hell's Forge"
+    ]),
+    ("Act V", [
+        "Siege on Harrogath", "Rescue on Mount Arreat", "Prison of Ice",
+        "Betrayal of Harrogath", "Rite of Passage", "Eve of Destruction"
+    ])
+]
+
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # 提前解析语言参数，因为模块加载时需要
@@ -420,25 +470,65 @@ def format_char_info(char_data: D2SStruct):
     result.append("")
     result.append("=== Waypoints ===")
     if char_data.Waypoints.wMajic == 0x5357:
-        for i, wp_data in enumerate(char_data.Waypoints.wp):
-            result.append(f"Waypoint set {i}:")
-            result.append(f"  Unknown: 0x{wp_data.unknown:X}")
-            result.append(f"  Waypoints: {wp_data.Waypoints}")
+        for diff_idx, diff_name in enumerate(DIFFICULTY_NAMES):
+            if diff_idx >= len(char_data.Waypoints.wp):
+                break
+            wp_data = char_data.Waypoints.wp[diff_idx]
+            global_idx = 0
+            total_unlocked = 0
+            missing_by_act = {}
+            for act_name, wp_names in WAYPOINTS_BY_ACT:
+                missing = []
+                for name in wp_names:
+                    b = wp_data.Waypoints[global_idx // 8]
+                    if b & (1 << (global_idx % 8)):
+                        total_unlocked += 1
+                    else:
+                        missing.append(name)
+                    global_idx += 1
+                if missing:
+                    missing_by_act[act_name] = (missing, len(wp_names))
+            
+            result.append(f"{diff_name} ({total_unlocked}/39 unlocked):")
+            if total_unlocked == 39:
+                result.append("  All unlocked")
+            elif total_unlocked == 0:
+                result.append("  None unlocked")
+            else:
+                for act_name, (missing, total_act) in missing_by_act.items():
+                    if len(missing) == total_act:
+                        result.append(f"  {act_name}: None unlocked")
+                    else:
+                        result.append(f"  {act_name}: {', '.join(missing)}")
     result.append("")
-    result.append("=== Quest Info ===")
+    result.append("=== Quests ===")
     if char_data.QuestInfo.dwMajic == 0x216F6F57:
-        result.append(f"Magic: 0x{char_data.QuestInfo.dwMajic:X}")
-        result.append(f"Acts: {char_data.QuestInfo.dwActs}")
-        result.append(f"Size: 0x{char_data.QuestInfo.wSize:X}")
-        for i, qi_data in enumerate(char_data.QuestInfo.QIData):
-            result.append(f"Quest Info {i}:")
-            result.append(f"  Act I: {[hex(w) for w in qi_data.wActI]}")
-            result.append(f"  Act II: {[hex(w) for w in qi_data.wActII]}")
-            result.append(f"  Act III: {[hex(w) for w in qi_data.wActIII]}")
-            result.append(f"  Act IV: {[hex(w) for w in qi_data.wActIV]}")
-            result.append(f"  Act V: {[hex(w) for w in qi_data.wActV]}")
-            if qi_data.bResetStats:
-                result.append(f"  Reset Stats: 0x{qi_data.bResetStats:X}")
+        for diff_idx, diff_name in enumerate(DIFFICULTY_NAMES):
+            if diff_idx >= len(char_data.QuestInfo.QIData):
+                break
+            qd = char_data.QuestInfo.QIData[diff_idx]
+            reset_status = "Available" if qd.bResetStats == 2 else ("Used" if qd.bResetStats == 1 else "Locked")
+            act_words = [qd.wActI, qd.wActII, qd.wActIII, qd.wActIV, qd.wActV]
+            total_completed = sum(1 for words in act_words for w in words if (w & 1) or (w & 2))
+            rewards_unclaimed = sum(1 for words in act_words for w in words if (w & 2) and not (w & 1))
+            reward_str = f", {rewards_unclaimed} reward{'s' if rewards_unclaimed > 1 else ''} unclaimed" if rewards_unclaimed else ""
+            
+            result.append(f"{diff_name} ({total_completed}/27 completed{reward_str}) — Akara Reset: {reset_status}")
+            for (act_name, q_names), words in zip(QUESTS_BY_ACT, act_words):
+                if all(w & 1 for w in words):
+                    result.append(f"  {act_name}: {' '.join('[x]' for _ in q_names)}")
+                elif all(not (w & 1) and not (w & 2) for w in words):
+                    result.append(f"  {act_name}: {' '.join('[ ]' for _ in q_names)}")
+                else:
+                    parts = []
+                    for name, w in zip(q_names, words):
+                        if w & 1:
+                            parts.append("[x]")
+                        elif w & 2:
+                            parts.append(f"[!] {name} (reward unclaimed)")
+                        else:
+                            parts.append(f"[ ] {name}")
+                    result.append(f"  {act_name}: {' '.join(parts)}")
     result.append("")
     result.append("=== Items ===")
     if char_data.ItemList.wMajic == 0x4D4A:

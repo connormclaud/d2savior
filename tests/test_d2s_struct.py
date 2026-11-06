@@ -352,5 +352,69 @@ class TestD2SStruct(unittest.TestCase):
         self.assertEqual(format_duration(3665), "1h 1m 5s")
         self.assertEqual(format_duration(90061), "1d 1h 1m 1s")
 
+    def test_format_char_info_waypoints_and_quests(self):
+        from d2s_parse import format_char_info
+        char = D2SStruct()
+        char.dwVersion = 0x69
+        char.Name = b"TestHero\x00" + b"\x00" * 7
+        char.charClass = 1
+
+        # Setup waypoints
+        char.Waypoints.wMajic = 0x5357
+        # Normal: all 39 waypoints active (5 bytes: 0xFF, 0xFF, 0xFF, 0xFF, 0x7F)
+        char.Waypoints.wp[0].Waypoints = [0xFF, 0xFF, 0xFF, 0xFF, 0x7F]
+        # Nightmare: bit 2 (Stony Field) missing in Act 1
+        char.Waypoints.wp[1].Waypoints = [0xFB, 0xFF, 0xFF, 0xFF, 0x7F]
+        # Hell: none active
+        char.Waypoints.wp[2].Waypoints = [0x00, 0x00, 0x00, 0x00, 0x00]
+
+        # Setup quests
+        char.QuestInfo.dwMajic = 0x216F6F57
+        # Normal: all completed, Akara reset used
+        char.QuestInfo.QIData[0].bResetStats = 1
+        char.QuestInfo.QIData[0].wActI = [1] * 6
+        char.QuestInfo.QIData[0].wActII = [1] * 6
+        char.QuestInfo.QIData[0].wActIII = [1] * 6
+        char.QuestInfo.QIData[0].wActIV = [1] * 3
+        char.QuestInfo.QIData[0].wActV = [1] * 6
+
+        # Nightmare: Akara reset available
+        # Act I quest 2 (Tools of the Trade): reward unclaimed (0x804a)
+        # Act V quest 0 (Siege on Harrogath): reward unclaimed (0x8022)
+        # Act V quest 3 (Betrayal of Harrogath): not attempted (0x000c)
+        char.QuestInfo.QIData[1].bResetStats = 2
+        char.QuestInfo.QIData[1].wActI = [1, 1, 0x804a, 1, 1, 1]
+        char.QuestInfo.QIData[1].wActII = [1] * 6
+        char.QuestInfo.QIData[1].wActIII = [1] * 6
+        char.QuestInfo.QIData[1].wActIV = [1] * 3
+        char.QuestInfo.QIData[1].wActV = [0x8022, 1, 1, 0x000c, 1, 1]
+
+        # Hell: not started, reset locked
+        char.QuestInfo.QIData[2].bResetStats = 0
+        char.QuestInfo.QIData[2].wActI = [0] * 6
+        char.QuestInfo.QIData[2].wActII = [0] * 6
+        char.QuestInfo.QIData[2].wActIII = [0] * 6
+        char.QuestInfo.QIData[2].wActIV = [0] * 3
+        char.QuestInfo.QIData[2].wActV = [0] * 6
+
+        output = format_char_info(char)
+
+        # Check waypoints
+        self.assertIn("Normal (39/39 unlocked):", output)
+        self.assertIn("All unlocked", output)
+        self.assertIn("Nightmare (38/39 unlocked):", output)
+        self.assertIn("Act I: Stony Field", output)
+        self.assertIn("Hell (0/39 unlocked):", output)
+        self.assertIn("None unlocked", output)
+
+        # Check quests
+        self.assertIn("Normal (27/27 completed) — Akara Reset: Used", output)
+        self.assertIn("Act I: [x] [x] [x] [x] [x] [x]", output)
+        self.assertIn("Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available", output)
+        self.assertIn("Act I: [x] [x] [!] Tools of the Trade (reward unclaimed) [x] [x] [x]", output)
+        self.assertIn("Act V: [!] Siege on Harrogath (reward unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]", output)
+        self.assertIn("Hell (0/27 completed) — Akara Reset: Locked", output)
+        self.assertIn("Act I: [ ] [ ] [ ] [ ] [ ] [ ]", output)
+
 if __name__ == '__main__':
     unittest.main()
