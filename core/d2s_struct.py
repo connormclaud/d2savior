@@ -25,27 +25,6 @@ class QuestInfoData:
         self.bResetStats = 0
         self.unknown3 = 0
         self.unknown4 = [0] * 6
-
-    # Transitional property aliases
-    @property
-    def wTraval1(self) -> int: return self.travel_1
-    @wTraval1.setter
-    def wTraval1(self, v: int): self.travel_1 = v
-
-    @property
-    def wTraval2(self) -> int: return self.travel_2
-    @wTraval2.setter
-    def wTraval2(self, v: int): self.travel_2 = v
-
-    @property
-    def wTraval3(self) -> int: return self.travel_3
-    @wTraval3.setter
-    def wTraval3(self, v: int): self.travel_3 = v
-
-    @property
-    def wTraval4(self) -> int: return self.travel_4
-    @wTraval4.setter
-    def wTraval4(self, v: int): self.travel_4 = v
     
     def deserialize(self, bs):
         self.wIntroduced1 = bs.read_word()

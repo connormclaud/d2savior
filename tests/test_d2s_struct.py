@@ -510,15 +510,6 @@ class TestD2SStruct(unittest.TestCase):
         self.assertEqual(qid.travel_3, 3)
         self.assertEqual(qid.travel_4, 4)
 
-        # Legacy typo aliases wTraval1..wTraval4
-        self.assertEqual(qid.wTraval1, 1)
-        self.assertEqual(qid.wTraval2, 2)
-        self.assertEqual(qid.wTraval3, 3)
-        self.assertEqual(qid.wTraval4, 4)
-
-        qid.wTraval1 = 10
-        self.assertEqual(qid.travel_1, 10)
-
 
 if __name__ == '__main__':
     unittest.main()
