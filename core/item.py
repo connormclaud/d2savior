@@ -1230,61 +1230,6 @@ class ItemInfo:
         self.pad: int = 0
         self._meta = meta
 
-    # Transitional property aliases
-    @property
-    def sTypeName(self) -> bytes: return self.type_name
-    @sTypeName.setter
-    def sTypeName(self, v: bytes): self.type_name = v
-
-    @property
-    def pExtItemInfo(self) -> Optional[ExtItemInfo]: return self.ext_info
-    @pExtItemInfo.setter
-    def pExtItemInfo(self, v: Optional[ExtItemInfo]): self.ext_info = v
-
-    @property
-    def pGold(self) -> Optional[GoldQuantity]: return self.gold
-    @pGold.setter
-    def pGold(self, v: Optional[GoldQuantity]): self.gold = v
-
-    @property
-    def bHasRand(self) -> bool: return self.has_rand
-    @bHasRand.setter
-    def bHasRand(self, v: bool): self.has_rand = v
-
-    @property
-    def pTimeStampFlag(self) -> List[int]: return self.timestamp_flag
-    @pTimeStampFlag.setter
-    def pTimeStampFlag(self, v: List[int]): self.timestamp_flag = v
-
-    @property
-    def pRealmData(self) -> List[int]: return self.realm_data
-    @pRealmData.setter
-    def pRealmData(self, v: List[int]): self.realm_data = v
-
-    @property
-    def iAdvancedStashStackSize(self) -> int: return self.stash_stack_size
-    @iAdvancedStashStackSize.setter
-    def iAdvancedStashStackSize(self, v: int): self.stash_stack_size = v
-
-    @property
-    def _bHasAdvancedStashSize(self) -> bool: return self.has_stash_stack_size
-    @_bHasAdvancedStashSize.setter
-    def _bHasAdvancedStashSize(self, v: bool): self.has_stash_stack_size = v
-
-    @property
-    def iQuestDifficulty(self) -> int: return self.quest_difficulty
-    @iQuestDifficulty.setter
-    def iQuestDifficulty(self, v: int): self.quest_difficulty = v
-
-    @property
-    def pTpSpInfo(self) -> Optional[TypeSpecificInfo]: return self.type_specific_info
-    @pTpSpInfo.setter
-    def pTpSpInfo(self, v: Optional[TypeSpecificInfo]): self.type_specific_info = v
-
-    @property
-    def iPad(self) -> int: return self.pad
-    @iPad.setter
-    def iPad(self, v: int): self.pad = v
 
     def is_gold(self) -> bool:
         return self.type_name == b'gld '

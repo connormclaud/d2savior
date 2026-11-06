@@ -209,11 +209,8 @@ class TestCItemInfo(unittest.TestCase):
     def test_item_info_creation(self):
         item_info = ItemInfo()
         self.assertEqual(item_info.type_name, b'    ')
-        self.assertEqual(item_info.sTypeName, b'    ')
         self.assertIsNone(item_info.ext_info)
         self.assertIsNone(item_info.type_specific_info)
-        self.assertIsNone(item_info.pExtItemInfo)
-        self.assertIsNone(item_info.pTpSpInfo)
 
     def test_item_info_is_gold(self):
         item_info = ItemInfo()
