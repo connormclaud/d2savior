@@ -122,6 +122,9 @@ class TestGlobalLocalizedData(unittest.TestCase):
         text_zhcn = loader.get_item_modifier('ModitemAura')
         self.assertIn('光环', text_zhcn)
 
+    def tearDown(self):
+        init_localized_data(self.data_dir, lang_key='enUS')
+
 
 if __name__ == '__main__':
     unittest.main()
