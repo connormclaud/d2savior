@@ -844,7 +844,7 @@ def format_stash_summary(stash: SharedStash) -> str:
                 runes_list = []
                 materials_list = []
                 other_list = []
-                gem_stats = {g: {'p': 0, 'o': 0} for g in GEM_TYPE_NAMES}
+                gem_stats = {g: {'p': 0, 'f': 0, 'o': 0} for g in GEM_TYPE_NAMES}
 
                 sorted_active = sorted(
                     active_items,
@@ -857,11 +857,8 @@ def format_stash_summary(stash: SharedStash) -> str:
                     stack_size = getattr(getattr(it, 'pItemInfo', None), 'iAdvancedStashStackSize', 0)
 
                     if code_b in GEM_CODE_MAP:
-                        g_type, is_perf = GEM_CODE_MAP[code_b]
-                        if is_perf:
-                            gem_stats[g_type]['p'] += stack_size
-                        else:
-                            gem_stats[g_type]['o'] += stack_size
+                        g_type, tier = GEM_CODE_MAP[code_b]
+                        gem_stats[g_type][tier] += stack_size
                     elif code_b in RUNE_CODES_STRIPPED:
                         display_name = resolver.get_localized_rune_short_name(code_str)
                         runes_list.append(f"{display_name}: {stack_size}")
@@ -879,15 +876,16 @@ def format_stash_summary(stash: SharedStash) -> str:
                 gems_list = []
                 for g_type in GEM_TYPE_NAMES:
                     p = gem_stats[g_type]['p']
+                    f = gem_stats[g_type]['f']
                     o = gem_stats[g_type]['o']
-                    if p > 0 or o > 0:
+                    if p > 0 or f > 0 or o > 0:
                         loc_g_type = resolver.get_localized_gem_type_name(g_type)
-                        gems_list.append(f"{loc_g_type}: p {p}, o {o}")
+                        gems_list.append(f"{loc_g_type}: p {p}, f {f}, o {o}")
 
                 if runes_list:
                     result.append(f"  Runes: {', '.join(runes_list)}")
                 if gems_list:
-                    result.append(f"  Gems (p=perfect, o=other): {', '.join(gems_list)}")
+                    result.append(f"  Gems (p=perfect, f=flawless, o=other): {', '.join(gems_list)}")
                 if materials_list:
                     result.append(f"  Materials: {', '.join(materials_list)}")
                 if other_list:

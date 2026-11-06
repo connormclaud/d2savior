@@ -156,7 +156,7 @@ class TestSummaryMode(unittest.TestCase):
         self.assertIn("  - Harlequin Crest (Shako) [Def: 110]", output)
         self.assertIn("=== Tab 2 (Advanced (Currency)) ===", output)
         self.assertIn("Runes: Hel: 3, Pul: 2", output)
-        self.assertIn("Diamond: p 10, o 0", output)
+        self.assertIn("Diamond: p 10, f 0, o 0", output)
         self.assertNotIn("El: 0", output)
         self.assertIn("=== Tab 3 (Normal) ===", output)
         self.assertIn("  - 24x Jewels", output)
@@ -191,7 +191,7 @@ class TestSummaryMode(unittest.TestCase):
         stash.tabs.append(tab)
 
         output = format_stash_summary(stash)
-        self.assertIn("Gems (p=perfect, o=other): Ruby: p 5, o 34", output)
+        self.assertIn("Gems (p=perfect, f=flawless, o=other): Ruby: p 5, f 10, o 24", output)
 
     def test_char_summary_formatting(self):
         char = D2SStruct()
@@ -500,7 +500,7 @@ class TestSummaryMode(unittest.TestCase):
             self.assertIn("наголовник", stash_out)
             self.assertIn("Шутовской капюшон (шако)", stash_out)
             self.assertIn("Рал: 10", stash_out)
-            self.assertIn("Рубин: p 5, o 0", stash_out)
+            self.assertIn("Рубин: p 5, f 0, o 0", stash_out)
 
             # Test char summary in Russian
             char = D2SStruct()
