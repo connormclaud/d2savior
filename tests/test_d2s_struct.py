@@ -1,4 +1,9 @@
 import unittest
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 from core.obitstream import OBitStream
@@ -283,6 +288,52 @@ class TestD2SStruct(unittest.TestCase):
         char_data.dwVersion = 0x69
         char_data.Name = b"D2RChar\x00" + b"\x00" * 8
         self.assertEqual(char_data.get_char_name(), "D2RChar")
+
+    def test_equip_slot_enum(self):
+        from core.enums import EquipSlot
+        expected = {
+            1: "Helmet",
+            2: "Amulet",
+            3: "Armor",
+            4: "Weapon I",
+            5: "Shield I",
+            6: "Ring (Right)",
+            7: "Ring (Left)",
+            8: "Belt",
+            9: "Boots",
+            10: "Gloves",
+            11: "Weapon II",
+            12: "Shield II",
+        }
+        for pos, name in expected.items():
+            self.assertEqual(str(EquipSlot(pos)), name)
+            self.assertEqual(EquipSlot(pos).display_name, name)
+
+    def test_format_item_info_equipped_position(self):
+        from d2s_parse import format_item_info
+        from core.item import D2Item, ItemInfo
+        from core.enums import ItemLocation
+
+        item = D2Item()
+        item.pItemInfo = ItemInfo()
+        item.pItemInfo.sTypeName = b'bsd '
+        item.iLocation = int(ItemLocation.EQUIPPED)
+        item.iPosition = 4
+
+        lines = format_item_info(item)
+        full_text = "\n".join(lines)
+        self.assertIn("Location: EQUIPPED, Position: 4 (Weapon I)", full_text)
+
+        # Stored item should not have equip slot name
+        item_stored = D2Item()
+        item_stored.pItemInfo = ItemInfo()
+        item_stored.pItemInfo.sTypeName = b'bsd '
+        item_stored.iLocation = int(ItemLocation.STORED)
+        item_stored.iPosition = 0
+        lines_stored = format_item_info(item_stored)
+        full_text_stored = "\n".join(lines_stored)
+        self.assertIn("Location: STORED, Position: 0", full_text_stored)
+        self.assertNotIn("Weapon", full_text_stored)
 
 if __name__ == '__main__':
     unittest.main()

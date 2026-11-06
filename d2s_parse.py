@@ -7,7 +7,7 @@ from core.ibitstream import IBitStream
 from core.property import format_property, init_item_modifiers, get_skill_name
 from core.d2data import init_d2data, get_d2data, get_d2data_manager
 from core.localized_data import init_localized_data
-from core.enums import StoredIn, ItemLocation, ItemQuality
+from core.enums import StoredIn, ItemLocation, ItemQuality, EquipSlot
 from core.stash import SharedStash, STASH_TAB_TYPE_ADVANCED, STASH_TAB_TYPE_NORMAL, STASH_TAB_TYPE_CHRONICLE
 
 CLASS_SKILL_BASES = [
@@ -103,7 +103,10 @@ def format_item_info(item, indent="  "):
         result.append(f"{indent}Required Level: {req_level}")
     
     location = ItemLocation(item.iLocation)
-    result.append(f"{indent}Location: {location}, Position: {item.iPosition}")
+    if location == ItemLocation.EQUIPPED and item.iPosition in EquipSlot._value2member_map_:
+        result.append(f"{indent}Location: {location}, Position: {item.iPosition} ({EquipSlot(item.iPosition)})")
+    else:
+        result.append(f"{indent}Location: {location}, Position: {item.iPosition}")
     storedin = StoredIn(item.iStoredIn)
     result.append(f"{indent}Column: {item.iColumn}, Row: {item.iRow}, StoredIn: {storedin}")
     quality = ItemQuality(item.quality())
