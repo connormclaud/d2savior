@@ -152,17 +152,6 @@ class Waypoints:
         self.unknown = 0
         self.size = 0
         self.wp = [WaypointData() for _ in range(3)]
-
-    # Transitional property aliases
-    @property
-    def wMajic(self) -> int: return self.magic
-    @wMajic.setter
-    def wMajic(self, v: int): self.magic = v
-
-    @property
-    def wSize(self) -> int: return self.size
-    @wSize.setter
-    def wSize(self, v: int): self.size = v
     
     def deserialize(self, bs):
         self.magic = bs.read_word()
