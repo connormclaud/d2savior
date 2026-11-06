@@ -5,10 +5,22 @@ import argparse
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 from core.item import init_item_data
-from core.property import init_language, format_property, init_item_modifiers
+from core.property import init_language, format_property, init_item_modifiers, get_skill_name
 from core.d2data import init_d2data, get_d2data, get_d2data_manager
 from core.localized_data import init_localized_data, get_localized_data
 from core.enums import StoredIn, ItemLocation, ItemQuality
+from core.stash import SharedStash, STASH_TAB_TYPE_ADVANCED, STASH_TAB_TYPE_NORMAL, STASH_TAB_TYPE_CHRONICLE
+
+CLASS_SKILL_BASES = [
+    6,    # Amazon (0)
+    36,   # Sorceress (1)
+    66,   # Necromancer (2)
+    96,   # Paladin (3)
+    126,  # Barbarian (4)
+    221,  # Druid (5)
+    251,  # Assassin (6)
+    373,  # Warlock (7)
+]
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -280,6 +292,8 @@ def format_item_info(item, indent="  "):
                     else:
                         result.append(f"{indent}  - ID {prop_id}: {value}")
         
+        if getattr(info, 'iAdvancedStashStackSize', 0) > 0:
+            result.append(f"{indent}Stack Size: {info.iAdvancedStashStackSize}")
         if info.pGold:
             result.append(f"{indent}Gold: {info.pGold.wQuantity}")
     
@@ -347,9 +361,24 @@ def format_char_info(char_data: D2SStruct):
     result.append("=== Skills ===")
     if char_data.Skills.wMagic == 0x6669:
         result.append("Skill levels:")
+        d2data = get_d2data()
+        d2data_manager = get_d2data_manager()
         for i, level in enumerate(char_data.Skills.bSkillLevel):
             if level > 0:
-                result.append(f"Skill {i}: {level}")
+                skill_name = ""
+                if 0 <= char_data.charClass < len(CLASS_SKILL_BASES):
+                    skill_id = CLASS_SKILL_BASES[char_data.charClass] + i
+                    loc_name, _ = get_skill_name(skill_id)
+                    if loc_name:
+                        skill_name = loc_name
+                    elif d2data_manager:
+                        skill_name = d2data_manager.get_skill_name(skill_id, char_data.dwVersion)
+                    elif d2data:
+                        skill_name = d2data.get_skill_name(skill_id)
+                if skill_name:
+                    result.append(f"Skill {i} ({skill_name}): {level}")
+                else:
+                    result.append(f"Skill {i}: {level}")
     result.append("")
     result.append("=== Waypoints ===")
     if char_data.Waypoints.wMajic == 0x5357:
@@ -410,6 +439,9 @@ def format_char_info(char_data: D2SStruct):
                 result.append(f"Merc Dead: {'Yes' if getattr(char_data, 'bMercDead', 0) else 'No'}")
             if char_data.stMercenary.stItems:
                 result.append(f"Mercenary items: {char_data.stMercenary.stItems.nItems}")
+                for i, item in enumerate(char_data.stMercenary.stItems.vItems):
+                    result.append(f"--- Mercenary Item {i} ---")
+                    result.extend(format_item_info(item))
         else:
             result.append("No mercenary")
     else:
@@ -488,6 +520,73 @@ def search_bytes(bs, byte_pattern, context=4):
         start = pos + 1
     return results
 
+def format_stash_info(stash: SharedStash) -> str:
+    result = []
+    result.append("=== Diablo II Shared Stash ===")
+    result.append(f"Total Tabs: {stash.get_tab_count()}")
+    result.append("")
+    
+    TAB_TYPE_NAMES = {
+        STASH_TAB_TYPE_NORMAL: "Normal",
+        STASH_TAB_TYPE_ADVANCED: "Advanced (Currency)",
+        STASH_TAB_TYPE_CHRONICLE: "Chronicle",
+    }
+    
+    for tab_idx, tab in enumerate(stash.tabs):
+        tab_type_name = TAB_TYPE_NAMES.get(tab.TabType, f"Unknown({tab.TabType})")
+        result.append(f"=== Tab {tab_idx + 1} ({tab_type_name}) ===")
+        if tab.Gold:
+            result.append(f"Gold: {tab.Gold}")
+        
+        items = tab.Items.vItems if tab.Items else []
+        if tab.TabType == STASH_TAB_TYPE_ADVANCED:
+            active_items = [
+                item for item in items
+                if getattr(getattr(item, 'pItemInfo', None), 'iAdvancedStashStackSize', 0) > 0
+            ]
+            result.append(f"Total items: {len(active_items)}")
+            for item_idx, item in enumerate(active_items):
+                result.append(f"--- Item {item_idx} ---")
+                result.extend(format_item_info(item))
+        else:
+            result.append(f"Total items: {len(items)}")
+            for item_idx, item in enumerate(items):
+                result.append(f"--- Item {item_idx} ---")
+                result.extend(format_item_info(item))
+        result.append("")
+        
+    return '\n'.join(result).rstrip()
+
+def parse_d2i_file(file_path, debug=False):
+    try:
+        with open(file_path, 'rb') as f:
+            data = f.read()
+        
+        bs = IBitStream(data)
+        if len(data) >= 4 and data[:4] == b'\x55\xaa\x55\xaa':
+            stash = SharedStash()
+            stash.deserialize(bs)
+            if debug:
+                print(f"\n=== BitStream Final State ===")
+                print(f"Total bits: {len(bs)}")
+                print(f"Final offset: {bs.getOffset()}")
+                print(f"Remaining: {bs.remaining()}")
+            return True, stash, "stash", bs
+        elif data.startswith(b'JM'):
+            from core.item import D2Item
+            item = D2Item()
+            item.deserialize(bs)
+            return True, item, "item", bs
+        else:
+            stash = SharedStash()
+            stash.deserialize(bs)
+            return True, stash, "stash", bs
+    except Exception as e:
+        print(f"Error parsing file: {e}")
+        import traceback
+        traceback.print_exc()
+        return False, None, None, None
+
 def parse_d2s_file(file_path, debug=False):
     try:
         with open(file_path, 'rb') as f:
@@ -513,11 +612,12 @@ def parse_d2s_file(file_path, debug=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Diablo II Save File Parser',
+        description='Diablo II Save and Shared Stash File Parser',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
   %(prog)s character.d2s
+  %(prog)s ModernSharedStashSoftCoreV2.d2i
   %(prog)s --debug character.d2s
   %(prog)s --lang zhCN character.d2s
   %(prog)s --search 10110011 character.d2s
@@ -525,7 +625,7 @@ Examples:
         '''
     )
     
-    parser.add_argument('file_path', help='Path to the .d2s save file')
+    parser.add_argument('file_path', help='Path to the .d2s save file or .d2i stash/item file')
     parser.add_argument('-d', '--debug', action='store_true', help='Show debug info')
     parser.add_argument('-s', '--search', metavar='PATTERN', 
                         help='Search bit pattern (e.g. "10110011")')
@@ -542,10 +642,37 @@ Examples:
         print(f"Error: File '{file_path}' does not exist")
         return
     
-    if not file_path.endswith('.d2s'):
-        print(f"Error: File '{file_path}' is not a .d2s file")
+    if not (file_path.endswith('.d2s') or file_path.endswith('.d2i')):
+        print(f"Error: File '{file_path}' is not a .d2s or .d2i file")
         return
     
+    if file_path.endswith('.d2i'):
+        success, stash_or_item, kind, bs = parse_d2i_file(file_path, args.debug)
+        if success and stash_or_item:
+            if args.search:
+                results = search_bits(bs, args.search)
+                print(f"\n=== Search Results for '{args.search}' ===")
+                for r in results:
+                    print(f"Offset {r['offset']} (byte {r['byte']}, bit {r['bit']}): {r['context']}")
+                if not results:
+                    print("Pattern not found")
+            
+            if args.search_bytes:
+                search_byte_pattern = bytes.fromhex(args.search_bytes)
+                results = search_bytes(bs, search_byte_pattern)
+                print(f"\n=== Search Results for bytes '{search_byte_pattern.hex()}' ===")
+                for r in results:
+                    print(f"Offset {r['offset']}: {r['context']}")
+                if not results:
+                    print("Pattern not found")
+            
+            if kind == "stash":
+                print(format_stash_info(stash_or_item))
+            elif kind == "item":
+                print("=== Item Info ===")
+                print('\n'.join(format_item_info(stash_or_item)))
+        return
+
     success, char_data, bs = parse_d2s_file(file_path, args.debug)
     
     if success and char_data:
