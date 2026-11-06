@@ -32,13 +32,13 @@ class TestSummaryMode(unittest.TestCase):
 
     def test_item_summary_simple(self):
         item = D2Item()
-        item.sTypeName = b'hp1 '
+        item.type_name = b'hp1 '
         summary = format_item_summary(item)
         self.assertIn("Healing Potion", summary)
 
     def test_item_summary_unique_with_defence(self):
         item = D2Item()
-        item.sTypeName = b'uap '  # Shako
+        item.type_name = b'uap '  # Shako
         item.item_info = ItemInfo()
         item.item_info.ext_info = ExtItemInfo()
         item.item_info.ext_info.unique_id = 0x00F8  # Harlequin Crest (248)
@@ -54,7 +54,7 @@ class TestSummaryMode(unittest.TestCase):
         from unittest.mock import patch
 
         item = D2Item()
-        item.sTypeName = b'amu '  # Amulet
+        item.type_name = b'amu '  # Amulet
         item.item_info = ItemInfo()
         item.item_info.type_specific_info = TypeSpecificInfo()
         
@@ -79,7 +79,7 @@ class TestSummaryMode(unittest.TestCase):
 
     def test_item_summary_currency_stack(self):
         item = D2Item()
-        item.sTypeName = b'r20 '  # Lem Rune
+        item.type_name = b'r20 '  # Lem Rune
         item.item_info = ItemInfo()
         item.item_info.stash_stack_size = 5
 
@@ -94,7 +94,7 @@ class TestSummaryMode(unittest.TestCase):
         tab1 = StashTab()
         tab1.TabType = STASH_TAB_TYPE_NORMAL
         item1 = D2Item()
-        item1.sTypeName = b'uap '
+        item1.type_name = b'uap '
         item1.item_info = ItemInfo()
         item1.item_info.ext_info = ExtItemInfo()
         item1.item_info.ext_info.unique_id = 0x00F8
@@ -114,22 +114,22 @@ class TestSummaryMode(unittest.TestCase):
         tab2.TabType = STASH_TAB_TYPE_ADVANCED
         
         rune_pul = D2Item()
-        rune_pul.sTypeName = b'r21 '  # Pul
+        rune_pul.type_name = b'r21 '  # Pul
         rune_pul.item_info = ItemInfo()
         rune_pul.item_info.stash_stack_size = 2
 
         rune_hel = D2Item()
-        rune_hel.sTypeName = b'r15 '  # Hel
+        rune_hel.type_name = b'r15 '  # Hel
         rune_hel.item_info = ItemInfo()
         rune_hel.item_info.stash_stack_size = 3
 
         gem_topaz = D2Item()
-        gem_topaz.sTypeName = b'gpw '  # Perfect Diamond / Topaz
+        gem_topaz.type_name = b'gpw '  # Perfect Diamond / Topaz
         gem_topaz.item_info = ItemInfo()
         gem_topaz.item_info.stash_stack_size = 10
 
         empty_item = D2Item()
-        empty_item.sTypeName = b'r01 '
+        empty_item.type_name = b'r01 '
         empty_item.item_info = ItemInfo()
         empty_item.item_info.stash_stack_size = 0
 
@@ -142,7 +142,7 @@ class TestSummaryMode(unittest.TestCase):
         jewels = []
         for _ in range(24):
             jewel = D2Item()
-            jewel.sTypeName = b'jew '
+            jewel.type_name = b'jew '
             jewels.append(jewel)
         tab3.Items = MockItemList(jewels)
         stash.tabs.append(tab3)
@@ -169,7 +169,7 @@ class TestSummaryMode(unittest.TestCase):
         items = []
         # Perfect Ruby x 5
         gpr = D2Item()
-        gpr.sTypeName = b'gpr '
+        gpr.type_name = b'gpr '
         gpr.item_info = ItemInfo()
         gpr.item_info.stash_stack_size = 5
         items.append(gpr)
@@ -177,7 +177,7 @@ class TestSummaryMode(unittest.TestCase):
         # Flawless Ruby x 10, Normal Ruby x 10, Flawed Ruby x 9, Chipped Ruby x 5 = 34 other rubies
         for code, count in [(b'glr ', 10), (b'gsr ', 10), (b'gfr ', 9), (b'gcr ', 5)]:
             it = D2Item()
-            it.sTypeName = code
+            it.type_name = code
             it.item_info = ItemInfo()
             it.item_info.stash_stack_size = count
             items.append(it)
@@ -232,7 +232,7 @@ class TestSummaryMode(unittest.TestCase):
         helm = D2Item()
         helm.iLocation = ItemLocation.EQUIPPED
         helm.iPosition = EquipSlot.HELMET.value
-        helm.sTypeName = b'uap '
+        helm.type_name = b'uap '
         helm.item_info = ItemInfo()
         helm.item_info.ext_info = ExtItemInfo()
         helm.item_info.ext_info.unique_id = 0x00F8
@@ -243,16 +243,16 @@ class TestSummaryMode(unittest.TestCase):
         charm = D2Item()
         charm.iLocation = ItemLocation.STORED
         charm.iStoredIn = StoredIn.INVENTORY
-        charm.sTypeName = b'cm3 '  # Grand Charm
+        charm.type_name = b'cm3 '  # Grand Charm
 
         # Belt potions
         pot1 = D2Item()
         pot1.iLocation = ItemLocation.BELT
-        pot1.sTypeName = b'hp5 '
+        pot1.type_name = b'hp5 '
 
         pot2 = D2Item()
         pot2.iLocation = ItemLocation.BELT
-        pot2.sTypeName = b'hp5 '
+        pot2.type_name = b'hp5 '
 
         char.ItemList = MockItemList([helm, charm, pot1, pot2])
 
@@ -463,17 +463,17 @@ class TestSummaryMode(unittest.TestCase):
             t1.Items = ItemList()
 
             cap = D2Item()
-            cap.sTypeName = b'cap '
+            cap.type_name = b'cap '
             cap.item_info = ItemInfo()
             cap.item_info.type_specific_info = TypeSpecificInfo()
             cap.item_info.type_specific_info.defence = 4
             ral = D2Item()
-            ral.sTypeName = b'r08 '
+            ral.type_name = b'r08 '
             cap.gem_items = [ral]
             t1.Items.items.append(cap)
 
             shako = D2Item()
-            shako.sTypeName = b'uap '
+            shako.type_name = b'uap '
             shako.item_info = ItemInfo()
             shako.item_info.ext_info = ExtItemInfo()
             shako.item_info.ext_info.unique_id = 248
@@ -484,13 +484,13 @@ class TestSummaryMode(unittest.TestCase):
             t2.TabType = STASH_TAB_TYPE_ADVANCED
             t2.Items = ItemList()
             r_ral = D2Item()
-            r_ral.sTypeName = b'r08 '
+            r_ral.type_name = b'r08 '
             r_ral.item_info = ItemInfo()
             r_ral.item_info.stash_stack_size = 10
             t2.Items.items.append(r_ral)
 
             p_rub = D2Item()
-            p_rub.sTypeName = b'gpr '
+            p_rub.type_name = b'gpr '
             p_rub.item_info = ItemInfo()
             p_rub.item_info.stash_stack_size = 5
             t2.Items.items.append(p_rub)

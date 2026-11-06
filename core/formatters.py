@@ -124,7 +124,7 @@ def format_duration(seconds: int) -> str:
 
 
 def get_item_display_name(item, version=0x63, resolver=None) -> str:
-    type_name = item.sTypeName.decode('ascii', errors='replace').strip() if item.sTypeName else 'Unknown'
+    type_name = item.type_name.decode('ascii', errors='replace').strip() if item.type_name else 'Unknown'
     if resolver is None:
         ensure_data_loaded()
         resolver = GameDataResolver(version)
@@ -247,10 +247,10 @@ def format_item_summary(
 
 def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[str]:
     result = []
-    type_name = item.sTypeName.decode('ascii', errors='replace') if item.sTypeName else 'Unknown'
+    type_name = item.type_name.decode('ascii', errors='replace') if item.type_name else 'Unknown'
 
     if version is None:
-        version = item.dwVersion if item.dwVersion else 0x63
+        version = item.version if item.version else 0x63
     if resolver is None:
         ensure_data_loaded()
         resolver = GameDataResolver(version)
@@ -322,7 +322,7 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[s
                 if item.gem_items:
                     rune_names = []
                     for gem in item.gem_items:
-                        gem_type = gem.sTypeName.decode('ascii', errors='replace').strip() if gem.sTypeName else ''
+                        gem_type = gem.type_name.decode('ascii', errors='replace').strip() if gem.type_name else ''
                         if gem_type.startswith('r'):
                             try:
                                 rune_num = int(gem_type[1:])
@@ -380,8 +380,8 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[s
         if info.gold:
             result.append(f"{indent}Gold: {info.gold.quantity}")
 
-    if item.aGemItems:
-        for j, gem in enumerate(item.aGemItems):
+    if item.gem_items:
+        for j, gem in enumerate(item.gem_items):
             result.append(f"{indent}Socketed Item [{j}]:")
             result.extend(_format_item_lines(gem, indent + "  ", version=version, resolver=resolver))
 
@@ -861,11 +861,11 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
 
                 sorted_active = sorted(
                     active_items,
-                    key=lambda it: slot_order_map.get(getattr(it, 'sTypeName', b'').strip(), 9999)
+                    key=lambda it: slot_order_map.get(getattr(it, 'type_name', b'').strip(), 9999)
                 )
 
                 for it in sorted_active:
-                    code_b = getattr(it, 'sTypeName', b'').strip()
+                    code_b = getattr(it, 'type_name', b'').strip()
                     code_str = code_b.decode('ascii', errors='replace')
                     stack_size = getattr(getattr(it, 'item_info', None), 'stash_stack_size', 0)
 

@@ -67,7 +67,7 @@ def classify_advanced_tab(items) -> int:
     gem_count = 0
     material_count = 0
     for item in items:
-        tn = getattr(item, 'sTypeName', b'')
+        tn = getattr(item, 'type_name', b'')
         if tn in RUNE_CODES:
             rune_count += 1
         elif tn in GEM_CODES:
@@ -124,7 +124,7 @@ def compute_advanced_grid(items, subtype: int) -> Tuple[int, int, list]:
 
     item_type_set = set()
     for item in items:
-        tn = getattr(item, 'sTypeName', b'')
+        tn = getattr(item, 'type_name', b'')
         if tn:
             item_type_set.add(tn)
 

@@ -227,11 +227,8 @@ class TestCD2Item(unittest.TestCase):
     def test_d2_item_creation(self):
         item = D2Item()
         self.assertEqual(item.magic, 0x4D4A)
-        self.assertEqual(item.wMajic, 0x4D4A)
         self.assertFalse(item.is_ear)
-        self.assertFalse(item.bEar)
         self.assertTrue(item.is_simple)
-        self.assertTrue(item.bSimple)
         self.assertEqual(item.iLocation, 0)
 
     def test_d2_item_quality(self):
@@ -306,7 +303,7 @@ class TestCD2ItemVersionDifferences(unittest.TestCase):
         item = D2Item()
         try:
             item.deserialize(bs, 0x63, True)
-            self.assertTrue(item.bSimple)
+            self.assertTrue(item.is_simple)
         except (ValueError, Exception):
             self.skipTest("Bitstream data insufficient for full item parse")
     
@@ -320,14 +317,14 @@ class TestCD2ItemVersionDifferences(unittest.TestCase):
         item = D2Item()
         try:
             item.deserialize(bs, 0x69, True)
-            self.assertTrue(item.bSimple)
+            self.assertTrue(item.is_simple)
         except (ValueError, Exception):
             self.skipTest("Bitstream data insufficient for full item parse")
     
     def test_d2r_flags_rune_word_bit(self):
         """测试 D2R flags 中 bRuneWord 位 (0x04000000)"""
         item = D2Item()
-        self.assertFalse(item.bRuneWord)
+        self.assertFalse(item.is_runeword)
     
     def test_d2r_flags_chronicle_bits(self):
         """测试 D2R flags 中 chronicle 位 (0x10000000, 0x20000000)"""

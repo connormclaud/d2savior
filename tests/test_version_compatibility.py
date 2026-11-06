@@ -284,11 +284,9 @@ class TestVersionCompatibility(unittest.TestCase):
         
         item_63 = D2Item()
         self.assertEqual(item_63.magic, 0x4D4A)
-        self.assertEqual(item_63.wMajic, 0x4D4A)
         
         item_69 = D2Item()
         self.assertEqual(item_69.magic, 0x4D4A)
-        self.assertEqual(item_69.wMajic, 0x4D4A)
     
 
 class TestDataFileCoverage(unittest.TestCase):

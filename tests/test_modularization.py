@@ -118,7 +118,7 @@ class TestModularization(unittest.TestCase):
         self.assertIn(("item", True), d2s_parse.FORMATTERS)
 
         mock_item = D2Item()
-        mock_item.sTypeName = b'hp1 '
+        mock_item.type_name = b'hp1 '
         item_summary = d2s_parse.FORMATTERS[("item", True)](mock_item)
         self.assertIn("=== Item Summary ===", item_summary)
         self.assertIn("Healing Potion", item_summary)
@@ -149,7 +149,7 @@ class TestModularization(unittest.TestCase):
 
         # Also verify format_item_summary with injected property_formatter
         item = D2Item()
-        item.sTypeName = b'amu '
+        item.type_name = b'amu '
         item.item_info = ItemInfo()
         item.item_info.type_specific_info = TypeSpecificInfo()
         item.item_info.type_specific_info.property_list = mock_prop_list

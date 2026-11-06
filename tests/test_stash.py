@@ -408,7 +408,7 @@ class TestClassifyAdvancedTab(unittest.TestCase):
     def _make_item(self, type_name):
         class FakeItem:
             def __init__(self, tn):
-                self.sTypeName = tn
+                self.type_name = tn
         return FakeItem(type_name)
 
     def test_empty_items(self):
@@ -489,7 +489,7 @@ class TestComputeAdvancedGrid(unittest.TestCase):
     def _make_item(self, type_name):
         class FakeItem:
             def __init__(self, tn):
-                self.sTypeName = tn
+                self.type_name = tn
         return FakeItem(type_name)
 
     def test_empty_items_gem(self):

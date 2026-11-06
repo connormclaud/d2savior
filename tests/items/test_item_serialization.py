@@ -44,7 +44,7 @@ class TestItemSerialization(unittest.TestCase):
         return bs.get_data()
     
     def _compare_items(self, item1: D2Item, item2: D2Item):
-        self.assertEqual(item1.sTypeName, item2.sTypeName)
+        self.assertEqual(item1.type_name, item2.type_name)
         self.assertEqual(item1.quality(), item2.quality())
         self.assertEqual(item1.is_identified, item2.is_identified)
         self.assertEqual(item1.is_simple, item2.is_simple)
@@ -82,7 +82,7 @@ class TestItemSerialization(unittest.TestCase):
             self.assertEqual(p1[1], p2[1], f"Property {i}: Layer mismatch")
             self.assertEqual(p1[2], p2[2], f"Property {i}: Value mismatch")
         
-        if item1.bRuneWord:
+        if item1.is_runeword:
             self.assertIsNotNone(tp1.runeword_property_list, "Item1 should have runeword properties")
             self.assertIsNotNone(tp2.runeword_property_list, "Item2 should have runeword properties")
             
@@ -120,7 +120,7 @@ class TestItemSerialization(unittest.TestCase):
         file_path = os.path.join(self.examples_dir, 'Rixots Keen.d2i')
         item = self._deserialize_item(file_path)
         
-        self.assertEqual(item.sTypeName, b'amu ')
+        self.assertEqual(item.type_name, b'amu ')
         self.assertEqual(item.quality(), 7)
         self.assertTrue(item.is_identified)
         self.assertFalse(item.is_simple)
@@ -130,7 +130,7 @@ class TestItemSerialization(unittest.TestCase):
         file_path = os.path.join(self.items_dir, 'runeword', 'Spirit-crystal_sword.d2i')
         item = self._deserialize_item(file_path, version=0x69)
         
-        self.assertEqual(item.sTypeName, b'crs ')
+        self.assertEqual(item.type_name, b'crs ')
         self.assertTrue(item.is_runeword)
         self.assertTrue(item.is_socketed)
         self.assertTrue(item.is_identified)

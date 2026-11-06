@@ -1376,66 +1376,6 @@ class D2Item:
 
         self._meta = meta
 
-    # Transitional property aliases
-    @property
-    def dwVersion(self) -> int: return self.version
-    @dwVersion.setter
-    def dwVersion(self, v: int): self.version = v
-
-    @property
-    def wMajic(self) -> int: return self.magic
-    @wMajic.setter
-    def wMajic(self, v: int): self.magic = v
-
-    @property
-    def bIdentified(self) -> bool: return self.is_identified
-    @bIdentified.setter
-    def bIdentified(self, v: bool): self.is_identified = v
-
-    @property
-    def bSocketed(self) -> bool: return self.is_socketed
-    @bSocketed.setter
-    def bSocketed(self, v: bool): self.is_socketed = v
-
-    @property
-    def bEar(self) -> bool: return self.is_ear
-    @bEar.setter
-    def bEar(self, v: bool): self.is_ear = v
-
-    @property
-    def bSimple(self) -> bool: return self.is_simple
-    @bSimple.setter
-    def bSimple(self, v: bool): self.is_simple = v
-
-    @property
-    def bEthereal(self) -> bool: return self.is_ethereal
-    @bEthereal.setter
-    def bEthereal(self, v: bool): self.is_ethereal = v
-
-    @property
-    def bPersonalized(self) -> bool: return self.is_personalized
-    @bPersonalized.setter
-    def bPersonalized(self, v: bool): self.is_personalized = v
-
-    @property
-    def bRuneWord(self) -> bool: return self.is_runeword
-    @bRuneWord.setter
-    def bRuneWord(self, v: bool): self.is_runeword = v
-
-    @property
-    def pEar(self) -> Optional[Ear]: return self.ear
-    @pEar.setter
-    def pEar(self, v: Optional[Ear]): self.ear = v
-
-    @property
-    def pItemInfo(self) -> Optional[ItemInfo]: return self.item_info
-    @pItemInfo.setter
-    def pItemInfo(self, v: Optional[ItemInfo]): self.item_info = v
-
-    @property
-    def aGemItems(self) -> List[D2Item]: return self.gem_items
-    @aGemItems.setter
-    def aGemItems(self, v: List[D2Item]): self.gem_items = v
 
     @property
     def type_name(self) -> bytes:
@@ -1458,10 +1398,6 @@ class D2Item:
         else:
             self._meta = ItemMetaData(type_id=value)
 
-    @property
-    def sTypeName(self) -> bytes: return self.type_name
-    @sTypeName.setter
-    def sTypeName(self, value: bytes): self.type_name = value
 
     def quality(self) -> int:
         if self.is_ear or self.is_simple:
