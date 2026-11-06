@@ -21,55 +21,57 @@ class TestOBitStream(unittest.TestCase):
 
 
 	def test_append_empty(self):
-		self.assertEqual('', str(self.stream))
+		self.assertEqual('', self.stream.to_bit_string())
+		self.assertEqual('<OBitStream len=0>', str(self.stream))
 		self.assertEqual('', self.stream.toHexString())
 
 	def test_append_zero_bit(self):
 		self.stream.append(0xf, 0)
-		self.assertEqual('', str(self.stream))
+		self.assertEqual('', self.stream.to_bit_string())
 		self.assertEqual('', self.stream.toHexString())
 
 	def test_append_one_bit(self):
 		self.stream.append(1, 1)
-		self.assertEqual('1', str(self.stream))
+		self.assertEqual('1', self.stream.to_bit_string())
+		self.assertEqual('<OBitStream len=1>', str(self.stream))
 		self.assertEqual('01', self.stream.toHexString())
 
 	def test_append_one_bit_extracted(self):
 		self.stream.append(0xf, 1)
-		self.assertEqual('1', str(self.stream))
+		self.assertEqual('1', self.stream.to_bit_string())
 		self.assertEqual('01', self.stream.toHexString())
 
 	def test_append_8_bits(self):
 		self.stream.append(0x76, 8)
-		self.assertEqual('01110110'[::-1], str(self.stream))
+		self.assertEqual('01110110'[::-1], self.stream.to_bit_string())
 		self.assertEqual('76', self.stream.toHexString())
 
 	def test_append_9_bits(self):
 		self.stream.append(0x176, 9)
-		self.assertEqual('101110110'[::-1], str(self.stream))
+		self.assertEqual('101110110'[::-1], self.stream.to_bit_string())
 		self.assertEqual('76 01', self.stream.toHexString())
 
 	def test_append_9_bits_extracted(self):
 		self.stream.append(0x776, 9)
-		self.assertEqual('101110110'[::-1], str(self.stream))
+		self.assertEqual('101110110'[::-1], self.stream.to_bit_string())
 		self.assertEqual('76 01', self.stream.toHexString())
 
 	def test_append_32bits(self):
 		self.stream.append(0x1F1F2F4F8, 32)
-		self.assertEqual('11110001111100101111010011111000'[::-1], str(self.stream))
+		self.assertEqual('11110001111100101111010011111000'[::-1], self.stream.to_bit_string())
 		self.assertEqual('f8 f4 f2 f1', self.stream.toHexString())
 
 	def test_append_3_2(self):
 		self.stream.append(3, 3)
 		self.stream.append(1, 2)
-		self.assertEqual('01011'[::-1], str(self.stream))
+		self.assertEqual('01011'[::-1], self.stream.to_bit_string())
 		self.assertEqual('0b', self.stream.toHexString())
 
 	def test_append_3_6_4(self):
 		self.stream.append(int('001', 2), 3)
 		self.stream.append(int('000011', 2), 6)
 		self.stream.append(int('0111', 2), 4)
-		self.assertEqual('0111000011001'[::-1], str(self.stream))
+		self.assertEqual('0111000011001'[::-1], self.stream.to_bit_string())
 		self.assertEqual('19 0e', self.stream.toHexString())
 
 	def test_append_string(self):
@@ -141,6 +143,12 @@ class TestOBitStreamNewInterface(unittest.TestCase):
 		self.stream.write_bits(2, 1)
 		self.stream.write_bits(5, 0x1F)
 		self.assertEqual('eb 03', self.stream.toHexString())
+
+	def test_snake_case_aliases(self):
+		self.stream.write_string("OK")
+		self.assertEqual('4f 4b', self.stream.to_hex_string())
+		self.assertEqual([0x4f, 0x4b], self.stream.get_byte_list())
+		self.assertEqual(b'\x4f\x4b', self.stream.get_data())
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@
 
 def debug_bitstream(bs, context_bits=64, label=""):
     offset = bs.getOffset()
-    bits_str = str(bs)
+    bits_str = bs.to_bit_string() if hasattr(bs, 'to_bit_string') else str(bs)
 
     start = max(0, offset - context_bits)
     end = min(len(bits_str), offset + context_bits)
@@ -22,7 +22,7 @@ def debug_bitstream(bs, context_bits=64, label=""):
 
 
 def search_bits(bs, pattern, context=16):
-    bits_str = str(bs)
+    bits_str = bs.to_bit_string() if hasattr(bs, 'to_bit_string') else str(bs)
     results = []
     start = 0
     while True:

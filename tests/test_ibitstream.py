@@ -8,14 +8,16 @@ from core.ibitstream import IBitStream
 class TestIBitStream(unittest.TestCase):
 	def test_init_empty(self):
 		stream = IBitStream()
-		self.assertEqual('', str(stream))
+		self.assertEqual('', stream.to_bit_string())
+		self.assertEqual('<IBitStream offset=0 len=0>', str(stream))
 		self.assertEqual(0, len(stream))
 		self.assertEqual(0, stream.getOffset())
 		self.assertEqual(0, stream.remaining())
 
 	def test_init_with_data(self):
 		stream = IBitStream(bytearray([0x76]))
-		self.assertEqual('01110110'[::-1], str(stream))
+		self.assertEqual('01110110'[::-1], stream.to_bit_string())
+		self.assertEqual('<IBitStream offset=0 len=8>', str(stream))
 		self.assertEqual(8, len(stream))
 		self.assertEqual(0, stream.getOffset())
 		self.assertEqual(8, stream.remaining())
@@ -207,6 +209,21 @@ class TestIBitStreamNewInterface(unittest.TestCase):
 		stream.align_byte()
 		self.assertEqual(0, stream.bits_pos)
 		self.assertEqual(1, stream.bytes_pos)
+
+	def test_seek_back_bytes(self):
+		stream = IBitStream(b'\x76\x01\x02\x03')
+		stream.read(24)
+		self.assertEqual(3, stream.bytes_pos)
+		stream.seek_back_bytes(2)
+		self.assertEqual(1, stream.bytes_pos)
+		self.assertEqual(0x01, stream.read_byte())
+
+	def test_snake_case_aliases(self):
+		stream = IBitStream(b'v\x01')
+		self.assertEqual(0, stream.get_offset())
+		self.assertFalse(stream.is_end())
+		self.assertEqual("v", stream.read_string(1))
+		self.assertEqual(8, stream.get_offset())
 
 	# test_good method removed since IBitStream no longer has good() method
 

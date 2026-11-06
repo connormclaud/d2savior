@@ -1,113 +1,127 @@
-class IBitStream():
-	'''
-	Little endian binary input stream,
-	reads data from bytes as bits
-	'''
-	def __init__(self, data=None):
-		self._v = ''
-		self._offset = 0
-		self.data = None
-		if data is not None:
-			self.setData(data)
+"""Little endian binary input stream reading data from bytes as bits."""
 
-	def __str__(self):
-		return self._v
+from typing import Optional, Union
 
-	def __len__(self):
-		return len(self._v)
 
-	def setData(self, data):
-		self.data = data
-		self._v = ''.join(["{0:08b}".format(b)[::-1] for b in data])
-		self._offset = 0
+class IBitStream:
+    """Little endian binary input stream, reads data from bytes as bits."""
 
-	@property
-	def bytes_pos(self):
-		return self._offset // 8
+    def __init__(self, data: Optional[Union[bytes, bytearray, memoryview]] = None):
+        self._data: bytes = b''
+        self.data: Optional[Union[bytes, bytearray, memoryview]] = None
+        self._offset: int = 0
+        if data is not None:
+            self.set_data(data)
 
-	@bytes_pos.setter
-	def bytes_pos(self, value):
-		self._offset = value * 8 + self.bits_pos
+    def __repr__(self) -> str:
+        return f"<IBitStream offset={self._offset} len={len(self)}>"
 
-	@property
-	def bits_pos(self):
-		return self._offset % 8
+    def __str__(self) -> str:
+        return self.__repr__()
 
-	@bits_pos.setter
-	def bits_pos(self, value):
-		self._offset = (self._offset // 8) * 8 + value
+    def __len__(self) -> int:
+        return len(self._data) * 8
 
-	def seek_back_bytes(self, num_bytes):
-		self._offset -= num_bytes * 8
+    def to_bit_string(self) -> str:
+        """Construct the ASCII bit string representation ('0' and '1')."""
+        return ''.join(["{0:08b}".format(b)[::-1] for b in self._data])
 
-	def getOffset(self):
-		return self._offset
+    def set_data(self, data: Union[bytes, bytearray, memoryview]):
+        self.data = data
+        self._data = bytes(data) if data is not None else b''
+        self._offset = 0
 
-	def remaining(self):
-		return len(self._v) - self._offset
+    setData = set_data
 
-	def isEnd(self):
-		return self._offset >= len(self._v)
+    @property
+    def bytes_pos(self) -> int:
+        return self._offset // 8
 
-	def read(self, num_bits):
-		if num_bits == 0:
-			return 0
+    @bytes_pos.setter
+    def bytes_pos(self, value: int):
+        self._offset = value * 8 + self.bits_pos
 
-		if num_bits < 0:
-			raise ValueError('num_bits must be >= 0')
+    @property
+    def bits_pos(self) -> int:
+        return self._offset % 8
 
-		if self._offset + num_bits > len(self._v):
-			raise ValueError('not enough bits remaining')
+    @bits_pos.setter
+    def bits_pos(self, value: int):
+        self._offset = (self._offset // 8) * 8 + value
 
-		bits = self._v[self._offset:self._offset + num_bits]
-		self._offset += num_bits
-		return int(bits[::-1], 2)
+    def seek_back_bytes(self, num_bytes: int):
+        self._offset -= num_bytes * 8
 
-	def read_bits(self, num_bits):
-		return self.read(num_bits)
+    def get_offset(self) -> int:
+        return self._offset
 
-	def read_byte(self):
-		return self.read(8)
+    getOffset = get_offset
 
-	def read_word(self):
-		return self.read(8) | (self.read(8) << 8)
+    def remaining(self) -> int:
+        return len(self._data) * 8 - self._offset
 
-	def read_dword(self):
-		return (self.read(8) | 
-				(self.read(8) << 8) | 
-				(self.read(8) << 16) | 
-				(self.read(8) << 24))
+    def is_end(self) -> bool:
+        return self._offset >= len(self._data) * 8
 
-	def readString(self, length):
-		result = ''
-		for _ in range(length):
-			bits = self._v[self._offset:self._offset + 8]
-			self._offset += 8
-			result += chr(int(bits[::-1], 2))
-		return result
+    isEnd = is_end
 
-	def peek(self, num_bits):
-		if num_bits == 0:
-			return 0
+    def read_bits(self, num_bits: int) -> int:
+        if num_bits == 0:
+            return 0
+        if num_bits < 0:
+            raise ValueError('num_bits must be >= 0')
+        if self._offset + num_bits > len(self._data) * 8:
+            raise ValueError('not enough bits remaining')
 
-		if num_bits < 0:
-			raise ValueError('num_bits must be >= 0')
+        byte_start = self._offset >> 3
+        bit_shift = self._offset & 7
+        byte_end = (self._offset + num_bits + 7) >> 3
+        chunk = self._data[byte_start:byte_end]
+        val = int.from_bytes(chunk, 'little') >> bit_shift
+        self._offset += num_bits
+        return val & ((1 << num_bits) - 1)
 
-		if self._offset + num_bits > len(self._v):
-			raise ValueError('not enough bits remaining')
+    read = read_bits
 
-		bits = self._v[self._offset:self._offset + num_bits]
-		return int(bits[::-1], 2)
+    def read_byte(self) -> int:
+        return self.read_bits(8)
 
-	def skip(self, num_bits):
-		if num_bits < 0:
-			raise ValueError('num_bits must be >= 0')
+    def read_word(self) -> int:
+        return self.read_bits(16)
 
-		if self._offset + num_bits > len(self._v):
-			raise ValueError('not enough bits remaining')
+    def read_dword(self) -> int:
+        return self.read_bits(32)
 
-		self._offset += num_bits
+    def read_string(self, length: int) -> str:
+        chars = []
+        for _ in range(length):
+            chars.append(chr(self.read_bits(8)))
+        return ''.join(chars)
 
-	def align_byte(self):
-		if self.bits_pos > 0:
-			self._offset = (self._offset // 8 + 1) * 8
+    readString = read_string
+
+    def peek(self, num_bits: int) -> int:
+        if num_bits == 0:
+            return 0
+        if num_bits < 0:
+            raise ValueError('num_bits must be >= 0')
+        if self._offset + num_bits > len(self._data) * 8:
+            raise ValueError('not enough bits remaining')
+
+        byte_start = self._offset >> 3
+        bit_shift = self._offset & 7
+        byte_end = (self._offset + num_bits + 7) >> 3
+        chunk = self._data[byte_start:byte_end]
+        val = int.from_bytes(chunk, 'little') >> bit_shift
+        return val & ((1 << num_bits) - 1)
+
+    def skip(self, num_bits: int):
+        if num_bits < 0:
+            raise ValueError('num_bits must be >= 0')
+        if self._offset + num_bits > len(self._data) * 8:
+            raise ValueError('not enough bits remaining')
+        self._offset += num_bits
+
+    def align_byte(self):
+        if self.bits_pos > 0:
+            self._offset = (self._offset // 8 + 1) * 8
