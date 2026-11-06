@@ -333,8 +333,14 @@ def get_property_tooltip(prop_id: int) -> str:
 
 
 _CLASS_SKILL_LEVEL_KEYS = {
-    0: 'ModStr3a', 1: 'ModStr3b', 2: 'ModStr3c', 3: 'ModStr3d',
-    4: 'ModStr3e', 5: 'ModStre8a', 6: 'ModStre8b', 7: 'ModStr3a',
+    0: 'ModStr3a',   # Amazon
+    1: 'ModStr3d',   # Sorceress
+    2: 'ModStr3c',   # Necromancer
+    3: 'ModStr3b',   # Paladin
+    4: 'ModStr3e',   # Barbarian
+    5: 'ModStre8a',  # Druid
+    6: 'ModStre8b',  # Assassin
+    7: 'ModStrge9',  # Warlock
 }
 
 _CHANCE_CAST_KEYS = {

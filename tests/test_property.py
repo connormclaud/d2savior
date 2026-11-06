@@ -326,6 +326,22 @@ class TestFormatPropertySpecialCases(unittest.TestCase):
         result = format_property(214, [-80])
         self.assertIn('-', result)
 
+    def test_format_property_class_skill_levels(self):
+        # class_id: 0 Amazon, 1 Sorceress, 2 Necromancer, 3 Paladin, 4 Barbarian, 5 Druid, 6 Assassin, 7 Warlock
+        expected = [
+            (0, 'Amazon'),
+            (1, 'Sorceress'),
+            (2, 'Necromancer'),
+            (3, 'Paladin'),
+            (4, 'Barbarian'),
+            (5, 'Druid'),
+            (6, 'Assassin'),
+            (7, 'Warlock'),
+        ]
+        for class_id, expected_name in expected:
+            result = format_property(83, [class_id, 1])
+            self.assertIn(expected_name, result, f"Class ID {class_id} should format to {expected_name}")
+
 
 if __name__ == '__main__':
     unittest.main()
