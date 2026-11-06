@@ -4,10 +4,9 @@ import os
 import argparse
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
-from core.item import init_item_data
-from core.property import init_language, format_property, init_item_modifiers, get_skill_name
+from core.property import format_property, init_item_modifiers, get_skill_name
 from core.d2data import init_d2data, get_d2data, get_d2data_manager
-from core.localized_data import init_localized_data, get_localized_data
+from core.localized_data import init_localized_data
 from core.enums import StoredIn, ItemLocation, ItemQuality
 from core.stash import SharedStash, STASH_TAB_TYPE_ADVANCED, STASH_TAB_TYPE_NORMAL, STASH_TAB_TYPE_CHRONICLE
 
@@ -33,11 +32,6 @@ def parse_lang_arg():
 
 _lang_key = parse_lang_arg()
 
-generate_data_dir = os.path.join(_script_dir, "Generate Data")
-itemdata_path = os.path.join(generate_data_dir, "itemdata.txt")
-property_path = os.path.join(generate_data_dir, "property.txt")
-statcost_path = None
-
 data_dir = os.path.join(_script_dir, "data")
 if os.path.exists(data_dir):
     init_d2data(data_dir)
@@ -49,12 +43,6 @@ if os.path.exists(data_dir):
     item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
     if os.path.exists(item_modifiers_file):
         init_item_modifiers(item_modifiers_file, lang_key=_lang_key)
-elif os.path.exists(itemdata_path) and os.path.exists(property_path):
-    init_item_data(itemdata_path, property_path, statcost_path)
-
-language_file = os.path.join(_script_dir, "Generate Data", "language.txt")
-if os.path.exists(language_file):
-    init_language(language_file, lang_index=2)
 
 def get_char_type_name(char_type):
     flags = []
