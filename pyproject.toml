@@ -1,0 +1,25 @@
+[project]
+name = "d2savior"
+version = "0.1.0"
+description = "Diablo II: Resurrected save and stash parser and extractor"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+gui = [
+    "PySide6>=6.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+d2r-extract = "d2r_cli:main"
+
+[tool.setuptools]
+packages = ["core"]
+py-modules = ["d2s_parse", "app_path"]
+include-package-data = false
