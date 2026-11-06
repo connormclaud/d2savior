@@ -35,13 +35,13 @@ class TestD2SStruct(unittest.TestCase):
         # 测试 ASCII 名称
         char_data.Name = b"TestChar\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         char_data.NamePTR = b"\x00" * 64
-        char_data.dwVersion = 0x60  # 1.10 版本
+        char_data.version = 0x60  # 1.10 版本
         self.assertEqual(char_data.get_char_name(), "TestChar")
         
         # 测试 PTR2.4+ UTF-8 名称
         char_data.Name = b"\x00" * 16
         char_data.NamePTR = b"TestCharUTF8\x00" + b"\x00" * 50
-        char_data.dwVersion = 0x62  # PTR2.4 版本
+        char_data.version = 0x62  # PTR2.4 版本
         self.assertEqual(char_data.get_char_name(), "TestCharUTF8")
     
     def test_flags(self):
@@ -73,7 +73,7 @@ class TestD2SStruct(unittest.TestCase):
     def test_has_mercenary_0x63(self):
         """测试 0x63 版本雇佣兵判断逻辑: dwMercControl != 0"""
         char_data = D2SStruct()
-        char_data.dwVersion = 0x63
+        char_data.version = 0x63
         
         char_data.dwMercControl = 0
         self.assertFalse(char_data.has_mercenary())
@@ -87,7 +87,7 @@ class TestD2SStruct(unittest.TestCase):
     def test_has_mercenary_0x69(self):
         """测试 0x69 版本雇佣兵判断逻辑: mercSeed!=0 or mercNameIndex!=0 or mercExperience!=0"""
         char_data = D2SStruct()
-        char_data.dwVersion = 0x69
+        char_data.version = 0x69
         
         char_data.mercSeed = 0
         char_data.mercNameIndex = 0
@@ -117,7 +117,7 @@ class TestD2SStruct(unittest.TestCase):
     def test_has_mercenary_classic(self):
         """测试 Classic 版本雇佣兵判断逻辑: wMercName > 0"""
         char_data = D2SStruct()
-        char_data.dwVersion = 0x60
+        char_data.version = 0x60
         
         char_data.wMercName = 0
         self.assertFalse(char_data.has_mercenary())
@@ -128,8 +128,8 @@ class TestD2SStruct(unittest.TestCase):
     def test_is_expansion_0x63_charflags(self):
         """测试 0x63 版本资料片判断: charFlags & 0x20"""
         char_data = D2SStruct()
-        char_data.dwVersion = 0x63
-        char_data.QuestInfo = None
+        char_data.version = 0x63
+        char_data.quests = None
         
         char_data.charFlags = 0x20
         self.assertTrue(char_data.is_expansion())
@@ -144,7 +144,7 @@ class TestD2SStruct(unittest.TestCase):
         """测试 0x63 版本资料片判断回退: QuestInfo.dwActs >= 5"""
         from core.d2s_struct import QuestInfo
         char_data = D2SStruct()
-        char_data.dwVersion = 0x63
+        char_data.version = 0x63
         char_data.charFlags = 0x00
         char_data.quests = QuestInfo()
         
@@ -157,7 +157,7 @@ class TestD2SStruct(unittest.TestCase):
     def test_is_expansion_0x69(self):
         """测试 0x69 版本资料片判断: gameVersion > 1"""
         char_data = D2SStruct()
-        char_data.dwVersion = 0x69
+        char_data.version = 0x69
         
         char_data.gameVersion = 1
         self.assertFalse(char_data.is_expansion())
@@ -285,7 +285,7 @@ class TestD2SStruct(unittest.TestCase):
     def test_char_name_0x69(self):
         """测试 0x69 版本角色名称从 Name 字段读取"""
         char_data = D2SStruct()
-        char_data.dwVersion = 0x69
+        char_data.version = 0x69
         char_data.Name = b"D2RChar\x00" + b"\x00" * 8
         self.assertEqual(char_data.get_char_name(), "D2RChar")
 
@@ -459,7 +459,7 @@ class TestD2SStruct(unittest.TestCase):
     def test_mercenary_properties(self):
         # Version < 0x69
         char_v60 = D2SStruct()
-        char_v60.dwVersion = 0x60
+        char_v60.version = 0x60
         char_v60.wMercName = 12
         char_v60.wMercType = 3
         char_v60.dwMercExp = 99999
@@ -471,7 +471,7 @@ class TestD2SStruct(unittest.TestCase):
 
         # Version >= 0x69
         char_v69 = D2SStruct()
-        char_v69.dwVersion = 0x69
+        char_v69.version = 0x69
         char_v69.mercNameIndex = 42
         char_v69.mercHirelingId = 7
         char_v69.mercExperience = 1500000

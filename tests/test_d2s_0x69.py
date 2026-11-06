@@ -47,7 +47,7 @@ class Test0x69Warlock:
         self.d2s = _load_d2s(self.SAVE_FILE)
 
     def test_version(self):
-        assert self.d2s.dwVersion == 0x69
+        assert self.d2s.version == 0x69
 
     def test_char_class(self):
         assert self.d2s.charClass == 7
@@ -115,7 +115,7 @@ class Test0x69Amazon:
         self.d2s = _load_d2s(self.SAVE_FILE)
 
     def test_version(self):
-        assert self.d2s.dwVersion == 0x69
+        assert self.d2s.version == 0x69
 
     def test_char_class(self):
         assert self.d2s.charClass == 0
@@ -225,7 +225,7 @@ class Test0x69Sorceress:
         self.d2s = _load_d2s(self.SAVE_FILE)
 
     def test_version(self):
-        assert self.d2s.dwVersion == 0x69
+        assert self.d2s.version == 0x69
 
     def test_char_class(self):
         assert self.d2s.charClass == 1
@@ -426,38 +426,38 @@ class Test0x69PreviewData:
 class Test0x69GameVersionExpansionLogic:
     def test_game_version_1_not_expansion(self):
         d2s = D2SStruct()
-        d2s.dwVersion = 0x69
+        d2s.version = 0x69
         d2s.gameVersion = 1
         assert d2s.is_expansion() is False
 
     def test_game_version_2_is_expansion(self):
         d2s = D2SStruct()
-        d2s.dwVersion = 0x69
+        d2s.version = 0x69
         d2s.gameVersion = 2
         assert d2s.is_expansion() is True
 
     def test_game_version_3_is_expansion(self):
         d2s = D2SStruct()
-        d2s.dwVersion = 0x69
+        d2s.version = 0x69
         d2s.gameVersion = 3
         assert d2s.is_expansion() is True
 
     def test_game_version_0_not_expansion(self):
         d2s = D2SStruct()
-        d2s.dwVersion = 0x69
+        d2s.version = 0x69
         d2s.gameVersion = 0
         assert d2s.is_expansion() is False
 
     def test_charflags_expansion_bit_ignored_in_0x69(self):
         d2s = D2SStruct()
-        d2s.dwVersion = 0x69
+        d2s.version = 0x69
         d2s.charFlags = 0x20
         d2s.gameVersion = 1
         assert d2s.is_expansion() is False
 
     def test_charflags_no_expansion_but_gameversion_says_expansion(self):
         d2s = D2SStruct()
-        d2s.dwVersion = 0x69
+        d2s.version = 0x69
         d2s.charFlags = 0x0
         d2s.gameVersion = 3
         assert d2s.is_expansion() is True
@@ -470,14 +470,14 @@ class Test0x69DemonLogic:
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
         assert d2s.gameVersion >= 3
-        assert d2s.stDemon.hasDemon is True
+        assert d2s.demon.hasDemon is True
 
     def test_demon_absent_when_not_warlock_expansion(self):
         save_file = os.path.join(EXAMPLES_DIR, '0x69', '白皮克星.d2s')
         if not os.path.exists(save_file):
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
-        assert d2s.stDemon.hasDemon is False
+        assert d2s.demon.hasDemon is False
 
     def test_demon_absent_in_classic_expansion(self):
         save_file = os.path.join(EXAMPLES_DIR, '0x69', '大明女医.d2s')
@@ -485,7 +485,7 @@ class Test0x69DemonLogic:
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
         assert d2s.gameVersion == 2
-        assert d2s.stDemon.hasDemon is False
+        assert d2s.demon.hasDemon is False
 
 
 class Test0x69Roundtrip:

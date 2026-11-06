@@ -453,61 +453,6 @@ class D2SStruct:
         self.demon = Demon()
         self.gameVersion = 0
 
-    # Transitional property aliases
-    @property
-    def dwMajic(self) -> int: return self.magic
-    @dwMajic.setter
-    def dwMajic(self, v: int): self.magic = v
-
-    @property
-    def dwVersion(self) -> int: return self.version
-    @dwVersion.setter
-    def dwVersion(self, v: int): self.version = v
-
-    @property
-    def QuestInfo(self) -> QuestInfo: return self.quests
-    @QuestInfo.setter
-    def QuestInfo(self, v: QuestInfo): self.quests = v
-
-    @property
-    def Waypoints(self) -> Waypoints: return self.waypoints
-    @Waypoints.setter
-    def Waypoints(self, v: Waypoints): self.waypoints = v
-
-    @property
-    def PlayerStats(self) -> PlayerStats: return self.player_stats
-    @PlayerStats.setter
-    def PlayerStats(self, v: PlayerStats): self.player_stats = v
-
-    @property
-    def Skills(self) -> CharSkills: return self.skills
-    @Skills.setter
-    def Skills(self, v: CharSkills): self.skills = v
-
-    @property
-    def ItemList(self) -> ItemList: return self.item_list
-    @ItemList.setter
-    def ItemList(self, v: ItemList): self.item_list = v
-
-    @property
-    def stCorpse(self) -> Corpse: return self.corpse
-    @stCorpse.setter
-    def stCorpse(self, v: Corpse): self.corpse = v
-
-    @property
-    def stMercenary(self) -> Mercenary: return self.mercenary
-    @stMercenary.setter
-    def stMercenary(self, v: Mercenary): self.mercenary = v
-
-    @property
-    def stGolem(self) -> Golem: return self.golem
-    @stGolem.setter
-    def stGolem(self, v: Golem): self.golem = v
-
-    @property
-    def stDemon(self) -> Demon: return self.demon
-    @stDemon.setter
-    def stDemon(self, v: Demon): self.demon = v
     
     def deserialize(self, bs):
         self.magic = bs.read_dword()
@@ -567,27 +512,27 @@ class D2SStruct:
         name_bytes = self.previewData[name_offset:name_offset+96]
         self.Name = name_bytes.split(b'\x00')[0]
         
-        self.QuestInfo.deserialize(bs)
+        self.quests.deserialize(bs)
         
-        self.Waypoints.deserialize(bs)
+        self.waypoints.deserialize(bs)
         
         self.NPC = bs.data[bs.bytes_pos:bs.bytes_pos+0x34]
         bs.bytes_pos += 0x34
         
-        self.PlayerStats.deserialize(bs)
+        self.player_stats.deserialize(bs)
         
-        self.Skills.deserialize(bs)
+        self.skills.deserialize(bs)
         
-        self.ItemList.deserialize(bs, self.dwVersion)
+        self.item_list.deserialize(bs, self.version)
         
-        self.stCorpse.deserialize(bs, self.dwVersion)
+        self.corpse.deserialize(bs, self.version)
         
         if self.is_expansion():
-            self.stMercenary.deserialize(bs, self.has_mercenary(), self.dwVersion)
-            self.stGolem.deserialize(bs, self.dwVersion)
+            self.mercenary.deserialize(bs, self.has_mercenary(), self.version)
+            self.golem.deserialize(bs, self.version)
         
-        if self.dwVersion >= 0x69 and self.gameVersion >= 3:
-            self.stDemon.deserialize(bs)
+        if self.version >= 0x69 and self.gameVersion >= 3:
+            self.demon.deserialize(bs)
         
         bs.align_byte()
     
@@ -642,53 +587,53 @@ class D2SStruct:
         
         self.previewSuffix = bs.read_dword()
         
-        self.QuestInfo.deserialize(bs)
+        self.quests.deserialize(bs)
         
         # 读取传送点信息
-        self.Waypoints.deserialize(bs)
+        self.waypoints.deserialize(bs)
         
         # 读取NPC信息
         self.NPC = bs.data[bs.bytes_pos:bs.bytes_pos+0x34]
         bs.bytes_pos += 0x34
         
         # 读取人物属性
-        self.PlayerStats.deserialize(bs)
+        self.player_stats.deserialize(bs)
         
         # 读取技能信息
-        self.Skills.deserialize(bs)
+        self.skills.deserialize(bs)
         
         # 读取物品列表
-        self.ItemList.deserialize(bs, self.dwVersion)
+        self.item_list.deserialize(bs, self.version)
         
         # 读取尸体
-        self.stCorpse.deserialize(bs, self.dwVersion)
+        self.corpse.deserialize(bs, self.version)
         
         # 如果是扩展版，读取雇佣兵和石魔
         if self.is_expansion():
-            self.stMercenary.deserialize(bs, self.has_mercenary(), self.dwVersion)
-            self.stGolem.deserialize(bs, self.dwVersion)
+            self.mercenary.deserialize(bs, self.has_mercenary(), self.version)
+            self.golem.deserialize(bs, self.version)
         
         bs.align_byte()
     
     def has_mercenary(self):
-        if self.dwVersion >= 0x69:
+        if self.version >= 0x69:
             return self.mercSeed != 0 or self.mercNameIndex != 0 or self.mercExperience != 0
-        elif self.dwVersion >= 0x61:
+        elif self.version >= 0x61:
             return self.dwMercControl != 0
         else:
             return self.wMercName > 0
 
     @property
     def merc_name_id(self) -> int:
-        return self.mercNameIndex if self.dwVersion >= 0x69 else getattr(self, 'wMercName', 0)
+        return self.mercNameIndex if self.version >= 0x69 else getattr(self, 'wMercName', 0)
 
     @property
     def merc_type_id(self) -> int:
-        return self.mercHirelingId if self.dwVersion >= 0x69 else getattr(self, 'wMercType', 0)
+        return self.mercHirelingId if self.version >= 0x69 else getattr(self, 'wMercType', 0)
 
     @property
     def merc_experience(self) -> int:
-        return self.mercExperience if self.dwVersion >= 0x69 else getattr(self, 'dwMercExp', 0)
+        return self.mercExperience if self.version >= 0x69 else getattr(self, 'dwMercExp', 0)
 
     @property
     def merc_is_dead(self) -> bool:
@@ -698,7 +643,7 @@ class D2SStruct:
         return (self.charFlags & 0x40) != 0
     
     def is_expansion(self):
-        if self.dwVersion >= 0x69:
+        if self.version >= 0x69:
             return self.gameVersion > 1
         if (self.charFlags & 0x20) != 0:
             return True
@@ -731,9 +676,9 @@ class D2SStruct:
         return "Unknown"
     
     def get_char_name(self):
-        if self.dwVersion >= 0x69:
+        if self.version >= 0x69:
             name_data = self.Name
-        elif self.dwVersion >= 0x62:
+        elif self.version >= 0x62:
             name_data = self.NamePTR
         else:
             name_data = self.Name
@@ -742,7 +687,7 @@ class D2SStruct:
             name_bytes = name_data[:null_pos]
         else:
             name_bytes = name_data
-        if self.dwVersion >= 0x62:
+        if self.version >= 0x62:
             name = name_bytes.decode('utf-8', errors='replace')
         else:
             name = name_bytes.decode('ascii', errors='replace')
@@ -806,20 +751,20 @@ class D2SStruct:
         
         bs.write_bytes(self.previewData)
         
-        self.QuestInfo.serialize(bs)
-        self.Waypoints.serialize(bs)
+        self.quests.serialize(bs)
+        self.waypoints.serialize(bs)
         bs.write_bytes(self.NPC)
-        self.PlayerStats.serialize(bs)
-        self.Skills.serialize(bs)
-        self.ItemList.serialize(bs, self.dwVersion)
-        self.stCorpse.serialize(bs, self.dwVersion)
+        self.player_stats.serialize(bs)
+        self.skills.serialize(bs)
+        self.item_list.serialize(bs, self.version)
+        self.corpse.serialize(bs, self.version)
         
         if self.is_expansion():
-            self.stMercenary.serialize(bs, self.has_mercenary(), self.dwVersion)
-            self.stGolem.serialize(bs, self.dwVersion)
+            self.mercenary.serialize(bs, self.has_mercenary(), self.version)
+            self.golem.serialize(bs, self.version)
         
-        if self.dwVersion >= 0x69 and self.gameVersion >= 3:
-            self.stDemon.serialize(bs)
+        if self.version >= 0x69 and self.gameVersion >= 3:
+            self.demon.serialize(bs)
         
         bs.align_byte()
     
@@ -860,17 +805,17 @@ class D2SStruct:
         bs.write_bytes(self.NamePTR)
         bs.write_dword(self.previewSuffix)
         
-        self.QuestInfo.serialize(bs)
-        self.Waypoints.serialize(bs)
+        self.quests.serialize(bs)
+        self.waypoints.serialize(bs)
         bs.write_bytes(self.NPC)
-        self.PlayerStats.serialize(bs)
-        self.Skills.serialize(bs)
-        self.ItemList.serialize(bs, self.dwVersion)
-        self.stCorpse.serialize(bs, self.dwVersion)
+        self.player_stats.serialize(bs)
+        self.skills.serialize(bs)
+        self.item_list.serialize(bs, self.version)
+        self.corpse.serialize(bs, self.version)
         
         if self.is_expansion():
-            self.stMercenary.serialize(bs, self.has_mercenary(), self.dwVersion)
-            self.stGolem.serialize(bs, self.dwVersion)
+            self.mercenary.serialize(bs, self.has_mercenary(), self.version)
+            self.golem.serialize(bs, self.version)
         
         bs.align_byte()
     

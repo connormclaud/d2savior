@@ -216,10 +216,10 @@ class TestSummaryMode(unittest.TestCase):
         char.player_stats.stat_values[0xF] = 2500000 # Gold stash
 
         # Skills
-        char.Skills.wMagic = 0x6669
-        char.Skills.bSkillLevel[20] = 20  # Blizzard
-        char.Skills.bSkillLevel[25] = 15  # Cold Mastery
-        char.Skills.bSkillLevel[8] = 1    # Teleport
+        char.skills.wMagic = 0x6669
+        char.skills.bSkillLevel[20] = 20  # Blizzard
+        char.skills.bSkillLevel[25] = 15  # Cold Mastery
+        char.skills.bSkillLevel[8] = 1    # Teleport
 
         # Items
         class MockItemList:
@@ -254,7 +254,7 @@ class TestSummaryMode(unittest.TestCase):
         pot2.iLocation = ItemLocation.BELT
         pot2.type_name = b'hp5 '
 
-        char.ItemList = MockItemList([helm, charm, pot1, pot2])
+        char.item_list = MockItemList([helm, charm, pot1, pot2])
 
         output = format_char_summary(char)
 
@@ -392,10 +392,10 @@ class TestSummaryMode(unittest.TestCase):
         char_data = D2SStruct()
         self.assertEqual(_get_character_skills(char_data), [])
 
-        char_data.Skills.wMagic = 0x6669
+        char_data.skills.wMagic = 0x6669
         char_data.charClass = 1  # Sorceress (base skill 36)
-        char_data.Skills.bSkillLevel[18] = 20  # 36 + 18 = 54 (Teleport)
-        char_data.Skills.bSkillLevel[0] = 5   # 36 + 0 = 36 (Fire Bolt)
+        char_data.skills.bSkillLevel[18] = 20  # 36 + 18 = 54 (Teleport)
+        char_data.skills.bSkillLevel[0] = 5   # 36 + 0 = 36 (Fire Bolt)
 
         skills = _get_character_skills(char_data)
         self.assertEqual(len(skills), 2)

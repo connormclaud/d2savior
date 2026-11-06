@@ -497,14 +497,14 @@ def format_quests_info(char_data: D2SStruct) -> str:
 
 def _get_character_skills(char_data: D2SStruct, resolver: Optional[GameDataResolver] = None) -> List[Tuple[int, str, int]]:
     """Return invested skills as a list of (skill_index, skill_name, level) tuples."""
-    if not getattr(char_data, 'Skills', None) or char_data.Skills.wMagic != 0x6669:
+    if not getattr(char_data, 'skills', None) or char_data.skills.wMagic != 0x6669:
         return []
     if resolver is None:
         ensure_data_loaded()
-        version = char_data.dwVersion if char_data.dwVersion else 0x63
+        version = char_data.version if char_data.version else 0x63
         resolver = GameDataResolver(version)
     skills = []
-    for i, level in enumerate(char_data.Skills.bSkillLevel):
+    for i, level in enumerate(char_data.skills.bSkillLevel):
         if level > 0:
             skill_name = ""
             if 0 <= char_data.charClass < len(CLASS_SKILL_BASES):
@@ -521,10 +521,10 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     char_name = char_data.get_char_name()
     result.append(f"Name: {char_name}")
     if resolver is None:
-        resolver = GameDataResolver(char_data.dwVersion)
+        resolver = GameDataResolver(char_data.version)
     result.append(f"Class: {resolver.get_localized_class_name(char_data.charClass)}")
     result.append(f"Level: {char_data.charLevel}")
-    result.append(f"Version: 0x{char_data.dwVersion:X}")
+    result.append(f"Version: 0x{char_data.version:X}")
     result.append(f"Hardcore: {'Yes' if char_data.is_hardcore() else 'No'}")
     result.append(f"Ladder: {'Yes' if char_data.is_ladder() else 'No'}")
     result.append(f"Expansion: {'Yes' if char_data.is_expansion() else 'No'}")
@@ -547,7 +547,7 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     result.append(f"Last Save Time: {format_timestamp(last_save_time)}")
     result.append(f"Play Time: {format_duration(play_time)}")
 
-    if char_data.dwVersion >= 0x69:
+    if char_data.version >= 0x69:
         result.append(f"Game Version: {getattr(char_data, 'gameVersion', 0)}")
     else:
         result.append(f"NumStats/NumSkills: 0x{getattr(char_data, 'numStatsNumSkills', 0):04X}")
@@ -556,7 +556,7 @@ def format_char_info(char_data: D2SStruct, resolver=None):
 
     result.append("")
     result.append("=== Player Stats ===")
-    stats = char_data.PlayerStats
+    stats = char_data.player_stats
     if stats.is_valid:
         result.append(f"Strength: {stats.strength}")
         result.append(f"Energy: {stats.energy}")
@@ -576,7 +576,7 @@ def format_char_info(char_data: D2SStruct, resolver=None):
         result.append(f"Gold in Stash: {stats.gold_stash}")
     result.append("")
     result.append("=== Skills ===")
-    resolver = GameDataResolver(char_data.dwVersion)
+    resolver = GameDataResolver(char_data.version)
     skills = _get_character_skills(char_data, resolver)
     if skills:
         result.append("Skill levels:")
@@ -591,19 +591,19 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     result.extend(_format_quests_lines(char_data))
     result.append("")
     result.append("=== Items ===")
-    item_list = getattr(char_data, 'item_list', None) or getattr(char_data, 'ItemList', None)
-    if item_list and (getattr(item_list, 'magic', getattr(item_list, 'wMajic', None)) == 0x4D4A):
-        items = getattr(item_list, 'items', getattr(item_list, 'vItems', []))
+    item_list = getattr(char_data, 'item_list', None)
+    if item_list and getattr(item_list, 'magic', None) == 0x4D4A:
+        items = getattr(item_list, 'items', [])
         result.append(f"Total items: {len(items)}")
         for i, item in enumerate(items):
             result.append(f"--- Item {i} ---")
             result.extend(_format_item_lines(item, version=char_data.version, resolver=resolver))
     result.append("")
     result.append("=== Corpse ===")
-    if char_data.stCorpse.has_corpse():
+    if char_data.corpse.has_corpse():
         result.append("Has corpse")
-        if char_data.stCorpse.pCorpseData and char_data.stCorpse.pCorpseData.stItems:
-            result.append(f"Corpse items: {char_data.stCorpse.pCorpseData.stItems.count}")
+        if char_data.corpse.pCorpseData and char_data.corpse.pCorpseData.stItems:
+            result.append(f"Corpse items: {char_data.corpse.pCorpseData.stItems.count}")
     else:
         result.append("No corpse")
     result.append("")
@@ -611,7 +611,7 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     if char_data.is_expansion():
         if char_data.has_mercenary():
             result.append(f"Has mercenary (Name: {char_data.merc_name_id}, Type: {char_data.merc_type_id})")
-            if char_data.dwVersion >= 0x69:
+            if char_data.version >= 0x69:
                 merc_seed = getattr(char_data, 'mercSeed', 0)
                 merc_flags = getattr(char_data, 'mercFlags', 0)
                 result.append(f"Mercenary Seed: 0x{merc_seed:08X}")
@@ -620,11 +620,11 @@ def format_char_info(char_data: D2SStruct, resolver=None):
             else:
                 result.append(f"Mercenary Exp: {char_data.merc_experience}")
                 result.append(f"Merc Dead: {'Yes' if char_data.merc_is_dead else 'No'}")
-            if char_data.stMercenary.stItems:
-                result.append(f"Mercenary items: {char_data.stMercenary.stItems.count}")
-                for i, item in enumerate(char_data.stMercenary.stItems.items):
+            if char_data.mercenary.stItems:
+                result.append(f"Mercenary items: {char_data.mercenary.stItems.count}")
+                for i, item in enumerate(char_data.mercenary.stItems.items):
                     result.append(f"--- Mercenary Item {i} ---")
-                    result.extend(_format_item_lines(item, version=char_data.dwVersion, resolver=resolver))
+                    result.extend(_format_item_lines(item, version=char_data.version, resolver=resolver))
         else:
             result.append("No mercenary")
     else:
@@ -632,7 +632,7 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     result.append("")
     result.append("=== Golem ===")
     if char_data.is_expansion():
-        if char_data.stGolem.bHasGolem:
+        if char_data.golem.bHasGolem:
             result.append("Has golem")
         else:
             result.append("No golem")
@@ -640,8 +640,8 @@ def format_char_info(char_data: D2SStruct, resolver=None):
         result.append("Not expansion character")
     result.append("")
     result.append("=== Demon ===")
-    if char_data.stDemon.hasDemon:
-        result.append(f"Has demon (Magic: 0x{char_data.stDemon.wMagic:X})")
+    if char_data.demon.hasDemon:
+        result.append(f"Has demon (Magic: 0x{char_data.demon.wMagic:X})")
     else:
         result.append("No demon")
     return '\n'.join(result)
@@ -652,7 +652,7 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     result = []
     result.append("=== Diablo II Character Summary ===")
     char_name = char_data.get_char_name()
-    version = char_data.dwVersion if char_data.dwVersion else 0x63
+    version = char_data.version if char_data.version else 0x63
     if resolver is None:
         resolver = GameDataResolver(version)
     char_class = resolver.get_localized_class_name(char_data.charClass)
@@ -674,7 +674,7 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     if time_parts:
         result.append(" | ".join(time_parts))
 
-    stats = char_data.PlayerStats
+    stats = char_data.player_stats
     if stats.is_valid:
         result.append(f"Attributes: Str: {stats.strength}, Dex: {stats.dexterity}, Vit: {stats.vitality}, Ene: {stats.energy}")
         result.append(f"Life: {stats.current_life}/{stats.max_life} | Mana: {stats.current_mana}/{stats.max_mana} | Gold: {stats.gold} (Person), {stats.gold_stash} (Stash)")
@@ -707,9 +707,9 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     belt_items = []
     cursor_items = []
 
-    item_list = getattr(char_data, 'item_list', None) or getattr(char_data, 'ItemList', None)
-    if item_list and (getattr(item_list, 'magic', getattr(item_list, 'wMajic', None)) == 0x4D4A):
-        items = getattr(item_list, 'items', getattr(item_list, 'vItems', []))
+    item_list = getattr(char_data, 'item_list', None)
+    if item_list and getattr(item_list, 'magic', None) == 0x4D4A:
+        items = getattr(item_list, 'items', [])
         for item in items:
             loc = ItemLocation(item.iLocation)
             if loc == ItemLocation.EQUIPPED:
@@ -742,9 +742,9 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     if char_data.is_expansion() and char_data.has_mercenary():
         dead_str = " (Dead)" if char_data.merc_is_dead else ""
         result.append(f"Mercenary: Name Index {char_data.merc_name_id}, Type {char_data.merc_type_id}{dead_str}")
-        if char_data.stMercenary.stItems and char_data.stMercenary.stItems.items:
+        if char_data.mercenary.stItems and char_data.mercenary.stItems.items:
             result.append("Equipped:")
-            for m_item in char_data.stMercenary.stItems.items:
+            for m_item in char_data.mercenary.stItems.items:
                 loc = ItemLocation(m_item.iLocation)
                 slot_str = ""
                 if loc == ItemLocation.EQUIPPED and m_item.iPosition in EquipSlot._value2member_map_:
