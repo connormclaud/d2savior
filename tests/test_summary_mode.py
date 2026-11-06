@@ -426,24 +426,26 @@ class TestSummaryMode(unittest.TestCase):
     def test_ensure_data_loaded(self):
         import d2s_parse
         from core.d2data import get_d2data_manager
+        from core.localized_data import get_localized_data
 
         # Initial call ensures default language loaded
         d2s_parse.ensure_data_loaded()
         self.assertIsNotNone(get_d2data_manager())
-        self.assertEqual(d2s_parse._data_loaded_lang, "enUS")
+        self.assertEqual(get_localized_data().current_lang, "enUS")
 
         # Second call with same language is a no-op
         prev_mgr = get_d2data_manager()
         d2s_parse.ensure_data_loaded(lang_key="enUS")
         self.assertIs(get_d2data_manager(), prev_mgr)
+        self.assertEqual(get_localized_data().current_lang, "enUS")
 
-        # Force reloading or changing language works
-        d2s_parse.ensure_data_loaded(lang_key="zhCN", force=True)
-        self.assertEqual(d2s_parse._data_loaded_lang, "zhCN")
+        # Switching language updates localized data
+        d2s_parse.ensure_data_loaded(lang_key="zhCN")
+        self.assertEqual(get_localized_data().current_lang, "zhCN")
 
         # Restore back to enUS
-        d2s_parse.ensure_data_loaded(lang_key="enUS", force=True)
-        self.assertEqual(d2s_parse._data_loaded_lang, "enUS")
+        d2s_parse.ensure_data_loaded(lang_key="enUS")
+        self.assertEqual(get_localized_data().current_lang, "enUS")
 
 
 if __name__ == '__main__':

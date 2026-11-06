@@ -9,7 +9,7 @@ from core.ibitstream import IBitStream
 from core.property import format_property, init_item_modifiers, get_skill_name
 from core.d2data import init_d2data, get_d2data, get_d2data_manager, GameDataResolver
 from core.item import ITEM_FLAG_LABELS
-from core.localized_data import init_localized_data
+from core.localized_data import init_localized_data, get_localized_data, set_language
 from core.enums import StoredIn, ItemLocation, ItemQuality, EquipSlot
 from core.stash import (
     SharedStash,
@@ -159,22 +159,16 @@ QUESTS_BY_ACT = [
     ])
 ]
 
-_data_loaded_lang: Optional[str] = None
-
-
 def ensure_data_loaded(lang_key: str = "enUS", data_dir: Optional[str] = None, force: bool = False):
     """Ensure game and localization data are loaded into core managers."""
-    global _data_loaded_lang
-    if not force:
-        if _data_loaded_lang == lang_key:
-            return
-        if _data_loaded_lang is not None and (lang_key is None or lang_key == "enUS"):
-            return
-        if get_d2data_manager() is not None and (lang_key is None or lang_key == "enUS") and _data_loaded_lang is None:
-            _data_loaded_lang = "enUS"
-            return
+    actual_lang = lang_key or "enUS"
+    mgr = get_d2data_manager()
+    loc = get_localized_data()
 
-    actual_lang = lang_key if lang_key else "enUS"
+    if not force and mgr is not None:
+        if loc.current_lang != actual_lang:
+            set_language(actual_lang)
+        return
 
     if data_dir is None:
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -190,8 +184,6 @@ def ensure_data_loaded(lang_key: str = "enUS", data_dir: Optional[str] = None, f
         item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
         if os.path.exists(item_modifiers_file):
             init_item_modifiers(item_modifiers_file, lang_key=actual_lang)
-
-    _data_loaded_lang = actual_lang
 
 def get_char_type_name(char_type):
     flags = []
