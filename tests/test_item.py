@@ -151,8 +151,8 @@ class TestCLongName(unittest.TestCase):
 class TestCGoldQuantity(unittest.TestCase):
     def test_gold_quantity_creation(self):
         gold = GoldQuantity()
-        self.assertFalse(gold.bNotGold)
-        self.assertEqual(gold.wQuantity, 0)
+        self.assertFalse(gold.is_not_gold)
+        self.assertEqual(gold.quantity, 0)
 
 
 class TestCPropertyList(unittest.TestCase):

@@ -735,17 +735,6 @@ class GoldQuantity:
         self.is_not_gold = False
         self.quantity = 0
 
-    # Transitional property aliases
-    @property
-    def bNotGold(self) -> bool: return self.is_not_gold
-    @bNotGold.setter
-    def bNotGold(self, v: bool): self.is_not_gold = v
-
-    @property
-    def wQuantity(self) -> int: return self.quantity
-    @wQuantity.setter
-    def wQuantity(self, v: int): self.quantity = v
-
     def deserialize(self, bs):
         self.is_not_gold = bs.read_bits(1) != 0
         self.quantity = bs.read_bits(12)

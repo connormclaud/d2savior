@@ -377,8 +377,8 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[s
 
         if getattr(info, 'iAdvancedStashStackSize', 0) > 0:
             result.append(f"{indent}Stack Size: {info.iAdvancedStashStackSize}")
-        if info.pGold:
-            result.append(f"{indent}Gold: {info.pGold.wQuantity}")
+        if info.gold:
+            result.append(f"{indent}Gold: {info.gold.quantity}")
 
     if item.aGemItems:
         for j, gem in enumerate(item.aGemItems):
