@@ -242,6 +242,21 @@ class TestCD2Item(unittest.TestCase):
         item = D2Item()
         self.assertFalse(item.is_rune_word())
 
+    def test_d2_item_get_flag_names(self):
+        item = D2Item()
+        # Default flags: bIdentified=True, bJustSaved=True
+        flags = item.get_flag_names()
+        self.assertIn("Identified", flags)
+        self.assertIn("JustSaved", flags)
+
+        item.bEthereal = True
+        item.bSocketed = True
+        item.bRuneWord = True
+        flags = item.get_flag_names()
+        self.assertIn("Ethereal", flags)
+        self.assertIn("Socketed", flags)
+        self.assertIn("RuneWord", flags)
+
 
 class TestCD2ItemVersionDifferences(unittest.TestCase):
     """测试 0x63 与 0x69 版本物品格式差异"""

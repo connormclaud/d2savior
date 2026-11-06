@@ -8,6 +8,7 @@ from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 from core.property import format_property, init_item_modifiers, get_skill_name
 from core.d2data import init_d2data, get_d2data, get_d2data_manager, GameDataResolver
+from core.item import ITEM_FLAG_LABELS
 from core.localized_data import init_localized_data
 from core.enums import StoredIn, ItemLocation, ItemQuality, EquipSlot
 from core.stash import (
@@ -379,35 +380,9 @@ def format_item_info(item, indent="  ", version=None, resolver=None):
     quality = ItemQuality(item.quality())
     result.append(f"{indent}Quality: {quality}")
     
-    flags = []
-    if item.bIdentified:
-        flags.append("Identified")
-    if item.bSocketed:
-        flags.append("Socketed")
-    if item.bEthereal:
-        flags.append("Ethereal")
-    if item.bRuneWord:
-        flags.append("RuneWord")
-    if item.bPersonalized:
-        flags.append("Personalized")
-    if item.bQuest:
-        flags.append("Quest")
-    if getattr(item, 'bNoSell', False):
-        flags.append("NoSell")
-    if getattr(item, 'bNamed', False):
-        flags.append("Named")
-    if getattr(item, 'bJustSaved', False):
-        flags.append("JustSaved")
-    if getattr(item, 'bLowQuality', False):
-        flags.append("LowQuality")
-    if getattr(item, 'bDisabled', False):
-        flags.append("Broken")
-    if getattr(item, 'bNew', False):
-        flags.append("InStore")
-    if getattr(item, 'bBadEquipped', False):
-        flags.append("NoEquip")
-    if getattr(item, 'bNewbie', False):
-        flags.append("StarterItem")
+    flags = item.get_flag_names() if hasattr(item, 'get_flag_names') else [
+        label for attr, label in ITEM_FLAG_LABELS if getattr(item, attr, False)
+    ]
     if flags:
         result.append(f"{indent}Flags: {', '.join(flags)}")
     
@@ -655,23 +630,24 @@ def format_char_info(char_data: D2SStruct):
     
     result.append("")
     result.append("=== Player Stats ===")
-    if char_data.PlayerStats.wMajic == 0x6667:
-        result.append(f"Strength: {char_data.PlayerStats.m_adwValue[0]}")
-        result.append(f"Energy: {char_data.PlayerStats.m_adwValue[1]}")
-        result.append(f"Dexterity: {char_data.PlayerStats.m_adwValue[2]}")
-        result.append(f"Vitality: {char_data.PlayerStats.m_adwValue[3]}")
-        result.append(f"Stat Points Remaining: {char_data.PlayerStats.m_adwValue[4]}")
-        result.append(f"Skill Points Remaining: {char_data.PlayerStats.m_adwValue[5]}")
-        result.append(f"Current Life: {char_data.PlayerStats.m_adwValue[6] >> 8}")
-        result.append(f"Maximum Life: {char_data.PlayerStats.m_adwValue[7] >> 8}")
-        result.append(f"Current Mana: {char_data.PlayerStats.m_adwValue[8] >> 8}")
-        result.append(f"Maximum Mana: {char_data.PlayerStats.m_adwValue[9] >> 8}")
-        result.append(f"Current Stamina: {char_data.PlayerStats.m_adwValue[0xA] >> 8}")
-        result.append(f"Maximum Stamina: {char_data.PlayerStats.m_adwValue[0xB] >> 8}")
-        result.append(f"Level: {char_data.PlayerStats.m_adwValue[0xC]}")
-        result.append(f"Experience: {char_data.PlayerStats.m_adwValue[0xD]}")
-        result.append(f"Gold on Person: {char_data.PlayerStats.m_adwValue[0xE]}")
-        result.append(f"Gold in Stash: {char_data.PlayerStats.m_adwValue[0xF]}")
+    stats = char_data.PlayerStats
+    if stats.is_valid:
+        result.append(f"Strength: {stats.strength}")
+        result.append(f"Energy: {stats.energy}")
+        result.append(f"Dexterity: {stats.dexterity}")
+        result.append(f"Vitality: {stats.vitality}")
+        result.append(f"Stat Points Remaining: {stats.stat_points_remaining}")
+        result.append(f"Skill Points Remaining: {stats.skill_points_remaining}")
+        result.append(f"Current Life: {stats.current_life}")
+        result.append(f"Maximum Life: {stats.max_life}")
+        result.append(f"Current Mana: {stats.current_mana}")
+        result.append(f"Maximum Mana: {stats.max_mana}")
+        result.append(f"Current Stamina: {stats.current_stamina}")
+        result.append(f"Maximum Stamina: {stats.max_stamina}")
+        result.append(f"Level: {stats.level}")
+        result.append(f"Experience: {stats.experience}")
+        result.append(f"Gold on Person: {stats.gold}")
+        result.append(f"Gold in Stash: {stats.gold_stash}")
     result.append("")
     result.append("=== Skills ===")
     resolver = GameDataResolver(char_data.dwVersion)
@@ -706,23 +682,16 @@ def format_char_info(char_data: D2SStruct):
     result.append("=== Mercenary ===")
     if char_data.is_expansion():
         if char_data.has_mercenary():
+            result.append(f"Has mercenary (Name: {char_data.merc_name_id}, Type: {char_data.merc_type_id})")
             if char_data.dwVersion >= 0x69:
                 merc_seed = getattr(char_data, 'mercSeed', 0)
-                merc_name = getattr(char_data, 'mercNameIndex', 0)
-                merc_type = getattr(char_data, 'mercHirelingId', 0)
-                merc_exp = getattr(char_data, 'mercExperience', 0)
                 merc_flags = getattr(char_data, 'mercFlags', 0)
-                result.append(f"Has mercenary (Name: {merc_name}, Type: {merc_type})")
                 result.append(f"Mercenary Seed: 0x{merc_seed:08X}")
-                result.append(f"Mercenary Exp: {merc_exp}")
+                result.append(f"Mercenary Exp: {char_data.merc_experience}")
                 result.append(f"Mercenary Flags: 0x{merc_flags:08X}")
             else:
-                merc_name = getattr(char_data, 'wMercName', 0)
-                merc_type = getattr(char_data, 'wMercType', 0)
-                merc_exp = getattr(char_data, 'dwMercExp', 0)
-                result.append(f"Has mercenary (Name: {merc_name}, Type: {merc_type})")
-                result.append(f"Mercenary Exp: {merc_exp}")
-                result.append(f"Merc Dead: {'Yes' if getattr(char_data, 'bMercDead', 0) else 'No'}")
+                result.append(f"Mercenary Exp: {char_data.merc_experience}")
+                result.append(f"Merc Dead: {'Yes' if char_data.merc_is_dead else 'No'}")
             if char_data.stMercenary.stItems:
                 result.append(f"Mercenary items: {char_data.stMercenary.stItems.nItems}")
                 for i, item in enumerate(char_data.stMercenary.stItems.vItems):
@@ -772,23 +741,12 @@ def format_char_summary(char_data: D2SStruct) -> str:
     if time_parts:
         result.append(" | ".join(time_parts))
         
-    if char_data.PlayerStats.wMajic == 0x6667:
-        str_val = char_data.PlayerStats.m_adwValue[0]
-        ene_val = char_data.PlayerStats.m_adwValue[1]
-        dex_val = char_data.PlayerStats.m_adwValue[2]
-        vit_val = char_data.PlayerStats.m_adwValue[3]
-        stat_pts = char_data.PlayerStats.m_adwValue[4]
-        skill_pts = char_data.PlayerStats.m_adwValue[5]
-        cur_life = char_data.PlayerStats.m_adwValue[6] >> 8
-        max_life = char_data.PlayerStats.m_adwValue[7] >> 8
-        cur_mana = char_data.PlayerStats.m_adwValue[8] >> 8
-        max_mana = char_data.PlayerStats.m_adwValue[9] >> 8
-        gold_person = char_data.PlayerStats.m_adwValue[0xE]
-        gold_stash = char_data.PlayerStats.m_adwValue[0xF]
-        result.append(f"Attributes: Str: {str_val}, Dex: {dex_val}, Vit: {vit_val}, Ene: {ene_val}")
-        result.append(f"Life: {cur_life}/{max_life} | Mana: {cur_mana}/{max_mana} | Gold: {gold_person} (Person), {gold_stash} (Stash)")
-        if stat_pts > 0 or skill_pts > 0:
-            result.append(f"Remaining Points: {stat_pts} Stat, {skill_pts} Skill")
+    stats = char_data.PlayerStats
+    if stats.is_valid:
+        result.append(f"Attributes: Str: {stats.strength}, Dex: {stats.dexterity}, Vit: {stats.vitality}, Ene: {stats.energy}")
+        result.append(f"Life: {stats.current_life}/{stats.max_life} | Mana: {stats.current_mana}/{stats.max_mana} | Gold: {stats.gold} (Person), {stats.gold_stash} (Stash)")
+        if stats.stat_points_remaining > 0 or stats.skill_points_remaining > 0:
+            result.append(f"Remaining Points: {stats.stat_points_remaining} Stat, {stats.skill_points_remaining} Skill")
 
     result.append("")
     result.append("=== Skills ===")
@@ -849,10 +807,8 @@ def format_char_summary(char_data: D2SStruct) -> str:
     result.append("")
     result.append("=== Mercenary ===")
     if char_data.is_expansion() and char_data.has_mercenary():
-        merc_name = getattr(char_data, 'mercNameIndex', 0) if char_data.dwVersion >= 0x69 else getattr(char_data, 'wMercName', 0)
-        merc_type = getattr(char_data, 'mercHirelingId', 0) if char_data.dwVersion >= 0x69 else getattr(char_data, 'wMercType', 0)
-        dead_str = " (Dead)" if getattr(char_data, 'bMercDead', 0) else ""
-        result.append(f"Mercenary: Name Index {merc_name}, Type {merc_type}{dead_str}")
+        dead_str = " (Dead)" if char_data.merc_is_dead else ""
+        result.append(f"Mercenary: Name Index {char_data.merc_name_id}, Type {char_data.merc_type_id}{dead_str}")
         if char_data.stMercenary.stItems and char_data.stMercenary.stItems.vItems:
             result.append("Equipped:")
             for m_item in char_data.stMercenary.stItems.vItems:

@@ -178,6 +178,74 @@ class PlayerStats:
         bs.write_bits(9, 0x1FF)
         bs.align_byte()
 
+    @property
+    def is_valid(self) -> bool:
+        return self.wMajic == PLAYER_STATS_MAGIC
+
+    @property
+    def strength(self) -> int:
+        return self.m_adwValue[0]
+
+    @property
+    def energy(self) -> int:
+        return self.m_adwValue[1]
+
+    @property
+    def dexterity(self) -> int:
+        return self.m_adwValue[2]
+
+    @property
+    def vitality(self) -> int:
+        return self.m_adwValue[3]
+
+    @property
+    def stat_points_remaining(self) -> int:
+        return self.m_adwValue[4]
+
+    @property
+    def skill_points_remaining(self) -> int:
+        return self.m_adwValue[5]
+
+    @property
+    def current_life(self) -> int:
+        return self.m_adwValue[6] >> 8
+
+    @property
+    def max_life(self) -> int:
+        return self.m_adwValue[7] >> 8
+
+    @property
+    def current_mana(self) -> int:
+        return self.m_adwValue[8] >> 8
+
+    @property
+    def max_mana(self) -> int:
+        return self.m_adwValue[9] >> 8
+
+    @property
+    def current_stamina(self) -> int:
+        return self.m_adwValue[0xA] >> 8
+
+    @property
+    def max_stamina(self) -> int:
+        return self.m_adwValue[0xB] >> 8
+
+    @property
+    def level(self) -> int:
+        return self.m_adwValue[0xC]
+
+    @property
+    def experience(self) -> int:
+        return self.m_adwValue[0xD]
+
+    @property
+    def gold(self) -> int:
+        return self.m_adwValue[0xE]
+
+    @property
+    def gold_stash(self) -> int:
+        return self.m_adwValue[0xF]
+
 class CharSkills:
     def __init__(self):
         self.wMagic = 0
@@ -553,6 +621,22 @@ class D2SStruct:
             return self.dwMercControl != 0
         else:
             return self.wMercName > 0
+
+    @property
+    def merc_name_id(self) -> int:
+        return self.mercNameIndex if self.dwVersion >= 0x69 else getattr(self, 'wMercName', 0)
+
+    @property
+    def merc_type_id(self) -> int:
+        return self.mercHirelingId if self.dwVersion >= 0x69 else getattr(self, 'wMercType', 0)
+
+    @property
+    def merc_experience(self) -> int:
+        return self.mercExperience if self.dwVersion >= 0x69 else getattr(self, 'dwMercExp', 0)
+
+    @property
+    def merc_is_dead(self) -> bool:
+        return bool(getattr(self, 'bMercDead', 0))
     
     def is_ladder(self):
         return (self.charFlags & 0x40) != 0

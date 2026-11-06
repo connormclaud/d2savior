@@ -1303,6 +1303,24 @@ class ItemInfo:
         return meta
 
 
+ITEM_FLAG_LABELS = [
+    ("bIdentified", "Identified"),
+    ("bSocketed", "Socketed"),
+    ("bEthereal", "Ethereal"),
+    ("bRuneWord", "RuneWord"),
+    ("bPersonalized", "Personalized"),
+    ("bQuest", "Quest"),
+    ("bNoSell", "NoSell"),
+    ("bNamed", "Named"),
+    ("bJustSaved", "JustSaved"),
+    ("bLowQuality", "LowQuality"),
+    ("bDisabled", "Broken"),
+    ("bNew", "InStore"),
+    ("bBadEquipped", "NoEquip"),
+    ("bNewbie", "StarterItem"),
+]
+
+
 class D2Item:
     def __init__(self, meta: ItemMetaData = None):
         self.dwVersion = 0
@@ -1376,6 +1394,10 @@ class D2Item:
         if self.pItemInfo and self.pItemInfo.pExtItemInfo:
             return self.pItemInfo.pExtItemInfo.iQuality
         return 2
+
+    def get_flag_names(self) -> List[str]:
+        """Return list of human-readable flag names that are set on this item."""
+        return [label for attr, label in ITEM_FLAG_LABELS if getattr(self, attr, False)]
 
     def is_set(self) -> bool:
         return self.pItemInfo is not None and self.pItemInfo.is_set()

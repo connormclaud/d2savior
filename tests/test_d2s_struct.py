@@ -413,5 +413,73 @@ class TestD2SStruct(unittest.TestCase):
         self.assertIn("Act I: [x] [x] [x] [x] [!] Tools of the Trade (reward unclaimed) [x]", output)
         self.assertIn("Act V: [!] Siege on Harrogath (reward unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]", output)
 
+    def test_player_stats_properties(self):
+        from core.d2s_struct import PlayerStats, PLAYER_STATS_MAGIC
+
+        stats = PlayerStats()
+        self.assertFalse(stats.is_valid)
+
+        stats.wMajic = PLAYER_STATS_MAGIC
+        self.assertTrue(stats.is_valid)
+
+        stats.m_adwValue[0] = 100   # str
+        stats.m_adwValue[1] = 50    # ene
+        stats.m_adwValue[2] = 75    # dex
+        stats.m_adwValue[3] = 120   # vit
+        stats.m_adwValue[4] = 5     # stat pts
+        stats.m_adwValue[5] = 2     # skill pts
+        stats.m_adwValue[6] = 500 << 8   # cur life
+        stats.m_adwValue[7] = 600 << 8   # max life
+        stats.m_adwValue[8] = 200 << 8   # cur mana
+        stats.m_adwValue[9] = 250 << 8   # max mana
+        stats.m_adwValue[0xA] = 150 << 8 # cur stam
+        stats.m_adwValue[0xB] = 180 << 8 # max stam
+        stats.m_adwValue[0xC] = 85       # level
+        stats.m_adwValue[0xD] = 1234567  # exp
+        stats.m_adwValue[0xE] = 10000    # gold
+        stats.m_adwValue[0xF] = 2500000  # gold stash
+
+        self.assertEqual(stats.strength, 100)
+        self.assertEqual(stats.energy, 50)
+        self.assertEqual(stats.dexterity, 75)
+        self.assertEqual(stats.vitality, 120)
+        self.assertEqual(stats.stat_points_remaining, 5)
+        self.assertEqual(stats.skill_points_remaining, 2)
+        self.assertEqual(stats.current_life, 500)
+        self.assertEqual(stats.max_life, 600)
+        self.assertEqual(stats.current_mana, 200)
+        self.assertEqual(stats.max_mana, 250)
+        self.assertEqual(stats.current_stamina, 150)
+        self.assertEqual(stats.max_stamina, 180)
+        self.assertEqual(stats.level, 85)
+        self.assertEqual(stats.experience, 1234567)
+        self.assertEqual(stats.gold, 10000)
+        self.assertEqual(stats.gold_stash, 2500000)
+
+    def test_mercenary_properties(self):
+        # Version < 0x69
+        char_v60 = D2SStruct()
+        char_v60.dwVersion = 0x60
+        char_v60.wMercName = 12
+        char_v60.wMercType = 3
+        char_v60.dwMercExp = 99999
+        char_v60.bMercDead = 1
+        self.assertEqual(char_v60.merc_name_id, 12)
+        self.assertEqual(char_v60.merc_type_id, 3)
+        self.assertEqual(char_v60.merc_experience, 99999)
+        self.assertTrue(char_v60.merc_is_dead)
+
+        # Version >= 0x69
+        char_v69 = D2SStruct()
+        char_v69.dwVersion = 0x69
+        char_v69.mercNameIndex = 42
+        char_v69.mercHirelingId = 7
+        char_v69.mercExperience = 1500000
+        self.assertEqual(char_v69.merc_name_id, 42)
+        self.assertEqual(char_v69.merc_type_id, 7)
+        self.assertEqual(char_v69.merc_experience, 1500000)
+        self.assertFalse(char_v69.merc_is_dead)
+
+
 if __name__ == '__main__':
     unittest.main()
