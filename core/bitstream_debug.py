@@ -1,7 +1,5 @@
 """Bitstream inspection and pattern search utilities."""
 
-import sys
-
 
 def debug_bitstream(bs, context_bits=64, label=""):
     offset = bs.getOffset()
@@ -68,12 +66,8 @@ def run_bitstream_searches(bs, args):
     if not bs:
         return
 
-    d2s_mod = sys.modules.get('d2s_parse')
-    sb_func = getattr(d2s_mod, 'search_bits', search_bits) if d2s_mod else search_bits
-    sbytes_func = getattr(d2s_mod, 'search_bytes', search_bytes) if d2s_mod else search_bytes
-
     if getattr(args, 'search', None):
-        results = sb_func(bs, args.search)
+        results = search_bits(bs, args.search)
         print(f"\n=== Search Results for '{args.search}' ===")
         for r in results:
             print(f"Offset {r['offset']} (byte {r['byte']}, bit {r['bit']}): {r['context']}")
@@ -82,7 +76,7 @@ def run_bitstream_searches(bs, args):
 
     if getattr(args, 'search_bytes', None):
         search_byte_pattern = bytes.fromhex(args.search_bytes)
-        results = sbytes_func(bs, search_byte_pattern)
+        results = search_bytes(bs, search_byte_pattern)
         print(f"\n=== Search Results for bytes '{search_byte_pattern.hex()}' ===")
         for r in results:
             print(f"Offset {r['offset']}: {r['context']}")

@@ -10,7 +10,7 @@ import d2s_parse
 from core.ibitstream import IBitStream
 from core.d2s_struct import D2SStruct
 from core.stash import SharedStash
-from core.item import D2Item
+from core.item import D2Item, ItemInfo, TypeSpecificInfo
 
 
 class TestModularization(unittest.TestCase):
@@ -126,6 +126,58 @@ class TestModularization(unittest.TestCase):
         item_info = d2s_parse.FORMATTERS[("item", False)](mock_item)
         self.assertIn("=== Item Info ===", item_info)
         self.assertIn("Type: hp1", item_info)
+
+    def test_property_formatter_dependency_injection(self):
+        mock_prop_list = MagicMock()
+        mock_prop_list.mProperty = [1]
+        mock_prop_list.ext_sockets.return_value = 0
+        mock_prop_list.get_parsed_properties.return_value = [
+            (7, 25, [25]),
+            (999, 10, ['val']),
+        ]
+
+        # Custom injected formatter
+        custom_formatter = lambda pid, params, ver: f"CUSTOM_PROP_{pid}:{params[0]}" if pid == 7 else None
+
+        res = formatters._format_parsed_properties(
+            mock_prop_list,
+            property_formatter=custom_formatter
+        )
+        self.assertEqual(len(res), 2)
+        self.assertEqual(res[0], "CUSTOM_PROP_7:25")
+        self.assertEqual(res[1], "ID 999: raw=10, params=['val']")
+
+        # Also verify format_item_summary with injected property_formatter
+        item = D2Item()
+        item.sTypeName = b'amu '
+        item.pItemInfo = ItemInfo()
+        item.pItemInfo.pTpSpInfo = TypeSpecificInfo()
+        item.pItemInfo.pTpSpInfo.stPropertyList = mock_prop_list
+
+        summary = formatters.format_item_summary(item, property_formatter=custom_formatter)
+        self.assertIn("CUSTOM_PROP_7:25", summary)
+
+    def test_no_sys_modules_d2s_parse_hack(self):
+        import inspect
+        formatters_source = inspect.getsource(formatters)
+        bitstream_source = inspect.getsource(bitstream_debug)
+
+        self.assertNotIn("sys.modules.get('d2s_parse')", formatters_source)
+        self.assertNotIn("sys.modules", formatters_source)
+        self.assertNotIn("sys.modules.get('d2s_parse')", bitstream_source)
+        self.assertNotIn("sys.modules", bitstream_source)
+
+    def test_run_bitstream_searches_delegation(self):
+        mock_bs = MagicMock()
+        args = argparse.Namespace(search='0101', search_bytes='abcd')
+
+        with patch('core.bitstream_debug.search_bits', return_value=[{'offset': 1, 'byte': 0, 'bit': 1, 'context': 'c'}]) as mock_sb, \
+             patch('core.bitstream_debug.search_bytes', return_value=[{'offset': 2, 'context': 'cb'}]) as mock_sbytes, \
+             patch('builtins.print'):
+            bitstream_debug.run_bitstream_searches(mock_bs, args)
+
+        mock_sb.assert_called_once_with(mock_bs, '0101')
+        mock_sbytes.assert_called_once_with(mock_bs, b'\xab\xcd')
 
 
 if __name__ == '__main__':

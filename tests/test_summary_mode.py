@@ -72,7 +72,7 @@ class TestSummaryMode(unittest.TestCase):
             (998, 15, [])
         ])
 
-        with patch('d2s_parse.format_property', return_value=None):
+        with patch('core.formatters.format_property', return_value=None):
             summary = format_item_summary(item)
             self.assertIn("ID 999: raw=42, params=[1, 2]", summary)
             self.assertIn("ID 998: 15", summary)
@@ -380,7 +380,7 @@ class TestSummaryMode(unittest.TestCase):
             (999, 10, ['param1']),   # unmapped with params
             (998, 5, []),            # unmapped without params
         ]
-        with patch('d2s_parse.format_property', side_effect=lambda pid, params, ver: "+25 to Life" if pid == 7 else ""):
+        with patch('core.formatters.format_property', side_effect=lambda pid, params, ver: "+25 to Life" if pid == 7 else ""):
             formatted = _format_parsed_properties(prop_list, version=0x63)
             self.assertEqual(len(formatted), 3)
             self.assertEqual(formatted[0], "+25 to Life")
@@ -414,8 +414,8 @@ class TestSummaryMode(unittest.TestCase):
         bs = MagicMock()
         args = argparse.Namespace(search='1010', search_bytes='4a4d')
 
-        with patch('d2s_parse.search_bits', return_value=[{'offset': 10, 'byte': 1, 'bit': 2, 'context': 'ctx'}]) as mock_sb, \
-             patch('d2s_parse.search_bytes', return_value=[{'offset': 5, 'context': 'ctx_b'}]) as mock_sbytes, \
+        with patch('core.bitstream_debug.search_bits', return_value=[{'offset': 10, 'byte': 1, 'bit': 2, 'context': 'ctx'}]) as mock_sb, \
+             patch('core.bitstream_debug.search_bytes', return_value=[{'offset': 5, 'context': 'ctx_b'}]) as mock_sbytes, \
              patch('builtins.print') as mock_print:
             _run_bitstream_searches(bs, args)
             mock_sb.assert_called_once_with(bs, '1010')

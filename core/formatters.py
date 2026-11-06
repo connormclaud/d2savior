@@ -1,14 +1,13 @@
 """Full and summary text formatting for Diablo II saves, stashes, and items."""
 
 import os
-import sys
 import datetime
 from typing import Optional, List, Tuple
 
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 from core.property import (
-    format_property as _real_format_property,
+    format_property,
     init_item_modifiers,
     get_skill_name,
 )
@@ -35,15 +34,6 @@ from core.constants import (
     WAYPOINTS_BY_ACT,
     QUESTS_BY_ACT,
 )
-
-format_property = _real_format_property
-
-
-def _format_property_call(prop_id, params, version):
-    d2s_mod = sys.modules.get('d2s_parse')
-    if d2s_mod and hasattr(d2s_mod, 'format_property') and d2s_mod.format_property is not _real_format_property:
-        return d2s_mod.format_property(prop_id, params, version)
-    return format_property(prop_id, params, version)
 
 
 def ensure_data_loaded(lang_key: Optional[str] = None, data_dir: Optional[str] = None, force: bool = False):
@@ -184,13 +174,14 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
     return base_item_name
 
 
-def _format_parsed_properties(prop_list, version: int = 0x63) -> List[str]:
+def _format_parsed_properties(prop_list, version: int = 0x63, property_formatter=None) -> List[str]:
     """Format a property list into human-readable strings, falling back to raw IDs."""
     if not prop_list or not getattr(prop_list, 'mProperty', None):
         return []
+    format_func = property_formatter or format_property
     result = []
     for prop_id, value, params in prop_list.get_parsed_properties(version):
-        formatted = _format_property_call(prop_id, params, version)
+        formatted = format_func(prop_id, params, version)
         if formatted:
             result.append(formatted)
         elif params:
@@ -200,7 +191,13 @@ def _format_parsed_properties(prop_list, version: int = 0x63) -> List[str]:
     return result
 
 
-def format_item_summary(item, version=0x63, include_properties=True, resolver=None) -> str:
+def format_item_summary(
+    item,
+    version=0x63,
+    include_properties=True,
+    resolver=None,
+    property_formatter=None,
+) -> str:
     if resolver is None:
         ensure_data_loaded()
         resolver = GameDataResolver(version)
@@ -240,8 +237,8 @@ def format_item_summary(item, version=0x63, include_properties=True, resolver=No
 
     props = []
     if include_properties and tp:
-        props.extend(_format_parsed_properties(getattr(tp, 'stPropertyList', None), version))
-        props.extend(_format_parsed_properties(getattr(tp, 'stRuneWordPropertyList', None), version))
+        props.extend(_format_parsed_properties(getattr(tp, 'stPropertyList', None), version, property_formatter=property_formatter))
+        props.extend(_format_parsed_properties(getattr(tp, 'stRuneWordPropertyList', None), version, property_formatter=property_formatter))
 
     meta_str = f" [{', '.join(meta_tags)}]" if meta_tags else ""
     props_str = f" ({', '.join(props)})" if props else ""
@@ -505,13 +502,14 @@ def _get_character_skills(char_data: D2SStruct, resolver: Optional[GameDataResol
     return skills
 
 
-def format_char_info(char_data: D2SStruct):
+def format_char_info(char_data: D2SStruct, resolver=None):
     ensure_data_loaded()
     result = []
     result.append("=== Diablo II Character Info ===")
     char_name = char_data.get_char_name()
     result.append(f"Name: {char_name}")
-    resolver = GameDataResolver(char_data.dwVersion)
+    if resolver is None:
+        resolver = GameDataResolver(char_data.dwVersion)
     result.append(f"Class: {resolver.get_localized_class_name(char_data.charClass)}")
     result.append(f"Level: {char_data.charLevel}")
     result.append(f"Version: 0x{char_data.dwVersion:X}")
@@ -635,13 +633,14 @@ def format_char_info(char_data: D2SStruct):
     return '\n'.join(result)
 
 
-def format_char_summary(char_data: D2SStruct) -> str:
+def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     ensure_data_loaded()
     result = []
     result.append("=== Diablo II Character Summary ===")
     char_name = char_data.get_char_name()
     version = char_data.dwVersion if char_data.dwVersion else 0x63
-    resolver = GameDataResolver(version)
+    if resolver is None:
+        resolver = GameDataResolver(version)
     char_class = resolver.get_localized_class_name(char_data.charClass)
     flags_str = get_char_type_name(char_data.charFlags)
     char_title = getattr(char_data, 'charTitle', 0)
@@ -670,8 +669,6 @@ def format_char_summary(char_data: D2SStruct) -> str:
 
     result.append("")
     result.append("=== Skills ===")
-    version = char_data.dwVersion if char_data.dwVersion else 0x63
-    resolver = GameDataResolver(version)
     skills = _get_character_skills(char_data, resolver)
     if skills:
         active_skills = [
@@ -772,7 +769,7 @@ def format_char_summary(char_data: D2SStruct) -> str:
     return '\n'.join(result).rstrip()
 
 
-def format_stash_info(stash: SharedStash) -> str:
+def format_stash_info(stash: SharedStash, resolver=None) -> str:
     ensure_data_loaded()
     result = []
     result.append("=== Diablo II Shared Stash ===")
@@ -787,7 +784,7 @@ def format_stash_info(stash: SharedStash) -> str:
 
         items = tab.Items.vItems if tab.Items else []
         version = tab.ItemFormat if tab.ItemFormat else 0x63
-        resolver = GameDataResolver(version)
+        tab_resolver = resolver if resolver is not None else GameDataResolver(version)
         if tab.TabType == STASH_TAB_TYPE_ADVANCED:
             active_items = [
                 item for item in items
@@ -796,18 +793,18 @@ def format_stash_info(stash: SharedStash) -> str:
             result.append(f"Total items: {len(active_items)}")
             for item_idx, item in enumerate(active_items):
                 result.append(f"--- Item {item_idx} ---")
-                result.extend(format_item_info(item, version=version, resolver=resolver))
+                result.extend(format_item_info(item, version=version, resolver=tab_resolver))
         else:
             result.append(f"Total items: {len(items)}")
             for item_idx, item in enumerate(items):
                 result.append(f"--- Item {item_idx} ---")
-                result.extend(format_item_info(item, version=version, resolver=resolver))
+                result.extend(format_item_info(item, version=version, resolver=tab_resolver))
         result.append("")
 
     return '\n'.join(result).rstrip()
 
 
-def format_stash_summary(stash: SharedStash) -> str:
+def format_stash_summary(stash: SharedStash, resolver=None) -> str:
     ensure_data_loaded()
     result = []
     result.append("=== Diablo II Shared Stash Summary ===")
@@ -831,7 +828,7 @@ def format_stash_summary(stash: SharedStash) -> str:
 
         items = tab.Items.vItems if tab.Items else []
         version = tab.ItemFormat if tab.ItemFormat else 0x63
-        resolver = GameDataResolver(version)
+        cur_resolver = resolver if resolver is not None else GameDataResolver(version)
 
         if tab.TabType == STASH_TAB_TYPE_ADVANCED:
             active_items = [
@@ -860,17 +857,17 @@ def format_stash_summary(stash: SharedStash) -> str:
                         g_type, tier = GEM_CODE_MAP[code_b]
                         gem_stats[g_type][tier] += stack_size
                     elif code_b in RUNE_CODES_STRIPPED:
-                        display_name = resolver.get_localized_rune_short_name(code_str)
+                        display_name = cur_resolver.get_localized_rune_short_name(code_str)
                         runes_list.append(f"{display_name}: {stack_size}")
                     elif code_b in MATERIAL_CODES_STRIPPED:
-                        type_info = resolver.get_item(code_str)
+                        type_info = cur_resolver.get_item(code_str)
                         raw_name = type_info.name if type_info else code_str
-                        item_name = resolver.get_localized_item_name(code_str, fallback=raw_name)
+                        item_name = cur_resolver.get_localized_item_name(code_str, fallback=raw_name)
                         materials_list.append(f"{item_name}: {stack_size}")
                     else:
-                        type_info = resolver.get_item(code_str)
+                        type_info = cur_resolver.get_item(code_str)
                         raw_name = type_info.name if type_info else code_str
-                        item_name = resolver.get_localized_item_name(code_str, fallback=raw_name)
+                        item_name = cur_resolver.get_localized_item_name(code_str, fallback=raw_name)
                         other_list.append(f"{item_name}: {stack_size}")
 
                 gems_list = []
@@ -879,7 +876,7 @@ def format_stash_summary(stash: SharedStash) -> str:
                     f = gem_stats[g_type]['f']
                     o = gem_stats[g_type]['o']
                     if p > 0 or f > 0 or o > 0:
-                        loc_g_type = resolver.get_localized_gem_type_name(g_type)
+                        loc_g_type = cur_resolver.get_localized_gem_type_name(g_type)
                         gems_list.append(f"{loc_g_type}: p {p}, f {f}, o {o}")
 
                 if runes_list:
@@ -897,7 +894,7 @@ def format_stash_summary(stash: SharedStash) -> str:
                 item_counts = {}
                 item_order = []
                 for it in items:
-                    summary = format_item_summary(it, version=version, include_properties=False, resolver=resolver)
+                    summary = format_item_summary(it, version=version, include_properties=False, resolver=cur_resolver)
                     if summary not in item_counts:
                         item_counts[summary] = 0
                         item_order.append(summary)
