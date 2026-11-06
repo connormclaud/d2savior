@@ -281,11 +281,19 @@ def format_item_summary(item, version=0x63) -> str:
             formatted = format_property(prop_id, params, version)
             if formatted:
                 props.append(formatted)
+            elif params:
+                props.append(f"ID {prop_id}: raw={value}, params={params}")
+            else:
+                props.append(f"ID {prop_id}: {value}")
     if tp and tp.stRuneWordPropertyList and tp.stRuneWordPropertyList.mProperty:
         for prop_id, value, params in tp.stRuneWordPropertyList.get_parsed_properties(version):
             formatted = format_property(prop_id, params, version)
             if formatted:
                 props.append(formatted)
+            elif params:
+                props.append(f"ID {prop_id}: raw={value}, params={params}")
+            else:
+                props.append(f"ID {prop_id}: {value}")
                 
     meta_str = f" [{', '.join(meta_tags)}]" if meta_tags else ""
     props_str = f" ({', '.join(props)})" if props else ""

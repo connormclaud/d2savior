@@ -50,6 +50,33 @@ class TestSummaryMode(unittest.TestCase):
         self.assertIn("Shako", summary)
         self.assertIn("Def: 120", summary)
 
+    def test_item_summary_unmapped_property_fallback(self):
+        from unittest.mock import patch
+
+        item = D2Item()
+        item.sTypeName = b'amu '  # Amulet
+        item.pItemInfo = ItemInfo()
+        item.pItemInfo.pTpSpInfo = TypeSpecificInfo()
+        
+        class MockPropertyList:
+            def __init__(self, props):
+                self.mProperty = True
+                self.props = props
+            def get_parsed_properties(self, version=0x63):
+                return self.props
+            def ext_sockets(self):
+                return 0
+                
+        item.pItemInfo.pTpSpInfo.stPropertyList = MockPropertyList([
+            (999, 42, [1, 2]),
+            (998, 15, [])
+        ])
+
+        with patch('d2s_parse.format_property', return_value=None):
+            summary = format_item_summary(item)
+            self.assertIn("ID 999: raw=42, params=[1, 2]", summary)
+            self.assertIn("ID 998: 15", summary)
+
     def test_item_summary_currency_stack(self):
         item = D2Item()
         item.sTypeName = b'r20 '  # Lem Rune
