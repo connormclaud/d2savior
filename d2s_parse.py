@@ -2,6 +2,7 @@
 import sys
 import os
 import argparse
+import datetime
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 from core.property import format_property, init_item_modifiers, get_skill_name
@@ -70,6 +71,34 @@ def get_char_title_name(char_title, char_class):
         return "Slayer"
     else:
         return f"Unknown({char_title})"
+
+def format_timestamp(ts: int) -> str:
+    if not ts or ts == 0xFFFFFFFF or ts < 0:
+        return "N/A"
+    try:
+        dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+        return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+    except (OSError, OverflowError, ValueError):
+        return f"Unknown({ts})"
+
+def format_duration(seconds: int) -> str:
+    if seconds == 0xFFFFFFFF or seconds < 0:
+        return "N/A"
+    if seconds == 0:
+        return "0s"
+    days, rem = divmod(seconds, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, secs = divmod(rem, 60)
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    if secs > 0 or not parts:
+        parts.append(f"{secs}s")
+    return " ".join(parts)
 
 def format_item_info(item, indent="  "):
     result = []
@@ -332,14 +361,17 @@ def format_char_info(char_data: D2SStruct):
     
     result.append(f"Weapon Set: {'I' if char_data.dwWeaponSet == 0 else 'II'}")
     
+    create_time = getattr(char_data, 'createTime', 0)
+    last_save_time = getattr(char_data, 'lastSaveTime', 0) or getattr(char_data, 'dwTime', 0)
+    play_time = getattr(char_data, 'playTime', 0)
+    
+    result.append(f"Create Time: {format_timestamp(create_time)}")
+    result.append(f"Last Save Time: {format_timestamp(last_save_time)}")
+    result.append(f"Play Time: {format_duration(play_time)}")
+    
     if char_data.dwVersion >= 0x69:
-        result.append(f"Create Time: {getattr(char_data, 'createTime', 0)}")
-        result.append(f"Last Save Time: {getattr(char_data, 'lastSaveTime', 0)}")
-        result.append(f"Play Time: {getattr(char_data, 'playTime', 0)}")
         result.append(f"Game Version: {getattr(char_data, 'gameVersion', 0)}")
     else:
-        result.append(f"Create Time: {getattr(char_data, 'createTime', 0)}")
-        result.append(f"Play Time: {getattr(char_data, 'playTime', 0)}")
         result.append(f"NumStats/NumSkills: 0x{getattr(char_data, 'numStatsNumSkills', 0):04X}")
         result.append(f"Merc Dead: {'Yes' if getattr(char_data, 'bMercDead', 0) else 'No'}")
         result.append(f"Merc Flags: 0x{getattr(char_data, 'mercFlagsLow', 0):04X}{getattr(char_data, 'mercFlagsHigh', 0):02X}")

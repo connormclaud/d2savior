@@ -335,5 +335,22 @@ class TestD2SStruct(unittest.TestCase):
         self.assertIn("Location: STORED, Position: 0", full_text_stored)
         self.assertNotIn("Weapon", full_text_stored)
 
+    def test_format_timestamp(self):
+        from d2s_parse import format_timestamp
+        self.assertEqual(format_timestamp(0), "N/A")
+        self.assertEqual(format_timestamp(0xFFFFFFFF), "N/A")
+        self.assertEqual(format_timestamp(-1), "N/A")
+        self.assertEqual(format_timestamp(1793981148), "2026-11-06 16:05:48 UTC")
+
+    def test_format_duration(self):
+        from d2s_parse import format_duration
+        self.assertEqual(format_duration(0xFFFFFFFF), "N/A")
+        self.assertEqual(format_duration(-5), "N/A")
+        self.assertEqual(format_duration(0), "0s")
+        self.assertEqual(format_duration(45), "45s")
+        self.assertEqual(format_duration(3600), "1h")
+        self.assertEqual(format_duration(3665), "1h 1m 5s")
+        self.assertEqual(format_duration(90061), "1d 1h 1m 1s")
+
 if __name__ == '__main__':
     unittest.main()
