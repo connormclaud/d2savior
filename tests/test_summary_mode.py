@@ -136,10 +136,15 @@ class TestSummaryMode(unittest.TestCase):
         tab2.Items = MockItemList([rune_pul, rune_hel, gem_topaz, empty_item])
         stash.tabs.append(tab2)
 
-        # Tab 3: Empty normal tab
+        # Tab 3: Normal tab with repeated items (jewels)
         tab3 = StashTab()
         tab3.TabType = STASH_TAB_TYPE_NORMAL
-        tab3.Items = MockItemList([])
+        jewels = []
+        for _ in range(24):
+            jewel = D2Item()
+            jewel.sTypeName = b'jew '
+            jewels.append(jewel)
+        tab3.Items = MockItemList(jewels)
         stash.tabs.append(tab3)
 
         output = format_stash_summary(stash)
@@ -148,13 +153,45 @@ class TestSummaryMode(unittest.TestCase):
         self.assertIn("Tab 1: Normal", output)
         self.assertIn("Tab 2: Advanced (Currency)", output)
         self.assertIn("=== Tab 1 (Normal) ===", output)
-        self.assertIn("Harlequin Crest (Shako) [Def: 110]", output)
+        self.assertIn("  - Harlequin Crest (Shako) [Def: 110]", output)
         self.assertIn("=== Tab 2 (Advanced (Currency)) ===", output)
         self.assertIn("Runes: Hel: 3, Pul: 2", output)
-        self.assertIn("Gems: Perfect Diamond: 10", output)
+        self.assertIn("Diamond: p 10, o 0", output)
         self.assertNotIn("El: 0", output)
         self.assertIn("=== Tab 3 (Normal) ===", output)
-        self.assertIn("(empty)", output)
+        self.assertIn("  - 24x Jewels", output)
+
+    def test_stash_summary_gem_compaction(self):
+        stash = SharedStash()
+        tab = StashTab()
+        tab.TabType = STASH_TAB_TYPE_ADVANCED
+
+        items = []
+        # Perfect Ruby x 5
+        gpr = D2Item()
+        gpr.sTypeName = b'gpr '
+        gpr.pItemInfo = ItemInfo()
+        gpr.pItemInfo.iAdvancedStashStackSize = 5
+        items.append(gpr)
+
+        # Flawless Ruby x 10, Normal Ruby x 10, Flawed Ruby x 9, Chipped Ruby x 5 = 34 other rubies
+        for code, count in [(b'glr ', 10), (b'gsr ', 10), (b'gfr ', 9), (b'gcr ', 5)]:
+            it = D2Item()
+            it.sTypeName = code
+            it.pItemInfo = ItemInfo()
+            it.pItemInfo.iAdvancedStashStackSize = count
+            items.append(it)
+
+        class MockItemList:
+            def __init__(self, items):
+                self.vItems = items
+                self.nItems = len(items)
+
+        tab.Items = MockItemList(items)
+        stash.tabs.append(tab)
+
+        output = format_stash_summary(stash)
+        self.assertIn("Gems (p=perfect, o=other): Ruby: p 5, o 34", output)
 
     def test_char_summary_formatting(self):
         char = D2SStruct()

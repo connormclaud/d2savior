@@ -20,6 +20,53 @@ from core.stash import (
     MATERIAL_CODES,
 )
 
+GEM_TYPE_NAMES = ['Amethyst', 'Topaz', 'Sapphire', 'Emerald', 'Ruby', 'Diamond', 'Skull']
+
+GEM_CODE_MAP = {
+    # Amethyst
+    b'gcv': ('Amethyst', False),
+    b'gfv': ('Amethyst', False),
+    b'gsv': ('Amethyst', False),
+    b'gzv': ('Amethyst', False),
+    b'gpv': ('Amethyst', True),
+    # Topaz
+    b'gcy': ('Topaz', False),
+    b'gfy': ('Topaz', False),
+    b'gsy': ('Topaz', False),
+    b'gly': ('Topaz', False),
+    b'gpy': ('Topaz', True),
+    # Sapphire
+    b'gcb': ('Sapphire', False),
+    b'gfb': ('Sapphire', False),
+    b'gsb': ('Sapphire', False),
+    b'glb': ('Sapphire', False),
+    b'gpb': ('Sapphire', True),
+    # Emerald
+    b'gcg': ('Emerald', False),
+    b'gfg': ('Emerald', False),
+    b'gsg': ('Emerald', False),
+    b'glg': ('Emerald', False),
+    b'gpg': ('Emerald', True),
+    # Ruby
+    b'gcr': ('Ruby', False),
+    b'gfr': ('Ruby', False),
+    b'gsr': ('Ruby', False),
+    b'glr': ('Ruby', False),
+    b'gpr': ('Ruby', True),
+    # Diamond
+    b'gcw': ('Diamond', False),
+    b'gfw': ('Diamond', False),
+    b'gsw': ('Diamond', False),
+    b'glw': ('Diamond', False),
+    b'gpw': ('Diamond', True),
+    # Skull
+    b'skc': ('Skull', False),
+    b'skf': ('Skull', False),
+    b'sku': ('Skull', False),
+    b'skl': ('Skull', False),
+    b'skz': ('Skull', True),
+}
+
 RUNE_CODES_STRIPPED = {c.strip() for c in RUNE_CODES}
 GEM_CODES_STRIPPED = {c.strip() for c in GEM_CODES}
 MATERIAL_CODES_STRIPPED = {c.strip() for c in MATERIAL_CODES}
@@ -242,7 +289,7 @@ def get_item_display_name(item, version=0x63) -> str:
 
     return base_item_name
 
-def format_item_summary(item, version=0x63) -> str:
+def format_item_summary(item, version=0x63, include_properties=True) -> str:
     info = getattr(item, 'pItemInfo', None)
     if info and info.pGold:
         return f"Gold: {info.pGold.wQuantity}"
@@ -260,6 +307,8 @@ def format_item_summary(item, version=0x63) -> str:
             
     if getattr(item, 'bEthereal', False):
         meta_tags.append("Eth")
+    if getattr(item, 'bDisabled', False):
+        meta_tags.append("Broken")
         
     stack_size = getattr(info, 'iAdvancedStashStackSize', 0)
     if stack_size > 1:
@@ -276,25 +325,26 @@ def format_item_summary(item, version=0x63) -> str:
             meta_tags.append(f"Socketed: {'+'.join(socketed)}")
             
     props = []
-    if tp and tp.stPropertyList and tp.stPropertyList.mProperty:
-        for prop_id, value, params in tp.stPropertyList.get_parsed_properties(version):
-            formatted = format_property(prop_id, params, version)
-            if formatted:
-                props.append(formatted)
-            elif params:
-                props.append(f"ID {prop_id}: raw={value}, params={params}")
-            else:
-                props.append(f"ID {prop_id}: {value}")
-    if tp and tp.stRuneWordPropertyList and tp.stRuneWordPropertyList.mProperty:
-        for prop_id, value, params in tp.stRuneWordPropertyList.get_parsed_properties(version):
-            formatted = format_property(prop_id, params, version)
-            if formatted:
-                props.append(formatted)
-            elif params:
-                props.append(f"ID {prop_id}: raw={value}, params={params}")
-            else:
-                props.append(f"ID {prop_id}: {value}")
-                
+    if include_properties:
+        if tp and tp.stPropertyList and tp.stPropertyList.mProperty:
+            for prop_id, value, params in tp.stPropertyList.get_parsed_properties(version):
+                formatted = format_property(prop_id, params, version)
+                if formatted:
+                    props.append(formatted)
+                elif params:
+                    props.append(f"ID {prop_id}: raw={value}, params={params}")
+                else:
+                    props.append(f"ID {prop_id}: {value}")
+        if tp and tp.stRuneWordPropertyList and tp.stRuneWordPropertyList.mProperty:
+            for prop_id, value, params in tp.stRuneWordPropertyList.get_parsed_properties(version):
+                formatted = format_property(prop_id, params, version)
+                if formatted:
+                    props.append(formatted)
+                elif params:
+                    props.append(f"ID {prop_id}: raw={value}, params={params}")
+                else:
+                    props.append(f"ID {prop_id}: {value}")
+                    
     meta_str = f" [{', '.join(meta_tags)}]" if meta_tags else ""
     props_str = f" ({', '.join(props)})" if props else ""
     return f"{title}{meta_str}{props_str}"
@@ -1062,9 +1112,9 @@ def format_stash_summary(stash: SharedStash) -> str:
                 result.append("  (empty)")
             else:
                 runes_list = []
-                gems_list = []
                 materials_list = []
                 other_list = []
+                gem_stats = {g: {'p': 0, 'o': 0} for g in GEM_TYPE_NAMES}
                 
                 sorted_active = sorted(
                     active_items,
@@ -1076,23 +1126,37 @@ def format_stash_summary(stash: SharedStash) -> str:
                     code_str = code_b.decode('ascii', errors='replace')
                     stack_size = getattr(getattr(it, 'pItemInfo', None), 'iAdvancedStashStackSize', 0)
                     
-                    type_info = d2data_manager.get_item(code_str, version) if d2data_manager else (d2data.get_item(code_str) if d2data else None)
-                    item_name = type_info.name if type_info else code_str
-                    
-                    if code_b in RUNE_CODES_STRIPPED:
+                    if code_b in GEM_CODE_MAP:
+                        g_type, is_perf = GEM_CODE_MAP[code_b]
+                        if is_perf:
+                            gem_stats[g_type]['p'] += stack_size
+                        else:
+                            gem_stats[g_type]['o'] += stack_size
+                    elif code_b in RUNE_CODES_STRIPPED:
+                        type_info = d2data_manager.get_item(code_str, version) if d2data_manager else (d2data.get_item(code_str) if d2data else None)
+                        item_name = type_info.name if type_info else code_str
                         display_name = item_name[:-5] if item_name.endswith(" Rune") else item_name
                         runes_list.append(f"{display_name}: {stack_size}")
-                    elif code_b in GEM_CODES_STRIPPED:
-                        gems_list.append(f"{item_name}: {stack_size}")
                     elif code_b in MATERIAL_CODES_STRIPPED:
+                        type_info = d2data_manager.get_item(code_str, version) if d2data_manager else (d2data.get_item(code_str) if d2data else None)
+                        item_name = type_info.name if type_info else code_str
                         materials_list.append(f"{item_name}: {stack_size}")
                     else:
+                        type_info = d2data_manager.get_item(code_str, version) if d2data_manager else (d2data.get_item(code_str) if d2data else None)
+                        item_name = type_info.name if type_info else code_str
                         other_list.append(f"{item_name}: {stack_size}")
+
+                gems_list = []
+                for g_type in GEM_TYPE_NAMES:
+                    p = gem_stats[g_type]['p']
+                    o = gem_stats[g_type]['o']
+                    if p > 0 or o > 0:
+                        gems_list.append(f"{g_type}: p {p}, o {o}")
                         
                 if runes_list:
                     result.append(f"  Runes: {', '.join(runes_list)}")
                 if gems_list:
-                    result.append(f"  Gems: {', '.join(gems_list)}")
+                    result.append(f"  Gems (p=perfect, o=other): {', '.join(gems_list)}")
                 if materials_list:
                     result.append(f"  Materials: {', '.join(materials_list)}")
                 if other_list:
@@ -1101,8 +1165,22 @@ def format_stash_summary(stash: SharedStash) -> str:
             if not items:
                 result.append("  (empty)")
             else:
+                item_counts = {}
+                item_order = []
                 for it in items:
-                    result.append(f"  - {format_item_summary(it, version)}")
+                    summary = format_item_summary(it, version, include_properties=False)
+                    if summary not in item_counts:
+                        item_counts[summary] = 0
+                        item_order.append(summary)
+                    item_counts[summary] += 1
+                
+                for summary in item_order:
+                    count = item_counts[summary]
+                    if count > 1:
+                        plural = "Jewels" if summary == "Jewel" else summary
+                        result.append(f"  - {count}x {plural}")
+                    else:
+                        result.append(f"  - {summary}")
         result.append("")
         
     return '\n'.join(result).rstrip()
