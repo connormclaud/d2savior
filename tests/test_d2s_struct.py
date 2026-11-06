@@ -320,8 +320,8 @@ class TestD2SStruct(unittest.TestCase):
         item.iLocation = int(ItemLocation.EQUIPPED)
         item.iPosition = 4
 
-        lines = format_item_info(item)
-        full_text = "\n".join(lines)
+        full_text = format_item_info(item)
+        self.assertIsInstance(full_text, str)
         self.assertIn("Location: EQUIPPED, Position: 4 (Weapon I)", full_text)
 
         # Stored item should not have equip slot name
@@ -330,8 +330,8 @@ class TestD2SStruct(unittest.TestCase):
         item_stored.pItemInfo.sTypeName = b'bsd '
         item_stored.iLocation = int(ItemLocation.STORED)
         item_stored.iPosition = 0
-        lines_stored = format_item_info(item_stored)
-        full_text_stored = "\n".join(lines_stored)
+        full_text_stored = format_item_info(item_stored)
+        self.assertIsInstance(full_text_stored, str)
         self.assertIn("Location: STORED, Position: 0", full_text_stored)
         self.assertNotIn("Weapon", full_text_stored)
 

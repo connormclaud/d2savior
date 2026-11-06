@@ -360,8 +360,8 @@ class TestFormatItemInfoSetProperties(unittest.TestCase):
 
         item.pItemInfo.pTpSpInfo.apSetProperty = [p2, p3, None, None, None]
 
-        lines = format_item_info(item)
-        full_text = "\n".join(lines)
+        full_text = format_item_info(item)
+        self.assertIsInstance(full_text, str)
         self.assertIn("Set Properties (2 Items):", full_text)
         self.assertIn("Set Properties (3 Items):", full_text)
         self.assertIn("Defense", full_text)

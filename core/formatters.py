@@ -245,7 +245,7 @@ def format_item_summary(
     return f"{title}{meta_str}{props_str}"
 
 
-def format_item_info(item, indent="  ", version=None, resolver=None):
+def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[str]:
     result = []
     type_name = item.sTypeName.decode('ascii', errors='replace') if item.sTypeName else 'Unknown'
 
@@ -383,12 +383,16 @@ def format_item_info(item, indent="  ", version=None, resolver=None):
     if item.aGemItems:
         for j, gem in enumerate(item.aGemItems):
             result.append(f"{indent}Socketed Item [{j}]:")
-            result.extend(format_item_info(gem, indent + "  ", version=version, resolver=resolver))
+            result.extend(_format_item_lines(gem, indent + "  ", version=version, resolver=resolver))
 
     return result
 
 
-def format_waypoints_info(char_data: D2SStruct):
+def format_item_info(item, indent="  ", version=None, resolver=None) -> str:
+    return "\n".join(_format_item_lines(item, indent=indent, version=version, resolver=resolver))
+
+
+def _format_waypoints_lines(char_data: D2SStruct) -> List[str]:
     ensure_data_loaded()
     loc = get_localized_data()
     result = []
@@ -441,7 +445,11 @@ def format_waypoints_info(char_data: D2SStruct):
     return result
 
 
-def format_quests_info(char_data: D2SStruct):
+def format_waypoints_info(char_data: D2SStruct) -> str:
+    return "\n".join(_format_waypoints_lines(char_data))
+
+
+def _format_quests_lines(char_data: D2SStruct) -> List[str]:
     ensure_data_loaded()
     loc = get_localized_data()
     result = []
@@ -481,6 +489,10 @@ def format_quests_info(char_data: D2SStruct):
                             parts.append(f"[ ] {loc_qname}")
                     result.append(f"  {act_name}: {' '.join(parts)}")
     return result
+
+
+def format_quests_info(char_data: D2SStruct) -> str:
+    return "\n".join(_format_quests_lines(char_data))
 
 
 def _get_character_skills(char_data: D2SStruct, resolver: Optional[GameDataResolver] = None) -> List[Tuple[int, str, int]]:
@@ -574,16 +586,16 @@ def format_char_info(char_data: D2SStruct, resolver=None):
             else:
                 result.append(f"Skill {i}: {level}")
     result.append("")
-    result.extend(format_waypoints_info(char_data))
+    result.extend(_format_waypoints_lines(char_data))
     result.append("")
-    result.extend(format_quests_info(char_data))
+    result.extend(_format_quests_lines(char_data))
     result.append("")
     result.append("=== Items ===")
     if char_data.ItemList.wMajic == 0x4D4A:
         result.append(f"Total items: {char_data.ItemList.nItems}")
         for i, item in enumerate(char_data.ItemList.vItems):
             result.append(f"--- Item {i} ---")
-            result.extend(format_item_info(item, version=char_data.dwVersion, resolver=resolver))
+            result.extend(_format_item_lines(item, version=char_data.dwVersion, resolver=resolver))
     result.append("")
     result.append("=== Corpse ===")
     if char_data.stCorpse.has_corpse():
@@ -610,7 +622,7 @@ def format_char_info(char_data: D2SStruct, resolver=None):
                 result.append(f"Mercenary items: {char_data.stMercenary.stItems.nItems}")
                 for i, item in enumerate(char_data.stMercenary.stItems.vItems):
                     result.append(f"--- Mercenary Item {i} ---")
-                    result.extend(format_item_info(item, version=char_data.dwVersion, resolver=resolver))
+                    result.extend(_format_item_lines(item, version=char_data.dwVersion, resolver=resolver))
         else:
             result.append("No mercenary")
     else:
@@ -680,9 +692,9 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
         result.append("None")
 
     result.append("")
-    result.extend(format_waypoints_info(char_data))
+    result.extend(_format_waypoints_lines(char_data))
     result.append("")
-    result.extend(format_quests_info(char_data))
+    result.extend(_format_quests_lines(char_data))
     result.append("")
 
     result.append("=== Equipped Gear ===")
@@ -793,12 +805,12 @@ def format_stash_info(stash: SharedStash, resolver=None) -> str:
             result.append(f"Total items: {len(active_items)}")
             for item_idx, item in enumerate(active_items):
                 result.append(f"--- Item {item_idx} ---")
-                result.extend(format_item_info(item, version=version, resolver=tab_resolver))
+                result.extend(_format_item_lines(item, version=version, resolver=tab_resolver))
         else:
             result.append(f"Total items: {len(items)}")
             for item_idx, item in enumerate(items):
                 result.append(f"--- Item {item_idx} ---")
-                result.extend(format_item_info(item, version=version, resolver=tab_resolver))
+                result.extend(_format_item_lines(item, version=version, resolver=tab_resolver))
         result.append("")
 
     return '\n'.join(result).rstrip()

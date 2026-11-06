@@ -179,6 +179,25 @@ class TestModularization(unittest.TestCase):
         mock_sb.assert_called_once_with(mock_bs, '0101')
         mock_sbytes.assert_called_once_with(mock_bs, b'\xab\xcd')
 
+    def test_formatter_return_types_consistent_str(self):
+        char = D2SStruct()
+        res_wp = formatters.format_waypoints_info(char)
+        res_quests = formatters.format_quests_info(char)
+
+        self.assertIsInstance(res_wp, str)
+        self.assertIsInstance(res_quests, str)
+
+        item = D2Item()
+        item.pItemInfo = ItemInfo()
+        item.pItemInfo.sTypeName = b'rin '
+        res_item = formatters.format_item_info(item)
+        self.assertIsInstance(res_item, str)
+
+        # Internal line helpers return lists
+        self.assertIsInstance(formatters._format_waypoints_lines(char), list)
+        self.assertIsInstance(formatters._format_quests_lines(char), list)
+        self.assertIsInstance(formatters._format_item_lines(item), list)
+
 
 if __name__ == '__main__':
     unittest.main()

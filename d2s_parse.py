@@ -136,7 +136,7 @@ FORMATTERS = {
     ("char", True): lambda d: format_char_summary(d),
     ("stash", False): lambda d: format_stash_info(d),
     ("stash", True): lambda d: format_stash_summary(d),
-    ("item", False): lambda it: "=== Item Info ===\n" + "\n".join(format_item_info(it)),
+    ("item", False): lambda it: "=== Item Info ===\n" + format_item_info(it),
     ("item", True): lambda it: f"=== Item Summary ===\n- {format_item_summary(it)}",
 }
 
