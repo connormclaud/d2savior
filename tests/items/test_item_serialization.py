@@ -83,11 +83,11 @@ class TestItemSerialization(unittest.TestCase):
             self.assertEqual(p1[2], p2[2], f"Property {i}: Value mismatch")
         
         if item1.bRuneWord:
-            self.assertIsNotNone(tp1.stRuneWordPropertyList, "Item1 should have runeword properties")
-            self.assertIsNotNone(tp2.stRuneWordPropertyList, "Item2 should have runeword properties")
+            self.assertIsNotNone(tp1.runeword_property_list, "Item1 should have runeword properties")
+            self.assertIsNotNone(tp2.runeword_property_list, "Item2 should have runeword properties")
             
-            rw_props1 = tp1.stRuneWordPropertyList.mProperty
-            rw_props2 = tp2.stRuneWordPropertyList.mProperty
+            rw_props1 = tp1.runeword_property_list.mProperty
+            rw_props2 = tp2.runeword_property_list.mProperty
             
             self.assertEqual(len(rw_props1), len(rw_props2),
                            f"Runeword property count mismatch: {len(rw_props1)} vs {len(rw_props2)}")
@@ -98,15 +98,15 @@ class TestItemSerialization(unittest.TestCase):
                 self.assertEqual(p1[2], p2[2], f"Runeword property {i}: Value mismatch")
         
         if item1.is_set():
-            self.assertEqual(len(tp1.aHasSetPropList), len(tp2.aHasSetPropList),
+            self.assertEqual(len(tp1.has_set_prop_list), len(tp2.has_set_prop_list),
                            "Set property list count mismatch")
             
-            for i, (has1, has2) in enumerate(zip(tp1.aHasSetPropList, tp2.aHasSetPropList)):
+            for i, (has1, has2) in enumerate(zip(tp1.has_set_prop_list, tp2.has_set_prop_list)):
                 self.assertEqual(has1, has2, f"Set property {i} existence mismatch")
                 
                 if has1 and has2:
-                    set_props1 = tp1.apSetProperty[i].mProperty if tp1.apSetProperty[i] else []
-                    set_props2 = tp2.apSetProperty[i].mProperty if tp2.apSetProperty[i] else []
+                    set_props1 = tp1.set_properties[i].mProperty if tp1.set_properties[i] else []
+                    set_props2 = tp2.set_properties[i].mProperty if tp2.set_properties[i] else []
                     
                     self.assertEqual(len(set_props1), len(set_props2),
                                    f"Set property {i} count mismatch: {len(set_props1)} vs {len(set_props2)}")

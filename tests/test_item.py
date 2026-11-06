@@ -192,27 +192,17 @@ class TestCTypeSpecificInfo(unittest.TestCase):
         type_info = TypeSpecificInfo()
         self.assertIsNone(type_info.defence)
         self.assertIsNone(type_info.max_durability)
-        # Test backward-compatible MayExist bridge
-        self.assertFalse(type_info.iDefence.exist())
-        self.assertFalse(type_info.iMaxDurability.exist())
+        self.assertIsNone(type_info.sockets_count)
 
     def test_type_specific_info_sockets(self):
         type_info = TypeSpecificInfo()
         type_info.sockets_count = 3
         self.assertEqual(type_info.sockets(), (3, 0))
-        # Test backward-compatible ensure()
-        type_info2 = TypeSpecificInfo()
-        type_info2.iSocket.ensure(3)
-        self.assertEqual(type_info2.sockets(), (3, 0))
 
     def test_type_specific_info_defence(self):
         type_info = TypeSpecificInfo()
         type_info.defence = 110
         self.assertEqual(type_info.get_defence(), 100)
-        # Test backward-compatible ensure()
-        type_info2 = TypeSpecificInfo()
-        type_info2.iDefence.ensure(110)
-        self.assertEqual(type_info2.get_defence(), 100)
 
 
 class TestCItemInfo(unittest.TestCase):

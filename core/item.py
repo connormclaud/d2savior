@@ -1143,51 +1143,6 @@ class TypeSpecificInfo:
         self.set_properties: List[Optional[PropertyList]] = []
         self.runeword_property_list: Optional[PropertyList] = None
 
-    # Transitional property aliases
-    @property
-    def iDefence(self): return MayExist(self, 'defence')
-    @iDefence.setter
-    def iDefence(self, v): self.defence = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def iMaxDurability(self): return MayExist(self, 'max_durability')
-    @iMaxDurability.setter
-    def iMaxDurability(self, v): self.max_durability = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def iCurDur(self): return MayExist(self, 'current_durability')
-    @iCurDur.setter
-    def iCurDur(self, v): self.current_durability = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def iSocket(self): return MayExist(self, 'sockets_count')
-    @iSocket.setter
-    def iSocket(self, v): self.sockets_count = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def iQuantity(self): return MayExist(self, 'quantity')
-    @iQuantity.setter
-    def iQuantity(self, v): self.quantity = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def aHasSetPropList(self) -> List[bool]: return self.has_set_prop_list
-    @aHasSetPropList.setter
-    def aHasSetPropList(self, v: List[bool]): self.has_set_prop_list = v
-
-    @property
-    def stPropertyList(self) -> PropertyList: return self.property_list
-    @stPropertyList.setter
-    def stPropertyList(self, v: PropertyList): self.property_list = v
-
-    @property
-    def apSetProperty(self) -> List[Optional[PropertyList]]: return self.set_properties
-    @apSetProperty.setter
-    def apSetProperty(self, v: List[Optional[PropertyList]]): self.set_properties = v
-
-    @property
-    def stRuneWordPropertyList(self) -> Optional[PropertyList]: return self.runeword_property_list
-    @stRuneWordPropertyList.setter
-    def stRuneWordPropertyList(self, v: Optional[PropertyList]): self.runeword_property_list = v
 
     def sockets(self) -> Tuple[int, int]:
         base = self.sockets_count if self.sockets_count is not None else 0
