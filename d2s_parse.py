@@ -52,23 +52,41 @@ WAYPOINTS_BY_ACT = [
 
 QUESTS_BY_ACT = [
     ("Act I", [
-        "Den of Evil", "Sisters' Burial Grounds", "Tools of the Trade",
-        "The Search for Cain", "The Forgotten Tower", "Sisters to the Slaughter"
+        ("Den of Evil", 0),
+        ("Sisters' Burial Grounds", 1),
+        ("The Search for Cain", 3),
+        ("The Forgotten Tower", 4),
+        ("Tools of the Trade", 2),
+        ("Sisters to the Slaughter", 5),
     ]),
     ("Act II", [
-        "Radament's Lair", "The Horadric Staff", "Tainted Sun",
-        "Arcane Sanctuary", "The Summoner", "The Seven Tombs"
+        ("Radament's Lair", 0),
+        ("The Horadric Staff", 1),
+        ("Tainted Sun", 2),
+        ("Arcane Sanctuary", 3),
+        ("The Summoner", 4),
+        ("The Seven Tombs", 5),
     ]),
     ("Act III", [
-        "Lam Esen's Tome", "Khalim's Will", "Blade of the Old Religion",
-        "The Golden Bird", "The Blackened Temple", "The Guardian"
+        ("The Golden Bird", 3),
+        ("Blade of the Old Religion", 2),
+        ("Khalim's Will", 1),
+        ("Lam Esen's Tome", 0),
+        ("The Blackened Temple", 4),
+        ("The Guardian", 5),
     ]),
     ("Act IV", [
-        "The Fallen Angel", "Terror's End", "Hell's Forge"
+        ("The Fallen Angel", 0),
+        ("Hell's Forge", 2),
+        ("Terror's End", 1),
     ]),
     ("Act V", [
-        "Siege on Harrogath", "Rescue on Mount Arreat", "Prison of Ice",
-        "Betrayal of Harrogath", "Rite of Passage", "Eve of Destruction"
+        ("Siege on Harrogath", 0),
+        ("Rescue on Mount Arreat", 1),
+        ("Prison of Ice", 2),
+        ("Betrayal of Harrogath", 3),
+        ("Rite of Passage", 4),
+        ("Eve of Destruction", 5),
     ])
 ]
 
@@ -476,30 +494,43 @@ def format_char_info(char_data: D2SStruct):
             wp_data = char_data.Waypoints.wp[diff_idx]
             global_idx = 0
             total_unlocked = 0
-            missing_by_act = {}
+            act_stats = []
             for act_name, wp_names in WAYPOINTS_BY_ACT:
+                unlocked_in_act = 0
                 missing = []
                 for name in wp_names:
                     b = wp_data.Waypoints[global_idx // 8]
                     if b & (1 << (global_idx % 8)):
                         total_unlocked += 1
+                        unlocked_in_act += 1
                     else:
                         missing.append(name)
                     global_idx += 1
-                if missing:
-                    missing_by_act[act_name] = (missing, len(wp_names))
+                act_stats.append((act_name, len(wp_names), unlocked_in_act, missing))
             
-            result.append(f"{diff_name} ({total_unlocked}/39 unlocked):")
+            # Check if this difficulty has been started (has waypoints beyond starter town or has quest activity)
+            has_wp_progress = (wp_data.Waypoints[0] & ~1) != 0 or any(b != 0 for b in wp_data.Waypoints[1:])
+            has_quest_progress = False
+            if char_data.QuestInfo.dwMajic == 0x216F6F57 and diff_idx < len(char_data.QuestInfo.QIData):
+                qd = char_data.QuestInfo.QIData[diff_idx]
+                has_quest_progress = any(w != 0 for words in [qd.wActI, qd.wActII, qd.wActIII, qd.wActIV, qd.wActV] for w in words)
+            
+            if not has_wp_progress and not has_quest_progress:
+                result.append(f"{diff_name}: Not started")
+                continue
+            
+            total_missing = 39 - total_unlocked
             if total_unlocked == 39:
-                result.append("  All unlocked")
-            elif total_unlocked == 0:
-                result.append("  None unlocked")
+                result.append(f"{diff_name} (39/39 unlocked): All unlocked")
             else:
-                for act_name, (missing, total_act) in missing_by_act.items():
-                    if len(missing) == total_act:
-                        result.append(f"  {act_name}: None unlocked")
+                result.append(f"{diff_name} ({total_unlocked}/39 unlocked, {total_missing} missing):")
+                for act_name, total_act, unlocked_act, missing in act_stats:
+                    if unlocked_act == total_act:
+                        result.append(f"  {act_name} ({total_act}/{total_act}): All unlocked")
+                    elif unlocked_act == 0:
+                        result.append(f"  {act_name} (0/{total_act}): None unlocked")
                     else:
-                        result.append(f"  {act_name}: {', '.join(missing)}")
+                        result.append(f"  {act_name} ({unlocked_act}/{total_act}): Missing {', '.join(missing)}")
     result.append("")
     result.append("=== Quests ===")
     if char_data.QuestInfo.dwMajic == 0x216F6F57:
@@ -507,21 +538,27 @@ def format_char_info(char_data: D2SStruct):
             if diff_idx >= len(char_data.QuestInfo.QIData):
                 break
             qd = char_data.QuestInfo.QIData[diff_idx]
-            reset_status = "Available" if qd.bResetStats == 2 else ("Used" if qd.bResetStats == 1 else "Locked")
             act_words = [qd.wActI, qd.wActII, qd.wActIII, qd.wActIV, qd.wActV]
+            has_quest_progress = any(w != 0 for words in act_words for w in words)
+            if not has_quest_progress and qd.bResetStats == 0:
+                result.append(f"{diff_name}: Not started")
+                continue
+            
+            reset_status = "Available" if qd.bResetStats == 2 else ("Used" if qd.bResetStats == 1 else "Locked")
             total_completed = sum(1 for words in act_words for w in words if (w & 1) or (w & 2))
             rewards_unclaimed = sum(1 for words in act_words for w in words if (w & 2) and not (w & 1))
             reward_str = f", {rewards_unclaimed} reward{'s' if rewards_unclaimed > 1 else ''} unclaimed" if rewards_unclaimed else ""
             
             result.append(f"{diff_name} ({total_completed}/27 completed{reward_str}) — Akara Reset: {reset_status}")
-            for (act_name, q_names), words in zip(QUESTS_BY_ACT, act_words):
-                if all(w & 1 for w in words):
-                    result.append(f"  {act_name}: {' '.join('[x]' for _ in q_names)}")
-                elif all(not (w & 1) and not (w & 2) for w in words):
-                    result.append(f"  {act_name}: {' '.join('[ ]' for _ in q_names)}")
+            for (act_name, quest_defs), words in zip(QUESTS_BY_ACT, act_words):
+                words_ordered = [words[idx] for _, idx in quest_defs]
+                if all(w & 1 for w in words_ordered):
+                    result.append(f"  {act_name}: {' '.join('[x]' for _ in quest_defs)}")
+                elif all(not (w & 1) and not (w & 2) for w in words_ordered):
+                    result.append(f"  {act_name}: {' '.join('[ ]' for _ in quest_defs)}")
                 else:
                     parts = []
-                    for name, w in zip(q_names, words):
+                    for (name, idx), w in zip(quest_defs, words_ordered):
                         if w & 1:
                             parts.append("[x]")
                         elif w & 2:

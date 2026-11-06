@@ -400,21 +400,18 @@ class TestD2SStruct(unittest.TestCase):
         output = format_char_info(char)
 
         # Check waypoints
-        self.assertIn("Normal (39/39 unlocked):", output)
-        self.assertIn("All unlocked", output)
-        self.assertIn("Nightmare (38/39 unlocked):", output)
-        self.assertIn("Act I: Stony Field", output)
-        self.assertIn("Hell (0/39 unlocked):", output)
-        self.assertIn("None unlocked", output)
+        self.assertIn("Normal (39/39 unlocked): All unlocked", output)
+        self.assertIn("Nightmare (38/39 unlocked, 1 missing):", output)
+        self.assertIn("Act I (8/9): Missing Stony Field", output)
+        self.assertIn("Act II (9/9): All unlocked", output)
+        self.assertIn("Hell: Not started", output)
 
         # Check quests
         self.assertIn("Normal (27/27 completed) — Akara Reset: Used", output)
         self.assertIn("Act I: [x] [x] [x] [x] [x] [x]", output)
         self.assertIn("Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available", output)
-        self.assertIn("Act I: [x] [x] [!] Tools of the Trade (reward unclaimed) [x] [x] [x]", output)
+        self.assertIn("Act I: [x] [x] [x] [x] [!] Tools of the Trade (reward unclaimed) [x]", output)
         self.assertIn("Act V: [!] Siege on Harrogath (reward unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]", output)
-        self.assertIn("Hell (0/27 completed) — Akara Reset: Locked", output)
-        self.assertIn("Act I: [ ] [ ] [ ] [ ] [ ] [ ]", output)
 
 if __name__ == '__main__':
     unittest.main()
