@@ -6,7 +6,7 @@ import datetime
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 from core.property import format_property, init_item_modifiers, get_skill_name
-from core.d2data import init_d2data, get_d2data, get_d2data_manager
+from core.d2data import init_d2data, get_d2data, get_d2data_manager, GameDataResolver
 from core.localized_data import init_localized_data
 from core.enums import StoredIn, ItemLocation, ItemQuality, EquipSlot
 from core.stash import (
@@ -229,38 +229,26 @@ def format_duration(seconds: int) -> str:
         parts.append(f"{secs}s")
     return " ".join(parts)
 
-def get_item_display_name(item, version=0x63) -> str:
+def get_item_display_name(item, version=0x63, resolver=None) -> str:
     type_name = item.sTypeName.decode('ascii', errors='replace').strip() if item.sTypeName else 'Unknown'
-    d2data = get_d2data()
-    d2data_manager = get_d2data_manager()
+    if resolver is None:
+        resolver = GameDataResolver(version)
     
-    base_item_name = ""
-    if d2data_manager:
-        type_info = d2data_manager.get_item(type_name, version)
-        if type_info:
-            base_item_name = type_info.name
-    elif d2data:
-        type_info = d2data.get_item(type_name)
-        if type_info:
-            base_item_name = type_info.name
-    if not base_item_name:
-        base_item_name = type_name
+    type_info = resolver.get_item(type_name)
+    base_item_name = type_info.name if type_info else type_name
 
     ext = getattr(getattr(item, 'pItemInfo', None), 'pExtItemInfo', None)
     if ext:
         if ext.wRune.exist():
-            runeword_id = ext.rune_word_id()
-            rw_info = d2data_manager.get_runeword(runeword_id, version) if d2data_manager else (d2data.get_runeword(runeword_id) if d2data else None)
+            rw_info = resolver.get_runeword(ext.rune_word_id())
             if rw_info:
                 return f"{rw_info.name} ({base_item_name})"
         if ext.wUniID.exist():
-            unique_id = ext.wUniID.value
-            u_info = d2data_manager.get_unique_item(unique_id, version) if d2data_manager else (d2data.get_unique_item(unique_id) if d2data else None)
+            u_info = resolver.get_unique_item(ext.wUniID.value)
             if u_info:
                 return f"{u_info.index} ({base_item_name})"
         if ext.wSetID.exist():
-            set_id = ext.wSetID.value
-            s_info = d2data_manager.get_set_item(set_id, version) if d2data_manager else (d2data.get_set_item(set_id, version) if d2data else None)
+            s_info = resolver.get_set_item(ext.wSetID.value)
             if s_info:
                 return f"{s_info.name} ({base_item_name})"
         quality = item.quality()
@@ -268,11 +256,11 @@ def get_item_display_name(item, version=0x63) -> str:
             prefix_name = ""
             suffix_name = ""
             if ext.wPrefix.exist() and ext.wPrefix.value > 0:
-                p_info = d2data_manager.get_magic_prefix(ext.wPrefix.value, version) if d2data_manager else (d2data.get_magic_prefix(ext.wPrefix.value) if d2data else None)
+                p_info = resolver.get_magic_prefix(ext.wPrefix.value)
                 if p_info:
                     prefix_name = p_info.name
             if ext.wSuffix.exist() and ext.wSuffix.value > 0:
-                s_info = d2data_manager.get_magic_suffix(ext.wSuffix.value, version) if d2data_manager else (d2data.get_magic_suffix(ext.wSuffix.value) if d2data else None)
+                s_info = resolver.get_magic_suffix(ext.wSuffix.value)
                 if s_info:
                     suffix_name = s_info.name
             parts = [p for p in [prefix_name, base_item_name, suffix_name] if p]
@@ -289,12 +277,14 @@ def get_item_display_name(item, version=0x63) -> str:
 
     return base_item_name
 
-def format_item_summary(item, version=0x63, include_properties=True) -> str:
+def format_item_summary(item, version=0x63, include_properties=True, resolver=None) -> str:
+    if resolver is None:
+        resolver = GameDataResolver(version)
     info = getattr(item, 'pItemInfo', None)
     if info and info.pGold:
         return f"Gold: {info.pGold.wQuantity}"
         
-    title = get_item_display_name(item, version)
+    title = get_item_display_name(item, version=version, resolver=resolver)
     
     meta_tags = []
     tp = getattr(info, 'pTpSpInfo', None)
@@ -319,7 +309,7 @@ def format_item_summary(item, version=0x63, include_properties=True) -> str:
     if getattr(item, 'aGemItems', None):
         socketed = []
         for gem in item.aGemItems:
-            g_name = get_item_display_name(gem, version)
+            g_name = get_item_display_name(gem, version=version, resolver=resolver)
             socketed.append(g_name)
         if socketed:
             meta_tags.append(f"Socketed: {'+'.join(socketed)}")
@@ -349,28 +339,21 @@ def format_item_summary(item, version=0x63, include_properties=True) -> str:
     props_str = f" ({', '.join(props)})" if props else ""
     return f"{title}{meta_str}{props_str}"
 
-def format_item_info(item, indent="  "):
+def format_item_info(item, indent="  ", version=None, resolver=None):
     result = []
     type_name = item.sTypeName.decode('ascii', errors='replace') if item.sTypeName else 'Unknown'
     
+    if version is None:
+        version = item.dwVersion if item.dwVersion else 0x63
+    if resolver is None:
+        resolver = GameDataResolver(version)
+    
     item_full_name = ""
     req_level = 0
-    
-    version = item.dwVersion if item.dwVersion else 0x63
-    d2data = get_d2data()
-    d2data_manager = get_d2data_manager()
-    
-    if d2data_manager:
-        type_info = d2data_manager.get_item(type_name.strip(), version)
-        if type_info:
-            item_full_name = type_info.name
-            req_level = type_info.levelreq
-    elif d2data:
-        # 向后兼容
-        type_info = d2data.get_item(type_name.strip())
-        if type_info:
-            item_full_name = type_info.name
-            req_level = type_info.levelreq
+    type_info = resolver.get_item(type_name.strip())
+    if type_info:
+        item_full_name = type_info.name
+        req_level = type_info.levelreq
     
     if item_full_name:
         result.append(f"{indent}Type: {type_name} ({item_full_name})")
@@ -432,67 +415,28 @@ def format_item_info(item, indent="  "):
                 result.append(f"{indent}Drop Level: {ext.iDropLevel}")
             if ext.wPrefix.exist() and ext.wPrefix.value > 0:
                 prefix_id = ext.wPrefix.value
-                prefix_name = ""
-                if d2data_manager:
-                    prefix_info = d2data_manager.get_magic_prefix(prefix_id, version)
-                    if prefix_info:
-                        prefix_name = f" ({prefix_info.name})"
-                elif d2data:
-                    # 向后兼容
-                    prefix_info = d2data.get_magic_prefix(prefix_id)
-                    if prefix_info:
-                        prefix_name = f" ({prefix_info.name})"
+                prefix_info = resolver.get_magic_prefix(prefix_id)
+                prefix_name = f" ({prefix_info.name})" if prefix_info else ""
                 result.append(f"{indent}Prefix: {prefix_id}{prefix_name}")
             if ext.wSuffix.exist() and ext.wSuffix.value > 0:
                 suffix_id = ext.wSuffix.value
-                suffix_name = ""
-                if d2data_manager:
-                    suffix_info = d2data_manager.get_magic_suffix(suffix_id, version)
-                    if suffix_info:
-                        suffix_name = f" ({suffix_info.name})"
-                elif d2data:
-                    # 向后兼容
-                    suffix_info = d2data.get_magic_suffix(suffix_id)
-                    if suffix_info:
-                        suffix_name = f" ({suffix_info.name})"
+                suffix_info = resolver.get_magic_suffix(suffix_id)
+                suffix_name = f" ({suffix_info.name})" if suffix_info else ""
                 result.append(f"{indent}Suffix: {suffix_id}{suffix_name}")
             if ext.wSetID.exist():
                 set_id = ext.wSetID.value
-                set_name = ""
-                if d2data_manager:
-                    set_info = d2data_manager.get_set_item(set_id, version)
-                    if set_info:
-                        set_name = f" ({set_info.name})"
-                elif d2data:
-                    set_info = d2data.get_set_item(set_id, version)
-                    if set_info:
-                        set_name = f" ({set_info.name})"
+                set_info = resolver.get_set_item(set_id)
+                set_name = f" ({set_info.name})" if set_info else ""
                 result.append(f"{indent}Set ID: {set_id}{set_name}")
             if ext.wUniID.exist():
                 unique_id = ext.wUniID.value
-                unique_name = ""
-                if d2data_manager:
-                    unique_info = d2data_manager.get_unique_item(unique_id, version)
-                    if unique_info:
-                        unique_name = f" ({unique_info.index})"
-                elif d2data:
-                    # 向后兼容
-                    unique_info = d2data.get_unique_item(unique_id)
-                    if unique_info:
-                        unique_name = f" ({unique_info.index})"
+                unique_info = resolver.get_unique_item(unique_id)
+                unique_name = f" ({unique_info.index})" if unique_info else ""
                 result.append(f"{indent}Unique ID: {unique_id}{unique_name}")
             if ext.wRune.exist():
                 runeword_id = ext.rune_word_id()
-                runeword_name = ""
-                if d2data_manager:
-                    runeword_info = d2data_manager.get_runeword(runeword_id, version)
-                    if runeword_info:
-                        runeword_name = f" ({runeword_info.name})"
-                elif d2data:
-                    # 向后兼容
-                    runeword_info = d2data.get_runeword(runeword_id)
-                    if runeword_info:
-                        runeword_name = f" ({runeword_info.name})"
+                runeword_info = resolver.get_runeword(runeword_id)
+                runeword_name = f" ({runeword_info.name})" if runeword_info else ""
                 result.append(f"{indent}Rune Word ID: {runeword_id}{runeword_name}")
                 if item.aGemItems:
                     rune_names = []
@@ -501,16 +445,8 @@ def format_item_info(item, indent="  "):
                         if gem_type.startswith('r'):
                             try:
                                 rune_num = int(gem_type[1:])
-                                rune_name = ""
-                                if d2data_manager:
-                                    rune_info = d2data_manager.get_item(gem_type, version)
-                                    if rune_info:
-                                        rune_name = rune_info.name
-                                elif d2data:
-                                    # 向后兼容
-                                    rune_info = d2data.get_item(gem_type)
-                                    if rune_info:
-                                        rune_name = rune_info.name
+                                rune_info = resolver.get_item(gem_type)
+                                rune_name = rune_info.name if rune_info else ""
                                 rune_names.append(f"{rune_name}({rune_num})")
                             except ValueError:
                                 pass
@@ -584,7 +520,7 @@ def format_item_info(item, indent="  "):
     if item.aGemItems:
         for j, gem in enumerate(item.aGemItems):
             result.append(f"{indent}Socketed Item [{j}]:")
-            result.extend(format_item_info(gem, indent + "  "))
+            result.extend(format_item_info(gem, indent + "  ", version=version, resolver=resolver))
     
     return result
 
@@ -733,22 +669,15 @@ def format_char_info(char_data: D2SStruct):
         result.append(f"Gold in Stash: {char_data.PlayerStats.m_adwValue[0xF]}")
     result.append("")
     result.append("=== Skills ===")
+    resolver = GameDataResolver(char_data.dwVersion)
     if char_data.Skills.wMagic == 0x6669:
         result.append("Skill levels:")
-        d2data = get_d2data()
-        d2data_manager = get_d2data_manager()
         for i, level in enumerate(char_data.Skills.bSkillLevel):
             if level > 0:
                 skill_name = ""
                 if 0 <= char_data.charClass < len(CLASS_SKILL_BASES):
                     skill_id = CLASS_SKILL_BASES[char_data.charClass] + i
-                    loc_name, _ = get_skill_name(skill_id)
-                    if loc_name:
-                        skill_name = loc_name
-                    elif d2data_manager:
-                        skill_name = d2data_manager.get_skill_name(skill_id, char_data.dwVersion)
-                    elif d2data:
-                        skill_name = d2data.get_skill_name(skill_id)
+                    skill_name = resolver.get_skill_name(skill_id)
                 if skill_name:
                     result.append(f"Skill {i} ({skill_name}): {level}")
                 else:
@@ -763,7 +692,7 @@ def format_char_info(char_data: D2SStruct):
         result.append(f"Total items: {char_data.ItemList.nItems}")
         for i, item in enumerate(char_data.ItemList.vItems):
             result.append(f"--- Item {i} ---")
-            result.extend(format_item_info(item))
+            result.extend(format_item_info(item, version=char_data.dwVersion, resolver=resolver))
     result.append("")
     result.append("=== Corpse ===")
     if char_data.stCorpse.has_corpse():
@@ -797,7 +726,7 @@ def format_char_info(char_data: D2SStruct):
                 result.append(f"Mercenary items: {char_data.stMercenary.stItems.nItems}")
                 for i, item in enumerate(char_data.stMercenary.stItems.vItems):
                     result.append(f"--- Mercenary Item {i} ---")
-                    result.extend(format_item_info(item))
+                    result.extend(format_item_info(item, version=char_data.dwVersion, resolver=resolver))
         else:
             result.append("No mercenary")
     else:
@@ -862,22 +791,16 @@ def format_char_summary(char_data: D2SStruct) -> str:
 
     result.append("")
     result.append("=== Skills ===")
+    version = char_data.dwVersion if char_data.dwVersion else 0x63
+    resolver = GameDataResolver(version)
     if char_data.Skills.wMagic == 0x6669:
-        d2data = get_d2data()
-        d2data_manager = get_d2data_manager()
         active_skills = []
         for i, level in enumerate(char_data.Skills.bSkillLevel):
             if level > 0:
                 skill_name = ""
                 if 0 <= char_data.charClass < len(CLASS_SKILL_BASES):
                     skill_id = CLASS_SKILL_BASES[char_data.charClass] + i
-                    loc_name, _ = get_skill_name(skill_id)
-                    if loc_name:
-                        skill_name = loc_name
-                    elif d2data_manager:
-                        skill_name = d2data_manager.get_skill_name(skill_id, char_data.dwVersion)
-                    elif d2data:
-                        skill_name = d2data.get_skill_name(skill_id)
+                    skill_name = resolver.get_skill_name(skill_id)
                 display = skill_name if skill_name else f"Skill {i}"
                 active_skills.append(f"{display}: {level}")
         if active_skills:
@@ -892,7 +815,6 @@ def format_char_summary(char_data: D2SStruct) -> str:
     result.append("")
 
     result.append("=== Equipped Gear ===")
-    version = char_data.dwVersion if char_data.dwVersion else 0x63
     equipped_items = {}
     inventory_items = []
     stash_items = []
@@ -924,7 +846,7 @@ def format_char_summary(char_data: D2SStruct) -> str:
         if slot.value in equipped_items:
             has_equipped = True
             it = equipped_items[slot.value]
-            result.append(f"- {slot.display_name}: {format_item_summary(it, version)}")
+            result.append(f"- {slot.display_name}: {format_item_summary(it, version, resolver=resolver)}")
     if not has_equipped:
         result.append("None")
 
@@ -942,7 +864,7 @@ def format_char_summary(char_data: D2SStruct) -> str:
                 slot_str = ""
                 if loc == ItemLocation.EQUIPPED and m_item.iPosition in EquipSlot._value2member_map_:
                     slot_str = f"{EquipSlot(m_item.iPosition).display_name}: "
-                result.append(f"  - {slot_str}{format_item_summary(m_item, version)}")
+                result.append(f"  - {slot_str}{format_item_summary(m_item, version, resolver=resolver)}")
         else:
             result.append("Equipped: None")
     else:
@@ -952,23 +874,23 @@ def format_char_summary(char_data: D2SStruct) -> str:
     result.append("=== Inventory & Stash ===")
     stored_lines = []
     for it in inventory_items:
-        stored_lines.append(f"- [Inventory] {format_item_summary(it, version)}")
+        stored_lines.append(f"- [Inventory] {format_item_summary(it, version, resolver=resolver)}")
     for it in stash_items:
-        stored_lines.append(f"- [Stash] {format_item_summary(it, version)}")
+        stored_lines.append(f"- [Stash] {format_item_summary(it, version, resolver=resolver)}")
     for it in cube_items:
-        stored_lines.append(f"- [Cube] {format_item_summary(it, version)}")
+        stored_lines.append(f"- [Cube] {format_item_summary(it, version, resolver=resolver)}")
 
     if belt_items:
         belt_counts = {}
         for it in belt_items:
-            summary = format_item_summary(it, version)
+            summary = format_item_summary(it, version, resolver=resolver)
             belt_counts[summary] = belt_counts.get(summary, 0) + 1
         for summary, count in belt_counts.items():
             count_str = f" (x{count})" if count > 1 else ""
             stored_lines.append(f"- [Belt] {summary}{count_str}")
 
     for it in cursor_items:
-        stored_lines.append(f"- [Cursor] {format_item_summary(it, version)}")
+        stored_lines.append(f"- [Cursor] {format_item_summary(it, version, resolver=resolver)}")
 
     if stored_lines:
         result.extend(stored_lines)
@@ -1053,6 +975,8 @@ def format_stash_info(stash: SharedStash) -> str:
             result.append(f"Gold: {tab.Gold}")
         
         items = tab.Items.vItems if tab.Items else []
+        version = tab.ItemFormat if tab.ItemFormat else 0x63
+        resolver = GameDataResolver(version)
         if tab.TabType == STASH_TAB_TYPE_ADVANCED:
             active_items = [
                 item for item in items
@@ -1061,12 +985,12 @@ def format_stash_info(stash: SharedStash) -> str:
             result.append(f"Total items: {len(active_items)}")
             for item_idx, item in enumerate(active_items):
                 result.append(f"--- Item {item_idx} ---")
-                result.extend(format_item_info(item))
+                result.extend(format_item_info(item, version=version, resolver=resolver))
         else:
             result.append(f"Total items: {len(items)}")
             for item_idx, item in enumerate(items):
                 result.append(f"--- Item {item_idx} ---")
-                result.extend(format_item_info(item))
+                result.extend(format_item_info(item, version=version, resolver=resolver))
         result.append("")
         
     return '\n'.join(result).rstrip()
@@ -1090,8 +1014,6 @@ def format_stash_summary(stash: SharedStash) -> str:
     result.append(f"Tabs: {', '.join(tab_summaries)}")
     result.append("")
     
-    d2data = get_d2data()
-    d2data_manager = get_d2data_manager()
     slot_order_map = {code: idx for idx, code in enumerate(COMBINED_SLOT_ORDER_STRIPPED)}
     
     for tab_idx, tab in enumerate(stash.tabs):
@@ -1102,6 +1024,7 @@ def format_stash_summary(stash: SharedStash) -> str:
             
         items = tab.Items.vItems if tab.Items else []
         version = tab.ItemFormat if tab.ItemFormat else 0x63
+        resolver = GameDataResolver(version)
         
         if tab.TabType == STASH_TAB_TYPE_ADVANCED:
             active_items = [
@@ -1133,16 +1056,16 @@ def format_stash_summary(stash: SharedStash) -> str:
                         else:
                             gem_stats[g_type]['o'] += stack_size
                     elif code_b in RUNE_CODES_STRIPPED:
-                        type_info = d2data_manager.get_item(code_str, version) if d2data_manager else (d2data.get_item(code_str) if d2data else None)
+                        type_info = resolver.get_item(code_str)
                         item_name = type_info.name if type_info else code_str
                         display_name = item_name[:-5] if item_name.endswith(" Rune") else item_name
                         runes_list.append(f"{display_name}: {stack_size}")
                     elif code_b in MATERIAL_CODES_STRIPPED:
-                        type_info = d2data_manager.get_item(code_str, version) if d2data_manager else (d2data.get_item(code_str) if d2data else None)
+                        type_info = resolver.get_item(code_str)
                         item_name = type_info.name if type_info else code_str
                         materials_list.append(f"{item_name}: {stack_size}")
                     else:
-                        type_info = d2data_manager.get_item(code_str, version) if d2data_manager else (d2data.get_item(code_str) if d2data else None)
+                        type_info = resolver.get_item(code_str)
                         item_name = type_info.name if type_info else code_str
                         other_list.append(f"{item_name}: {stack_size}")
 
@@ -1168,7 +1091,7 @@ def format_stash_summary(stash: SharedStash) -> str:
                 item_counts = {}
                 item_order = []
                 for it in items:
-                    summary = format_item_summary(it, version, include_properties=False)
+                    summary = format_item_summary(it, version=version, include_properties=False, resolver=resolver)
                     if summary not in item_counts:
                         item_counts[summary] = 0
                         item_order.append(summary)

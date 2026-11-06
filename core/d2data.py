@@ -1242,3 +1242,75 @@ def get_d2data() -> Optional[D2DataWrapper]:
 def get_d2data_manager() -> Optional[D2DataManager]:
     """获取数据管理器"""
     return _g_d2data_manager
+
+
+_UNSET = object()
+
+
+class GameDataResolver:
+    """Facade unifying versioned D2DataManager and fallback D2Data lookups."""
+
+    def __init__(
+        self,
+        version: int = 0x63,
+        mgr: Optional[D2DataManager] = _UNSET,
+        legacy: Optional[D2DataWrapper] = _UNSET,
+    ):
+        self.version = version
+        self._mgr = get_d2data_manager() if mgr is _UNSET else mgr
+        self._legacy = get_d2data() if legacy is _UNSET else legacy
+
+    def get_item(self, code: str) -> Optional[ItemTypeInfo]:
+        if self._mgr:
+            return self._mgr.get_item(code, self.version)
+        return self._legacy.get_item(code) if self._legacy else None
+
+    def get_skill_name(self, skill_id: int) -> str:
+        from core.property import get_skill_name as prop_get_skill_name
+        loc_name, _ = prop_get_skill_name(skill_id)
+        if loc_name and loc_name != "Unknown Skill":
+            return loc_name
+        if self._mgr:
+            name = self._mgr.get_skill_name(skill_id, self.version)
+            if name:
+                return name
+        if self._legacy:
+            name = self._legacy.get_skill_name(skill_id)
+            if name:
+                return name
+        return ""
+
+    def get_runeword(self, runeword_id: int) -> Optional[RuneWordInfo]:
+        if self._mgr:
+            return self._mgr.get_runeword(runeword_id, self.version)
+        return self._legacy.get_runeword(runeword_id) if self._legacy else None
+
+    def get_unique_item(self, unique_id: int) -> Optional[UniqueItemInfo]:
+        if self._mgr:
+            return self._mgr.get_unique_item(unique_id, self.version)
+        return self._legacy.get_unique_item(unique_id) if self._legacy else None
+
+    def get_set_item(self, set_id: int) -> Optional[SetItemInfo]:
+        if self._mgr:
+            return self._mgr.get_set_item(set_id, self.version)
+        return self._legacy.get_set_item(set_id, self.version) if self._legacy else None
+
+    def get_magic_prefix(self, prefix_id: int) -> Optional[MagicAffixInfo]:
+        if self._mgr:
+            return self._mgr.get_magic_prefix(prefix_id, self.version)
+        return self._legacy.get_magic_prefix(prefix_id) if self._legacy else None
+
+    def get_magic_suffix(self, suffix_id: int) -> Optional[MagicAffixInfo]:
+        if self._mgr:
+            return self._mgr.get_magic_suffix(suffix_id, self.version)
+        return self._legacy.get_magic_suffix(suffix_id) if self._legacy else None
+
+    def get_stat(self, stat_id: int) -> Optional[StatInfo]:
+        if self._mgr:
+            return self._mgr.get_stat(stat_id, self.version)
+        return self._legacy.get_stat(stat_id) if self._legacy else None
+
+    def get_property(self, prop_id: int) -> Optional[PropertyInfo]:
+        if self._mgr:
+            return self._mgr.get_property(prop_id, self.version)
+        return self._legacy.get_property(prop_id) if self._legacy else None
