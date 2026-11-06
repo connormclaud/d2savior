@@ -279,6 +279,21 @@ def format_item_info(item, indent="  "):
                         result.append(f"{indent}  - ID {prop_id}: raw={value}, params={params}")
                     else:
                         result.append(f"{indent}  - ID {prop_id}: {value}")
+            
+            if getattr(tp, 'apSetProperty', None):
+                for idx, set_prop_list in enumerate(tp.apSetProperty):
+                    if set_prop_list and set_prop_list.mProperty:
+                        piece_count = idx + 2
+                        result.append(f"{indent}Set Properties ({piece_count} Items):")
+                        version = item.dwVersion if item.dwVersion else 0x63
+                        for prop_id, value, params in set_prop_list.get_parsed_properties(version):
+                            formatted = format_property(prop_id, params, version)
+                            if formatted:
+                                result.append(f"{indent}  - {formatted}")
+                            elif params:
+                                result.append(f"{indent}  - ID {prop_id}: raw={value}, params={params}")
+                            else:
+                                result.append(f"{indent}  - ID {prop_id}: {value}")
         
         if getattr(info, 'iAdvancedStashStackSize', 0) > 0:
             result.append(f"{indent}Stack Size: {info.iAdvancedStashStackSize}")

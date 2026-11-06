@@ -343,5 +343,30 @@ class TestFormatPropertySpecialCases(unittest.TestCase):
             self.assertIn(expected_name, result, f"Class ID {class_id} should format to {expected_name}")
 
 
+class TestFormatItemInfoSetProperties(unittest.TestCase):
+    def test_format_item_info_with_set_properties(self):
+        from d2s_parse import format_item_info
+        from core.item import D2Item, ItemInfo, TypeSpecificInfo, PropertyList
+
+        item = D2Item()
+        item.pItemInfo = ItemInfo()
+        item.pItemInfo.sTypeName = b'rin '
+        item.pItemInfo.pTpSpInfo = TypeSpecificInfo()
+
+        p2 = PropertyList()
+        p2.mProperty = [(31, 0, 60)]  # +60 Defense
+        p3 = PropertyList()
+        p3.mProperty = [(105, 0, 10)]  # +10% Faster Cast Rate
+
+        item.pItemInfo.pTpSpInfo.apSetProperty = [p2, p3, None, None, None]
+
+        lines = format_item_info(item)
+        full_text = "\n".join(lines)
+        self.assertIn("Set Properties (2 Items):", full_text)
+        self.assertIn("Set Properties (3 Items):", full_text)
+        self.assertIn("Defense", full_text)
+        self.assertIn("Faster Cast Rate", full_text)
+
+
 if __name__ == '__main__':
     unittest.main()
