@@ -9,7 +9,21 @@ from core.property import format_property, init_item_modifiers, get_skill_name
 from core.d2data import init_d2data, get_d2data, get_d2data_manager
 from core.localized_data import init_localized_data
 from core.enums import StoredIn, ItemLocation, ItemQuality, EquipSlot
-from core.stash import SharedStash, STASH_TAB_TYPE_ADVANCED, STASH_TAB_TYPE_NORMAL, STASH_TAB_TYPE_CHRONICLE
+from core.stash import (
+    SharedStash,
+    STASH_TAB_TYPE_ADVANCED,
+    STASH_TAB_TYPE_NORMAL,
+    STASH_TAB_TYPE_CHRONICLE,
+    COMBINED_SLOT_ORDER,
+    RUNE_CODES,
+    GEM_CODES,
+    MATERIAL_CODES,
+)
+
+RUNE_CODES_STRIPPED = {c.strip() for c in RUNE_CODES}
+GEM_CODES_STRIPPED = {c.strip() for c in GEM_CODES}
+MATERIAL_CODES_STRIPPED = {c.strip() for c in MATERIAL_CODES}
+COMBINED_SLOT_ORDER_STRIPPED = [c.strip() for c in COMBINED_SLOT_ORDER]
 
 CLASS_SKILL_BASES = [
     6,    # Amazon (0)
@@ -167,6 +181,115 @@ def format_duration(seconds: int) -> str:
     if secs > 0 or not parts:
         parts.append(f"{secs}s")
     return " ".join(parts)
+
+def get_item_display_name(item, version=0x63) -> str:
+    type_name = item.sTypeName.decode('ascii', errors='replace').strip() if item.sTypeName else 'Unknown'
+    d2data = get_d2data()
+    d2data_manager = get_d2data_manager()
+    
+    base_item_name = ""
+    if d2data_manager:
+        type_info = d2data_manager.get_item(type_name, version)
+        if type_info:
+            base_item_name = type_info.name
+    elif d2data:
+        type_info = d2data.get_item(type_name)
+        if type_info:
+            base_item_name = type_info.name
+    if not base_item_name:
+        base_item_name = type_name
+
+    ext = getattr(getattr(item, 'pItemInfo', None), 'pExtItemInfo', None)
+    if ext:
+        if ext.wRune.exist():
+            runeword_id = ext.rune_word_id()
+            rw_info = d2data_manager.get_runeword(runeword_id, version) if d2data_manager else (d2data.get_runeword(runeword_id) if d2data else None)
+            if rw_info:
+                return f"{rw_info.name} ({base_item_name})"
+        if ext.wUniID.exist():
+            unique_id = ext.wUniID.value
+            u_info = d2data_manager.get_unique_item(unique_id, version) if d2data_manager else (d2data.get_unique_item(unique_id) if d2data else None)
+            if u_info:
+                return f"{u_info.index} ({base_item_name})"
+        if ext.wSetID.exist():
+            set_id = ext.wSetID.value
+            s_info = d2data_manager.get_set_item(set_id, version) if d2data_manager else (d2data.get_set_item(set_id, version) if d2data else None)
+            if s_info:
+                return f"{s_info.name} ({base_item_name})"
+        quality = item.quality()
+        if quality == ItemQuality.MAGIC:
+            prefix_name = ""
+            suffix_name = ""
+            if ext.wPrefix.exist() and ext.wPrefix.value > 0:
+                p_info = d2data_manager.get_magic_prefix(ext.wPrefix.value, version) if d2data_manager else (d2data.get_magic_prefix(ext.wPrefix.value) if d2data else None)
+                if p_info:
+                    prefix_name = p_info.name
+            if ext.wSuffix.exist() and ext.wSuffix.value > 0:
+                s_info = d2data_manager.get_magic_suffix(ext.wSuffix.value, version) if d2data_manager else (d2data.get_magic_suffix(ext.wSuffix.value) if d2data else None)
+                if s_info:
+                    suffix_name = s_info.name
+            parts = [p for p in [prefix_name, base_item_name, suffix_name] if p]
+            if parts:
+                return " ".join(parts)
+        elif quality == ItemQuality.RARE:
+            return f"Rare {base_item_name}"
+        elif quality == ItemQuality.CRAFTED:
+            return f"Crafted {base_item_name}"
+        elif quality == ItemQuality.HIGH:
+            return f"Superior {base_item_name}"
+        elif quality == ItemQuality.LOW:
+            return f"Low Quality {base_item_name}"
+
+    return base_item_name
+
+def format_item_summary(item, version=0x63) -> str:
+    info = getattr(item, 'pItemInfo', None)
+    if info and info.pGold:
+        return f"Gold: {info.pGold.wQuantity}"
+        
+    title = get_item_display_name(item, version)
+    
+    meta_tags = []
+    tp = getattr(info, 'pTpSpInfo', None)
+    if tp:
+        if tp.iDefence.exist():
+            meta_tags.append(f"Def: {tp.get_defence()}")
+        sockets = tp.total_sockets()
+        if sockets > 0:
+            meta_tags.append(f"Sockets: {sockets}")
+            
+    if getattr(item, 'bEthereal', False):
+        meta_tags.append("Eth")
+        
+    stack_size = getattr(info, 'iAdvancedStashStackSize', 0)
+    if stack_size > 1:
+        meta_tags.append(f"x{stack_size}")
+    elif tp and tp.iQuantity.exist() and tp.iQuantity.value > 1:
+        meta_tags.append(f"Qty: {tp.iQuantity.value}")
+        
+    if getattr(item, 'aGemItems', None):
+        socketed = []
+        for gem in item.aGemItems:
+            g_name = get_item_display_name(gem, version)
+            socketed.append(g_name)
+        if socketed:
+            meta_tags.append(f"Socketed: {'+'.join(socketed)}")
+            
+    props = []
+    if tp and tp.stPropertyList and tp.stPropertyList.mProperty:
+        for prop_id, value, params in tp.stPropertyList.get_parsed_properties(version):
+            formatted = format_property(prop_id, params, version)
+            if formatted:
+                props.append(formatted)
+    if tp and tp.stRuneWordPropertyList and tp.stRuneWordPropertyList.mProperty:
+        for prop_id, value, params in tp.stRuneWordPropertyList.get_parsed_properties(version):
+            formatted = format_property(prop_id, params, version)
+            if formatted:
+                props.append(formatted)
+                
+    meta_str = f" [{', '.join(meta_tags)}]" if meta_tags else ""
+    props_str = f" ({', '.join(props)})" if props else ""
+    return f"{title}{meta_str}{props_str}"
 
 def format_item_info(item, indent="  "):
     result = []
@@ -407,6 +530,93 @@ def format_item_info(item, indent="  "):
     
     return result
 
+def format_waypoints_info(char_data: D2SStruct):
+    result = []
+    result.append("=== Waypoints ===")
+    if char_data.Waypoints.wMajic == 0x5357:
+        for diff_idx, diff_name in enumerate(DIFFICULTY_NAMES):
+            if diff_idx >= len(char_data.Waypoints.wp):
+                break
+            wp_data = char_data.Waypoints.wp[diff_idx]
+            global_idx = 0
+            total_unlocked = 0
+            act_stats = []
+            for act_name, wp_names in WAYPOINTS_BY_ACT:
+                unlocked_in_act = 0
+                missing = []
+                for name in wp_names:
+                    b = wp_data.Waypoints[global_idx // 8]
+                    if b & (1 << (global_idx % 8)):
+                        total_unlocked += 1
+                        unlocked_in_act += 1
+                    else:
+                        missing.append(name)
+                    global_idx += 1
+                act_stats.append((act_name, len(wp_names), unlocked_in_act, missing))
+            
+            # Check if this difficulty has been started (has waypoints beyond starter town or has quest activity)
+            has_wp_progress = (wp_data.Waypoints[0] & ~1) != 0 or any(b != 0 for b in wp_data.Waypoints[1:])
+            has_quest_progress = False
+            if char_data.QuestInfo.dwMajic == 0x216F6F57 and diff_idx < len(char_data.QuestInfo.QIData):
+                qd = char_data.QuestInfo.QIData[diff_idx]
+                has_quest_progress = any(w != 0 for words in [qd.wActI, qd.wActII, qd.wActIII, qd.wActIV, qd.wActV] for w in words)
+            
+            if not has_wp_progress and not has_quest_progress:
+                result.append(f"{diff_name}: Not started")
+                continue
+            
+            total_missing = 39 - total_unlocked
+            if total_unlocked == 39:
+                result.append(f"{diff_name} (39/39 unlocked): All unlocked")
+            else:
+                result.append(f"{diff_name} ({total_unlocked}/39 unlocked, {total_missing} missing):")
+                for act_name, total_act, unlocked_act, missing in act_stats:
+                    if unlocked_act == total_act:
+                        result.append(f"  {act_name} ({total_act}/{total_act}): All unlocked")
+                    elif unlocked_act == 0:
+                        result.append(f"  {act_name} (0/{total_act}): None unlocked")
+                    else:
+                        result.append(f"  {act_name} ({unlocked_act}/{total_act}): Missing {', '.join(missing)}")
+    return result
+
+def format_quests_info(char_data: D2SStruct):
+    result = []
+    result.append("=== Quests ===")
+    if char_data.QuestInfo.dwMajic == 0x216F6F57:
+        for diff_idx, diff_name in enumerate(DIFFICULTY_NAMES):
+            if diff_idx >= len(char_data.QuestInfo.QIData):
+                break
+            qd = char_data.QuestInfo.QIData[diff_idx]
+            act_words = [qd.wActI, qd.wActII, qd.wActIII, qd.wActIV, qd.wActV]
+            has_quest_progress = any(w != 0 for words in act_words for w in words)
+            if not has_quest_progress and qd.bResetStats == 0:
+                result.append(f"{diff_name}: Not started")
+                continue
+            
+            reset_status = "Available" if qd.bResetStats == 2 else ("Used" if qd.bResetStats == 1 else "Locked")
+            total_completed = sum(1 for words in act_words for w in words if (w & 1) or (w & 2))
+            rewards_unclaimed = sum(1 for words in act_words for w in words if (w & 2) and not (w & 1))
+            reward_str = f", {rewards_unclaimed} reward{'s' if rewards_unclaimed > 1 else ''} unclaimed" if rewards_unclaimed else ""
+            
+            result.append(f"{diff_name} ({total_completed}/27 completed{reward_str}) — Akara Reset: {reset_status}")
+            for (act_name, quest_defs), words in zip(QUESTS_BY_ACT, act_words):
+                words_ordered = [words[idx] for _, idx in quest_defs]
+                if all(w & 1 for w in words_ordered):
+                    result.append(f"  {act_name}: {' '.join('[x]' for _ in quest_defs)}")
+                elif all(not (w & 1) and not (w & 2) for w in words_ordered):
+                    result.append(f"  {act_name}: {' '.join('[ ]' for _ in quest_defs)}")
+                else:
+                    parts = []
+                    for (name, idx), w in zip(quest_defs, words_ordered):
+                        if w & 1:
+                            parts.append("[x]")
+                        elif w & 2:
+                            parts.append(f"[!] {name} (reward unclaimed)")
+                        else:
+                            parts.append(f"[ ] {name}")
+                    result.append(f"  {act_name}: {' '.join(parts)}")
+    return result
+
 def format_char_info(char_data: D2SStruct):
     result = []
     result.append("=== Diablo II Character Info ===")
@@ -486,86 +696,9 @@ def format_char_info(char_data: D2SStruct):
                 else:
                     result.append(f"Skill {i}: {level}")
     result.append("")
-    result.append("=== Waypoints ===")
-    if char_data.Waypoints.wMajic == 0x5357:
-        for diff_idx, diff_name in enumerate(DIFFICULTY_NAMES):
-            if diff_idx >= len(char_data.Waypoints.wp):
-                break
-            wp_data = char_data.Waypoints.wp[diff_idx]
-            global_idx = 0
-            total_unlocked = 0
-            act_stats = []
-            for act_name, wp_names in WAYPOINTS_BY_ACT:
-                unlocked_in_act = 0
-                missing = []
-                for name in wp_names:
-                    b = wp_data.Waypoints[global_idx // 8]
-                    if b & (1 << (global_idx % 8)):
-                        total_unlocked += 1
-                        unlocked_in_act += 1
-                    else:
-                        missing.append(name)
-                    global_idx += 1
-                act_stats.append((act_name, len(wp_names), unlocked_in_act, missing))
-            
-            # Check if this difficulty has been started (has waypoints beyond starter town or has quest activity)
-            has_wp_progress = (wp_data.Waypoints[0] & ~1) != 0 or any(b != 0 for b in wp_data.Waypoints[1:])
-            has_quest_progress = False
-            if char_data.QuestInfo.dwMajic == 0x216F6F57 and diff_idx < len(char_data.QuestInfo.QIData):
-                qd = char_data.QuestInfo.QIData[diff_idx]
-                has_quest_progress = any(w != 0 for words in [qd.wActI, qd.wActII, qd.wActIII, qd.wActIV, qd.wActV] for w in words)
-            
-            if not has_wp_progress and not has_quest_progress:
-                result.append(f"{diff_name}: Not started")
-                continue
-            
-            total_missing = 39 - total_unlocked
-            if total_unlocked == 39:
-                result.append(f"{diff_name} (39/39 unlocked): All unlocked")
-            else:
-                result.append(f"{diff_name} ({total_unlocked}/39 unlocked, {total_missing} missing):")
-                for act_name, total_act, unlocked_act, missing in act_stats:
-                    if unlocked_act == total_act:
-                        result.append(f"  {act_name} ({total_act}/{total_act}): All unlocked")
-                    elif unlocked_act == 0:
-                        result.append(f"  {act_name} (0/{total_act}): None unlocked")
-                    else:
-                        result.append(f"  {act_name} ({unlocked_act}/{total_act}): Missing {', '.join(missing)}")
+    result.extend(format_waypoints_info(char_data))
     result.append("")
-    result.append("=== Quests ===")
-    if char_data.QuestInfo.dwMajic == 0x216F6F57:
-        for diff_idx, diff_name in enumerate(DIFFICULTY_NAMES):
-            if diff_idx >= len(char_data.QuestInfo.QIData):
-                break
-            qd = char_data.QuestInfo.QIData[diff_idx]
-            act_words = [qd.wActI, qd.wActII, qd.wActIII, qd.wActIV, qd.wActV]
-            has_quest_progress = any(w != 0 for words in act_words for w in words)
-            if not has_quest_progress and qd.bResetStats == 0:
-                result.append(f"{diff_name}: Not started")
-                continue
-            
-            reset_status = "Available" if qd.bResetStats == 2 else ("Used" if qd.bResetStats == 1 else "Locked")
-            total_completed = sum(1 for words in act_words for w in words if (w & 1) or (w & 2))
-            rewards_unclaimed = sum(1 for words in act_words for w in words if (w & 2) and not (w & 1))
-            reward_str = f", {rewards_unclaimed} reward{'s' if rewards_unclaimed > 1 else ''} unclaimed" if rewards_unclaimed else ""
-            
-            result.append(f"{diff_name} ({total_completed}/27 completed{reward_str}) — Akara Reset: {reset_status}")
-            for (act_name, quest_defs), words in zip(QUESTS_BY_ACT, act_words):
-                words_ordered = [words[idx] for _, idx in quest_defs]
-                if all(w & 1 for w in words_ordered):
-                    result.append(f"  {act_name}: {' '.join('[x]' for _ in quest_defs)}")
-                elif all(not (w & 1) and not (w & 2) for w in words_ordered):
-                    result.append(f"  {act_name}: {' '.join('[ ]' for _ in quest_defs)}")
-                else:
-                    parts = []
-                    for (name, idx), w in zip(quest_defs, words_ordered):
-                        if w & 1:
-                            parts.append("[x]")
-                        elif w & 2:
-                            parts.append(f"[!] {name} (reward unclaimed)")
-                        else:
-                            parts.append(f"[ ] {name}")
-                    result.append(f"  {act_name}: {' '.join(parts)}")
+    result.extend(format_quests_info(char_data))
     result.append("")
     result.append("=== Items ===")
     if char_data.ItemList.wMajic == 0x4D4A:
@@ -627,6 +760,164 @@ def format_char_info(char_data: D2SStruct):
     else:
         result.append("No demon")
     return '\n'.join(result)
+
+def format_char_summary(char_data: D2SStruct) -> str:
+    result = []
+    result.append("=== Diablo II Character Summary ===")
+    char_name = char_data.get_char_name()
+    char_class = char_data.get_char_class_name()
+    flags_str = get_char_type_name(char_data.charFlags)
+    char_title = getattr(char_data, 'charTitle', 0)
+    title_str = get_char_title_name(char_title, char_data.charClass)
+    weapon_set = 'I' if char_data.dwWeaponSet == 0 else 'II'
+    
+    result.append(f"Name: {char_name} | Class: {char_class} | Level: {char_data.charLevel} | Title: {title_str}")
+    result.append(f"Status: {flags_str} | Weapon Set: {weapon_set}")
+    
+    last_save_time = getattr(char_data, 'lastSaveTime', 0) or getattr(char_data, 'dwTime', 0)
+    play_time = getattr(char_data, 'playTime', 0)
+    time_parts = []
+    if last_save_time:
+        time_parts.append(f"Last Saved: {format_timestamp(last_save_time)}")
+    if play_time:
+        time_parts.append(f"Play Time: {format_duration(play_time)}")
+    if time_parts:
+        result.append(" | ".join(time_parts))
+        
+    if char_data.PlayerStats.wMajic == 0x6667:
+        str_val = char_data.PlayerStats.m_adwValue[0]
+        ene_val = char_data.PlayerStats.m_adwValue[1]
+        dex_val = char_data.PlayerStats.m_adwValue[2]
+        vit_val = char_data.PlayerStats.m_adwValue[3]
+        stat_pts = char_data.PlayerStats.m_adwValue[4]
+        skill_pts = char_data.PlayerStats.m_adwValue[5]
+        cur_life = char_data.PlayerStats.m_adwValue[6] >> 8
+        max_life = char_data.PlayerStats.m_adwValue[7] >> 8
+        cur_mana = char_data.PlayerStats.m_adwValue[8] >> 8
+        max_mana = char_data.PlayerStats.m_adwValue[9] >> 8
+        gold_person = char_data.PlayerStats.m_adwValue[0xE]
+        gold_stash = char_data.PlayerStats.m_adwValue[0xF]
+        result.append(f"Attributes: Str: {str_val}, Dex: {dex_val}, Vit: {vit_val}, Ene: {ene_val}")
+        result.append(f"Life: {cur_life}/{max_life} | Mana: {cur_mana}/{max_mana} | Gold: {gold_person} (Person), {gold_stash} (Stash)")
+        if stat_pts > 0 or skill_pts > 0:
+            result.append(f"Remaining Points: {stat_pts} Stat, {skill_pts} Skill")
+
+    result.append("")
+    result.append("=== Skills ===")
+    if char_data.Skills.wMagic == 0x6669:
+        d2data = get_d2data()
+        d2data_manager = get_d2data_manager()
+        active_skills = []
+        for i, level in enumerate(char_data.Skills.bSkillLevel):
+            if level > 0:
+                skill_name = ""
+                if 0 <= char_data.charClass < len(CLASS_SKILL_BASES):
+                    skill_id = CLASS_SKILL_BASES[char_data.charClass] + i
+                    loc_name, _ = get_skill_name(skill_id)
+                    if loc_name:
+                        skill_name = loc_name
+                    elif d2data_manager:
+                        skill_name = d2data_manager.get_skill_name(skill_id, char_data.dwVersion)
+                    elif d2data:
+                        skill_name = d2data.get_skill_name(skill_id)
+                display = skill_name if skill_name else f"Skill {i}"
+                active_skills.append(f"{display}: {level}")
+        if active_skills:
+            result.append(", ".join(active_skills))
+        else:
+            result.append("None")
+
+    result.append("")
+    result.extend(format_waypoints_info(char_data))
+    result.append("")
+    result.extend(format_quests_info(char_data))
+    result.append("")
+
+    result.append("=== Equipped Gear ===")
+    version = char_data.dwVersion if char_data.dwVersion else 0x63
+    equipped_items = {}
+    inventory_items = []
+    stash_items = []
+    cube_items = []
+    belt_items = []
+    cursor_items = []
+
+    if char_data.ItemList.wMajic == 0x4D4A:
+        for item in char_data.ItemList.vItems:
+            loc = ItemLocation(item.iLocation)
+            if loc == ItemLocation.EQUIPPED:
+                equipped_items[item.iPosition] = item
+            elif loc == ItemLocation.BELT:
+                belt_items.append(item)
+            elif loc == ItemLocation.STORED:
+                if item.iStoredIn == StoredIn.INVENTORY:
+                    inventory_items.append(item)
+                elif item.iStoredIn == StoredIn.STASH:
+                    stash_items.append(item)
+                elif item.iStoredIn == StoredIn.CUBE:
+                    cube_items.append(item)
+                else:
+                    inventory_items.append(item)
+            elif loc == ItemLocation.CURSOR:
+                cursor_items.append(item)
+
+    has_equipped = False
+    for slot in EquipSlot:
+        if slot.value in equipped_items:
+            has_equipped = True
+            it = equipped_items[slot.value]
+            result.append(f"- {slot.display_name}: {format_item_summary(it, version)}")
+    if not has_equipped:
+        result.append("None")
+
+    result.append("")
+    result.append("=== Mercenary ===")
+    if char_data.is_expansion() and char_data.has_mercenary():
+        merc_name = getattr(char_data, 'mercNameIndex', 0) if char_data.dwVersion >= 0x69 else getattr(char_data, 'wMercName', 0)
+        merc_type = getattr(char_data, 'mercHirelingId', 0) if char_data.dwVersion >= 0x69 else getattr(char_data, 'wMercType', 0)
+        dead_str = " (Dead)" if getattr(char_data, 'bMercDead', 0) else ""
+        result.append(f"Mercenary: Name Index {merc_name}, Type {merc_type}{dead_str}")
+        if char_data.stMercenary.stItems and char_data.stMercenary.stItems.vItems:
+            result.append("Equipped:")
+            for m_item in char_data.stMercenary.stItems.vItems:
+                loc = ItemLocation(m_item.iLocation)
+                slot_str = ""
+                if loc == ItemLocation.EQUIPPED and m_item.iPosition in EquipSlot._value2member_map_:
+                    slot_str = f"{EquipSlot(m_item.iPosition).display_name}: "
+                result.append(f"  - {slot_str}{format_item_summary(m_item, version)}")
+        else:
+            result.append("Equipped: None")
+    else:
+        result.append("No mercenary")
+
+    result.append("")
+    result.append("=== Inventory & Stash ===")
+    stored_lines = []
+    for it in inventory_items:
+        stored_lines.append(f"- [Inventory] {format_item_summary(it, version)}")
+    for it in stash_items:
+        stored_lines.append(f"- [Stash] {format_item_summary(it, version)}")
+    for it in cube_items:
+        stored_lines.append(f"- [Cube] {format_item_summary(it, version)}")
+
+    if belt_items:
+        belt_counts = {}
+        for it in belt_items:
+            summary = format_item_summary(it, version)
+            belt_counts[summary] = belt_counts.get(summary, 0) + 1
+        for summary, count in belt_counts.items():
+            count_str = f" (x{count})" if count > 1 else ""
+            stored_lines.append(f"- [Belt] {summary}{count_str}")
+
+    for it in cursor_items:
+        stored_lines.append(f"- [Cursor] {format_item_summary(it, version)}")
+
+    if stored_lines:
+        result.extend(stored_lines)
+    else:
+        result.append("No stored items")
+
+    return '\n'.join(result).rstrip()
 
 def debug_bitstream(bs, context_bits=64, label=""):
     offset = bs.getOffset()
@@ -722,6 +1013,92 @@ def format_stash_info(stash: SharedStash) -> str:
         
     return '\n'.join(result).rstrip()
 
+def format_stash_summary(stash: SharedStash) -> str:
+    result = []
+    result.append("=== Diablo II Shared Stash Summary ===")
+    tab_count = stash.get_tab_count()
+    result.append(f"Total Tabs: {tab_count}")
+    
+    TAB_TYPE_NAMES = {
+        STASH_TAB_TYPE_NORMAL: "Normal",
+        STASH_TAB_TYPE_ADVANCED: "Advanced (Currency)",
+        STASH_TAB_TYPE_CHRONICLE: "Chronicle",
+    }
+    
+    tab_summaries = []
+    for tab_idx, tab in enumerate(stash.tabs):
+        tname = TAB_TYPE_NAMES.get(tab.TabType, f"Unknown({tab.TabType})")
+        tab_summaries.append(f"Tab {tab_idx + 1}: {tname}")
+    result.append(f"Tabs: {', '.join(tab_summaries)}")
+    result.append("")
+    
+    d2data = get_d2data()
+    d2data_manager = get_d2data_manager()
+    slot_order_map = {code: idx for idx, code in enumerate(COMBINED_SLOT_ORDER_STRIPPED)}
+    
+    for tab_idx, tab in enumerate(stash.tabs):
+        tname = TAB_TYPE_NAMES.get(tab.TabType, f"Unknown({tab.TabType})")
+        result.append(f"=== Tab {tab_idx + 1} ({tname}) ===")
+        if tab.Gold:
+            result.append(f"Gold: {tab.Gold}")
+            
+        items = tab.Items.vItems if tab.Items else []
+        version = tab.ItemFormat if tab.ItemFormat else 0x63
+        
+        if tab.TabType == STASH_TAB_TYPE_ADVANCED:
+            active_items = [
+                it for it in items
+                if getattr(getattr(it, 'pItemInfo', None), 'iAdvancedStashStackSize', 0) > 0
+            ]
+            if not active_items:
+                result.append("  (empty)")
+            else:
+                runes_list = []
+                gems_list = []
+                materials_list = []
+                other_list = []
+                
+                sorted_active = sorted(
+                    active_items,
+                    key=lambda it: slot_order_map.get(getattr(it, 'sTypeName', b'').strip(), 9999)
+                )
+                
+                for it in sorted_active:
+                    code_b = getattr(it, 'sTypeName', b'').strip()
+                    code_str = code_b.decode('ascii', errors='replace')
+                    stack_size = getattr(getattr(it, 'pItemInfo', None), 'iAdvancedStashStackSize', 0)
+                    
+                    type_info = d2data_manager.get_item(code_str, version) if d2data_manager else (d2data.get_item(code_str) if d2data else None)
+                    item_name = type_info.name if type_info else code_str
+                    
+                    if code_b in RUNE_CODES_STRIPPED:
+                        display_name = item_name[:-5] if item_name.endswith(" Rune") else item_name
+                        runes_list.append(f"{display_name}: {stack_size}")
+                    elif code_b in GEM_CODES_STRIPPED:
+                        gems_list.append(f"{item_name}: {stack_size}")
+                    elif code_b in MATERIAL_CODES_STRIPPED:
+                        materials_list.append(f"{item_name}: {stack_size}")
+                    else:
+                        other_list.append(f"{item_name}: {stack_size}")
+                        
+                if runes_list:
+                    result.append(f"  Runes: {', '.join(runes_list)}")
+                if gems_list:
+                    result.append(f"  Gems: {', '.join(gems_list)}")
+                if materials_list:
+                    result.append(f"  Materials: {', '.join(materials_list)}")
+                if other_list:
+                    result.append(f"  Other: {', '.join(other_list)}")
+        else:
+            if not items:
+                result.append("  (empty)")
+            else:
+                for it in items:
+                    result.append(f"  - {format_item_summary(it, version)}")
+        result.append("")
+        
+    return '\n'.join(result).rstrip()
+
 def parse_d2i_file(file_path, debug=False):
     try:
         with open(file_path, 'rb') as f:
@@ -775,34 +1152,7 @@ def parse_d2s_file(file_path, debug=False):
         traceback.print_exc()
         return False, None, None
 
-def main():
-    parser = argparse.ArgumentParser(
-        description='Diablo II Save and Shared Stash File Parser',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
-Examples:
-  %(prog)s character.d2s
-  %(prog)s ModernSharedStashSoftCoreV2.d2i
-  %(prog)s --debug character.d2s
-  %(prog)s --lang zhCN character.d2s
-  %(prog)s --search 10110011 character.d2s
-  %(prog)s --search-bytes 4a4d character.d2s
-        '''
-    )
-    
-    parser.add_argument('file_path', help='Path to the .d2s save file or .d2i stash/item file')
-    parser.add_argument('-d', '--debug', action='store_true', help='Show debug info')
-    parser.add_argument('-s', '--search', metavar='PATTERN', 
-                        help='Search bit pattern (e.g. "10110011")')
-    parser.add_argument('-sb', '--search-bytes', metavar='HEX', 
-                        help='Search byte pattern (e.g. "4a4d")')
-    parser.add_argument('--lang', metavar='LANG_KEY', 
-                        help='Set language (e.g. enUS, zhCN, zhTW)')
-    
-    args = parser.parse_args()
-    
-    file_path = args.file_path
-    
+def process_file(file_path, args):
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' does not exist")
         return
@@ -832,10 +1182,17 @@ Examples:
                     print("Pattern not found")
             
             if kind == "stash":
-                print(format_stash_info(stash_or_item))
+                if getattr(args, 'summary', False):
+                    print(format_stash_summary(stash_or_item))
+                else:
+                    print(format_stash_info(stash_or_item))
             elif kind == "item":
-                print("=== Item Info ===")
-                print('\n'.join(format_item_info(stash_or_item)))
+                if getattr(args, 'summary', False):
+                    print("=== Item Summary ===")
+                    print(f"- {format_item_summary(stash_or_item)}")
+                else:
+                    print("=== Item Info ===")
+                    print('\n'.join(format_item_info(stash_or_item)))
         return
 
     success, char_data, bs = parse_d2s_file(file_path, args.debug)
@@ -858,7 +1215,47 @@ Examples:
             if not results:
                 print("Pattern not found")
         
-        print(format_char_info(char_data))
+        if getattr(args, 'summary', False):
+            print(format_char_summary(char_data))
+        else:
+            print(format_char_info(char_data))
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Diablo II Save and Shared Stash File Parser',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  %(prog)s character.d2s
+  %(prog)s --summary character.d2s
+  %(prog)s ModernSharedStashSoftCoreV2.d2i
+  %(prog)s --summary *.d2s ModernSharedStashSoftCoreV2.d2i
+  %(prog)s --debug character.d2s
+  %(prog)s --lang zhCN character.d2s
+  %(prog)s --search 10110011 character.d2s
+  %(prog)s --search-bytes 4a4d character.d2s
+        '''
+    )
+    
+    parser.add_argument('file_path', nargs='+', help='Path to the .d2s save file(s) or .d2i stash/item file(s)')
+    parser.add_argument('--summary', action='store_true', help='Show compact summary instead of full dump')
+    parser.add_argument('-d', '--debug', action='store_true', help='Show debug info')
+    parser.add_argument('-s', '--search', metavar='PATTERN', 
+                        help='Search bit pattern (e.g. "10110011")')
+    parser.add_argument('-sb', '--search-bytes', metavar='HEX', 
+                        help='Search byte pattern (e.g. "4a4d")')
+    parser.add_argument('--lang', metavar='LANG_KEY', 
+                        help='Set language (e.g. enUS, zhCN, zhTW)')
+    
+    args = parser.parse_args()
+    
+    for idx, path in enumerate(args.file_path):
+        if len(args.file_path) > 1:
+            if idx > 0:
+                print()
+            print(f"=== File: {path} ===")
+        process_file(path, args)
+
 
 if __name__ == "__main__":
     main()

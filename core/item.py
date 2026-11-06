@@ -1349,13 +1349,24 @@ class D2Item:
 
     @property
     def sTypeName(self) -> bytes:
-        if self.pItemInfo:
+        if self.pItemInfo and self.pItemInfo.sTypeName.strip():
             return self.pItemInfo.sTypeName
         if self.bEar:
             return b'ear '
         if self._meta:
             return self._meta.type_id
+        if self.pItemInfo:
+            return self.pItemInfo.sTypeName
         return b'    '
+
+    @sTypeName.setter
+    def sTypeName(self, value: bytes):
+        if self.pItemInfo:
+            self.pItemInfo.sTypeName = value
+        if self._meta:
+            self._meta.type_id = value
+        else:
+            self._meta = ItemMetaData(type_id=value)
 
     def quality(self) -> int:
         if self.bEar or self.bSimple:
