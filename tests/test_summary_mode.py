@@ -423,6 +423,28 @@ class TestSummaryMode(unittest.TestCase):
             mock_print.assert_any_call("\n=== Search Results for '1010' ===")
             mock_print.assert_any_call("\n=== Search Results for bytes '4a4d' ===")
 
+    def test_ensure_data_loaded(self):
+        import d2s_parse
+        from core.d2data import get_d2data_manager
+
+        # Initial call ensures default language loaded
+        d2s_parse.ensure_data_loaded()
+        self.assertIsNotNone(get_d2data_manager())
+        self.assertEqual(d2s_parse._data_loaded_lang, "enUS")
+
+        # Second call with same language is a no-op
+        prev_mgr = get_d2data_manager()
+        d2s_parse.ensure_data_loaded(lang_key="enUS")
+        self.assertIs(get_d2data_manager(), prev_mgr)
+
+        # Force reloading or changing language works
+        d2s_parse.ensure_data_loaded(lang_key="zhCN", force=True)
+        self.assertEqual(d2s_parse._data_loaded_lang, "zhCN")
+
+        # Restore back to enUS
+        d2s_parse.ensure_data_loaded(lang_key="enUS", force=True)
+        self.assertEqual(d2s_parse._data_loaded_lang, "enUS")
+
 
 if __name__ == '__main__':
     unittest.main()

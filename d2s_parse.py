@@ -159,28 +159,39 @@ QUESTS_BY_ACT = [
     ])
 ]
 
-_script_dir = os.path.dirname(os.path.abspath(__file__))
+_data_loaded_lang: Optional[str] = None
 
-# 提前解析语言参数，因为模块加载时需要
-def parse_lang_arg():
-    for i, arg in enumerate(sys.argv[1:], 1):
-        if arg == '--lang' and i + 1 < len(sys.argv):
-            return sys.argv[i + 1]
-    return 'enUS'  # 默认语言
 
-_lang_key = parse_lang_arg()
+def ensure_data_loaded(lang_key: str = "enUS", data_dir: Optional[str] = None, force: bool = False):
+    """Ensure game and localization data are loaded into core managers."""
+    global _data_loaded_lang
+    if not force:
+        if _data_loaded_lang == lang_key:
+            return
+        if _data_loaded_lang is not None and (lang_key is None or lang_key == "enUS"):
+            return
+        if get_d2data_manager() is not None and (lang_key is None or lang_key == "enUS") and _data_loaded_lang is None:
+            _data_loaded_lang = "enUS"
+            return
 
-data_dir = os.path.join(_script_dir, "data")
-if os.path.exists(data_dir):
-    init_d2data(data_dir)
-    
-    local_data_dir = os.path.join(data_dir, "local")
-    if os.path.exists(local_data_dir):
-        init_localized_data(local_data_dir, lang_key=_lang_key)
-    
-    item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
-    if os.path.exists(item_modifiers_file):
-        init_item_modifiers(item_modifiers_file, lang_key=_lang_key)
+    actual_lang = lang_key if lang_key else "enUS"
+
+    if data_dir is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        data_dir = os.path.join(script_dir, "data")
+
+    if os.path.exists(data_dir):
+        init_d2data(data_dir)
+
+        local_data_dir = os.path.join(data_dir, "local")
+        if os.path.exists(local_data_dir):
+            init_localized_data(local_data_dir, lang_key=actual_lang)
+
+        item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
+        if os.path.exists(item_modifiers_file):
+            init_item_modifiers(item_modifiers_file, lang_key=actual_lang)
+
+    _data_loaded_lang = actual_lang
 
 def get_char_type_name(char_type):
     flags = []
@@ -240,6 +251,7 @@ def format_duration(seconds: int) -> str:
 def get_item_display_name(item, version=0x63, resolver=None) -> str:
     type_name = item.sTypeName.decode('ascii', errors='replace').strip() if item.sTypeName else 'Unknown'
     if resolver is None:
+        ensure_data_loaded()
         resolver = GameDataResolver(version)
     
     type_info = resolver.get_item(type_name)
@@ -302,6 +314,7 @@ def _format_parsed_properties(prop_list, version: int = 0x63) -> List[str]:
 
 def format_item_summary(item, version=0x63, include_properties=True, resolver=None) -> str:
     if resolver is None:
+        ensure_data_loaded()
         resolver = GameDataResolver(version)
     info = getattr(item, 'pItemInfo', None)
     if info and info.pGold:
@@ -353,6 +366,7 @@ def format_item_info(item, indent="  ", version=None, resolver=None):
     if version is None:
         version = item.dwVersion if item.dwVersion else 0x63
     if resolver is None:
+        ensure_data_loaded()
         resolver = GameDataResolver(version)
     
     item_full_name = ""
@@ -579,6 +593,7 @@ def _get_character_skills(char_data: D2SStruct, resolver: Optional[GameDataResol
     if not getattr(char_data, 'Skills', None) or char_data.Skills.wMagic != 0x6669:
         return []
     if resolver is None:
+        ensure_data_loaded()
         version = char_data.dwVersion if char_data.dwVersion else 0x63
         resolver = GameDataResolver(version)
     skills = []
@@ -592,6 +607,7 @@ def _get_character_skills(char_data: D2SStruct, resolver: Optional[GameDataResol
     return skills
 
 def format_char_info(char_data: D2SStruct):
+    ensure_data_loaded()
     result = []
     result.append("=== Diablo II Character Info ===")
     char_name = char_data.get_char_name()
@@ -719,6 +735,7 @@ def format_char_info(char_data: D2SStruct):
     return '\n'.join(result)
 
 def format_char_summary(char_data: D2SStruct) -> str:
+    ensure_data_loaded()
     result = []
     result.append("=== Diablo II Character Summary ===")
     char_name = char_data.get_char_name()
@@ -930,6 +947,7 @@ def _run_bitstream_searches(bs, args):
             print("Pattern not found")
 
 def format_stash_info(stash: SharedStash) -> str:
+    ensure_data_loaded()
     result = []
     result.append("=== Diablo II Shared Stash ===")
     result.append(f"Total Tabs: {stash.get_tab_count()}")
@@ -963,6 +981,7 @@ def format_stash_info(stash: SharedStash) -> str:
     return '\n'.join(result).rstrip()
 
 def format_stash_summary(stash: SharedStash) -> str:
+    ensure_data_loaded()
     result = []
     result.append("=== Diablo II Shared Stash Summary ===")
     tab_count = stash.get_tab_count()
@@ -1123,6 +1142,7 @@ def parse_d2s_file(file_path, debug=False):
         return False, None, None
 
 def process_file(file_path, args):
+    ensure_data_loaded(lang_key=getattr(args, 'lang', None) or "enUS")
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' does not exist")
         return
@@ -1188,6 +1208,7 @@ Examples:
                         help='Set language (e.g. enUS, zhCN, zhTW)')
     
     args = parser.parse_args()
+    ensure_data_loaded(lang_key=args.lang or "enUS")
     
     for idx, path in enumerate(args.file_path):
         if len(args.file_path) > 1:
