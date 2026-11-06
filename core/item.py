@@ -1814,6 +1814,9 @@ class ItemList:
     def __len__(self) -> int:
         return len(self.items)
 
+    def __bool__(self) -> bool:
+        return True
+
     def __iter__(self):
         return iter(self.items)
 
