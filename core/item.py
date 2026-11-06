@@ -637,59 +637,6 @@ class LongName:
         self.pref_3: Optional[int] = None
         self.suff_3: Optional[int] = None
 
-    # Transitional property aliases
-    @property
-    def iName1(self) -> int: return self.name_1
-    @iName1.setter
-    def iName1(self, v: int): self.name_1 = v
-
-    @property
-    def iName2(self) -> int: return self.name_2
-    @iName2.setter
-    def iName2(self, v: int): self.name_2 = v
-
-    @property
-    def bPref1(self) -> bool: return self.pref_1 is not None
-    @property
-    def bSuff1(self) -> bool: return self.suff_1 is not None
-    @property
-    def bPref2(self) -> bool: return self.pref_2 is not None
-    @property
-    def bSuff2(self) -> bool: return self.suff_2 is not None
-    @property
-    def bPref3(self) -> bool: return self.pref_3 is not None
-    @property
-    def bSuff3(self) -> bool: return self.suff_3 is not None
-
-    @property
-    def wPref1(self): return MayExist(self, 'pref_1')
-    @wPref1.setter
-    def wPref1(self, v): self.pref_1 = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def wSuff1(self): return MayExist(self, 'suff_1')
-    @wSuff1.setter
-    def wSuff1(self, v): self.suff_1 = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def wPref2(self): return MayExist(self, 'pref_2')
-    @wPref2.setter
-    def wPref2(self, v): self.pref_2 = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def wSuff2(self): return MayExist(self, 'suff_2')
-    @wSuff2.setter
-    def wSuff2(self, v): self.suff_2 = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def wPref3(self): return MayExist(self, 'pref_3')
-    @wPref3.setter
-    def wPref3(self, v): self.pref_3 = v.value if isinstance(v, MayExist) else v
-
-    @property
-    def wSuff3(self): return MayExist(self, 'suff_3')
-    @wSuff3.setter
-    def wSuff3(self, v): self.suff_3 = v.value if isinstance(v, MayExist) else v
 
     def deserialize(self, bs):
         self.name_1 = bs.read_bits(8)

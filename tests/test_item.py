@@ -142,10 +142,10 @@ class TestCEar(unittest.TestCase):
 class TestCLongName(unittest.TestCase):
     def test_long_name_creation(self):
         name = LongName()
-        self.assertEqual(name.iName1, 0)
-        self.assertEqual(name.iName2, 0)
-        self.assertFalse(name.bPref1)
-        self.assertFalse(name.bSuff1)
+        self.assertEqual(name.name_1, 0)
+        self.assertEqual(name.name_2, 0)
+        self.assertIsNone(name.pref_1)
+        self.assertIsNone(name.suff_1)
 
 
 class TestCGoldQuantity(unittest.TestCase):
