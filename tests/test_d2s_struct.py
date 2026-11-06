@@ -173,7 +173,9 @@ class TestD2SStruct(unittest.TestCase):
         from core.d2s_struct import PlayerStats
         
         ps = PlayerStats()
+        self.assertEqual(ps.magic, 0)
         self.assertEqual(ps.wMajic, 0)
+        self.assertEqual(len(ps.stat_values), 16)
         self.assertEqual(len(ps.m_adwValue), 16)
     
     def test_player_stats_read_data(self):
@@ -195,7 +197,10 @@ class TestD2SStruct(unittest.TestCase):
         ps = PlayerStats()
         ps.deserialize(bs)
         
+        self.assertEqual(ps.magic, 0x6667)
         self.assertEqual(ps.wMajic, 0x6667)
+        self.assertEqual(ps.stat_values[0], 50)
+        self.assertEqual(ps.stat_values[3], 25)
         self.assertEqual(ps.m_adwValue[0], 50)
         self.assertEqual(ps.m_adwValue[3], 25)
     
@@ -211,6 +216,7 @@ class TestD2SStruct(unittest.TestCase):
         ps = PlayerStats()
         ps.deserialize(bs)
         
+        self.assertNotEqual(ps.magic, 0x6667)
         self.assertNotEqual(ps.wMajic, 0x6667)
     
     def test_player_stats_all_stats(self):
@@ -233,12 +239,13 @@ class TestD2SStruct(unittest.TestCase):
         ps = PlayerStats()
         ps.deserialize(bs)
         
-        self.assertEqual(ps.wMajic, 0x6667)
+        self.assertEqual(ps.magic, 0x6667)
         for i in range(16):
             max_val = (1 << PLAYER_STATS_BITS_COUNT[i]) - 1
             expected = min(test_values[i], max_val)
-            self.assertEqual(ps.m_adwValue[i], expected,
-                             f"Stat index {i}: expected {expected}, got {ps.m_adwValue[i]}")
+            self.assertEqual(ps.stat_values[i], expected,
+                             f"Stat index {i}: expected {expected}, got {ps.stat_values[i]}")
+            self.assertEqual(ps.m_adwValue[i], expected)
 
     def test_demon_default(self):
         """测试 Demon 默认状态"""
@@ -315,8 +322,8 @@ class TestD2SStruct(unittest.TestCase):
         from core.enums import ItemLocation
 
         item = D2Item()
-        item.pItemInfo = ItemInfo()
-        item.pItemInfo.sTypeName = b'bsd '
+        item.item_info = ItemInfo()
+        item.type_name = b'bsd '
         item.iLocation = int(ItemLocation.EQUIPPED)
         item.iPosition = 4
 
@@ -326,8 +333,8 @@ class TestD2SStruct(unittest.TestCase):
 
         # Stored item should not have equip slot name
         item_stored = D2Item()
-        item_stored.pItemInfo = ItemInfo()
-        item_stored.pItemInfo.sTypeName = b'bsd '
+        item_stored.item_info = ItemInfo()
+        item_stored.type_name = b'bsd '
         item_stored.iLocation = int(ItemLocation.STORED)
         item_stored.iPosition = 0
         full_text_stored = format_item_info(item_stored)
@@ -355,24 +362,24 @@ class TestD2SStruct(unittest.TestCase):
     def test_format_char_info_waypoints_and_quests(self):
         from d2s_parse import format_char_info
         char = D2SStruct()
-        char.dwVersion = 0x69
+        char.version = 0x69
         char.Name = b"TestHero\x00" + b"\x00" * 7
         char.charClass = 1
 
         # Setup waypoints
-        char.Waypoints.wMajic = 0x5357
+        char.waypoints.magic = 0x5357
         # Normal: all 39 waypoints active (5 bytes: 0xFF, 0xFF, 0xFF, 0xFF, 0x7F)
-        char.Waypoints.wp[0].Waypoints = [0xFF, 0xFF, 0xFF, 0xFF, 0x7F]
+        char.waypoints.wp[0].Waypoints = [0xFF, 0xFF, 0xFF, 0xFF, 0x7F]
         # Nightmare: bit 2 (Stony Field) missing in Act 1
-        char.Waypoints.wp[1].Waypoints = [0xFB, 0xFF, 0xFF, 0xFF, 0x7F]
+        char.waypoints.wp[1].Waypoints = [0xFB, 0xFF, 0xFF, 0xFF, 0x7F]
         # Hell: none active
-        char.Waypoints.wp[2].Waypoints = [0x00, 0x00, 0x00, 0x00, 0x00]
+        char.waypoints.wp[2].Waypoints = [0x00, 0x00, 0x00, 0x00, 0x00]
 
         # Setup quests
-        char.QuestInfo.dwMajic = 0x216F6F57
+        char.quests.magic = 0x216F6F57
         # Normal: all completed, Akara reset used
-        char.QuestInfo.QIData[0].bResetStats = 1
-        char.QuestInfo.QIData[0].wActI = [1] * 6
+        char.quests.qi_data[0].bResetStats = 1
+        char.quests.qi_data[0].wActI = [1] * 6
         char.QuestInfo.QIData[0].wActII = [1] * 6
         char.QuestInfo.QIData[0].wActIII = [1] * 6
         char.QuestInfo.QIData[0].wActIV = [1] * 3
@@ -419,25 +426,29 @@ class TestD2SStruct(unittest.TestCase):
         stats = PlayerStats()
         self.assertFalse(stats.is_valid)
 
-        stats.wMajic = PLAYER_STATS_MAGIC
+        stats.magic = PLAYER_STATS_MAGIC
         self.assertTrue(stats.is_valid)
 
-        stats.m_adwValue[0] = 100   # str
-        stats.m_adwValue[1] = 50    # ene
-        stats.m_adwValue[2] = 75    # dex
-        stats.m_adwValue[3] = 120   # vit
-        stats.m_adwValue[4] = 5     # stat pts
-        stats.m_adwValue[5] = 2     # skill pts
-        stats.m_adwValue[6] = 500 << 8   # cur life
-        stats.m_adwValue[7] = 600 << 8   # max life
-        stats.m_adwValue[8] = 200 << 8   # cur mana
-        stats.m_adwValue[9] = 250 << 8   # max mana
-        stats.m_adwValue[0xA] = 150 << 8 # cur stam
-        stats.m_adwValue[0xB] = 180 << 8 # max stam
-        stats.m_adwValue[0xC] = 85       # level
-        stats.m_adwValue[0xD] = 1234567  # exp
-        stats.m_adwValue[0xE] = 10000    # gold
-        stats.m_adwValue[0xF] = 2500000  # gold stash
+        stats.stat_values[0] = 100   # str
+        stats.stat_values[1] = 50    # ene
+        stats.stat_values[2] = 75    # dex
+        stats.stat_values[3] = 120   # vit
+        stats.stat_values[4] = 5     # stat pts
+        stats.stat_values[5] = 2     # skill pts
+        stats.stat_values[6] = 500 << 8   # cur life
+        stats.stat_values[7] = 600 << 8   # max life
+        stats.stat_values[8] = 200 << 8   # cur mana
+        stats.stat_values[9] = 250 << 8   # max mana
+        stats.stat_values[0xA] = 150 << 8 # cur stam
+        stats.stat_values[0xB] = 180 << 8 # max stam
+        stats.stat_values[0xC] = 85       # level
+        stats.stat_values[0xD] = 1234567  # exp
+        stats.stat_values[0xE] = 10000    # gold
+        stats.stat_values[0xF] = 2500000  # gold stash
+
+        # Compatibility check
+        self.assertEqual(stats.wMajic, PLAYER_STATS_MAGIC)
+        self.assertEqual(stats.m_adwValue[0], 100)
 
         self.assertEqual(stats.strength, 100)
         self.assertEqual(stats.energy, 50)
@@ -479,6 +490,34 @@ class TestD2SStruct(unittest.TestCase):
         self.assertEqual(char_v69.merc_type_id, 7)
         self.assertEqual(char_v69.merc_experience, 1500000)
         self.assertFalse(char_v69.merc_is_dead)
+
+    def test_quest_info_data_travel_properties(self):
+        from core.d2s_struct import QuestInfoData
+
+        qid = QuestInfoData()
+        self.assertEqual(qid.travel_1, 0)
+        self.assertEqual(qid.travel_2, 0)
+        self.assertEqual(qid.travel_3, 0)
+        self.assertEqual(qid.travel_4, 0)
+
+        # Pythonic attributes
+        qid.travel_1 = 1
+        qid.travel_2 = 2
+        qid.travel_3 = 3
+        qid.travel_4 = 4
+        self.assertEqual(qid.travel_1, 1)
+        self.assertEqual(qid.travel_2, 2)
+        self.assertEqual(qid.travel_3, 3)
+        self.assertEqual(qid.travel_4, 4)
+
+        # Legacy typo aliases wTraval1..wTraval4
+        self.assertEqual(qid.wTraval1, 1)
+        self.assertEqual(qid.wTraval2, 2)
+        self.assertEqual(qid.wTraval3, 3)
+        self.assertEqual(qid.wTraval4, 4)
+
+        qid.wTraval1 = 10
+        self.assertEqual(qid.travel_1, 10)
 
 
 if __name__ == '__main__':

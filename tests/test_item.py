@@ -190,43 +190,60 @@ class TestCExtItemInfo(unittest.TestCase):
 class TestCTypeSpecificInfo(unittest.TestCase):
     def test_type_specific_info_creation(self):
         type_info = TypeSpecificInfo()
+        self.assertIsNone(type_info.defence)
+        self.assertIsNone(type_info.max_durability)
+        # Test backward-compatible MayExist bridge
         self.assertFalse(type_info.iDefence.exist())
         self.assertFalse(type_info.iMaxDurability.exist())
 
     def test_type_specific_info_sockets(self):
         type_info = TypeSpecificInfo()
-        type_info.iSocket.ensure(3)
+        type_info.sockets_count = 3
         self.assertEqual(type_info.sockets(), (3, 0))
+        # Test backward-compatible ensure()
+        type_info2 = TypeSpecificInfo()
+        type_info2.iSocket.ensure(3)
+        self.assertEqual(type_info2.sockets(), (3, 0))
 
     def test_type_specific_info_defence(self):
         type_info = TypeSpecificInfo()
-        type_info.iDefence.ensure(110)
+        type_info.defence = 110
         self.assertEqual(type_info.get_defence(), 100)
+        # Test backward-compatible ensure()
+        type_info2 = TypeSpecificInfo()
+        type_info2.iDefence.ensure(110)
+        self.assertEqual(type_info2.get_defence(), 100)
 
 
 class TestCItemInfo(unittest.TestCase):
     def test_item_info_creation(self):
         item_info = ItemInfo()
+        self.assertEqual(item_info.type_name, b'    ')
         self.assertEqual(item_info.sTypeName, b'    ')
+        self.assertIsNone(item_info.ext_info)
+        self.assertIsNone(item_info.type_specific_info)
         self.assertIsNone(item_info.pExtItemInfo)
         self.assertIsNone(item_info.pTpSpInfo)
 
     def test_item_info_is_gold(self):
         item_info = ItemInfo()
-        item_info.sTypeName = b'gld '
+        item_info.type_name = b'gld '
         self.assertTrue(item_info.is_gold())
 
     def test_item_info_is_box(self):
         item_info = ItemInfo()
-        item_info.sTypeName = b'box '
+        item_info.type_name = b'box '
         self.assertTrue(item_info.is_box())
 
 
 class TestCD2Item(unittest.TestCase):
     def test_d2_item_creation(self):
         item = D2Item()
+        self.assertEqual(item.magic, 0x4D4A)
         self.assertEqual(item.wMajic, 0x4D4A)
+        self.assertFalse(item.is_ear)
         self.assertFalse(item.bEar)
+        self.assertTrue(item.is_simple)
         self.assertTrue(item.bSimple)
         self.assertEqual(item.iLocation, 0)
 
@@ -244,14 +261,14 @@ class TestCD2Item(unittest.TestCase):
 
     def test_d2_item_get_flag_names(self):
         item = D2Item()
-        # Default flags: bIdentified=True, bJustSaved=True
+        # Default flags: is_identified=True, bJustSaved=True
         flags = item.get_flag_names()
         self.assertIn("Identified", flags)
         self.assertIn("JustSaved", flags)
 
-        item.bEthereal = True
-        item.bSocketed = True
-        item.bRuneWord = True
+        item.is_ethereal = True
+        item.is_socketed = True
+        item.is_runeword = True
         flags = item.get_flag_names()
         self.assertIn("Ethereal", flags)
         self.assertIn("Socketed", flags)

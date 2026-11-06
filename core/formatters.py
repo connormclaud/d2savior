@@ -133,28 +133,28 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
     raw_name = type_info.name if type_info else type_name
     base_item_name = resolver.get_localized_item_name(type_name, fallback=raw_name)
 
-    ext = getattr(getattr(item, 'pItemInfo', None), 'pExtItemInfo', None)
+    ext = getattr(getattr(item, 'item_info', None), 'ext_info', None)
     if ext:
-        if ext.wRune.exist():
+        if ext.rune_id is not None:
             rw_name = resolver.get_localized_runeword_name(ext.rune_word_id())
             if rw_name:
                 return f"{rw_name} ({base_item_name})"
-        if ext.wUniID.exist():
-            u_name = resolver.get_localized_unique_name(ext.wUniID.value)
+        if ext.unique_id is not None:
+            u_name = resolver.get_localized_unique_name(ext.unique_id)
             if u_name:
                 return f"{u_name} ({base_item_name})"
-        if ext.wSetID.exist():
-            s_name = resolver.get_localized_set_name(ext.wSetID.value)
+        if ext.set_id is not None:
+            s_name = resolver.get_localized_set_name(ext.set_id)
             if s_name:
                 return f"{s_name} ({base_item_name})"
         quality = item.quality()
         if quality == ItemQuality.MAGIC:
             prefix_name = ""
             suffix_name = ""
-            if ext.wPrefix.exist() and ext.wPrefix.value > 0:
-                prefix_name = resolver.get_localized_magic_prefix(ext.wPrefix.value)
-            if ext.wSuffix.exist() and ext.wSuffix.value > 0:
-                suffix_name = resolver.get_localized_magic_suffix(ext.wSuffix.value)
+            if ext.magic_prefix:
+                prefix_name = resolver.get_localized_magic_prefix(ext.magic_prefix)
+            if ext.magic_suffix:
+                suffix_name = resolver.get_localized_magic_suffix(ext.magic_suffix)
             parts = [p for p in [prefix_name, base_item_name, suffix_name] if p]
             if parts:
                 return " ".join(parts)
@@ -201,35 +201,35 @@ def format_item_summary(
     if resolver is None:
         ensure_data_loaded()
         resolver = GameDataResolver(version)
-    info = getattr(item, 'pItemInfo', None)
-    if info and info.pGold:
-        return f"Gold: {info.pGold.wQuantity}"
+    info = getattr(item, 'item_info', None)
+    if info and info.gold:
+        return f"Gold: {info.gold.quantity}"
 
     title = get_item_display_name(item, version=version, resolver=resolver)
 
     meta_tags = []
-    tp = getattr(info, 'pTpSpInfo', None)
+    tp = getattr(info, 'type_specific_info', None)
     if tp:
-        if tp.iDefence.exist():
+        if tp.defence is not None:
             meta_tags.append(f"Def: {tp.get_defence()}")
         sockets = tp.total_sockets()
         if sockets > 0:
             meta_tags.append(f"Sockets: {sockets}")
 
-    if getattr(item, 'bEthereal', False):
+    if getattr(item, 'is_ethereal', False):
         meta_tags.append("Eth")
     if getattr(item, 'bDisabled', False):
         meta_tags.append("Broken")
 
-    stack_size = getattr(info, 'iAdvancedStashStackSize', 0)
+    stack_size = getattr(info, 'stash_stack_size', 0)
     if stack_size > 1:
         meta_tags.append(f"x{stack_size}")
-    elif tp and tp.iQuantity.exist() and tp.iQuantity.value > 1:
-        meta_tags.append(f"Qty: {tp.iQuantity.value}")
+    elif tp and tp.quantity is not None and tp.quantity > 1:
+        meta_tags.append(f"Qty: {tp.quantity}")
 
-    if getattr(item, 'aGemItems', None):
+    if getattr(item, 'gem_items', None):
         socketed = []
-        for gem in item.aGemItems:
+        for gem in item.gem_items:
             g_name = get_item_display_name(gem, version=version, resolver=resolver)
             socketed.append(g_name)
         if socketed:
@@ -237,8 +237,8 @@ def format_item_summary(
 
     props = []
     if include_properties and tp:
-        props.extend(_format_parsed_properties(getattr(tp, 'stPropertyList', None), version, property_formatter=property_formatter))
-        props.extend(_format_parsed_properties(getattr(tp, 'stRuneWordPropertyList', None), version, property_formatter=property_formatter))
+        props.extend(_format_parsed_properties(getattr(tp, 'property_list', None), version, property_formatter=property_formatter))
+        props.extend(_format_parsed_properties(getattr(tp, 'runeword_property_list', None), version, property_formatter=property_formatter))
 
     meta_str = f" [{', '.join(meta_tags)}]" if meta_tags else ""
     props_str = f" ({', '.join(props)})" if props else ""
@@ -286,42 +286,42 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[s
     if flags:
         result.append(f"{indent}Flags: {', '.join(flags)}")
 
-    if item.pItemInfo:
-        info = item.pItemInfo
-        if info.pExtItemInfo:
-            ext = info.pExtItemInfo
-            if ext.dwGUID:
-                result.append(f"{indent}GUID: 0x{ext.dwGUID:08X}")
-            if ext.iDropLevel:
-                result.append(f"{indent}Drop Level: {ext.iDropLevel}")
-            if ext.wPrefix.exist() and ext.wPrefix.value > 0:
-                prefix_id = ext.wPrefix.value
+    if item.item_info:
+        info = item.item_info
+        if info.ext_info:
+            ext = info.ext_info
+            if ext.guid:
+                result.append(f"{indent}GUID: 0x{ext.guid:08X}")
+            if ext.drop_level:
+                result.append(f"{indent}Drop Level: {ext.drop_level}")
+            if ext.magic_prefix:
+                prefix_id = ext.magic_prefix
                 prefix_info = resolver.get_magic_prefix(prefix_id)
                 prefix_name = f" ({prefix_info.name})" if prefix_info else ""
                 result.append(f"{indent}Prefix: {prefix_id}{prefix_name}")
-            if ext.wSuffix.exist() and ext.wSuffix.value > 0:
-                suffix_id = ext.wSuffix.value
+            if ext.magic_suffix:
+                suffix_id = ext.magic_suffix
                 suffix_info = resolver.get_magic_suffix(suffix_id)
                 suffix_name = f" ({suffix_info.name})" if suffix_info else ""
                 result.append(f"{indent}Suffix: {suffix_id}{suffix_name}")
-            if ext.wSetID.exist():
-                set_id = ext.wSetID.value
+            if ext.set_id is not None:
+                set_id = ext.set_id
                 set_info = resolver.get_set_item(set_id)
                 set_name = f" ({set_info.name})" if set_info else ""
                 result.append(f"{indent}Set ID: {set_id}{set_name}")
-            if ext.wUniID.exist():
-                unique_id = ext.wUniID.value
+            if ext.unique_id is not None:
+                unique_id = ext.unique_id
                 unique_info = resolver.get_unique_item(unique_id)
                 unique_name = f" ({unique_info.index})" if unique_info else ""
                 result.append(f"{indent}Unique ID: {unique_id}{unique_name}")
-            if ext.wRune.exist():
+            if ext.rune_id is not None:
                 runeword_id = ext.rune_word_id()
                 runeword_info = resolver.get_runeword(runeword_id)
                 runeword_name = f" ({runeword_info.name})" if runeword_info else ""
                 result.append(f"{indent}Rune Word ID: {runeword_id}{runeword_name}")
-                if item.aGemItems:
+                if item.gem_items:
                     rune_names = []
-                    for gem in item.aGemItems:
+                    for gem in item.gem_items:
                         gem_type = gem.sTypeName.decode('ascii', errors='replace').strip() if gem.sTypeName else ''
                         if gem_type.startswith('r'):
                             try:
@@ -333,41 +333,41 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[s
                                 pass
                     if rune_names:
                         result.append(f"{indent}Runes: {'+'.join(rune_names)}")
-            if ext.pRareName:
-                result.append(f"{indent}Rare Name: {ext.pRareName.iName1}-{ext.pRareName.iName2}")
-            if ext.pCraftName:
-                result.append(f"{indent}Craft Name: {ext.pCraftName.iName1}-{ext.pCraftName.iName2}")
+            if ext.rare_name:
+                result.append(f"{indent}Rare Name: {ext.rare_name.name_1}-{ext.rare_name.name_2}")
+            if ext.craft_name:
+                result.append(f"{indent}Craft Name: {ext.craft_name.name_1}-{ext.craft_name.name_2}")
 
-        if info.pTpSpInfo:
-            tp = info.pTpSpInfo
-            if tp.iDefence.exist():
+        if info.type_specific_info:
+            tp = info.type_specific_info
+            if tp.defence is not None:
                 result.append(f"{indent}Defence: {tp.get_defence()}")
-            if tp.iMaxDurability.exist():
+            if tp.max_durability is not None:
                 if tp.is_indestructible():
                     result.append(f"{indent}Durability: Indestructible")
                 else:
-                    cur = tp.iCurDur.value if tp.iCurDur.exist() else 0
-                    result.append(f"{indent}Durability: {cur}/{tp.iMaxDurability.value}")
-            if tp.iQuantity.exist():
-                result.append(f"{indent}Quantity: {tp.iQuantity.value}")
+                    cur = tp.current_durability if tp.current_durability is not None else 0
+                    result.append(f"{indent}Durability: {cur}/{tp.max_durability}")
+            if tp.quantity is not None:
+                result.append(f"{indent}Quantity: {tp.quantity}")
             sockets = tp.total_sockets()
             if sockets > 0:
                 result.append(f"{indent}Sockets: {sockets}")
 
-            props = _format_parsed_properties(getattr(tp, 'stPropertyList', None), version)
+            props = _format_parsed_properties(getattr(tp, 'property_list', None), version)
             if props:
                 result.append(f"{indent}Properties:")
                 for p in props:
                     result.append(f"{indent}  - {p}")
 
-            rw_props = _format_parsed_properties(getattr(tp, 'stRuneWordPropertyList', None), version)
+            rw_props = _format_parsed_properties(getattr(tp, 'runeword_property_list', None), version)
             if rw_props:
                 result.append(f"{indent}Rune Word Properties:")
                 for p in rw_props:
                     result.append(f"{indent}  - {p}")
 
-            if getattr(tp, 'apSetProperty', None):
-                for idx, set_prop_list in enumerate(tp.apSetProperty):
+            if getattr(tp, 'set_properties', None):
+                for idx, set_prop_list in enumerate(tp.set_properties):
                     set_props = _format_parsed_properties(set_prop_list, version)
                     if set_props:
                         piece_count = idx + 2
@@ -397,11 +397,11 @@ def _format_waypoints_lines(char_data: D2SStruct) -> List[str]:
     loc = get_localized_data()
     result = []
     result.append("=== Waypoints ===")
-    if char_data.Waypoints.wMajic == 0x5357:
+    if char_data.waypoints.magic == 0x5357:
         for diff_idx, diff_name in enumerate(DIFFICULTY_NAMES):
-            if diff_idx >= len(char_data.Waypoints.wp):
+            if diff_idx >= len(char_data.waypoints.wp):
                 break
-            wp_data = char_data.Waypoints.wp[diff_idx]
+            wp_data = char_data.waypoints.wp[diff_idx]
             global_idx = 0
             total_unlocked = 0
             act_stats = []
@@ -422,8 +422,8 @@ def _format_waypoints_lines(char_data: D2SStruct) -> List[str]:
             # Check if this difficulty has been started (has waypoints beyond starter town or has quest activity)
             has_wp_progress = (wp_data.Waypoints[0] & ~1) != 0 or any(b != 0 for b in wp_data.Waypoints[1:])
             has_quest_progress = False
-            if char_data.QuestInfo.dwMajic == 0x216F6F57 and diff_idx < len(char_data.QuestInfo.QIData):
-                qd = char_data.QuestInfo.QIData[diff_idx]
+            if char_data.quests.magic == 0x216F6F57 and diff_idx < len(char_data.quests.qi_data):
+                qd = char_data.quests.qi_data[diff_idx]
                 has_quest_progress = any(w != 0 for words in [qd.wActI, qd.wActII, qd.wActIII, qd.wActIV, qd.wActV] for w in words)
 
             if not has_wp_progress and not has_quest_progress:
@@ -454,11 +454,11 @@ def _format_quests_lines(char_data: D2SStruct) -> List[str]:
     loc = get_localized_data()
     result = []
     result.append("=== Quests ===")
-    if char_data.QuestInfo.dwMajic == 0x216F6F57:
+    if char_data.quests.magic == 0x216F6F57:
         for diff_idx, diff_name in enumerate(DIFFICULTY_NAMES):
-            if diff_idx >= len(char_data.QuestInfo.QIData):
+            if diff_idx >= len(char_data.quests.qi_data):
                 break
-            qd = char_data.QuestInfo.QIData[diff_idx]
+            qd = char_data.quests.qi_data[diff_idx]
             act_words = [qd.wActI, qd.wActII, qd.wActIII, qd.wActIV, qd.wActV]
             has_quest_progress = any(w != 0 for words in act_words for w in words)
             if not has_quest_progress and qd.bResetStats == 0:
@@ -591,11 +591,13 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     result.extend(_format_quests_lines(char_data))
     result.append("")
     result.append("=== Items ===")
-    if char_data.ItemList.wMajic == 0x4D4A:
-        result.append(f"Total items: {char_data.ItemList.nItems}")
-        for i, item in enumerate(char_data.ItemList.vItems):
+    item_list = getattr(char_data, 'item_list', None) or getattr(char_data, 'ItemList', None)
+    if item_list and (getattr(item_list, 'magic', getattr(item_list, 'wMajic', None)) == 0x4D4A):
+        items = getattr(item_list, 'items', getattr(item_list, 'vItems', []))
+        result.append(f"Total items: {len(items)}")
+        for i, item in enumerate(items):
             result.append(f"--- Item {i} ---")
-            result.extend(_format_item_lines(item, version=char_data.dwVersion, resolver=resolver))
+            result.extend(_format_item_lines(item, version=char_data.version, resolver=resolver))
     result.append("")
     result.append("=== Corpse ===")
     if char_data.stCorpse.has_corpse():
@@ -705,8 +707,10 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     belt_items = []
     cursor_items = []
 
-    if char_data.ItemList.wMajic == 0x4D4A:
-        for item in char_data.ItemList.vItems:
+    item_list = getattr(char_data, 'item_list', None) or getattr(char_data, 'ItemList', None)
+    if item_list and (getattr(item_list, 'magic', getattr(item_list, 'wMajic', None)) == 0x4D4A):
+        items = getattr(item_list, 'items', getattr(item_list, 'vItems', []))
+        for item in items:
             loc = ItemLocation(item.iLocation)
             if loc == ItemLocation.EQUIPPED:
                 equipped_items[item.iPosition] = item
@@ -800,7 +804,7 @@ def format_stash_info(stash: SharedStash, resolver=None) -> str:
         if tab.TabType == STASH_TAB_TYPE_ADVANCED:
             active_items = [
                 item for item in items
-                if getattr(getattr(item, 'pItemInfo', None), 'iAdvancedStashStackSize', 0) > 0
+                if getattr(getattr(item, 'item_info', None), 'stash_stack_size', 0) > 0
             ]
             result.append(f"Total items: {len(active_items)}")
             for item_idx, item in enumerate(active_items):
@@ -845,7 +849,7 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
         if tab.TabType == STASH_TAB_TYPE_ADVANCED:
             active_items = [
                 it for it in items
-                if getattr(getattr(it, 'pItemInfo', None), 'iAdvancedStashStackSize', 0) > 0
+                if getattr(getattr(it, 'item_info', None), 'stash_stack_size', 0) > 0
             ]
             if not active_items:
                 result.append("  (empty)")
@@ -863,7 +867,7 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
                 for it in sorted_active:
                     code_b = getattr(it, 'sTypeName', b'').strip()
                     code_str = code_b.decode('ascii', errors='replace')
-                    stack_size = getattr(getattr(it, 'pItemInfo', None), 'iAdvancedStashStackSize', 0)
+                    stack_size = getattr(getattr(it, 'item_info', None), 'stash_stack_size', 0)
 
                     if code_b in GEM_CODE_MAP:
                         g_type, tier = GEM_CODE_MAP[code_b]

@@ -150,9 +150,9 @@ class TestModularization(unittest.TestCase):
         # Also verify format_item_summary with injected property_formatter
         item = D2Item()
         item.sTypeName = b'amu '
-        item.pItemInfo = ItemInfo()
-        item.pItemInfo.pTpSpInfo = TypeSpecificInfo()
-        item.pItemInfo.pTpSpInfo.stPropertyList = mock_prop_list
+        item.item_info = ItemInfo()
+        item.item_info.type_specific_info = TypeSpecificInfo()
+        item.item_info.type_specific_info.property_list = mock_prop_list
 
         summary = formatters.format_item_summary(item, property_formatter=custom_formatter)
         self.assertIn("CUSTOM_PROP_7:25", summary)
@@ -188,8 +188,8 @@ class TestModularization(unittest.TestCase):
         self.assertIsInstance(res_quests, str)
 
         item = D2Item()
-        item.pItemInfo = ItemInfo()
-        item.pItemInfo.sTypeName = b'rin '
+        item.item_info = ItemInfo()
+        item.item_info.type_name = b'rin '
         res_item = formatters.format_item_info(item)
         self.assertIsInstance(res_item, str)
 

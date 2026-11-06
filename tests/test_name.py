@@ -9,8 +9,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
     def _create_test_data(self, version, name_bytes, nameptr_bytes):
         """创建测试数据"""
         return bytes([
-            0x55, 0xAA, 0x55, 0xAA,  # dwMajic
-            version & 0xFF, (version >> 8) & 0xFF, (version >> 16) & 0xFF, (version >> 24) & 0xFF,  # dwVersion (小端序)
+            0x55, 0xAA, 0x55, 0xAA,  # magic
+            version & 0xFF, (version >> 8) & 0xFF, (version >> 16) & 0xFF, (version >> 24) & 0xFF,  # version (小端序)
             0x00, 0x01, 0x00, 0x00,  # dwSize
             0x00, 0x00, 0x00, 0x00,  # dwCRC
             0x00, 0x00, 0x00, 0x00,  # dwWeaponSet
@@ -51,13 +51,13 @@ class TestCharacterNameEncoding(unittest.TestCase):
             *nameptr_bytes.ljust(64, b'\x00'),
             0x00, 0x00, 0x00, 0x00,  # unknown8
             # QuestInfo
-            0x51, 0x55, 0x45, 0x53,  # dwMajic
+            0x51, 0x55, 0x45, 0x53,  # magic
             0x05, 0x00, 0x00, 0x00,  # dwActs
             0x7C, 0x00,  # wSize
             # QIData (3 instances)
             *[0x00]*3*124,
             # Waypoints
-            0x53, 0x57,  # wMajic
+            0x53, 0x57,  # magic
             0x00, 0x00, 0x00, 0x00,  # unknown
             0x60, 0x00,  # wSize
             # wp (3 instances)
@@ -65,8 +65,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
             # NPC (0x34 bytes)
             *[0x00]*52,
             # PlayerStats
-            0x66, 0x67,  # wMajic
-            *[0x00]*40,  # m_adwValue
+            0x66, 0x67,  # magic
+            *[0x00]*40,  # stat_values
             0x00, 0x00,  # iEnd
             # Skills
             0x66, 0x69,  # wMagic

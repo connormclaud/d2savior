@@ -46,33 +46,33 @@ class TestItemSerialization(unittest.TestCase):
     def _compare_items(self, item1: D2Item, item2: D2Item):
         self.assertEqual(item1.sTypeName, item2.sTypeName)
         self.assertEqual(item1.quality(), item2.quality())
-        self.assertEqual(item1.bIdentified, item2.bIdentified)
-        self.assertEqual(item1.bSimple, item2.bSimple)
-        self.assertEqual(item1.bSocketed, item2.bSocketed)
-        self.assertEqual(item1.bRuneWord, item2.bRuneWord)
-        self.assertEqual(item1.bEthereal, item2.bEthereal)
-        self.assertEqual(item1.bPersonalized, item2.bPersonalized)
-        
-        if item1.pItemInfo and item1.pItemInfo.pExtItemInfo and \
-           item2.pItemInfo and item2.pItemInfo.pExtItemInfo:
-            ext1 = item1.pItemInfo.pExtItemInfo
-            ext2 = item2.pItemInfo.pExtItemInfo
-            self.assertEqual(ext1.iQuality, ext2.iQuality)
-            self.assertEqual(ext1.dwGUID, ext2.dwGUID)
-            self.assertEqual(ext1.nGems, ext2.nGems)
+        self.assertEqual(item1.is_identified, item2.is_identified)
+        self.assertEqual(item1.is_simple, item2.is_simple)
+        self.assertEqual(item1.is_socketed, item2.is_socketed)
+        self.assertEqual(item1.is_runeword, item2.is_runeword)
+        self.assertEqual(item1.is_ethereal, item2.is_ethereal)
+        self.assertEqual(item1.is_personalized, item2.is_personalized)
+
+        if item1.item_info and item1.item_info.ext_info and \
+           item2.item_info and item2.item_info.ext_info:
+            ext1 = item1.item_info.ext_info
+            ext2 = item2.item_info.ext_info
+            self.assertEqual(ext1.quality, ext2.quality)
+            self.assertEqual(ext1.guid, ext2.guid)
+            self.assertEqual(ext1.gems, ext2.gems)
     
     def _compare_properties(self, item1: D2Item, item2: D2Item):
-        if not item1.pItemInfo or not item2.pItemInfo:
+        if not item1.item_info or not item2.item_info:
             return
         
-        tp1 = item1.pItemInfo.pTpSpInfo
-        tp2 = item2.pItemInfo.pTpSpInfo
+        tp1 = item1.item_info.type_specific_info
+        tp2 = item2.item_info.type_specific_info
         
         if not tp1 or not tp2:
             return
         
-        props1 = tp1.stPropertyList.mProperty
-        props2 = tp2.stPropertyList.mProperty
+        props1 = tp1.property_list.mProperty
+        props2 = tp2.property_list.mProperty
         
         self.assertEqual(len(props1), len(props2), 
                         f"Property count mismatch: {len(props1)} vs {len(props2)}")
@@ -122,24 +122,24 @@ class TestItemSerialization(unittest.TestCase):
         
         self.assertEqual(item.sTypeName, b'amu ')
         self.assertEqual(item.quality(), 7)
-        self.assertTrue(item.bIdentified)
-        self.assertFalse(item.bSimple)
-        self.assertEqual(item.dwVersion, 0x63)
+        self.assertTrue(item.is_identified)
+        self.assertFalse(item.is_simple)
+        self.assertEqual(item.version, 0x63)
     
     def test_deserialize_runeword_spirit_0x69(self):
         file_path = os.path.join(self.items_dir, 'runeword', 'Spirit-crystal_sword.d2i')
         item = self._deserialize_item(file_path, version=0x69)
         
         self.assertEqual(item.sTypeName, b'crs ')
-        self.assertTrue(item.bRuneWord)
-        self.assertTrue(item.bSocketed)
-        self.assertTrue(item.bIdentified)
-        self.assertFalse(item.bSimple)
-        
-        if item.pItemInfo and item.pItemInfo.pExtItemInfo:
-            ext = item.pItemInfo.pExtItemInfo
-            self.assertTrue(ext.wRune.exist())
-            self.assertEqual(ext.wRune.value, 20635)
+        self.assertTrue(item.is_runeword)
+        self.assertTrue(item.is_socketed)
+        self.assertTrue(item.is_identified)
+        self.assertFalse(item.is_simple)
+
+        if item.item_info and item.item_info.ext_info:
+            ext = item.item_info.ext_info
+            self.assertIsNotNone(ext.rune_id)
+            self.assertEqual(ext.rune_id, 20635)
     
     def test_serialize_unique_amulet_0x63(self):
         file_path = os.path.join(self.examples_dir, 'Rixots Keen.d2i')

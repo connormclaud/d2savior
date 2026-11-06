@@ -84,18 +84,18 @@ class Test0x69Warlock:
         assert self.d2s.has_mercenary() is True
 
     def test_player_stats(self):
-        ps = self.d2s.PlayerStats
-        assert ps.wMajic == 0x6667
-        assert ps.m_adwValue[0] == 85
-        assert ps.m_adwValue[1] == 20
-        assert ps.m_adwValue[2] == 40
-        assert ps.m_adwValue[3] == 279
+        ps = self.d2s.player_stats
+        assert ps.magic == 0x6667
+        assert ps.stat_values[0] == 85
+        assert ps.stat_values[1] == 20
+        assert ps.stat_values[2] == 40
+        assert ps.stat_values[3] == 279
 
     def test_demon_present(self):
-        assert self.d2s.stDemon.hasDemon is True
+        assert self.d2s.demon.hasDemon is True
 
     def test_item_list_not_empty(self):
-        assert len(self.d2s.ItemList.vItems) > 0
+        assert len(self.d2s.item_list.items) > 0
 
     def test_preview_data(self):
         assert len(self.d2s.previewData) == 228
@@ -146,15 +146,15 @@ class Test0x69Amazon:
         assert self.d2s.has_mercenary() is True
 
     def test_player_stats(self):
-        ps = self.d2s.PlayerStats
-        assert ps.wMajic == 0x6667
-        assert ps.m_adwValue[0] == 75
-        assert ps.m_adwValue[1] == 15
-        assert ps.m_adwValue[2] == 25
-        assert ps.m_adwValue[3] == 80
+        ps = self.d2s.player_stats
+        assert ps.magic == 0x6667
+        assert ps.stat_values[0] == 75
+        assert ps.stat_values[1] == 15
+        assert ps.stat_values[2] == 25
+        assert ps.stat_values[3] == 80
 
     def test_demon_not_present(self):
-        assert self.d2s.stDemon.hasDemon is False
+        assert self.d2s.demon.hasDemon is False
 
     def test_char_flags(self):
         assert self.d2s.charFlags == 0x100
@@ -170,7 +170,7 @@ class Test0x69Necromancer:
         self.d2s = _load_d2s(self.SAVE_FILE)
 
     def test_version(self):
-        assert self.d2s.dwVersion == 0x69
+        assert self.d2s.version == 0x69
 
     def test_char_class(self):
         assert self.d2s.charClass == 2
@@ -201,15 +201,15 @@ class Test0x69Necromancer:
         assert self.d2s.has_mercenary() is True
 
     def test_player_stats(self):
-        ps = self.d2s.PlayerStats
-        assert ps.wMajic == 0x6667
-        assert ps.m_adwValue[0] == 50
-        assert ps.m_adwValue[1] == 25
-        assert ps.m_adwValue[2] == 25
-        assert ps.m_adwValue[3] == 230
+        ps = self.d2s.player_stats
+        assert ps.magic == 0x6667
+        assert ps.stat_values[0] == 50
+        assert ps.stat_values[1] == 25
+        assert ps.stat_values[2] == 25
+        assert ps.stat_values[3] == 230
 
     def test_demon_not_present(self):
-        assert self.d2s.stDemon.hasDemon is False
+        assert self.d2s.demon.hasDemon is False
 
     def test_char_flags(self):
         assert self.d2s.charFlags == 0x720
@@ -256,15 +256,15 @@ class Test0x69Sorceress:
         assert self.d2s.has_mercenary() is False
 
     def test_player_stats(self):
-        ps = self.d2s.PlayerStats
-        assert ps.wMajic == 0x6667
-        assert ps.m_adwValue[0] == 10
-        assert ps.m_adwValue[1] == 35
-        assert ps.m_adwValue[2] == 25
-        assert ps.m_adwValue[3] == 10
+        ps = self.d2s.player_stats
+        assert ps.magic == 0x6667
+        assert ps.stat_values[0] == 10
+        assert ps.stat_values[1] == 35
+        assert ps.stat_values[2] == 25
+        assert ps.stat_values[3] == 10
 
     def test_demon_not_present(self):
-        assert self.d2s.stDemon.hasDemon is False
+        assert self.d2s.demon.hasDemon is False
 
     def test_char_flags(self):
         assert self.d2s.charFlags == 0x0
@@ -280,7 +280,7 @@ class Test0x69PaladinPet:
         self.d2s = _load_d2s(self.SAVE_FILE)
 
     def test_version(self):
-        assert self.d2s.dwVersion == 0x69
+        assert self.d2s.version == 0x69
 
     def test_char_class(self):
         assert self.d2s.charClass == 3
@@ -311,15 +311,15 @@ class Test0x69PaladinPet:
         assert self.d2s.has_mercenary() is False
 
     def test_player_stats(self):
-        ps = self.d2s.PlayerStats
-        assert ps.wMajic == 0x6667
-        assert ps.m_adwValue[0] == 25
-        assert ps.m_adwValue[1] == 15
-        assert ps.m_adwValue[2] == 20
-        assert ps.m_adwValue[3] == 25
+        ps = self.d2s.player_stats
+        assert ps.magic == 0x6667
+        assert ps.stat_values[0] == 25
+        assert ps.stat_values[1] == 15
+        assert ps.stat_values[2] == 20
+        assert ps.stat_values[3] == 25
 
     def test_demon_not_present(self):
-        assert self.d2s.stDemon.hasDemon is False
+        assert self.d2s.demon.hasDemon is False
 
     def test_char_flags(self):
         assert self.d2s.charFlags == 0x20
@@ -335,7 +335,7 @@ class Test0x63Paladin:
         self.d2s = _load_d2s(self.SAVE_FILE)
 
     def test_version(self):
-        assert self.d2s.dwVersion == 0x63
+        assert self.d2s.version == 0x63
 
     def test_char_class(self):
         assert self.d2s.charClass == 3
@@ -366,12 +366,12 @@ class Test0x63Paladin:
         assert self.d2s.has_mercenary() is True
 
     def test_player_stats(self):
-        ps = self.d2s.PlayerStats
-        assert ps.wMajic == 0x6667
-        assert ps.m_adwValue[0] == 125
-        assert ps.m_adwValue[1] == 15
-        assert ps.m_adwValue[2] == 120
-        assert ps.m_adwValue[3] == 300
+        ps = self.d2s.player_stats
+        assert ps.magic == 0x6667
+        assert ps.stat_values[0] == 125
+        assert ps.stat_values[1] == 15
+        assert ps.stat_values[2] == 120
+        assert ps.stat_values[3] == 300
 
     def test_char_flags(self):
         assert self.d2s.charFlags == 0x28

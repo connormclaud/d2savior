@@ -349,16 +349,16 @@ class TestFormatItemInfoSetProperties(unittest.TestCase):
         from core.item import D2Item, ItemInfo, TypeSpecificInfo, PropertyList
 
         item = D2Item()
-        item.pItemInfo = ItemInfo()
-        item.pItemInfo.sTypeName = b'rin '
-        item.pItemInfo.pTpSpInfo = TypeSpecificInfo()
+        item.item_info = ItemInfo()
+        item.item_info.type_name = b'rin '
+        item.item_info.type_specific_info = TypeSpecificInfo()
 
         p2 = PropertyList()
         p2.mProperty = [(31, 0, 60)]  # +60 Defense
         p3 = PropertyList()
         p3.mProperty = [(105, 0, 10)]  # +10% Faster Cast Rate
 
-        item.pItemInfo.pTpSpInfo.apSetProperty = [p2, p3, None, None, None]
+        item.item_info.type_specific_info.set_properties = [p2, p3, None, None, None]
 
         full_text = format_item_info(item)
         self.assertIsInstance(full_text, str)

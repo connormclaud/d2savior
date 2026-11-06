@@ -23,10 +23,10 @@ from d2s_parse import (
 class TestSummaryMode(unittest.TestCase):
     def test_item_summary_gold(self):
         item = D2Item()
-        item.pItemInfo = ItemInfo()
+        item.item_info = ItemInfo()
         gold = GoldQuantity()
-        gold.wQuantity = 50000
-        item.pItemInfo.pGold = gold
+        gold.quantity = 50000
+        item.item_info.gold = gold
         summary = format_item_summary(item)
         self.assertEqual(summary, "Gold: 50000")
 
@@ -39,11 +39,11 @@ class TestSummaryMode(unittest.TestCase):
     def test_item_summary_unique_with_defence(self):
         item = D2Item()
         item.sTypeName = b'uap '  # Shako
-        item.pItemInfo = ItemInfo()
-        item.pItemInfo.pExtItemInfo = ExtItemInfo()
-        item.pItemInfo.pExtItemInfo.wUniID.ensure(0x00F8)  # Harlequin Crest (248)
-        item.pItemInfo.pTpSpInfo = TypeSpecificInfo()
-        item.pItemInfo.pTpSpInfo.iDefence.ensure(130)
+        item.item_info = ItemInfo()
+        item.item_info.ext_info = ExtItemInfo()
+        item.item_info.ext_info.unique_id = 0x00F8  # Harlequin Crest (248)
+        item.item_info.type_specific_info = TypeSpecificInfo()
+        item.item_info.type_specific_info.defence = 130
 
         summary = format_item_summary(item)
         self.assertIn("Harlequin Crest", summary)
@@ -55,8 +55,8 @@ class TestSummaryMode(unittest.TestCase):
 
         item = D2Item()
         item.sTypeName = b'amu '  # Amulet
-        item.pItemInfo = ItemInfo()
-        item.pItemInfo.pTpSpInfo = TypeSpecificInfo()
+        item.item_info = ItemInfo()
+        item.item_info.type_specific_info = TypeSpecificInfo()
         
         class MockPropertyList:
             def __init__(self, props):
@@ -67,7 +67,7 @@ class TestSummaryMode(unittest.TestCase):
             def ext_sockets(self):
                 return 0
                 
-        item.pItemInfo.pTpSpInfo.stPropertyList = MockPropertyList([
+        item.item_info.type_specific_info.property_list = MockPropertyList([
             (999, 42, [1, 2]),
             (998, 15, [])
         ])
@@ -80,8 +80,8 @@ class TestSummaryMode(unittest.TestCase):
     def test_item_summary_currency_stack(self):
         item = D2Item()
         item.sTypeName = b'r20 '  # Lem Rune
-        item.pItemInfo = ItemInfo()
-        item.pItemInfo.iAdvancedStashStackSize = 5
+        item.item_info = ItemInfo()
+        item.item_info.stash_stack_size = 5
 
         summary = format_item_summary(item)
         self.assertIn("Lem Rune", summary)
@@ -95,11 +95,11 @@ class TestSummaryMode(unittest.TestCase):
         tab1.TabType = STASH_TAB_TYPE_NORMAL
         item1 = D2Item()
         item1.sTypeName = b'uap '
-        item1.pItemInfo = ItemInfo()
-        item1.pItemInfo.pExtItemInfo = ExtItemInfo()
-        item1.pItemInfo.pExtItemInfo.wUniID.ensure(0x00F8)
-        item1.pItemInfo.pTpSpInfo = TypeSpecificInfo()
-        item1.pItemInfo.pTpSpInfo.iDefence.ensure(120)
+        item1.item_info = ItemInfo()
+        item1.item_info.ext_info = ExtItemInfo()
+        item1.item_info.ext_info.unique_id = 0x00F8
+        item1.item_info.type_specific_info = TypeSpecificInfo()
+        item1.item_info.type_specific_info.defence = 120
         
         class MockItemList:
             def __init__(self, items):
@@ -115,23 +115,23 @@ class TestSummaryMode(unittest.TestCase):
         
         rune_pul = D2Item()
         rune_pul.sTypeName = b'r21 '  # Pul
-        rune_pul.pItemInfo = ItemInfo()
-        rune_pul.pItemInfo.iAdvancedStashStackSize = 2
+        rune_pul.item_info = ItemInfo()
+        rune_pul.item_info.stash_stack_size = 2
 
         rune_hel = D2Item()
         rune_hel.sTypeName = b'r15 '  # Hel
-        rune_hel.pItemInfo = ItemInfo()
-        rune_hel.pItemInfo.iAdvancedStashStackSize = 3
+        rune_hel.item_info = ItemInfo()
+        rune_hel.item_info.stash_stack_size = 3
 
         gem_topaz = D2Item()
         gem_topaz.sTypeName = b'gpw '  # Perfect Diamond / Topaz
-        gem_topaz.pItemInfo = ItemInfo()
-        gem_topaz.pItemInfo.iAdvancedStashStackSize = 10
+        gem_topaz.item_info = ItemInfo()
+        gem_topaz.item_info.stash_stack_size = 10
 
         empty_item = D2Item()
         empty_item.sTypeName = b'r01 '
-        empty_item.pItemInfo = ItemInfo()
-        empty_item.pItemInfo.iAdvancedStashStackSize = 0
+        empty_item.item_info = ItemInfo()
+        empty_item.item_info.stash_stack_size = 0
 
         tab2.Items = MockItemList([rune_pul, rune_hel, gem_topaz, empty_item])
         stash.tabs.append(tab2)
@@ -170,21 +170,23 @@ class TestSummaryMode(unittest.TestCase):
         # Perfect Ruby x 5
         gpr = D2Item()
         gpr.sTypeName = b'gpr '
-        gpr.pItemInfo = ItemInfo()
-        gpr.pItemInfo.iAdvancedStashStackSize = 5
+        gpr.item_info = ItemInfo()
+        gpr.item_info.stash_stack_size = 5
         items.append(gpr)
 
         # Flawless Ruby x 10, Normal Ruby x 10, Flawed Ruby x 9, Chipped Ruby x 5 = 34 other rubies
         for code, count in [(b'glr ', 10), (b'gsr ', 10), (b'gfr ', 9), (b'gcr ', 5)]:
             it = D2Item()
             it.sTypeName = code
-            it.pItemInfo = ItemInfo()
-            it.pItemInfo.iAdvancedStashStackSize = count
+            it.item_info = ItemInfo()
+            it.item_info.stash_stack_size = count
             items.append(it)
 
         class MockItemList:
             def __init__(self, items):
+                self.items = items
                 self.vItems = items
+                self.count = len(items)
                 self.nItems = len(items)
 
         tab.Items = MockItemList(items)
@@ -201,19 +203,19 @@ class TestSummaryMode(unittest.TestCase):
         char.charFlags = 0x24  # Expansion | Hardcore
 
         # Stats
-        char.PlayerStats.wMajic = 0x6667
-        char.PlayerStats.m_adwValue[0] = 156  # Str
-        char.PlayerStats.m_adwValue[1] = 35   # Ene
-        char.PlayerStats.m_adwValue[2] = 25   # Dex
-        char.PlayerStats.m_adwValue[3] = 300  # Vit
-        char.PlayerStats.m_adwValue[4] = 10   # Stat points remaining
-        char.PlayerStats.m_adwValue[5] = 2    # Skill points remaining
-        char.PlayerStats.m_adwValue[6] = 900 << 8  # Life
-        char.PlayerStats.m_adwValue[7] = 900 << 8
-        char.PlayerStats.m_adwValue[8] = 450 << 8  # Mana
-        char.PlayerStats.m_adwValue[9] = 450 << 8
-        char.PlayerStats.m_adwValue[0xE] = 12000   # Gold person
-        char.PlayerStats.m_adwValue[0xF] = 2500000 # Gold stash
+        char.player_stats.magic = 0x6667
+        char.player_stats.stat_values[0] = 156  # Str
+        char.player_stats.stat_values[1] = 35   # Ene
+        char.player_stats.stat_values[2] = 25   # Dex
+        char.player_stats.stat_values[3] = 300  # Vit
+        char.player_stats.stat_values[4] = 10   # Stat points remaining
+        char.player_stats.stat_values[5] = 2    # Skill points remaining
+        char.player_stats.stat_values[6] = 900 << 8  # Life
+        char.player_stats.stat_values[7] = 900 << 8
+        char.player_stats.stat_values[8] = 450 << 8  # Mana
+        char.player_stats.stat_values[9] = 450 << 8
+        char.player_stats.stat_values[0xE] = 12000   # Gold person
+        char.player_stats.stat_values[0xF] = 2500000 # Gold stash
 
         # Skills
         char.Skills.wMagic = 0x6669
@@ -224,8 +226,11 @@ class TestSummaryMode(unittest.TestCase):
         # Items
         class MockItemList:
             def __init__(self, items):
+                self.magic = 0x4D4A
                 self.wMajic = 0x4D4A
+                self.items = items
                 self.vItems = items
+                self.count = len(items)
                 self.nItems = len(items)
 
         # Equipped Helm
@@ -233,11 +238,11 @@ class TestSummaryMode(unittest.TestCase):
         helm.iLocation = ItemLocation.EQUIPPED
         helm.iPosition = EquipSlot.HELMET.value
         helm.sTypeName = b'uap '
-        helm.pItemInfo = ItemInfo()
-        helm.pItemInfo.pExtItemInfo = ExtItemInfo()
-        helm.pItemInfo.pExtItemInfo.wUniID.ensure(0x00F8)
-        helm.pItemInfo.pTpSpInfo = TypeSpecificInfo()
-        helm.pItemInfo.pTpSpInfo.iDefence.ensure(141)
+        helm.item_info = ItemInfo()
+        helm.item_info.ext_info = ExtItemInfo()
+        helm.item_info.ext_info.unique_id = 0x00F8
+        helm.item_info.type_specific_info = TypeSpecificInfo()
+        helm.item_info.type_specific_info.defence = 141
 
         # Stored Charm in Inventory
         charm = D2Item()
@@ -464,20 +469,20 @@ class TestSummaryMode(unittest.TestCase):
 
             cap = D2Item()
             cap.sTypeName = b'cap '
-            cap.pItemInfo = ItemInfo()
-            cap.pItemInfo.pTpSpInfo = TypeSpecificInfo()
-            cap.pItemInfo.pTpSpInfo.iDefence.ensure(4)
+            cap.item_info = ItemInfo()
+            cap.item_info.type_specific_info = TypeSpecificInfo()
+            cap.item_info.type_specific_info.defence = 4
             ral = D2Item()
             ral.sTypeName = b'r08 '
-            cap.aGemItems = [ral]
-            t1.Items.vItems.append(cap)
+            cap.gem_items = [ral]
+            t1.Items.items.append(cap)
 
             shako = D2Item()
             shako.sTypeName = b'uap '
-            shako.pItemInfo = ItemInfo()
-            shako.pItemInfo.pExtItemInfo = ExtItemInfo()
-            shako.pItemInfo.pExtItemInfo.wUniID.ensure(248)
-            t1.Items.vItems.append(shako)
+            shako.item_info = ItemInfo()
+            shako.item_info.ext_info = ExtItemInfo()
+            shako.item_info.ext_info.unique_id = 248
+            t1.Items.items.append(shako)
             s.tabs.append(t1)
 
             t2 = StashTab()
@@ -485,15 +490,15 @@ class TestSummaryMode(unittest.TestCase):
             t2.Items = ItemList()
             r_ral = D2Item()
             r_ral.sTypeName = b'r08 '
-            r_ral.pItemInfo = ItemInfo()
-            r_ral.pItemInfo.iAdvancedStashStackSize = 10
-            t2.Items.vItems.append(r_ral)
+            r_ral.item_info = ItemInfo()
+            r_ral.item_info.stash_stack_size = 10
+            t2.Items.items.append(r_ral)
 
             p_rub = D2Item()
             p_rub.sTypeName = b'gpr '
-            p_rub.pItemInfo = ItemInfo()
-            p_rub.pItemInfo.iAdvancedStashStackSize = 5
-            t2.Items.vItems.append(p_rub)
+            p_rub.item_info = ItemInfo()
+            p_rub.item_info.stash_stack_size = 5
+            t2.Items.items.append(p_rub)
             s.tabs.append(t2)
 
             stash_out = d2s_parse.format_stash_summary(s)

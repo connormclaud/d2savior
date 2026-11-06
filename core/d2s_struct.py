@@ -8,16 +8,16 @@ class QuestInfoData:
     def __init__(self):
         self.wIntroduced1 = 0
         self.wActI = [0] * 6
-        self.wTraval1 = 0
+        self.travel_1 = 0
         self.wIntroduced2 = 0
         self.wActII = [0] * 6
-        self.wTraval2 = 0
+        self.travel_2 = 0
         self.wIntroduced3 = 0
         self.wActIII = [0] * 6
-        self.wTraval3 = 0
+        self.travel_3 = 0
         self.wIntroduced4 = 0
         self.wActIV = [0] * 3
-        self.wTraval4 = 0
+        self.travel_4 = 0
         self.unknown1 = [0] * 3
         self.wIntroduced5 = 0
         self.unknown2 = [0] * 2
@@ -25,24 +25,45 @@ class QuestInfoData:
         self.bResetStats = 0
         self.unknown3 = 0
         self.unknown4 = [0] * 6
+
+    # Transitional property aliases
+    @property
+    def wTraval1(self) -> int: return self.travel_1
+    @wTraval1.setter
+    def wTraval1(self, v: int): self.travel_1 = v
+
+    @property
+    def wTraval2(self) -> int: return self.travel_2
+    @wTraval2.setter
+    def wTraval2(self, v: int): self.travel_2 = v
+
+    @property
+    def wTraval3(self) -> int: return self.travel_3
+    @wTraval3.setter
+    def wTraval3(self, v: int): self.travel_3 = v
+
+    @property
+    def wTraval4(self) -> int: return self.travel_4
+    @wTraval4.setter
+    def wTraval4(self, v: int): self.travel_4 = v
     
     def deserialize(self, bs):
         self.wIntroduced1 = bs.read_word()
         for i in range(6):
             self.wActI[i] = bs.read_word()
-        self.wTraval1 = bs.read_word()
+        self.travel_1 = bs.read_word()
         self.wIntroduced2 = bs.read_word()
         for i in range(6):
             self.wActII[i] = bs.read_word()
-        self.wTraval2 = bs.read_word()
+        self.travel_2 = bs.read_word()
         self.wIntroduced3 = bs.read_word()
         for i in range(6):
             self.wActIII[i] = bs.read_word()
-        self.wTraval3 = bs.read_word()
+        self.travel_3 = bs.read_word()
         self.wIntroduced4 = bs.read_word()
         for i in range(3):
             self.wActIV[i] = bs.read_word()
-        self.wTraval4 = bs.read_word()
+        self.travel_4 = bs.read_word()
         for i in range(3):
             self.unknown1[i] = bs.read_word()
         self.wIntroduced5 = bs.read_word()
@@ -59,19 +80,19 @@ class QuestInfoData:
         bs.write_word(self.wIntroduced1)
         for i in range(6):
             bs.write_word(self.wActI[i])
-        bs.write_word(self.wTraval1)
+        bs.write_word(self.travel_1)
         bs.write_word(self.wIntroduced2)
         for i in range(6):
             bs.write_word(self.wActII[i])
-        bs.write_word(self.wTraval2)
+        bs.write_word(self.travel_2)
         bs.write_word(self.wIntroduced3)
         for i in range(6):
             bs.write_word(self.wActIII[i])
-        bs.write_word(self.wTraval3)
+        bs.write_word(self.travel_3)
         bs.write_word(self.wIntroduced4)
         for i in range(3):
             bs.write_word(self.wActIV[i])
-        bs.write_word(self.wTraval4)
+        bs.write_word(self.travel_4)
         for i in range(3):
             bs.write_word(self.unknown1[i])
         bs.write_word(self.wIntroduced5)
@@ -86,24 +107,45 @@ class QuestInfoData:
 
 class QuestInfo:
     def __init__(self):
-        self.dwMajic = 0
-        self.dwActs = 0
-        self.wSize = 0
-        self.QIData = [QuestInfoData() for _ in range(3)]
+        self.magic = 0
+        self.acts = 0
+        self.size = 0
+        self.qi_data = [QuestInfoData() for _ in range(3)]
+
+    # Transitional property aliases
+    @property
+    def dwMajic(self) -> int: return self.magic
+    @dwMajic.setter
+    def dwMajic(self, v: int): self.magic = v
+
+    @property
+    def dwActs(self) -> int: return self.acts
+    @dwActs.setter
+    def dwActs(self, v: int): self.acts = v
+
+    @property
+    def wSize(self) -> int: return self.size
+    @wSize.setter
+    def wSize(self, v: int): self.size = v
+
+    @property
+    def QIData(self) -> list: return self.qi_data
+    @QIData.setter
+    def QIData(self, v: list): self.qi_data = v
     
     def deserialize(self, bs):
-        self.dwMajic = bs.read_dword()
-        self.dwActs = bs.read_dword()
-        self.wSize = bs.read_word()
+        self.magic = bs.read_dword()
+        self.acts = bs.read_dword()
+        self.size = bs.read_word()
         for i in range(3):
-            self.QIData[i].deserialize(bs)
+            self.qi_data[i].deserialize(bs)
     
     def serialize(self, bs):
-        bs.write_dword(self.dwMajic)
-        bs.write_dword(self.dwActs)
-        bs.write_word(self.wSize)
+        bs.write_dword(self.magic)
+        bs.write_dword(self.acts)
+        bs.write_word(self.size)
         for i in range(3):
-            self.QIData[i].serialize(bs)
+            self.qi_data[i].serialize(bs)
 
 class WaypointData:
     def __init__(self):
@@ -127,124 +169,146 @@ class WaypointData:
 
 class Waypoints:
     def __init__(self):
-        self.wMajic = 0
+        self.magic = 0
         self.unknown = 0
-        self.wSize = 0
+        self.size = 0
         self.wp = [WaypointData() for _ in range(3)]
+
+    # Transitional property aliases
+    @property
+    def wMajic(self) -> int: return self.magic
+    @wMajic.setter
+    def wMajic(self, v: int): self.magic = v
+
+    @property
+    def wSize(self) -> int: return self.size
+    @wSize.setter
+    def wSize(self, v: int): self.size = v
     
     def deserialize(self, bs):
-        self.wMajic = bs.read_word()
+        self.magic = bs.read_word()
         self.unknown = bs.read_dword()
-        self.wSize = bs.read_word()
+        self.size = bs.read_word()
         for i in range(3):
             self.wp[i].deserialize(bs)
     
     def serialize(self, bs):
-        bs.write_word(self.wMajic)
+        bs.write_word(self.magic)
         bs.write_dword(self.unknown)
-        bs.write_word(self.wSize)
+        bs.write_word(self.size)
         for i in range(3):
             self.wp[i].serialize(bs)
 
 class PlayerStats:
     def __init__(self):
-        self.wMajic = 0
-        self.m_adwValue = [0] * 0x10
+        self.magic = 0
+        self.stat_values = [0] * 0x10
         self.iEnd = 0
+
+    # Transitional property aliases
+    @property
+    def wMajic(self) -> int: return self.magic
+    @wMajic.setter
+    def wMajic(self, v: int): self.magic = v
+
+    @property
+    def m_adwValue(self) -> list: return self.stat_values
+    @m_adwValue.setter
+    def m_adwValue(self, v: list): self.stat_values = v
     
     def deserialize(self, bs):
-        self.wMajic = bs.read_word()
-        if self.wMajic != PLAYER_STATS_MAGIC:
+        self.magic = bs.read_word()
+        if self.magic != PLAYER_STATS_MAGIC:
             return
-        self.m_adwValue = [0] * 0x10
+        self.stat_values = [0] * 0x10
         while True:
             try:
                 self.iEnd = bs.read_bits(9)
                 if self.iEnd >= 0x10:
                     break
-                self.m_adwValue[self.iEnd] = bs.read_bits(PLAYER_STATS_BITS_COUNT[self.iEnd])
+                self.stat_values[self.iEnd] = bs.read_bits(PLAYER_STATS_BITS_COUNT[self.iEnd])
             except ValueError:
                 break
         bs.align_byte()
     
     def serialize(self, bs):
-        bs.write_word(self.wMajic)
+        bs.write_word(self.magic)
         
         for i in range(0x10):
-            if self.m_adwValue[i] != 0:
+            if self.stat_values[i] != 0:
                 bs.write_bits(9, i)
-                bs.write_bits(PLAYER_STATS_BITS_COUNT[i], self.m_adwValue[i])
+                bs.write_bits(PLAYER_STATS_BITS_COUNT[i], self.stat_values[i])
         
         bs.write_bits(9, 0x1FF)
         bs.align_byte()
 
     @property
     def is_valid(self) -> bool:
-        return self.wMajic == PLAYER_STATS_MAGIC
+        return self.magic == PLAYER_STATS_MAGIC
 
     @property
     def strength(self) -> int:
-        return self.m_adwValue[0]
+        return self.stat_values[0]
 
     @property
     def energy(self) -> int:
-        return self.m_adwValue[1]
+        return self.stat_values[1]
 
     @property
     def dexterity(self) -> int:
-        return self.m_adwValue[2]
+        return self.stat_values[2]
 
     @property
     def vitality(self) -> int:
-        return self.m_adwValue[3]
+        return self.stat_values[3]
 
     @property
     def stat_points_remaining(self) -> int:
-        return self.m_adwValue[4]
+        return self.stat_values[4]
 
     @property
     def skill_points_remaining(self) -> int:
-        return self.m_adwValue[5]
+        return self.stat_values[5]
 
     @property
     def current_life(self) -> int:
-        return self.m_adwValue[6] >> 8
+        return self.stat_values[6] >> 8
 
     @property
     def max_life(self) -> int:
-        return self.m_adwValue[7] >> 8
+        return self.stat_values[7] >> 8
 
     @property
     def current_mana(self) -> int:
-        return self.m_adwValue[8] >> 8
+        return self.stat_values[8] >> 8
 
     @property
     def max_mana(self) -> int:
-        return self.m_adwValue[9] >> 8
+        return self.stat_values[9] >> 8
 
     @property
     def current_stamina(self) -> int:
-        return self.m_adwValue[0xA] >> 8
+        return self.stat_values[0xA] >> 8
 
     @property
     def max_stamina(self) -> int:
-        return self.m_adwValue[0xB] >> 8
+        return self.stat_values[0xB] >> 8
 
     @property
     def level(self) -> int:
-        return self.m_adwValue[0xC]
+        return self.stat_values[0xC]
 
     @property
     def experience(self) -> int:
-        return self.m_adwValue[0xD]
+        return self.stat_values[0xD]
 
     @property
     def gold(self) -> int:
-        return self.m_adwValue[0xE]
+        return self.stat_values[0xE]
 
     @property
     def gold_stash(self) -> int:
-        return self.m_adwValue[0xF]
+        return self.stat_values[0xF]
 
 class CharSkills:
     def __init__(self):
@@ -405,8 +469,8 @@ class Demon:
 
 class D2SStruct:
     def __init__(self):
-        self.dwMajic = 0
-        self.dwVersion = 0
+        self.magic = 0
+        self.version = 0
         self.dwSize = 0
         self.dwCRC = 0
         self.dwWeaponSet = 0
@@ -441,26 +505,82 @@ class D2SStruct:
         self.wMercType = 0
         self.dwMercExp = 0
         
-        self.QuestInfo = QuestInfo()
-        self.Waypoints = Waypoints()
+        self.quests = QuestInfo()
+        self.waypoints = Waypoints()
         self.NPC = b''
-        self.PlayerStats = PlayerStats()
-        self.Skills = CharSkills()
-        self.ItemList = ItemList()
-        self.stCorpse = Corpse()
-        self.stMercenary = Mercenary()
-        self.stGolem = Golem()
-        self.stDemon = Demon()
+        self.player_stats = PlayerStats()
+        self.skills = CharSkills()
+        self.item_list = ItemList()
+        self.corpse = Corpse()
+        self.mercenary = Mercenary()
+        self.golem = Golem()
+        self.demon = Demon()
         self.gameVersion = 0
+
+    # Transitional property aliases
+    @property
+    def dwMajic(self) -> int: return self.magic
+    @dwMajic.setter
+    def dwMajic(self, v: int): self.magic = v
+
+    @property
+    def dwVersion(self) -> int: return self.version
+    @dwVersion.setter
+    def dwVersion(self, v: int): self.version = v
+
+    @property
+    def QuestInfo(self) -> QuestInfo: return self.quests
+    @QuestInfo.setter
+    def QuestInfo(self, v: QuestInfo): self.quests = v
+
+    @property
+    def Waypoints(self) -> Waypoints: return self.waypoints
+    @Waypoints.setter
+    def Waypoints(self, v: Waypoints): self.waypoints = v
+
+    @property
+    def PlayerStats(self) -> PlayerStats: return self.player_stats
+    @PlayerStats.setter
+    def PlayerStats(self, v: PlayerStats): self.player_stats = v
+
+    @property
+    def Skills(self) -> CharSkills: return self.skills
+    @Skills.setter
+    def Skills(self, v: CharSkills): self.skills = v
+
+    @property
+    def ItemList(self) -> ItemList: return self.item_list
+    @ItemList.setter
+    def ItemList(self, v: ItemList): self.item_list = v
+
+    @property
+    def stCorpse(self) -> Corpse: return self.corpse
+    @stCorpse.setter
+    def stCorpse(self, v: Corpse): self.corpse = v
+
+    @property
+    def stMercenary(self) -> Mercenary: return self.mercenary
+    @stMercenary.setter
+    def stMercenary(self, v: Mercenary): self.mercenary = v
+
+    @property
+    def stGolem(self) -> Golem: return self.golem
+    @stGolem.setter
+    def stGolem(self, v: Golem): self.golem = v
+
+    @property
+    def stDemon(self) -> Demon: return self.demon
+    @stDemon.setter
+    def stDemon(self, v: Demon): self.demon = v
     
     def deserialize(self, bs):
-        self.dwMajic = bs.read_dword()
-        self.dwVersion = bs.read_dword()
+        self.magic = bs.read_dword()
+        self.version = bs.read_dword()
         self.dwSize = bs.read_dword()
         self.dwCRC = bs.read_dword()
         self.dwWeaponSet = bs.read_dword()
         
-        if self.dwVersion >= 0x69:
+        if self.version >= 0x69:
             self._read_data_v69(bs)
         else:
             self._read_data_common(bs)
@@ -707,13 +827,13 @@ class D2SStruct:
         return title_names.get(title, f"Unknown({title})")
     
     def serialize(self, bs):
-        bs.write_dword(self.dwMajic)
-        bs.write_dword(self.dwVersion)
+        bs.write_dword(self.magic)
+        bs.write_dword(self.version)
         bs.write_dword(self.dwSize)
         bs.write_dword(self.dwCRC)
         bs.write_dword(self.dwWeaponSet)
         
-        if self.dwVersion >= 0x69:
+        if self.version >= 0x69:
             self._serialize_v69(bs)
         else:
             self._serialize_common(bs)
