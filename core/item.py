@@ -530,67 +530,6 @@ def get_stat_cost(stat_id: int) -> Optional[StatCostItem]:
     return _g_stat_cost.get(stat_id)
 
 
-class MayExist:
-    """Compatibility wrapper during migration from MayExist to Optional[T]."""
-    def __init__(self, owner_or_type=int, attr_or_bits=0):
-        if isinstance(owner_or_type, str) or hasattr(owner_or_type, '__dict__'):
-            self._owner = owner_or_type
-            self._attr = attr_or_bits
-            self._standalone = False
-        else:
-            self._owner = None
-            self._attr = None
-            self._standalone = True
-            self._exists = False
-            self._value = None
-
-    def exist(self) -> bool:
-        if self._standalone:
-            return self._exists
-        return getattr(self._owner, self._attr) is not None
-
-    def ensure(self, value=None):
-        if self._standalone:
-            self._exists = True
-            self._value = value if value is not None else 0
-        else:
-            if value is not None:
-                setattr(self._owner, self._attr, value)
-            elif getattr(self._owner, self._attr) is None:
-                setattr(self._owner, self._attr, 0)
-        return self
-
-    @property
-    def value(self):
-        if self._standalone:
-            return self._value if self._value is not None else 0
-        val = getattr(self._owner, self._attr)
-        return val if val is not None else 0
-
-    @value.setter
-    def value(self, v):
-        if self._standalone:
-            self._value = v
-            self._exists = True
-        else:
-            setattr(self._owner, self._attr, v)
-
-    def __int__(self):
-        return int(self.value)
-
-    def __bool__(self):
-        return self.exist()
-
-    def __eq__(self, other):
-        if isinstance(other, MayExist):
-            return self.value == other.value and self.exist() == other.exist()
-        return self.value == other if self.exist() else (other is None)
-
-    def __repr__(self):
-        val = self.value if self.exist() else None
-        return f"MayExist({val})"
-
-
 class Ear:
     def __init__(self, name: str = ""):
         self.iEarClass = 0
