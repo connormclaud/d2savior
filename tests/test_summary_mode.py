@@ -362,6 +362,67 @@ class TestSummaryMode(unittest.TestCase):
             mock_print.assert_any_call("=== File: char1.d2s ===")
             mock_print.assert_any_call("=== File: char2.d2s ===")
 
+    def test_format_parsed_properties_helper(self):
+        from unittest.mock import MagicMock, patch
+        from d2s_parse import _format_parsed_properties
+
+        self.assertEqual(_format_parsed_properties(None), [])
+
+        empty_list = MagicMock()
+        empty_list.mProperty = None
+        self.assertEqual(_format_parsed_properties(empty_list), [])
+
+        prop_list = MagicMock()
+        prop_list.mProperty = [1]
+        # (prop_id, value, params)
+        prop_list.get_parsed_properties.return_value = [
+            (7, 25, [25]),           # max life
+            (999, 10, ['param1']),   # unmapped with params
+            (998, 5, []),            # unmapped without params
+        ]
+        with patch('d2s_parse.format_property', side_effect=lambda pid, params, ver: "+25 to Life" if pid == 7 else ""):
+            formatted = _format_parsed_properties(prop_list, version=0x63)
+            self.assertEqual(len(formatted), 3)
+            self.assertEqual(formatted[0], "+25 to Life")
+            self.assertEqual(formatted[1], "ID 999: raw=10, params=['param1']")
+            self.assertEqual(formatted[2], "ID 998: 5")
+
+    def test_get_character_skills_helper(self):
+        from d2s_parse import _get_character_skills
+        char_data = D2SStruct()
+        self.assertEqual(_get_character_skills(char_data), [])
+
+        char_data.Skills.wMagic = 0x6669
+        char_data.charClass = 1  # Sorceress (base skill 36)
+        char_data.Skills.bSkillLevel[18] = 20  # 36 + 18 = 54 (Teleport)
+        char_data.Skills.bSkillLevel[0] = 5   # 36 + 0 = 36 (Fire Bolt)
+
+        skills = _get_character_skills(char_data)
+        self.assertEqual(len(skills), 2)
+        # Should be ordered by skill index
+        self.assertEqual(skills[0][0], 0)
+        self.assertEqual(skills[0][2], 5)
+        self.assertEqual(skills[1][0], 18)
+        self.assertEqual(skills[1][2], 20)
+        self.assertIn("Teleport", skills[1][1])
+
+    def test_run_bitstream_searches_helper(self):
+        import argparse
+        from unittest.mock import patch, MagicMock
+        from d2s_parse import _run_bitstream_searches
+
+        bs = MagicMock()
+        args = argparse.Namespace(search='1010', search_bytes='4a4d')
+
+        with patch('d2s_parse.search_bits', return_value=[{'offset': 10, 'byte': 1, 'bit': 2, 'context': 'ctx'}]) as mock_sb, \
+             patch('d2s_parse.search_bytes', return_value=[{'offset': 5, 'context': 'ctx_b'}]) as mock_sbytes, \
+             patch('builtins.print') as mock_print:
+            _run_bitstream_searches(bs, args)
+            mock_sb.assert_called_once_with(bs, '1010')
+            mock_sbytes.assert_called_once_with(bs, b'\x4a\x4d')
+            mock_print.assert_any_call("\n=== Search Results for '1010' ===")
+            mock_print.assert_any_call("\n=== Search Results for bytes '4a4d' ===")
+
 
 if __name__ == '__main__':
     unittest.main()

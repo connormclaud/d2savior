@@ -3,6 +3,7 @@ import sys
 import os
 import argparse
 import datetime
+from typing import Optional, List, Tuple
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 from core.property import format_property, init_item_modifiers, get_skill_name
@@ -19,6 +20,12 @@ from core.stash import (
     GEM_CODES,
     MATERIAL_CODES,
 )
+
+TAB_TYPE_NAMES = {
+    STASH_TAB_TYPE_NORMAL: "Normal",
+    STASH_TAB_TYPE_ADVANCED: "Advanced (Currency)",
+    STASH_TAB_TYPE_CHRONICLE: "Chronicle",
+}
 
 GEM_TYPE_NAMES = ['Amethyst', 'Topaz', 'Sapphire', 'Emerald', 'Ruby', 'Diamond', 'Skull']
 
@@ -277,6 +284,21 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
 
     return base_item_name
 
+def _format_parsed_properties(prop_list, version: int = 0x63) -> List[str]:
+    """Format a property list into human-readable strings, falling back to raw IDs."""
+    if not prop_list or not getattr(prop_list, 'mProperty', None):
+        return []
+    result = []
+    for prop_id, value, params in prop_list.get_parsed_properties(version):
+        formatted = format_property(prop_id, params, version)
+        if formatted:
+            result.append(formatted)
+        elif params:
+            result.append(f"ID {prop_id}: raw={value}, params={params}")
+        else:
+            result.append(f"ID {prop_id}: {value}")
+    return result
+
 def format_item_summary(item, version=0x63, include_properties=True, resolver=None) -> str:
     if resolver is None:
         resolver = GameDataResolver(version)
@@ -315,25 +337,9 @@ def format_item_summary(item, version=0x63, include_properties=True, resolver=No
             meta_tags.append(f"Socketed: {'+'.join(socketed)}")
             
     props = []
-    if include_properties:
-        if tp and tp.stPropertyList and tp.stPropertyList.mProperty:
-            for prop_id, value, params in tp.stPropertyList.get_parsed_properties(version):
-                formatted = format_property(prop_id, params, version)
-                if formatted:
-                    props.append(formatted)
-                elif params:
-                    props.append(f"ID {prop_id}: raw={value}, params={params}")
-                else:
-                    props.append(f"ID {prop_id}: {value}")
-        if tp and tp.stRuneWordPropertyList and tp.stRuneWordPropertyList.mProperty:
-            for prop_id, value, params in tp.stRuneWordPropertyList.get_parsed_properties(version):
-                formatted = format_property(prop_id, params, version)
-                if formatted:
-                    props.append(formatted)
-                elif params:
-                    props.append(f"ID {prop_id}: raw={value}, params={params}")
-                else:
-                    props.append(f"ID {prop_id}: {value}")
+    if include_properties and tp:
+        props.extend(_format_parsed_properties(getattr(tp, 'stPropertyList', None), version))
+        props.extend(_format_parsed_properties(getattr(tp, 'stRuneWordPropertyList', None), version))
                     
     meta_str = f" [{', '.join(meta_tags)}]" if meta_tags else ""
     props_str = f" ({', '.join(props)})" if props else ""
@@ -473,44 +479,26 @@ def format_item_info(item, indent="  ", version=None, resolver=None):
             if sockets > 0:
                 result.append(f"{indent}Sockets: {sockets}")
             
-            if tp.stPropertyList and tp.stPropertyList.mProperty:
+            props = _format_parsed_properties(getattr(tp, 'stPropertyList', None), version)
+            if props:
                 result.append(f"{indent}Properties:")
-                version = item.dwVersion if item.dwVersion else 0x63
-                for prop_id, value, params in tp.stPropertyList.get_parsed_properties(version):
-                    formatted = format_property(prop_id, params, version)
-                    if formatted:
-                        result.append(f"{indent}  - {formatted}")
-                    elif params:
-                        result.append(f"{indent}  - ID {prop_id}: raw={value}, params={params}")
-                    else:
-                        result.append(f"{indent}  - ID {prop_id}: {value}")
+                for p in props:
+                    result.append(f"{indent}  - {p}")
             
-            if tp.stRuneWordPropertyList and tp.stRuneWordPropertyList.mProperty:
+            rw_props = _format_parsed_properties(getattr(tp, 'stRuneWordPropertyList', None), version)
+            if rw_props:
                 result.append(f"{indent}Rune Word Properties:")
-                version = item.dwVersion if item.dwVersion else 0x63
-                for prop_id, value, params in tp.stRuneWordPropertyList.get_parsed_properties(version):
-                    formatted = format_property(prop_id, params, version)
-                    if formatted:
-                        result.append(f"{indent}  - {formatted}")
-                    elif params:
-                        result.append(f"{indent}  - ID {prop_id}: raw={value}, params={params}")
-                    else:
-                        result.append(f"{indent}  - ID {prop_id}: {value}")
+                for p in rw_props:
+                    result.append(f"{indent}  - {p}")
             
             if getattr(tp, 'apSetProperty', None):
                 for idx, set_prop_list in enumerate(tp.apSetProperty):
-                    if set_prop_list and set_prop_list.mProperty:
+                    set_props = _format_parsed_properties(set_prop_list, version)
+                    if set_props:
                         piece_count = idx + 2
                         result.append(f"{indent}Set Properties ({piece_count} Items):")
-                        version = item.dwVersion if item.dwVersion else 0x63
-                        for prop_id, value, params in set_prop_list.get_parsed_properties(version):
-                            formatted = format_property(prop_id, params, version)
-                            if formatted:
-                                result.append(f"{indent}  - {formatted}")
-                            elif params:
-                                result.append(f"{indent}  - ID {prop_id}: raw={value}, params={params}")
-                            else:
-                                result.append(f"{indent}  - ID {prop_id}: {value}")
+                        for p in set_props:
+                            result.append(f"{indent}  - {p}")
         
         if getattr(info, 'iAdvancedStashStackSize', 0) > 0:
             result.append(f"{indent}Stack Size: {info.iAdvancedStashStackSize}")
@@ -611,6 +599,23 @@ def format_quests_info(char_data: D2SStruct):
                     result.append(f"  {act_name}: {' '.join(parts)}")
     return result
 
+def _get_character_skills(char_data: D2SStruct, resolver: Optional[GameDataResolver] = None) -> List[Tuple[int, str, int]]:
+    """Return invested skills as a list of (skill_index, skill_name, level) tuples."""
+    if not getattr(char_data, 'Skills', None) or char_data.Skills.wMagic != 0x6669:
+        return []
+    if resolver is None:
+        version = char_data.dwVersion if char_data.dwVersion else 0x63
+        resolver = GameDataResolver(version)
+    skills = []
+    for i, level in enumerate(char_data.Skills.bSkillLevel):
+        if level > 0:
+            skill_name = ""
+            if 0 <= char_data.charClass < len(CLASS_SKILL_BASES):
+                skill_id = CLASS_SKILL_BASES[char_data.charClass] + i
+                skill_name = resolver.get_skill_name(skill_id)
+            skills.append((i, skill_name, level))
+    return skills
+
 def format_char_info(char_data: D2SStruct):
     result = []
     result.append("=== Diablo II Character Info ===")
@@ -670,18 +675,14 @@ def format_char_info(char_data: D2SStruct):
     result.append("")
     result.append("=== Skills ===")
     resolver = GameDataResolver(char_data.dwVersion)
-    if char_data.Skills.wMagic == 0x6669:
+    skills = _get_character_skills(char_data, resolver)
+    if skills:
         result.append("Skill levels:")
-        for i, level in enumerate(char_data.Skills.bSkillLevel):
-            if level > 0:
-                skill_name = ""
-                if 0 <= char_data.charClass < len(CLASS_SKILL_BASES):
-                    skill_id = CLASS_SKILL_BASES[char_data.charClass] + i
-                    skill_name = resolver.get_skill_name(skill_id)
-                if skill_name:
-                    result.append(f"Skill {i} ({skill_name}): {level}")
-                else:
-                    result.append(f"Skill {i}: {level}")
+        for i, skill_name, level in skills:
+            if skill_name:
+                result.append(f"Skill {i} ({skill_name}): {level}")
+            else:
+                result.append(f"Skill {i}: {level}")
     result.append("")
     result.extend(format_waypoints_info(char_data))
     result.append("")
@@ -793,20 +794,15 @@ def format_char_summary(char_data: D2SStruct) -> str:
     result.append("=== Skills ===")
     version = char_data.dwVersion if char_data.dwVersion else 0x63
     resolver = GameDataResolver(version)
-    if char_data.Skills.wMagic == 0x6669:
-        active_skills = []
-        for i, level in enumerate(char_data.Skills.bSkillLevel):
-            if level > 0:
-                skill_name = ""
-                if 0 <= char_data.charClass < len(CLASS_SKILL_BASES):
-                    skill_id = CLASS_SKILL_BASES[char_data.charClass] + i
-                    skill_name = resolver.get_skill_name(skill_id)
-                display = skill_name if skill_name else f"Skill {i}"
-                active_skills.append(f"{display}: {level}")
-        if active_skills:
-            result.append(", ".join(active_skills))
-        else:
-            result.append("None")
+    skills = _get_character_skills(char_data, resolver)
+    if skills:
+        active_skills = [
+            f"{skill_name if skill_name else f'Skill {i}'}: {level}"
+            for i, skill_name, level in skills
+        ]
+        result.append(", ".join(active_skills))
+    else:
+        result.append("None")
 
     result.append("")
     result.extend(format_waypoints_info(char_data))
@@ -956,17 +952,32 @@ def search_bytes(bs, byte_pattern, context=4):
         start = pos + 1
     return results
 
+def _run_bitstream_searches(bs, args):
+    """Execute bit and byte pattern searches on the bitstream if requested via CLI args."""
+    if not bs:
+        return
+    if getattr(args, 'search', None):
+        results = search_bits(bs, args.search)
+        print(f"\n=== Search Results for '{args.search}' ===")
+        for r in results:
+            print(f"Offset {r['offset']} (byte {r['byte']}, bit {r['bit']}): {r['context']}")
+        if not results:
+            print("Pattern not found")
+
+    if getattr(args, 'search_bytes', None):
+        search_byte_pattern = bytes.fromhex(args.search_bytes)
+        results = search_bytes(bs, search_byte_pattern)
+        print(f"\n=== Search Results for bytes '{search_byte_pattern.hex()}' ===")
+        for r in results:
+            print(f"Offset {r['offset']}: {r['context']}")
+        if not results:
+            print("Pattern not found")
+
 def format_stash_info(stash: SharedStash) -> str:
     result = []
     result.append("=== Diablo II Shared Stash ===")
     result.append(f"Total Tabs: {stash.get_tab_count()}")
     result.append("")
-    
-    TAB_TYPE_NAMES = {
-        STASH_TAB_TYPE_NORMAL: "Normal",
-        STASH_TAB_TYPE_ADVANCED: "Advanced (Currency)",
-        STASH_TAB_TYPE_CHRONICLE: "Chronicle",
-    }
     
     for tab_idx, tab in enumerate(stash.tabs):
         tab_type_name = TAB_TYPE_NAMES.get(tab.TabType, f"Unknown({tab.TabType})")
@@ -1000,12 +1011,6 @@ def format_stash_summary(stash: SharedStash) -> str:
     result.append("=== Diablo II Shared Stash Summary ===")
     tab_count = stash.get_tab_count()
     result.append(f"Total Tabs: {tab_count}")
-    
-    TAB_TYPE_NAMES = {
-        STASH_TAB_TYPE_NORMAL: "Normal",
-        STASH_TAB_TYPE_ADVANCED: "Advanced (Currency)",
-        STASH_TAB_TYPE_CHRONICLE: "Chronicle",
-    }
     
     tab_summaries = []
     for tab_idx, tab in enumerate(stash.tabs):
@@ -1173,22 +1178,7 @@ def process_file(file_path, args):
     if file_path.endswith('.d2i'):
         success, stash_or_item, kind, bs = parse_d2i_file(file_path, args.debug)
         if success and stash_or_item:
-            if args.search:
-                results = search_bits(bs, args.search)
-                print(f"\n=== Search Results for '{args.search}' ===")
-                for r in results:
-                    print(f"Offset {r['offset']} (byte {r['byte']}, bit {r['bit']}): {r['context']}")
-                if not results:
-                    print("Pattern not found")
-            
-            if args.search_bytes:
-                search_byte_pattern = bytes.fromhex(args.search_bytes)
-                results = search_bytes(bs, search_byte_pattern)
-                print(f"\n=== Search Results for bytes '{search_byte_pattern.hex()}' ===")
-                for r in results:
-                    print(f"Offset {r['offset']}: {r['context']}")
-                if not results:
-                    print("Pattern not found")
+            _run_bitstream_searches(bs, args)
             
             if kind == "stash":
                 if getattr(args, 'summary', False):
@@ -1207,22 +1197,7 @@ def process_file(file_path, args):
     success, char_data, bs = parse_d2s_file(file_path, args.debug)
     
     if success and char_data:
-        if args.search:
-            results = search_bits(bs, args.search)
-            print(f"\n=== Search Results for '{args.search}' ===")
-            for r in results:
-                print(f"Offset {r['offset']} (byte {r['byte']}, bit {r['bit']}): {r['context']}")
-            if not results:
-                print("Pattern not found")
-        
-        if args.search_bytes:
-            search_byte_pattern = bytes.fromhex(args.search_bytes)
-            results = search_bytes(bs, search_byte_pattern)
-            print(f"\n=== Search Results for bytes '{search_byte_pattern.hex()}' ===")
-            for r in results:
-                print(f"Offset {r['offset']}: {r['context']}")
-            if not results:
-                print("Pattern not found")
+        _run_bitstream_searches(bs, args)
         
         if getattr(args, 'summary', False):
             print(format_char_summary(char_data))
