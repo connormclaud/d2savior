@@ -32,10 +32,7 @@ if os.path.exists(data_dir):
     
     local_data_dir = os.path.join(data_dir, "local")
     if os.path.exists(local_data_dir):
-        results = init_localized_data(local_data_dir, lang_key=_lang_key)
-        loaded_count = sum(1 for success in results.values() if success)
-        total_count = len(results)
-        print(f"已加载 {loaded_count}/{total_count} 个多语言数据文件 (语言: {_lang_key})")
+        init_localized_data(local_data_dir, lang_key=_lang_key)
     
     item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
     if os.path.exists(item_modifiers_file):
@@ -180,7 +177,16 @@ def format_item_info(item, indent="  "):
                 result.append(f"{indent}Suffix: {suffix_id}{suffix_name}")
             if ext.wSetID.exist():
                 set_id = ext.wSetID.value
-                result.append(f"{indent}Set ID: {set_id}")
+                set_name = ""
+                if d2data_manager:
+                    set_info = d2data_manager.get_set_item(set_id, version)
+                    if set_info:
+                        set_name = f" ({set_info.name})"
+                elif d2data:
+                    set_info = d2data.get_set_item(set_id, version)
+                    if set_info:
+                        set_name = f" ({set_info.name})"
+                result.append(f"{indent}Set ID: {set_id}{set_name}")
             if ext.wUniID.exist():
                 unique_id = ext.wUniID.value
                 unique_name = ""
@@ -349,7 +355,7 @@ def format_char_info(char_data: D2SStruct):
     if char_data.Waypoints.wMajic == 0x5357:
         for i, wp_data in enumerate(char_data.Waypoints.wp):
             result.append(f"Waypoint set {i}:")
-            result.append(f"  Unknown: 0x{wp_data.unkown:X}")
+            result.append(f"  Unknown: 0x{wp_data.unknown:X}")
             result.append(f"  Waypoints: {wp_data.Waypoints}")
     result.append("")
     result.append("=== Quest Info ===")
