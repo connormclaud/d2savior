@@ -1,6 +1,0 @@
-;!@Install@!UTF-8!
-Title="D2Savior - Diablo II Resurrected Save Editor"
-BeginPrompt="D2Savior will be extracted and launched. Do you want to continue?"
-Progress="yes"
-RunProgram="D2Savior.exe"
-;!@InstallEnd@!

@@ -1,55 +1,41 @@
 # D2Savior
 
-A save editor for Diablo II: Resurrected.
+A Diablo II: Resurrected save and shared stash parser, originally created by [simshi](https://github.com/simshi/d2savior).
 
-Supports both version 0x63 (v1.x) and 0x69 (v3.x) d2s save files.
+Supports both version 0x63 (v1.x) and 0x69 (v3.x / Reign of the Warlock) save files.
 
 ## Features
 
-- Parse and edit character saves (.d2s)
-- Parse and edit shared stash (.d2i)
-- Parse and edit standalone items (.d2i)
-- View and edit character stats, skills, waypoints, quests
-- View and edit item properties
-- Drag & drop items between inventory slots
+- Parse character save files (`.d2s`): attributes, progression, skills (with names), waypoints, quests, items, and mercenary gear
+- Parse shared stash files (`.d2i`): all normal tabs and the currency tab with stack sizes
+- Parse standalone item files (`.d2i`)
+- Multi-language item and skill name lookup support (`--lang enUS`, `--lang zhCN`, etc.)
+- Bit/byte search capabilities for reverse engineering and debugging
 
 ## Requirements
 
-- Python 3.12+
-- PySide6 >= 6.6.0
-
-## Installation
-
-```bash
-pip install -r requirements.txt
-```
+- Python 3.10+
 
 ## Usage
 
 ```bash
-python d2s_gui.py
-```
+# Parse a character save
+uv run python d2s_parse.py path/to/character.d2s
 
-### Command Line Parsing
+# Parse a shared stash
+uv run python d2s_parse.py path/to/ModernSharedStashSoftCoreV2.d2i
 
-```bash
-python d2s_parse.py <save_file>
-```
+# With language option
+uv run python d2s_parse.py --lang zhCN path/to/character.d2s
 
-## Build
-
-```bash
-# Build executable
-make build
-
-# Build installer
-make installer
+# With debug information
+uv run python d2s_parse.py --debug path/to/character.d2s
 ```
 
 ## Testing
 
 ```bash
-make tests
+uv run pytest
 ```
 
 ## License
