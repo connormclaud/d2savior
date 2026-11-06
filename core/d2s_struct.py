@@ -90,27 +90,6 @@ class QuestInfo:
         self.acts = 0
         self.size = 0
         self.qi_data = [QuestInfoData() for _ in range(3)]
-
-    # Transitional property aliases
-    @property
-    def dwMajic(self) -> int: return self.magic
-    @dwMajic.setter
-    def dwMajic(self, v: int): self.magic = v
-
-    @property
-    def dwActs(self) -> int: return self.acts
-    @dwActs.setter
-    def dwActs(self, v: int): self.acts = v
-
-    @property
-    def wSize(self) -> int: return self.size
-    @wSize.setter
-    def wSize(self, v: int): self.size = v
-
-    @property
-    def QIData(self) -> list: return self.qi_data
-    @QIData.setter
-    def QIData(self, v: list): self.qi_data = v
     
     def deserialize(self, bs):
         self.magic = bs.read_dword()
@@ -734,7 +713,7 @@ class D2SStruct:
             return self.gameVersion > 1
         if (self.charFlags & 0x20) != 0:
             return True
-        if self.QuestInfo and self.QuestInfo.dwActs >= 5:
+        if self.quests and self.quests.acts >= 5:
             return True
         return False
     

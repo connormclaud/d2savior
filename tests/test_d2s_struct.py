@@ -146,12 +146,12 @@ class TestD2SStruct(unittest.TestCase):
         char_data = D2SStruct()
         char_data.dwVersion = 0x63
         char_data.charFlags = 0x00
-        char_data.QuestInfo = QuestInfo()
+        char_data.quests = QuestInfo()
         
-        char_data.QuestInfo.dwActs = 4
+        char_data.quests.acts = 4
         self.assertFalse(char_data.is_expansion())
         
-        char_data.QuestInfo.dwActs = 5
+        char_data.quests.acts = 5
         self.assertTrue(char_data.is_expansion())
 
     def test_is_expansion_0x69(self):
@@ -380,29 +380,29 @@ class TestD2SStruct(unittest.TestCase):
         # Normal: all completed, Akara reset used
         char.quests.qi_data[0].bResetStats = 1
         char.quests.qi_data[0].wActI = [1] * 6
-        char.QuestInfo.QIData[0].wActII = [1] * 6
-        char.QuestInfo.QIData[0].wActIII = [1] * 6
-        char.QuestInfo.QIData[0].wActIV = [1] * 3
-        char.QuestInfo.QIData[0].wActV = [1] * 6
+        char.quests.qi_data[0].wActII = [1] * 6
+        char.quests.qi_data[0].wActIII = [1] * 6
+        char.quests.qi_data[0].wActIV = [1] * 3
+        char.quests.qi_data[0].wActV = [1] * 6
 
         # Nightmare: Akara reset available
         # Act I quest 2 (Tools of the Trade): reward unclaimed (0x804a)
         # Act V quest 0 (Siege on Harrogath): reward unclaimed (0x8022)
         # Act V quest 3 (Betrayal of Harrogath): not attempted (0x000c)
-        char.QuestInfo.QIData[1].bResetStats = 2
-        char.QuestInfo.QIData[1].wActI = [1, 1, 0x804a, 1, 1, 1]
-        char.QuestInfo.QIData[1].wActII = [1] * 6
-        char.QuestInfo.QIData[1].wActIII = [1] * 6
-        char.QuestInfo.QIData[1].wActIV = [1] * 3
-        char.QuestInfo.QIData[1].wActV = [0x8022, 1, 1, 0x000c, 1, 1]
+        char.quests.qi_data[1].bResetStats = 2
+        char.quests.qi_data[1].wActI = [1, 1, 0x804a, 1, 1, 1]
+        char.quests.qi_data[1].wActII = [1] * 6
+        char.quests.qi_data[1].wActIII = [1] * 6
+        char.quests.qi_data[1].wActIV = [1] * 3
+        char.quests.qi_data[1].wActV = [0x8022, 1, 1, 0x000c, 1, 1]
 
         # Hell: not started, reset locked
-        char.QuestInfo.QIData[2].bResetStats = 0
-        char.QuestInfo.QIData[2].wActI = [0] * 6
-        char.QuestInfo.QIData[2].wActII = [0] * 6
-        char.QuestInfo.QIData[2].wActIII = [0] * 6
-        char.QuestInfo.QIData[2].wActIV = [0] * 3
-        char.QuestInfo.QIData[2].wActV = [0] * 6
+        char.quests.qi_data[2].bResetStats = 0
+        char.quests.qi_data[2].wActI = [0] * 6
+        char.quests.qi_data[2].wActII = [0] * 6
+        char.quests.qi_data[2].wActIII = [0] * 6
+        char.quests.qi_data[2].wActIV = [0] * 3
+        char.quests.qi_data[2].wActV = [0] * 6
 
         output = format_char_info(char)
 
