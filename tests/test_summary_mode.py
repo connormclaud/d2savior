@@ -447,6 +447,70 @@ class TestSummaryMode(unittest.TestCase):
         d2s_parse.ensure_data_loaded(lang_key="enUS")
         self.assertEqual(get_localized_data().current_lang, "enUS")
 
+    def test_ru_summary_mode(self):
+        import d2s_parse
+        from core.d2s_struct import D2SStruct, ItemList
+        from core.stash import SharedStash, StashTab, STASH_TAB_TYPE_NORMAL, STASH_TAB_TYPE_ADVANCED
+        from core.item import D2Item, ItemInfo, ExtItemInfo, TypeSpecificInfo
+
+        try:
+            d2s_parse.ensure_data_loaded(lang_key="ruRU", force=True)
+
+            # Test stash summary in Russian
+            s = SharedStash()
+            t1 = StashTab()
+            t1.TabType = STASH_TAB_TYPE_NORMAL
+            t1.Items = ItemList()
+
+            cap = D2Item()
+            cap.sTypeName = b'cap '
+            cap.pItemInfo = ItemInfo()
+            cap.pItemInfo.pTpSpInfo = TypeSpecificInfo()
+            cap.pItemInfo.pTpSpInfo.iDefence.ensure(4)
+            ral = D2Item()
+            ral.sTypeName = b'r08 '
+            cap.aGemItems = [ral]
+            t1.Items.vItems.append(cap)
+
+            shako = D2Item()
+            shako.sTypeName = b'uap '
+            shako.pItemInfo = ItemInfo()
+            shako.pItemInfo.pExtItemInfo = ExtItemInfo()
+            shako.pItemInfo.pExtItemInfo.wUniID.ensure(248)
+            t1.Items.vItems.append(shako)
+            s.tabs.append(t1)
+
+            t2 = StashTab()
+            t2.TabType = STASH_TAB_TYPE_ADVANCED
+            t2.Items = ItemList()
+            r_ral = D2Item()
+            r_ral.sTypeName = b'r08 '
+            r_ral.pItemInfo = ItemInfo()
+            r_ral.pItemInfo.iAdvancedStashStackSize = 10
+            t2.Items.vItems.append(r_ral)
+
+            p_rub = D2Item()
+            p_rub.sTypeName = b'gpr '
+            p_rub.pItemInfo = ItemInfo()
+            p_rub.pItemInfo.iAdvancedStashStackSize = 5
+            t2.Items.vItems.append(p_rub)
+            s.tabs.append(t2)
+
+            stash_out = d2s_parse.format_stash_summary(s)
+            self.assertIn("наголовник", stash_out)
+            self.assertIn("Шутовской капюшон (шако)", stash_out)
+            self.assertIn("Рал: 10", stash_out)
+            self.assertIn("Рубин: p 5, o 0", stash_out)
+
+            # Test char summary in Russian
+            char = D2SStruct()
+            char.charClass = 1  # Sorceress
+            char.charLevel = 80
+            char_out = d2s_parse.format_char_summary(char)
+            self.assertIn("Волшебница", char_out)
+        finally:
+            d2s_parse.ensure_data_loaded(lang_key="enUS", force=True)
+
 
 if __name__ == '__main__':
     unittest.main()

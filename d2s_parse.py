@@ -159,16 +159,17 @@ QUESTS_BY_ACT = [
     ])
 ]
 
-def ensure_data_loaded(lang_key: str = "enUS", data_dir: Optional[str] = None, force: bool = False):
+def ensure_data_loaded(lang_key: Optional[str] = None, data_dir: Optional[str] = None, force: bool = False):
     """Ensure game and localization data are loaded into core managers."""
-    actual_lang = lang_key or "enUS"
     mgr = get_d2data_manager()
     loc = get_localized_data()
 
     if not force and mgr is not None:
-        if loc.current_lang != actual_lang:
-            set_language(actual_lang)
+        if lang_key is not None and loc.current_lang != lang_key:
+            set_language(lang_key)
         return
+
+    actual_lang = lang_key if lang_key else (loc.current_lang or "enUS")
 
     if data_dir is None:
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -247,45 +248,46 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
         resolver = GameDataResolver(version)
     
     type_info = resolver.get_item(type_name)
-    base_item_name = type_info.name if type_info else type_name
+    raw_name = type_info.name if type_info else type_name
+    base_item_name = resolver.get_localized_item_name(type_name, fallback=raw_name)
 
     ext = getattr(getattr(item, 'pItemInfo', None), 'pExtItemInfo', None)
     if ext:
         if ext.wRune.exist():
-            rw_info = resolver.get_runeword(ext.rune_word_id())
-            if rw_info:
-                return f"{rw_info.name} ({base_item_name})"
+            rw_name = resolver.get_localized_runeword_name(ext.rune_word_id())
+            if rw_name:
+                return f"{rw_name} ({base_item_name})"
         if ext.wUniID.exist():
-            u_info = resolver.get_unique_item(ext.wUniID.value)
-            if u_info:
-                return f"{u_info.index} ({base_item_name})"
+            u_name = resolver.get_localized_unique_name(ext.wUniID.value)
+            if u_name:
+                return f"{u_name} ({base_item_name})"
         if ext.wSetID.exist():
-            s_info = resolver.get_set_item(ext.wSetID.value)
-            if s_info:
-                return f"{s_info.name} ({base_item_name})"
+            s_name = resolver.get_localized_set_name(ext.wSetID.value)
+            if s_name:
+                return f"{s_name} ({base_item_name})"
         quality = item.quality()
         if quality == ItemQuality.MAGIC:
             prefix_name = ""
             suffix_name = ""
             if ext.wPrefix.exist() and ext.wPrefix.value > 0:
-                p_info = resolver.get_magic_prefix(ext.wPrefix.value)
-                if p_info:
-                    prefix_name = p_info.name
+                prefix_name = resolver.get_localized_magic_prefix(ext.wPrefix.value)
             if ext.wSuffix.exist() and ext.wSuffix.value > 0:
-                s_info = resolver.get_magic_suffix(ext.wSuffix.value)
-                if s_info:
-                    suffix_name = s_info.name
+                suffix_name = resolver.get_localized_magic_suffix(ext.wSuffix.value)
             parts = [p for p in [prefix_name, base_item_name, suffix_name] if p]
             if parts:
                 return " ".join(parts)
         elif quality == ItemQuality.RARE:
-            return f"Rare {base_item_name}"
+            rare_pfx = resolver.get_localized_quality_name("Rare")
+            return f"{rare_pfx} {base_item_name}"
         elif quality == ItemQuality.CRAFTED:
-            return f"Crafted {base_item_name}"
+            crafted_pfx = resolver.get_localized_quality_name("Crafted")
+            return f"{crafted_pfx} {base_item_name}"
         elif quality == ItemQuality.HIGH:
-            return f"Superior {base_item_name}"
+            sup_pfx = resolver.get_localized_quality_name("Superior")
+            return f"{sup_pfx} {base_item_name}"
         elif quality == ItemQuality.LOW:
-            return f"Low Quality {base_item_name}"
+            low_pfx = resolver.get_localized_quality_name("Low Quality")
+            return f"{low_pfx} {base_item_name}"
 
     return base_item_name
 
@@ -494,6 +496,8 @@ def format_item_info(item, indent="  ", version=None, resolver=None):
     return result
 
 def format_waypoints_info(char_data: D2SStruct):
+    ensure_data_loaded()
+    loc = get_localized_data()
     result = []
     result.append("=== Waypoints ===")
     if char_data.Waypoints.wMajic == 0x5357:
@@ -513,7 +517,8 @@ def format_waypoints_info(char_data: D2SStruct):
                         total_unlocked += 1
                         unlocked_in_act += 1
                     else:
-                        missing.append(name)
+                        loc_wp = loc.get_level_name(name) if loc else name
+                        missing.append(loc_wp)
                     global_idx += 1
                 act_stats.append((act_name, len(wp_names), unlocked_in_act, missing))
             
@@ -543,6 +548,8 @@ def format_waypoints_info(char_data: D2SStruct):
     return result
 
 def format_quests_info(char_data: D2SStruct):
+    ensure_data_loaded()
+    loc = get_localized_data()
     result = []
     result.append("=== Quests ===")
     if char_data.QuestInfo.dwMajic == 0x216F6F57:
@@ -571,12 +578,13 @@ def format_quests_info(char_data: D2SStruct):
                 else:
                     parts = []
                     for (name, idx), w in zip(quest_defs, words_ordered):
+                        loc_qname = loc.get_quest_name(name) if loc else name
                         if w & 1:
                             parts.append("[x]")
                         elif w & 2:
-                            parts.append(f"[!] {name} (reward unclaimed)")
+                            parts.append(f"[!] {loc_qname} (reward unclaimed)")
                         else:
-                            parts.append(f"[ ] {name}")
+                            parts.append(f"[ ] {loc_qname}")
                     result.append(f"  {act_name}: {' '.join(parts)}")
     return result
 
@@ -604,7 +612,8 @@ def format_char_info(char_data: D2SStruct):
     result.append("=== Diablo II Character Info ===")
     char_name = char_data.get_char_name()
     result.append(f"Name: {char_name}")
-    result.append(f"Class: {char_data.get_char_class_name()}")
+    resolver = GameDataResolver(char_data.dwVersion)
+    result.append(f"Class: {resolver.get_localized_class_name(char_data.charClass)}")
     result.append(f"Level: {char_data.charLevel}")
     result.append(f"Version: 0x{char_data.dwVersion:X}")
     result.append(f"Hardcore: {'Yes' if char_data.is_hardcore() else 'No'}")
@@ -731,7 +740,9 @@ def format_char_summary(char_data: D2SStruct) -> str:
     result = []
     result.append("=== Diablo II Character Summary ===")
     char_name = char_data.get_char_name()
-    char_class = char_data.get_char_class_name()
+    version = char_data.dwVersion if char_data.dwVersion else 0x63
+    resolver = GameDataResolver(version)
+    char_class = resolver.get_localized_class_name(char_data.charClass)
     flags_str = get_char_type_name(char_data.charFlags)
     char_title = getattr(char_data, 'charTitle', 0)
     title_str = get_char_title_name(char_title, char_data.charClass)
@@ -1028,17 +1039,17 @@ def format_stash_summary(stash: SharedStash) -> str:
                         else:
                             gem_stats[g_type]['o'] += stack_size
                     elif code_b in RUNE_CODES_STRIPPED:
-                        type_info = resolver.get_item(code_str)
-                        item_name = type_info.name if type_info else code_str
-                        display_name = item_name[:-5] if item_name.endswith(" Rune") else item_name
+                        display_name = resolver.get_localized_rune_short_name(code_str)
                         runes_list.append(f"{display_name}: {stack_size}")
                     elif code_b in MATERIAL_CODES_STRIPPED:
                         type_info = resolver.get_item(code_str)
-                        item_name = type_info.name if type_info else code_str
+                        raw_name = type_info.name if type_info else code_str
+                        item_name = resolver.get_localized_item_name(code_str, fallback=raw_name)
                         materials_list.append(f"{item_name}: {stack_size}")
                     else:
                         type_info = resolver.get_item(code_str)
-                        item_name = type_info.name if type_info else code_str
+                        raw_name = type_info.name if type_info else code_str
+                        item_name = resolver.get_localized_item_name(code_str, fallback=raw_name)
                         other_list.append(f"{item_name}: {stack_size}")
 
                 gems_list = []
@@ -1046,7 +1057,8 @@ def format_stash_summary(stash: SharedStash) -> str:
                     p = gem_stats[g_type]['p']
                     o = gem_stats[g_type]['o']
                     if p > 0 or o > 0:
-                        gems_list.append(f"{g_type}: p {p}, o {o}")
+                        loc_g_type = resolver.get_localized_gem_type_name(g_type)
+                        gems_list.append(f"{loc_g_type}: p {p}, o {o}")
                         
                 if runes_list:
                     result.append(f"  Runes: {', '.join(runes_list)}")

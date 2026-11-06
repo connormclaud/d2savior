@@ -1314,3 +1314,162 @@ class GameDataResolver:
         if self._mgr:
             return self._mgr.get_property(prop_id, self.version)
         return self._legacy.get_property(prop_id) if self._legacy else None
+
+    def get_localized_item_name(self, code_or_name: str, fallback: str = "") -> str:
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        if not loc:
+            return fallback or code_or_name
+
+        name = loc.get_item_name(code_or_name)
+        if name and name != code_or_name:
+            return name
+
+        name = loc.get_item_nameaffix(code_or_name)
+        if name and name != code_or_name:
+            return name
+
+        name = loc.get_rune_name(code_or_name)
+        if name and name != code_or_name:
+            return name
+
+        if fallback and fallback != code_or_name:
+            name = loc.get_item_name(fallback)
+            if name and name != fallback:
+                return name
+            name = loc.get_item_nameaffix(fallback)
+            if name and name != fallback:
+                return name
+
+        return fallback or code_or_name
+
+    def get_localized_unique_name(self, unique_id: int) -> str:
+        u_info = self.get_unique_item(unique_id)
+        if not u_info:
+            return ""
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        if loc:
+            name = loc.get_item_name(u_info.index)
+            if name and name != u_info.index:
+                return name
+        return u_info.index
+
+    def get_localized_set_name(self, set_id: int) -> str:
+        s_info = self.get_set_item(set_id)
+        if not s_info:
+            return ""
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        if loc:
+            name = loc.get_item_name(s_info.name)
+            if name and name != s_info.name:
+                return name
+        return s_info.name
+
+    def get_localized_runeword_name(self, runeword_id: int) -> str:
+        rw_info = self.get_runeword(runeword_id)
+        if not rw_info:
+            return ""
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        if loc:
+            name = loc.get_rune_name(rw_info.name)
+            if name and name != rw_info.name:
+                return name
+            name = loc.get_rune_name(f"Runeword{runeword_id}")
+            if name and name != f"Runeword{runeword_id}":
+                return name
+        return rw_info.name
+
+    def get_localized_magic_prefix(self, prefix_id: int) -> str:
+        p_info = self.get_magic_prefix(prefix_id)
+        if not p_info:
+            return ""
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        if loc:
+            name = loc.get_item_nameaffix(p_info.name)
+            if name and name != p_info.name:
+                return name
+        return p_info.name
+
+    def get_localized_magic_suffix(self, suffix_id: int) -> str:
+        s_info = self.get_magic_suffix(suffix_id)
+        if not s_info:
+            return ""
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        if loc:
+            name = loc.get_item_nameaffix(s_info.name)
+            if name and name != s_info.name:
+                return name
+        return s_info.name
+
+    def get_localized_quality_name(self, quality_name: str) -> str:
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        if not loc or loc.current_lang == 'enUS':
+            return quality_name
+        name = loc.get_item_nameaffix(quality_name)
+        if name and name != quality_name:
+            return name
+        ui_key = f"LootFilter{quality_name}Rarity"
+        name = loc.get_clean_string('ui.json', ui_key, default="")
+        if name:
+            return name
+        _QUALITY_FALLBACKS = {
+            'ruRU': {'Crafted': 'созданный', 'Rare': 'редкий'},
+            'zhCN': {'Crafted': '手工艺', 'Rare': '稀有'},
+            'zhTW': {'Crafted': '手工艺', 'Rare': '稀有'},
+        }
+        fb = _QUALITY_FALLBACKS.get(loc.current_lang, {}).get(quality_name)
+        if fb:
+            return fb
+        return quality_name
+
+    def get_localized_gem_type_name(self, gem_type: str) -> str:
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        if not loc:
+            return gem_type
+        name = loc.get_item_name(gem_type)
+        if name and name != gem_type:
+            return name
+        name = loc.get_item_nameaffix(gem_type)
+        if name and name != gem_type:
+            return name
+        return gem_type
+
+    def get_localized_rune_short_name(self, code_str: str) -> str:
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        type_info = self.get_item(code_str)
+        eng_name = type_info.name if type_info else code_str
+        if not loc or loc.current_lang == 'enUS':
+            return eng_name[:-5] if eng_name.endswith(" Rune") else eng_name
+
+        loc_name = loc.get_rune_name(code_str)
+        if loc_name and loc_name != code_str:
+            if loc_name.startswith("Руна "):
+                return loc_name[len("Руна "):]
+            if loc_name.endswith("符文"):
+                return loc_name[:-len("符文")]
+            if loc_name.endswith(" Rune"):
+                return loc_name[:-len(" Rune")]
+            return loc_name
+        return eng_name[:-5] if eng_name.endswith(" Rune") else eng_name
+
+    def get_localized_class_name(self, class_id: int) -> str:
+        class_keys = [
+            "Amazon", "Sorceress", "Necromancer", "Paladin",
+            "Barbarian", "Druid", "Assassin", "Warlock"
+        ]
+        default_name = class_keys[class_id] if 0 <= class_id < len(class_keys) else "Unknown"
+        from core.localized_data import get_localized_data
+        loc = get_localized_data()
+        if loc:
+            name = loc.get_class_name(class_id)
+            if name:
+                return name
+        return default_name

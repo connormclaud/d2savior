@@ -1,6 +1,17 @@
 import os
+import re
 import json
 from typing import Dict, List, Optional
+
+
+def clean_d2_text(text: str) -> str:
+    """Clean Diablo II localized text by extracting the first grammatical form from tags like [ms]..."""
+    if not text:
+        return ""
+    m = re.search(r'\[(?:ms|fs|ns|pl|mp|fp|nl)\]([^\[]+)', text)
+    if m:
+        return m.group(1).strip()
+    return text.strip()
 
 
 class LocalizedDataLoader:
@@ -101,14 +112,19 @@ class LocalizedDataLoader:
             return self._data[file_key][key]
         return default if default is not None else key
 
+    def get_clean_string(self, file_key: str, key: str, default: str = None) -> str:
+        s = self.get_string(file_key, key, default)
+        return clean_d2_text(s)
+
     def get_item_modifier(self, key: str) -> str:
         return self.get_string('item-modifiers.json', key)
 
     def get_skill_name(self, key: str) -> str:
         return self.get_string('skills.json', key)
 
-    def get_item_name(self, key: str) -> str:
-        return self.get_string('item-names.json', key)
+    def get_item_name(self, key: str, clean: bool = True) -> str:
+        s = self.get_string('item-names.json', key)
+        return clean_d2_text(s) if clean else s
 
     def get_item_name_by_id(self, item_id: int) -> str:
         file_key = 'item-names.json'
@@ -118,8 +134,13 @@ class LocalizedDataLoader:
                     return item.get(self._current_lang, item.get('enUS', f'Item#{item_id}'))
         return f'Item#{item_id}'
 
-    def get_item_nameaffix(self, key: str) -> str:
-        return self.get_string('item-nameaffixes.json', key)
+    def get_item_nameaffix(self, key: str, clean: bool = True) -> str:
+        s = self.get_string('item-nameaffixes.json', key)
+        return clean_d2_text(s) if clean else s
+
+    def get_rune_name(self, key: str, clean: bool = True) -> str:
+        s = self.get_string('item-runes.json', key)
+        return clean_d2_text(s) if clean else s
 
     def get_monster_name(self, key: str) -> str:
         return self.get_string('monsters.json', key)
@@ -127,14 +148,16 @@ class LocalizedDataLoader:
     def get_npc_name(self, key: str) -> str:
         return self.get_string('npcs.json', key)
 
-    def get_quest_name(self, key: str) -> str:
-        return self.get_string('quests.json', key)
+    def get_quest_name(self, key: str, clean: bool = True) -> str:
+        s = self.get_string('quests.json', key)
+        return clean_d2_text(s) if clean else s
 
     def get_shrine_name(self, key: str) -> str:
         return self.get_string('shrines.json', key)
 
-    def get_level_name(self, key: str) -> str:
-        return self.get_string('levels.json', key)
+    def get_level_name(self, key: str, clean: bool = True) -> str:
+        s = self.get_string('levels.json', key)
+        return clean_d2_text(s) if clean else s
 
     def get_object_name(self, key: str) -> str:
         return self.get_string('objects.json', key)

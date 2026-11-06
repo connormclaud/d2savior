@@ -7,7 +7,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.localized_data import (
     LocalizedDataLoader, 
     init_localized_data, 
-    get_localized_data
+    get_localized_data,
+    clean_d2_text
 )
 
 
@@ -86,6 +87,25 @@ class TestLocalizedDataLoader(unittest.TestCase):
         # 测试怪物名称
         monster_name = self.loader.get_monster_name('Fallen')
         self.assertEqual(monster_name, 'Fallen')
+
+    def test_clean_d2_text(self):
+        self.assertEqual(clean_d2_text("[ms]наголовник"), "наголовник")
+        self.assertEqual(clean_d2_text("[ns]шако"), "шако")
+        self.assertEqual(
+            clean_d2_text("[ms]украшенный розой[fs]украшенная розой[ns]украшенное розой"),
+            "украшенный розой"
+        )
+        self.assertEqual(clean_d2_text("Шутовской капюшон"), "Шутовской капюшон")
+        self.assertEqual(clean_d2_text(""), "")
+        self.assertEqual(clean_d2_text(None), "")
+
+    def test_ru_localization(self):
+        self.loader.load_all_localized_data(self.data_dir, lang_key='ruRU')
+        self.assertEqual(self.loader.get_item_name('cap'), "наголовник")
+        self.assertEqual(self.loader.get_rune_name('r08'), "Руна Рал")
+        self.assertEqual(self.loader.get_class_name(1), "Волшебница")
+        self.assertEqual(self.loader.get_quest_name('Den of Evil'), "Логово зла")
+        self.assertEqual(self.loader.get_level_name('Rogue Encampment'), "Лагерь разбойниц")
 
 
 class TestGlobalLocalizedData(unittest.TestCase):
