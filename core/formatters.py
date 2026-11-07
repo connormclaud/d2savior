@@ -93,7 +93,7 @@ def format_timestamp(ts: int) -> str:
     if not ts or ts == 0xFFFFFFFF or ts < 0:
         return "N/A"
     try:
-        dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+        dt = datetime.datetime.fromtimestamp(ts, tz=datetime.UTC)
         return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
     except OSError, OverflowError, ValueError:
         return f"Unknown({ts})"
