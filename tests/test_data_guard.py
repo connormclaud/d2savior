@@ -129,7 +129,7 @@ class TestDataGuard:
         }
 
         # Documentation and manifest files
-        allowed_docs = {"README.md"}
+        allowed_docs = {"README.md", "MANIFEST"}
 
         actual_files = set()
         for root, _dirs, files in os.walk(self.data_dir):

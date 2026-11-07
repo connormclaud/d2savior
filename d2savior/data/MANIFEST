@@ -1,0 +1,39 @@
+# Diablo II Data Manifest
+
+Source: Diablo II: Resurrected (D2R)
+Base Patch: 2.7 (Build 2.7.3.77443)
+Extraction Date: 2023-06-15
+
+## Extracted Game Data Tables (data/d2r/)
+
+Raw TSV tables extracted from Blizzard CASC game storage:
+- Armor.txt, Weapons.txt, Misc.txt (base item equipment definitions and categories)
+- ItemStatCost.txt (stat identifiers, save bits, save add offsets, and value shifts)
+- Properties.txt (property identifiers mapped to stat IDs and calculation formulas)
+- itemtypes.txt (item type taxonomy, inheritance hierarchy, body locations, beltability)
+- magicprefix.txt, magicsuffix.txt (magical affix definitions and stat ranges)
+- uniqueitems.txt (unique item definitions and property assignments)
+- runes.txt (runeword compositions, sockets, and rune requirements)
+- skills.txt (character and monster skill definitions, aura identifiers)
+
+## Localized String Tables (data/d2r/local/)
+
+JSON localized string tables extracted from D2R localization archives:
+- item-modifiers.json, skills.json, item-names.json, item-nameaffixes.json
+- item-gems.json, item-runes.json, monsters.json, npcs.json, quests.json
+- shrines.json, levels.json, objects.json, mercenaries.json, commands.json
+- keybinds.json, tooltip-ui.json, ui.json
+
+## Version Overlay (data/0x63/)
+
+Overlay files for D2R Beta / v1.0.0 (version 0x63 / 99) save compatibility:
+- Armor.txt, ItemStatCost.txt, Misc.txt, Weapons.txt, itemtypes.txt
+- itemdata.txt, property.txt
+
+## Generated / Hand-Maintained Parsing Files
+
+- itemdata.txt: Compact bitstream parser metadata specifying item classification flags
+  (simple, charm, defense, durability, stackable). Hand-maintained in repository; original
+  generator script referenced in legacy README.py was not committed to version control.
+- property.txt: Property unpack descriptors specifying bit widths, bias offsets, and version
+  thresholds for variable-length property decoding. Hand-maintained in repository.
