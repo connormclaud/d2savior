@@ -20,6 +20,14 @@ Supports both version 0x63 (v1.x) and 0x69 (v3.x / Reign of the Warlock) save fi
 
 ### Run with uvx (no installation needed)
 
+Run directly from GitHub without cloning or installing:
+
+```bash
+uvx --from git+https://github.com/connormclaud/d2savior d2savior path/to/character.d2s
+```
+
+Or once installed / published to PyPI:
+
 ```bash
 uvx d2savior path/to/character.d2s
 ```
