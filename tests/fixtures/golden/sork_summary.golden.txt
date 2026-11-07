@@ -1,0 +1,106 @@
+=== Diablo II Character Summary ===
+Name: sork | Class: Sorceress | Level: 74 | Title: Champion
+Status: Died | Weapon Set: I
+Last Saved: 2026-11-06 17:31:34 UTC | Play Time: N/A
+Attributes: Str: 55, Dex: 25, Vit: 340, Ene: 35
+Life: 906/813 | Mana: 353/181 | Gold: 0 (Person), 532437 (Stash)
+
+=== Skills ===
+Warmth: 1, Ice Bolt: 1, Frozen Armor: 1, Static Field: 1, Telekinesis: 1, Frost Nova: 1, Ice Blast: 14, Teleport: 1, Glacial Spike: 20, Blizzard: 20, Cold Mastery: 20
+
+=== Waypoints ===
+Normal (36/39 unlocked, 3 missing):
+  Act I (9/9): All unlocked
+  Act II (7/9): Missing Palace Cellar Level 1, Canyon of the Magi
+  Act III (8/9): Missing Upper Kurast
+  Act IV (3/3): All unlocked
+  Act V (9/9): All unlocked
+Nightmare (36/39 unlocked, 3 missing):
+  Act I (9/9): All unlocked
+  Act II (8/9): Missing Halls of the Dead Level 2
+  Act III (8/9): Missing Great Marsh
+  Act IV (3/3): All unlocked
+  Act V (8/9): Missing Halls of Pain
+Hell: Not started
+
+=== Quests ===
+Normal (27/27 completed) — Akara Reset: Used
+  Act I: [x] [x] [x] [x] [x] [x]
+  Act II: [x] [x] [x] [x] [x] [x]
+  Act III: [x] [x] [x] [x] [x] [x]
+  Act IV: [x] [x] [x]
+  Act V: [x] [x] [x] [x] [x] [x]
+Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available
+  Act I: [x] [x] [x] [x] [!] Tools of the Trade (reward unclaimed) [x]
+  Act II: [x] [x] [x] [x] [x] [x]
+  Act III: [x] [x] [x] [x] [x] [x]
+  Act IV: [x] [x] [x]
+  Act V: [!] Siege on Harrogath (reward unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]
+Hell: Not started
+
+=== Equipped Gear ===
+- Helmet: Lore (Cap) [Def: 6, Sockets: 2, Socketed: Ort Rune+Sol Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +10 to Energy, +2 to Light Radius, +1 to All Skills, +2 to Mana after each Kill)
+- Amulet: Scintillating Amulet of Warding (Magic Damage Reduced by 2, Fire Resist +18%, Lightning Resist +18%, Cold Resist +18%, Poison Resist +18%)
+- Armor: Stealth (Studded Leather) [Def: 36, Sockets: 2, Socketed: Tal Rune+Eth Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +6 to Dexterity, +15 Maximum Stamina, Magic Damage Reduced by 3, +25% Faster Run/Walk, +25% Faster Hit Recovery, +25% Faster Cast Rate)
+- Weapon I: Spirit (Broad Sword) [Sockets: 4, Socketed: Tal Rune+Thul Rune+Ort Rune+Amn Rune] (+22 to Vitality, +93 to Mana, +250 Defense vs. Missile, +55% Faster Hit Recovery, +34% Faster Cast Rate, +2 to All Skills, +6 Magic Absorb)
+- Shield I: Visceratuant (Defender) [Def: 50] (+116% Enhanced Defense, 30% Increased Chance of Blocking, +1 to Sorceress Skill Levels, +30% Faster Block Rate, Attacker Takes Lightning Damage of 10)
+- Ring (Right): Manald Heal (Ring) (+20 to Life, Regenerate Mana 20%, 6% Mana stolen per hit, Replenish Life +5, +10% Faster Cast Rate)
+- Ring (Left): Rare Ring (+2 to Strength, +9 to Energy, Fire Resist +17%, Lightning Resist +16%, Poison Resist +9%, Poison Length Reduced by 25%)
+- Belt: Crafted Sharkskin Belt [Def: 32] (+7 to Life, +13 to Mana, Regenerate Mana 9%, Poison Resist +18%, +8% Faster Cast Rate)
+- Boots: Rare Chain Boots [Def: 8] (+5 to Dexterity, Fire Resist +17%, Cold Resist +20%, +20% Faster Run/Walk, Repairs 20% durability per second)
+- Gloves: Rare Heavy Gloves [Def: 7] (+6 to Dexterity, +52% Enhanced Defense, Fire Resist +16%, Poison Resist +25%, 3% Mana stolen per hit, +5 to Light Radius, 5% Bonus to Attack Rating)
+- Weapon II: Bone Wand of Iron Golem (Level 1 Lower Resist (0/17218 Charges))
+- Shield II: Rhyme (Kite Shield) [Def: 16, Sockets: 2, Socketed: Shael Rune+Eth Rune] (20% Increased Chance of Blocking, Fire Resist +25%, Lightning Resist +25%, Cold Resist +25%, Poison Resist +25%, 50% Extra Gold from Monsters, 25% Better Chance of Getting Magic Items, +20% Faster Block Rate, Cannot Be Frozen)
+
+=== Mercenary ===
+Mercenary: Name Index 19, Type 10
+Equipped:
+  - Armor: Lionheart (Breast Plate) [Def: 69, Sockets: 3, Socketed: Hel Rune+Lum Rune+Fal Rune] (+11% Enhanced Defense, +15 to Strength, +15 to Dexterity, +20 to Vitality, +50 to Life, +20% Enhanced Maximum Damage, +20% Enhanced Minimum Damage, Fire Resist +30%, Lightning Resist +30%, Cold Resist +30%, Poison Resist +30%)
+  - Helmet: Tal Rasha's Horadric Crest (Death Mask) [Def: 86] (+60 to Life, +30 to Mana, +45 Defense, Fire Resist +15%, Lightning Resist +15%, Cold Resist +15%, Poison Resist +15%, 10% Life stolen per hit, 10% Mana stolen per hit)
+  - Weapon I: Insight (Bill) [Sockets: 4, Socketed: Ral Rune+Tir Rune+Tal Rune+Sol Rune] (+5 to Strength, +5 to Energy, +5 to Dexterity, +5 to Vitality, +235% Enhanced Maximum Damage, +235% Enhanced Minimum Damage, 23% Better Chance of Getting Magic Items, +5 to Critical Strike, +35% Faster Cast Rate, 229% Bonus to Attack Rating, Level 15 Meditation Aura When Equipped)
+
+=== Inventory & Stash ===
+- [Inventory] Sapphire Grand Charm (Fire Resist +12%)
+- [Inventory] Snake's Large Charm of Inertia (+28 to Mana, +5% Faster Run/Walk)
+- [Inventory] Scintillating Grand Charm (Cold Resist +8%)
+- [Inventory] Ruby Grand Charm (Lightning Resist +14%)
+- [Inventory] Tangerine Small Charm (Lightning Resist +6%)
+- [Inventory] Tangerine Small Charm of Life (+11 to Life, Lightning Resist +7%)
+- [Inventory] Tangerine Large Charm of Life (+11 to Life, Lightning Resist +8%)
+- [Inventory] Key [Qty: 5]
+- [Inventory] Crimson Grand Charm (Fire Resist +20%)
+- [Inventory] Viridian Small Charm (Poison Resist +8%)
+- [Inventory] Tome of Town Portal [Qty: 20]
+- [Inventory] Tome of Identify [Qty: 14]
+- [Inventory] Horadric Cube
+- [Stash] Ruby Heavy Gloves of Frigidity [Def: 6] (Fire Resist +18%, Half Freeze Duration)
+- [Stash] Cobalt Chain Boots of Frigidity [Def: 8] (Cold Resist +36%, Half Freeze Duration)
+- [Stash] Cap [Def: 4, Sockets: 2]
+- [Stash] Broad Sword [Sockets: 4]
+- [Stash] Glimmering Ring of Deflecting (+2 to Light Radius, +10% Faster Cast Rate)
+- [Stash] Rare Sacred Globe (+8 to Energy, +13 to Life, +31 to Mana, Fire Resist +38%, +20% Faster Cast Rate, +1 to Fire Wall Fire Wall, 12% Chance to cast level 4 Nova on striking)
+- [Stash] Rare Light Gauntlets [Def: 12] (+1 to Dexterity, +55% Enhanced Defense, Cold Resist +25%, 76% Extra Gold from Monsters, +1 to Bow and Crossbow, Repairs 33% durability per second)
+- [Stash] Ruby Leather Gloves of Avarice [Def: 3] (Fire Resist +18%, 11% Better Chance of Getting Magic Items)
+- [Stash] Emerald Amulet of Fortune (Poison Resist +6%, 34% Better Chance of Getting Magic Items)
+- [Stash] Large Charm of Strength (+3 to Strength)
+- [Stash] Cuirass [Def: 191, Sockets: 3]
+- [Stash] Rare Belt [Def: 5] (+41 to Life, Fire Resist +16%, Poison Resist +7%, 58% Extra Gold from Monsters, +17% Faster Hit Recovery)
+- [Stash] Superior Breast Plate [Def: 69, Sockets: 3] (+6% Enhanced Defense)
+- [Stash] Ocher Belt of the Tiger [Def: 5] (+36 to Life, Lightning Resist +27%)
+- [Stash] Greater Mana Potion
+- [Stash] Amulet of Deflecting (+10% Faster Cast Rate)
+- [Stash] Cuirass [Def: 196, Sockets: 3]
+- [Stash] Ocher Chain Gloves of Nirvana [Def: 8] (+2 to Dexterity, Lightning Resist +27%)
+- [Stash] Tal Rasha's Fine-Spun Cloth (Mesh Belt) [Def: 36] (+20 to Dexterity, +30 to Mana, 13% Better Chance of Getting Magic Items, Requirements -20%, +37% Damage Taken Goes To Mana)
+- [Stash] Tal Rasha's Lidless Eye (Swirling Crystal) (+10 to Energy, +57 to Life, +77 to Mana, +20% Faster Cast Rate, +1 to Fire Mastery Fire Mastery, +1 to Lightning Mastery Lightning Mastery, +2 to Cold Mastery Cold Mastery)
+- [Stash] Peasant Crown (War Hat) [Def: 54] (+20 to Energy, +20 to Vitality, +100% Enhanced Defense, Replenish Life +6, +15% Faster Run/Walk, +1 to All Skills)
+- [Stash] Undead Crown (Crown) [Def: 46] (+52% Enhanced Defense, +40 Defense, Poison Resist +50%, 5% Life stolen per hit, +3 to Skeleton Mastery Skeleton Mastery, Half Freeze Duration, +50% Damage to Undead, +74 to Attack Rating against Undead)
+- [Stash] Ancients' Pledge (Large Shield) [Def: 14, Sockets: 3, Socketed: Ral Rune+Ort Rune+Tal Rune] (+50% Enhanced Defense, Fire Resist +13%, Lightning Resist +13%, Cold Resist +43%, Poison Resist +13%, +10% Damage Taken Goes To Mana)
+- [Stash] Ocher Chain Gloves of Greed [Def: 8] (Lightning Resist +24%, 43% Extra Gold from Monsters)
+- [Stash] Jade Ring of Deflecting (+10% Faster Cast Rate, +1 to Mana after each Kill)
+- [Stash] Coral Amulet of Health (Damage Reduced by 2, Lightning Resist +37%)
+- [Stash] Shimmering Amulet of Regeneration (Fire Resist +8%, Lightning Resist +8%, Cold Resist +8%, Poison Resist +8%, Replenish Life +10)
+- [Stash] Crown [Def: 33, Sockets: 3]
+- [Belt] Full Rejuvenation Potion (x8)
+- [Belt] Super Healing Potion (x4)
+- [Belt] Super Mana Potion (x4)
