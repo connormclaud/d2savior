@@ -160,3 +160,17 @@ class TestD2DataManager:
             assert info is not None, f"Missing set item at index {idx}"
             assert info.name == name
             assert info.set_id == item_id
+
+    def test_runeword_resolution_by_d2r_and_classic_id(self):
+        """测试通过D2R字符串ID (20635) 和经典runes.txt索引 (130) 解析符文之语Spirit"""
+        v69 = self.manager.for_version(0x69)
+        rw_by_d2r = v69.get_runeword(20635)
+        assert rw_by_d2r is not None
+        assert rw_by_d2r.name == "Spirit"
+        assert rw_by_d2r.key == "Runeword130"
+        assert rw_by_d2r.rune_codes == ["r07", "r10", "r09", "r11"]
+
+        rw_by_idx = v69.get_runeword(130)
+        assert rw_by_idx is not None
+        assert rw_by_idx.name == "Spirit"
+        assert rw_by_idx.rune_codes == ["r07", "r10", "r09", "r11"]

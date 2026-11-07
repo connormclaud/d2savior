@@ -849,26 +849,95 @@ class D2DataLoader:
 
         return unique_items
 
-    def load_runewords(self, filepath: str) -> dict[int, RuneWordInfo]:
-        runewords = {}
-
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
-
+    def load_runewords(
+        self, runes_path: str, json_path: str | None = None
+    ) -> dict[int, RuneWordInfo]:
+        """Load runewords from game table (runes.txt) with localized names from item-runes.json."""
         import json
 
-        with open(filepath, encoding="utf-8-sig") as f:
-            data = json.load(f)
+        if json_path is None and runes_path.endswith(".json"):
+            json_file = runes_path
+            runes_file = None
+        elif json_path is None:
+            json_file = None
+            runes_file = runes_path
+        else:
+            runes_file = runes_path
+            json_file = json_path
 
-        for item in data:
-            key = item.get("Key", "")
-            if key.startswith("Runeword"):
-                runeword_id = item.get("id", 0)
-                name = item.get("enUS", "")
-                if runeword_id > 0 and name:
-                    runewords[runeword_id] = RuneWordInfo(
-                        name=name, runeword_id=runeword_id, key=key
+        json_by_key: dict[str, dict] = {}
+        if json_file:
+            if not os.path.exists(json_file):
+                raise FileNotFoundError(f"Required data file not found: {json_file}")
+            with open(json_file, encoding="utf-8-sig") as f:
+                data = json.load(f)
+            for item in data:
+                key = item.get("Key", "")
+                if key:
+                    json_by_key[key] = item
+
+        runewords: dict[int, RuneWordInfo] = {}
+
+        if runes_file:
+            if not os.path.exists(runes_file):
+                raise FileNotFoundError(f"Required data file not found: {runes_file}")
+            with open(runes_file, encoding="utf-8-sig") as f:
+                lines = f.readlines()
+            if lines:
+                header = lines[0].strip().split("\t")
+                name_idx = header.index("Name") if "Name" in header else 0
+                rune_name_idx = header.index("*Rune Name") if "*Rune Name" in header else -1
+                rune_fields = [
+                    header.index(f"Rune{i}") for i in range(1, 7) if f"Rune{i}" in header
+                ]
+
+                for line in lines[1:]:
+                    parts = line.strip().split("\t")
+                    if len(parts) <= name_idx:
+                        continue
+                    key = parts[name_idx].strip()
+                    if not key or not key.startswith("Runeword"):
+                        continue
+
+                    canonical_name = (
+                        parts[rune_name_idx].strip()
+                        if 0 <= rune_name_idx < len(parts) and parts[rune_name_idx]
+                        else key
                     )
+
+                    rune_codes = [
+                        parts[idx].strip()
+                        for idx in rune_fields
+                        if idx < len(parts) and parts[idx].strip()
+                    ]
+
+                    try:
+                        rw_num = int(key.replace("Runeword", ""))
+                    except ValueError:
+                        rw_num = 0
+
+                    json_entry = json_by_key.get(key, {})
+                    d2r_id = json_entry.get("id", rw_num)
+                    display_name = json_entry.get("enUS", canonical_name)
+
+                    rw_info = RuneWordInfo(
+                        name=display_name,
+                        runeword_id=d2r_id,
+                        key=key,
+                        rune_codes=rune_codes,
+                    )
+
+                    if d2r_id > 0:
+                        runewords[d2r_id] = rw_info
+                    if rw_num > 0 and rw_num not in runewords:
+                        runewords[rw_num] = rw_info
+
+        for key, item in json_by_key.items():
+            if key.startswith("Runeword"):
+                rw_id = item.get("id", 0)
+                name = item.get("enUS", "")
+                if rw_id > 0 and rw_id not in runewords:
+                    runewords[rw_id] = RuneWordInfo(name=name, runeword_id=rw_id, key=key)
 
         return runewords
 
@@ -876,41 +945,10 @@ class D2DataLoader:
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"Required data file not found: {filepath}")
 
-        key_to_id = {}
-        for rw_id, rw_info in runewords.items():
-            if rw_info.key:
-                key_to_id[rw_info.key] = rw_id
-
-        with open(filepath, encoding="utf-8-sig") as f:
-            lines = f.readlines()
-
-            if not lines:
-                return
-
-            header = lines[0].strip().split("\t")
-            name_idx = header.index("Name") if "Name" in header else 0
-            rune_fields = []
-            for i in range(1, 7):
-                field = f"Rune{i}"
-                if field in header:
-                    rune_fields.append(header.index(field))
-
-            for line in lines[1:]:
-                parts = line.strip().split("\t")
-                if len(parts) <= name_idx:
-                    continue
-                name_val = parts[name_idx]
-                if name_val not in key_to_id:
-                    continue
-
-                rw_id = key_to_id[name_val]
-                rune_codes = []
-                for idx in rune_fields:
-                    if idx < len(parts) and parts[idx]:
-                        rune_codes.append(parts[idx])
-
-                if rune_codes and rw_id in runewords:
-                    runewords[rw_id].rune_codes = rune_codes
+        extra = self.load_runewords(filepath)
+        for rw_id, rw in extra.items():
+            if rw_id in runewords and rw.rune_codes and not runewords[rw_id].rune_codes:
+                runewords[rw_id].rune_codes = rw.rune_codes
 
     def load_set_items(self, filepath: str) -> dict[int, SetItemInfo]:
         set_items = {}
@@ -1321,13 +1359,10 @@ class D2DataLoader:
         setitems_path = self._resolve_path(os.path.join("local", "item-names.json"), dirs)
         version_data.set_items = self.load_set_items(setitems_path)
 
-        # 加载runewords
-        runewords_path = self._resolve_path(os.path.join("local", "item-runes.json"), dirs)
-        version_data.runewords = self.load_runewords(runewords_path)
-
-        # 加载runes.txt补充符文列表
+        # 加载runewords: parse runes.txt table, resolve translations from item-runes.json
         runes_txt_path = self._resolve_path("runes.txt", dirs)
-        self.load_runes_txt(runes_txt_path, version_data.runewords)
+        runewords_path = self._resolve_path(os.path.join("local", "item-runes.json"), dirs)
+        version_data.runewords = self.load_runewords(runes_txt_path, runewords_path)
 
         # 加载skills.txt
         skills_path = self._resolve_path("skills.txt", dirs)
