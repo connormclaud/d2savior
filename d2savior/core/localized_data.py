@@ -5,6 +5,8 @@ from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import ClassVar
 
+from d2savior.core.d2data import open_resource
+
 
 def clean_d2_text(text: str | None) -> str:
     """Clean Diablo II localized text by extracting the first grammatical form from tags like [ms]..."""
@@ -27,10 +29,7 @@ class LocalizedDataLoader:
 
     def load_json_file(self, filepath: str | Traversable, lang_key: str = "enUS") -> bool:
         p = Path(filepath) if isinstance(filepath, str) else filepath
-        if not p.is_file():
-            raise FileNotFoundError(f"Required localized JSON file not found: {filepath}")
-
-        with p.open("r", encoding="utf-8-sig") as f:
+        with open_resource(p, encoding="utf-8-sig") as f:
             raw_data = json.load(f)
 
         file_key = p.name

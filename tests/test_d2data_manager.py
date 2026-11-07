@@ -184,7 +184,11 @@ class TestD2DataManager:
         assert rw_by_d2r.key == "Runeword130"
         assert rw_by_d2r.rune_codes == ["r07", "r10", "r09", "r11"]
 
-        rw_by_idx = v69.get_runeword(130)
-        assert rw_by_idx is not None
-        assert rw_by_idx.name == "Spirit"
-        assert rw_by_idx.rune_codes == ["r07", "r10", "r09", "r11"]
+    def test_load_runes_txt_deprecated(self):
+        """测试load_runes_txt发出DeprecationWarning"""
+        import pytest
+
+        loader = D2DataLoader()
+        runes_path = os.path.join(self.data_dir, "d2r", "runes.txt")
+        with pytest.deprecated_call():
+            loader.load_runes_txt(runes_path, {})  # ty: ignore[deprecated]

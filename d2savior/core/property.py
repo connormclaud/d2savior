@@ -127,11 +127,9 @@ def init_item_modifiers(filepath: str | Traversable, lang_key: str = "enUS") -> 
     global _g_item_modifiers, _g_item_modifiers_raw, _g_item_modifiers_lang
     import json
 
-    p = Path(filepath) if isinstance(filepath, str) else filepath
-    if not p.is_file():
-        raise FileNotFoundError(f"Required item modifiers file not found: {filepath}")
+    from d2savior.core.d2data import open_resource
 
-    with p.open("r", encoding="utf-8-sig") as f:
+    with open_resource(filepath, encoding="utf-8-sig") as f:
         data = json.load(f)
 
     _g_item_modifiers_raw = data

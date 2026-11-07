@@ -6,11 +6,12 @@ from importlib.resources.abc import Traversable
 from itertools import batched
 from pathlib import Path
 from typing import IO, Any, ClassVar
+from warnings import deprecated
 
 type ItemTypeId = Buffer | str
 
 
-def _open_resource(
+def open_resource(
     filepath: str | Traversable,
     encoding: str = "utf-8",
     errors: str | None = None,
@@ -21,6 +22,9 @@ def _open_resource(
     if errors is not None:
         return p.open("r", encoding=encoding, errors=errors)
     return p.open("r", encoding=encoding)
+
+
+_open_resource = open_resource
 
 
 @dataclass(slots=True)
@@ -944,6 +948,7 @@ class D2DataLoader:
 
         return runewords
 
+    @deprecated("Use load_runewords instead")
     def load_runes_txt(
         self, filepath: str | Traversable, runewords: dict[int, RuneWordInfo]
     ) -> None:
