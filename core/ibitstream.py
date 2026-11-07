@@ -9,7 +9,7 @@ class IBitStream:
     """Little endian binary input stream, reads data from bytes as bits."""
 
     def __init__(self, data: BitStreamData | None = None):
-        self._data: bytes = b''
+        self._data: bytes = b""
         self.data: BitStreamData | None = None
         self._offset: int = 0
         if data is not None:
@@ -26,11 +26,11 @@ class IBitStream:
 
     def to_bit_string(self) -> str:
         """Construct the ASCII bit string representation ('0' and '1')."""
-        return ''.join(["{0:08b}".format(b)[::-1] for b in self._data])
+        return "".join([f"{b:08b}"[::-1] for b in self._data])
 
     def set_data(self, data: BitStreamData):
         self.data = data
-        self._data = bytes(data) if data is not None else b''
+        self._data = bytes(data) if data is not None else b""
         self._offset = 0
 
     setData = set_data
@@ -71,15 +71,15 @@ class IBitStream:
         if num_bits == 0:
             return 0
         if num_bits < 0:
-            raise ValueError('num_bits must be >= 0')
+            raise ValueError("num_bits must be >= 0")
         if self._offset + num_bits > len(self._data) * 8:
-            raise ValueError('not enough bits remaining')
+            raise ValueError("not enough bits remaining")
 
         byte_start = self._offset >> 3
         bit_shift = self._offset & 7
         byte_end = (self._offset + num_bits + 7) >> 3
         chunk = self._data[byte_start:byte_end]
-        val = int.from_bytes(chunk, 'little') >> bit_shift
+        val = int.from_bytes(chunk, "little") >> bit_shift
         self._offset += num_bits
         return val & ((1 << num_bits) - 1)
 
@@ -98,7 +98,7 @@ class IBitStream:
         chars = []
         for _ in range(length):
             chars.append(chr(self.read_bits(8)))
-        return ''.join(chars)
+        return "".join(chars)
 
     readString = read_string
 
@@ -106,22 +106,22 @@ class IBitStream:
         if num_bits == 0:
             return 0
         if num_bits < 0:
-            raise ValueError('num_bits must be >= 0')
+            raise ValueError("num_bits must be >= 0")
         if self._offset + num_bits > len(self._data) * 8:
-            raise ValueError('not enough bits remaining')
+            raise ValueError("not enough bits remaining")
 
         byte_start = self._offset >> 3
         bit_shift = self._offset & 7
         byte_end = (self._offset + num_bits + 7) >> 3
         chunk = self._data[byte_start:byte_end]
-        val = int.from_bytes(chunk, 'little') >> bit_shift
+        val = int.from_bytes(chunk, "little") >> bit_shift
         return val & ((1 << num_bits) - 1)
 
     def skip(self, num_bits: int):
         if num_bits < 0:
-            raise ValueError('num_bits must be >= 0')
+            raise ValueError("num_bits must be >= 0")
         if self._offset + num_bits > len(self._data) * 8:
-            raise ValueError('not enough bits remaining')
+            raise ValueError("not enough bits remaining")
         self._offset += num_bits
 
     def align_byte(self):

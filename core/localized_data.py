@@ -1,33 +1,33 @@
+import json
 import os
 import re
-import json
 
 
 def clean_d2_text(text: str) -> str:
     """Clean Diablo II localized text by extracting the first grammatical form from tags like [ms]..."""
     if not text:
         return ""
-    m = re.search(r'\[(?:ms|fs|ns|pl|mp|fp|nl)\]([^\[]+)', text)
+    m = re.search(r"\[(?:ms|fs|ns|pl|mp|fp|nl)\]([^\[]+)", text)
     if m:
         return m.group(1).strip()
     return text.strip()
 
 
 class LocalizedDataLoader:
-    LANG_KEYS = ['enUS', 'zhCN']
+    LANG_KEYS = ["enUS", "zhCN"]
 
     def __init__(self):
         self._raw: dict[str, list[dict]] = {}
         self._data: dict[str, dict[str, str]] = {}
-        self._current_lang: str = 'enUS'
-        self._data_dir: str = ''
+        self._current_lang: str = "enUS"
+        self._data_dir: str = ""
 
-    def load_json_file(self, filepath: str, lang_key: str = 'enUS') -> bool:
+    def load_json_file(self, filepath: str, lang_key: str = "enUS") -> bool:
         if not os.path.exists(filepath):
             return False
 
         try:
-            with open(filepath, 'r', encoding='utf-8-sig') as f:
+            with open(filepath, encoding="utf-8-sig") as f:
                 raw_data = json.load(f)
 
             file_key = os.path.basename(filepath)
@@ -41,23 +41,23 @@ class LocalizedDataLoader:
     def _build_index(self, file_key: str, lang_key: str):
         self._data[file_key] = {}
         raw = self._raw.get(file_key, [])
-        fallback_lang = 'zhTW' if lang_key == 'zhCN' else ('zhCN' if lang_key == 'zhTW' else None)
+        fallback_lang = "zhTW" if lang_key == "zhCN" else ("zhCN" if lang_key == "zhTW" else None)
         for item in raw:
-            key = item.get('Key', '')
+            key = item.get("Key", "")
             if not key:
                 continue
-            text = item.get(lang_key, '')
+            text = item.get(lang_key, "")
             if not text and fallback_lang:
-                text = item.get(fallback_lang, '')
+                text = item.get(fallback_lang, "")
             if not text:
-                text = item.get('enUS', '')
+                text = item.get("enUS", "")
             if text:
                 self._data[file_key][key] = text
-            enUS = item.get('enUS', '')
-            if enUS and enUS != key and lang_key != 'enUS':
-                translated = item.get(lang_key, '')
+            enUS = item.get("enUS", "")
+            if enUS and enUS != key and lang_key != "enUS":
+                translated = item.get(lang_key, "")
                 if not translated and fallback_lang:
-                    translated = item.get(fallback_lang, '')
+                    translated = item.get(fallback_lang, "")
                 if translated:
                     self._data[file_key][enUS] = translated
 
@@ -65,29 +65,29 @@ class LocalizedDataLoader:
         for file_key in self._raw:
             self._build_index(file_key, self._current_lang)
 
-    def load_all_localized_data(self, data_dir: str, lang_key: str = 'enUS') -> dict[str, bool]:
+    def load_all_localized_data(self, data_dir: str, lang_key: str = "enUS") -> dict[str, bool]:
         self._data_dir = data_dir
         self._current_lang = lang_key
         results = {}
 
         json_files = [
-            'item-modifiers.json',
-            'skills.json',
-            'item-names.json',
-            'item-nameaffixes.json',
-            'item-gems.json',
-            'item-runes.json',
-            'monsters.json',
-            'npcs.json',
-            'quests.json',
-            'shrines.json',
-            'levels.json',
-            'objects.json',
-            'mercenaries.json',
-            'commands.json',
-            'keybinds.json',
-            'tooltip-ui.json',
-            'ui.json',
+            "item-modifiers.json",
+            "skills.json",
+            "item-names.json",
+            "item-nameaffixes.json",
+            "item-gems.json",
+            "item-runes.json",
+            "monsters.json",
+            "npcs.json",
+            "quests.json",
+            "shrines.json",
+            "levels.json",
+            "objects.json",
+            "mercenaries.json",
+            "commands.json",
+            "keybinds.json",
+            "tooltip-ui.json",
+            "ui.json",
         ]
 
         for json_file in json_files:
@@ -116,95 +116,119 @@ class LocalizedDataLoader:
         return clean_d2_text(s)
 
     def get_item_modifier(self, key: str) -> str:
-        return self.get_string('item-modifiers.json', key)
+        return self.get_string("item-modifiers.json", key)
 
     def get_skill_name(self, key: str) -> str:
-        return self.get_string('skills.json', key)
+        return self.get_string("skills.json", key)
 
     def get_item_name(self, key: str, clean: bool = True) -> str:
-        s = self.get_string('item-names.json', key)
+        s = self.get_string("item-names.json", key)
         return clean_d2_text(s) if clean else s
 
     def get_item_name_by_id(self, item_id: int) -> str:
-        file_key = 'item-names.json'
+        file_key = "item-names.json"
         if file_key in self._raw:
             for item in self._raw[file_key]:
-                if item.get('id') == item_id:
-                    return item.get(self._current_lang, item.get('enUS', f'Item#{item_id}'))
-        return f'Item#{item_id}'
+                if item.get("id") == item_id:
+                    return item.get(self._current_lang, item.get("enUS", f"Item#{item_id}"))
+        return f"Item#{item_id}"
 
     def get_item_nameaffix(self, key: str, clean: bool = True) -> str:
-        s = self.get_string('item-nameaffixes.json', key)
+        s = self.get_string("item-nameaffixes.json", key)
         return clean_d2_text(s) if clean else s
 
     def get_rune_name(self, key: str, clean: bool = True) -> str:
-        s = self.get_string('item-runes.json', key)
+        s = self.get_string("item-runes.json", key)
         return clean_d2_text(s) if clean else s
 
     def get_monster_name(self, key: str) -> str:
-        return self.get_string('monsters.json', key)
+        return self.get_string("monsters.json", key)
 
     def get_npc_name(self, key: str) -> str:
-        return self.get_string('npcs.json', key)
+        return self.get_string("npcs.json", key)
 
     def get_quest_name(self, key: str, clean: bool = True) -> str:
-        s = self.get_string('quests.json', key)
+        s = self.get_string("quests.json", key)
         return clean_d2_text(s) if clean else s
 
     def get_shrine_name(self, key: str) -> str:
-        return self.get_string('shrines.json', key)
+        return self.get_string("shrines.json", key)
 
     def get_level_name(self, key: str, clean: bool = True) -> str:
-        s = self.get_string('levels.json', key)
+        s = self.get_string("levels.json", key)
         return clean_d2_text(s) if clean else s
 
     def get_object_name(self, key: str) -> str:
-        return self.get_string('objects.json', key)
+        return self.get_string("objects.json", key)
 
     def get_mercenary_name(self, key: str) -> str:
-        return self.get_string('mercenaries.json', key)
+        return self.get_string("mercenaries.json", key)
 
     def get_command_name(self, key: str) -> str:
-        return self.get_string('commands.json', key)
+        return self.get_string("commands.json", key)
 
     def get_keybind_name(self, key: str) -> str:
-        return self.get_string('keybinds.json', key)
+        return self.get_string("keybinds.json", key)
 
     def get_tooltip_ui(self, key: str) -> str:
-        return self.get_string('tooltip-ui.json', key)
+        return self.get_string("tooltip-ui.json", key)
 
     def get_ui_string(self, key: str) -> str:
-        return self.get_string('ui.json', key)
+        return self.get_string("ui.json", key)
 
     def get_class_name(self, class_id: int) -> str:
-        class_keys = ['Amazon', 'Sorceress', 'Necromancer', 'Paladin',
-                      'Barbarian', 'Druid', 'Assassin', 'Warlock']
+        class_keys = [
+            "Amazon",
+            "Sorceress",
+            "Necromancer",
+            "Paladin",
+            "Barbarian",
+            "Druid",
+            "Assassin",
+            "Warlock",
+        ]
         if 0 <= class_id < len(class_keys):
             result = self.get_ui_string(class_keys[class_id])
             if result and result != class_keys[class_id]:
                 return result
-        return ''
+        return ""
 
     def get_skill_name_by_id(self, skill_id: int) -> str:
-        key = f'skillname{skill_id}'
+        key = f"skillname{skill_id}"
         result = self.get_skill_name(key)
         if result and result != key:
             return result
-        key2 = f'skillan{skill_id}'
+        key2 = f"skillan{skill_id}"
         result2 = self.get_skill_name(key2)
         if result2 and result2 != key2:
             return result2
-        return ''
+        return ""
 
     _SKILL_TAB_KEYS = {
-        (0, 0): 'SkillCategoryAm3', (0, 1): 'SkillCategoryAm2', (0, 2): 'SkillCategoryAm1',
-        (1, 0): 'SkillCategorySo3', (1, 1): 'SkillCategorySo2', (1, 2): 'SkillCategorySo1',
-        (2, 0): 'SkillCategoryNe3', (2, 1): 'SkillCategoryNe2', (2, 2): 'SkillCategoryNe1',
-        (3, 0): 'SkillCategoryPa3', (3, 1): 'SkillCategoryPa2', (3, 2): 'SkillCategoryPa1',
-        (4, 0): 'SkillCategoryBa3', (4, 1): 'SkillCategoryBa2', (4, 2): 'SkillCategoryBa1',
-        (5, 0): 'SkillCategoryDr2', (5, 1): 'SkillCategoryDr1', (5, 2): 'SkillCategoryDr3',
-        (6, 0): 'SkillCategoryAs3', (6, 1): 'SkillCategoryAs2', (6, 2): 'SkillCategoryAs1',
-        (7, 0): 'SkillCategoryWa1', (7, 1): 'SkillCategoryWa2', (7, 2): 'SkillCategoryWa3',
+        (0, 0): "SkillCategoryAm3",
+        (0, 1): "SkillCategoryAm2",
+        (0, 2): "SkillCategoryAm1",
+        (1, 0): "SkillCategorySo3",
+        (1, 1): "SkillCategorySo2",
+        (1, 2): "SkillCategorySo1",
+        (2, 0): "SkillCategoryNe3",
+        (2, 1): "SkillCategoryNe2",
+        (2, 2): "SkillCategoryNe1",
+        (3, 0): "SkillCategoryPa3",
+        (3, 1): "SkillCategoryPa2",
+        (3, 2): "SkillCategoryPa1",
+        (4, 0): "SkillCategoryBa3",
+        (4, 1): "SkillCategoryBa2",
+        (4, 2): "SkillCategoryBa1",
+        (5, 0): "SkillCategoryDr2",
+        (5, 1): "SkillCategoryDr1",
+        (5, 2): "SkillCategoryDr3",
+        (6, 0): "SkillCategoryAs3",
+        (6, 1): "SkillCategoryAs2",
+        (6, 2): "SkillCategoryAs1",
+        (7, 0): "SkillCategoryWa1",
+        (7, 1): "SkillCategoryWa2",
+        (7, 2): "SkillCategoryWa3",
     }
 
     def get_skill_tab_name(self, tab: int, class_id: int) -> str:
@@ -213,7 +237,7 @@ class LocalizedDataLoader:
             result = self.get_skill_name(key)
             if result and result != key:
                 return result
-        return ''
+        return ""
 
 
 _g_localized_data: LocalizedDataLoader | None = None
@@ -226,7 +250,7 @@ def get_localized_data() -> LocalizedDataLoader:
     return _g_localized_data
 
 
-def init_localized_data(data_dir: str, lang_key: str = 'enUS') -> dict[str, bool]:
+def init_localized_data(data_dir: str, lang_key: str = "enUS") -> dict[str, bool]:
     global _g_localized_data
     if _g_localized_data is None:
         _g_localized_data = LocalizedDataLoader()
@@ -239,4 +263,5 @@ def set_language(lang_key: str):
     loader.set_language(lang_key)
 
     from core.property import init_item_modifiers
+
     init_item_modifiers.set_lang(lang_key)

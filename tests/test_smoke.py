@@ -7,10 +7,11 @@ if REPO_ROOT not in sys.path:
 
 import difflib
 import subprocess
+
 import pytest
 
-from d2s_parse import parse_file, FORMATTERS
 from core.formatters import ensure_data_loaded
+from d2s_parse import FORMATTERS, parse_file
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 GOLDEN_DIR = os.path.join(FIXTURES_DIR, "golden")
@@ -27,20 +28,22 @@ CLI_SCRIPT = os.path.join(REPO_ROOT, "d2s_parse.py")
 
 
 def _read_golden(file_path: str) -> str:
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 
 def assert_matches_golden(actual: str, golden_path: str, name: str) -> None:
     expected = _read_golden(golden_path)
     if actual != expected:
-        diff = "".join(difflib.unified_diff(
-            expected.splitlines(keepends=True),
-            actual.splitlines(keepends=True),
-            fromfile=f"golden/{os.path.basename(golden_path)}",
-            tofile=f"actual/{name}",
-            n=3,
-        ))
+        diff = "".join(
+            difflib.unified_diff(
+                expected.splitlines(keepends=True),
+                actual.splitlines(keepends=True),
+                fromfile=f"golden/{os.path.basename(golden_path)}",
+                tofile=f"actual/{name}",
+                n=3,
+            )
+        )
         if not diff:
             diff = f"(No line diff; length or whitespace differs: expected={len(expected)}, actual={len(actual)})"
         pytest.fail(f"Mismatch against golden for {name}:\n\n{diff}", pytrace=False)

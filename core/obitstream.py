@@ -25,9 +25,9 @@ class OBitStream:
 
     def to_bit_string(self) -> str:
         """Construct the ASCII bit string representation ('0' and '1')."""
-        committed = ''.join(["{0:08b}".format(b)[::-1] for b in self._bytes])
+        committed = "".join([f"{b:08b}"[::-1] for b in self._bytes])
         if self.bits_pos > 0:
-            uncommitted = "{0:08b}".format(self._buffer)[::-1][:self.bits_pos]
+            uncommitted = f"{self._buffer:08b}"[::-1][: self.bits_pos]
             return committed + uncommitted
         return committed
 
@@ -42,7 +42,7 @@ class OBitStream:
     getByteList = get_byte_list
 
     def to_hex_string(self) -> str:
-        return ' '.join(f"{b:02x}" for b in self.get_byte_list())
+        return " ".join(f"{b:02x}" for b in self.get_byte_list())
 
     toHexString = to_hex_string
 
@@ -50,7 +50,7 @@ class OBitStream:
         if num_bits == 0:
             return
         if num_bits < 0 or num_bits > 32:
-            raise ValueError('[0, 32] bits only')
+            raise ValueError("[0, 32] bits only")
 
         mask = (1 << num_bits) - 1
         self._buffer |= (value & mask) << self.bits_pos

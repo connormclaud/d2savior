@@ -9,6 +9,8 @@ dependencies = []
 [dependency-groups]
 dev = [
     "pytest>=7.0.0",
+    "ruff>=0.17.4",
+    "ty>=0.0.99",
 ]
 
 [project.scripts]
@@ -18,3 +20,78 @@ d2s-parse = "d2s_parse:main"
 packages = ["core"]
 py-modules = ["d2s_parse"]
 include-package-data = false
+
+[tool.ruff]
+line-length = 100
+exclude = [".agents", "docs"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "C4",
+    "PIE",
+    "RUF",
+    "N",
+    "PT",
+    "ANN",
+]
+ignore = [
+    "E501",
+    "ANN401",
+    # Temporary ignores to be removed one rule per commit:
+    "ANN001",
+    "ANN201",
+    "ANN202",
+    "ANN204",
+    "ANN206",
+    "B007",
+    "B023",
+    "B905",
+    "B911",
+    "E402",
+    "E722",
+    "E731",
+    "F401",
+    "F841",
+    "N806",
+    "N815",
+    "PIE810",
+    "PT009",
+    "PT027",
+    "RUF012",
+    "RUF013",
+    "RUF059",
+    "SIM102",
+    "SIM103",
+    "SIM108",
+    "SIM110",
+    "UP030",
+    "UP035",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "RUF001", "RUF002", "RUF003"]
+"data/**" = ["ANN", "RUF001", "RUF002", "RUF003"]
+"core/**" = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ty.environment]
+python-version = "3.15"
+
+[tool.ty.rules]
+# Temporary ignores to be removed one rule per commit:
+"import-not-found" = "ignore"
+"invalid-argument-type" = "ignore"
+"invalid-assignment" = "ignore"
+"invalid-parameter-default" = "ignore"
+"invalid-return-type" = "ignore"
+"missing-argument" = "ignore"
+"no-matching-overload" = "ignore"
+"not-iterable" = "ignore"
+"unresolved-attribute" = "ignore"
+

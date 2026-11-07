@@ -1,43 +1,46 @@
 """Full and summary text formatting for Diablo II saves, stashes, and items."""
 
-import os
 import datetime
+import os
+
 type SkillInfo = tuple[int, str, int]
 type FormattedLines = list[str]
 
-from core.d2s_struct import D2SStruct, CharStatus
+from core.constants import (
+    CLASS_SKILL_BASES,
+    COMBINED_SLOT_ORDER_STRIPPED,
+    DIFFICULTY_NAMES,
+    GEM_CODE_MAP,
+    GEM_CODES_STRIPPED,
+    GEM_TYPE_NAMES,
+    MATERIAL_CODES_STRIPPED,
+    QUESTS_BY_ACT,
+    RUNE_CODES_STRIPPED,
+    TAB_TYPE_NAMES,
+    WAYPOINTS_BY_ACT,
+)
+from core.d2data import GameDataResolver, get_d2data, get_d2data_manager, init_d2data
+from core.d2s_struct import CharStatus, D2SStruct
+from core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
 from core.ibitstream import IBitStream
+from core.item import ITEM_FLAG_LABELS
+from core.localized_data import get_localized_data, init_localized_data, set_language
 from core.property import (
     format_property,
-    init_item_modifiers,
     get_skill_name,
+    init_item_modifiers,
 )
-from core.d2data import init_d2data, get_d2data, get_d2data_manager, GameDataResolver
-from core.item import ITEM_FLAG_LABELS
-from core.localized_data import init_localized_data, get_localized_data, set_language
-from core.enums import StoredIn, ItemLocation, ItemQuality, EquipSlot
 from core.stash import (
-    SharedStash,
     STASH_TAB_TYPE_ADVANCED,
-    STASH_TAB_TYPE_NORMAL,
     STASH_TAB_TYPE_CHRONICLE,
-)
-from core.constants import (
-    TAB_TYPE_NAMES,
-    GEM_TYPE_NAMES,
-    GEM_CODE_MAP,
-    RUNE_CODES_STRIPPED,
-    GEM_CODES_STRIPPED,
-    MATERIAL_CODES_STRIPPED,
-    COMBINED_SLOT_ORDER_STRIPPED,
-    CLASS_SKILL_BASES,
-    DIFFICULTY_NAMES,
-    WAYPOINTS_BY_ACT,
-    QUESTS_BY_ACT,
+    STASH_TAB_TYPE_NORMAL,
+    SharedStash,
 )
 
 
-def ensure_data_loaded(lang_key: str | None = None, data_dir: str | None = None, force: bool = False):
+def ensure_data_loaded(
+    lang_key: str | None = None, data_dir: str | None = None, force: bool = False
+):
     """Ensure game and localization data are loaded into core managers."""
     mgr = get_d2data_manager()
     loc = get_localized_data()
@@ -92,7 +95,7 @@ def format_timestamp(ts: int) -> str:
         return "N/A"
     try:
         dt = datetime.datetime.fromtimestamp(ts, tz=datetime.UTC)
-        return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+        return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
     except OSError, OverflowError, ValueError:
         return f"Unknown({ts})"
 
@@ -118,7 +121,9 @@ def format_duration(seconds: int) -> str:
 
 
 def get_item_display_name(item, version=0x63, resolver=None) -> str:
-    type_name = item.type_name.decode('ascii', errors='replace').strip() if item.type_name else 'Unknown'
+    type_name = (
+        item.type_name.decode("ascii", errors="replace").strip() if item.type_name else "Unknown"
+    )
     if resolver is None:
         ensure_data_loaded()
         resolver = GameDataResolver(version)
@@ -126,17 +131,29 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
     raw_name = type_info.name if (type_info := resolver.get_item(type_name)) else type_name
     base_item_name = resolver.get_localized_item_name(type_name, fallback=raw_name)
 
-    if ext := getattr(getattr(item, 'item_info', None), 'ext_info', None):
-        if ext.rune_id is not None and (rw_name := resolver.get_localized_runeword_name(ext.rune_word_id())):
+    if ext := getattr(getattr(item, "item_info", None), "ext_info", None):
+        if ext.rune_id is not None and (
+            rw_name := resolver.get_localized_runeword_name(ext.rune_word_id())
+        ):
             return f"{rw_name} ({base_item_name})"
-        if ext.unique_id is not None and (u_name := resolver.get_localized_unique_name(ext.unique_id)):
+        if ext.unique_id is not None and (
+            u_name := resolver.get_localized_unique_name(ext.unique_id)
+        ):
             return f"{u_name} ({base_item_name})"
         if ext.set_id is not None and (s_name := resolver.get_localized_set_name(ext.set_id)):
             return f"{s_name} ({base_item_name})"
         match item.quality():
             case ItemQuality.MAGIC:
-                prefix_name = resolver.get_localized_magic_prefix(ext.magic_prefix) if ext.magic_prefix else ""
-                suffix_name = resolver.get_localized_magic_suffix(ext.magic_suffix) if ext.magic_suffix else ""
+                prefix_name = (
+                    resolver.get_localized_magic_prefix(ext.magic_prefix)
+                    if ext.magic_prefix
+                    else ""
+                )
+                suffix_name = (
+                    resolver.get_localized_magic_suffix(ext.magic_suffix)
+                    if ext.magic_suffix
+                    else ""
+                )
                 if parts := [p for p in [prefix_name, base_item_name, suffix_name] if p]:
                     return " ".join(parts)
             case ItemQuality.RARE:
@@ -155,9 +172,11 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
     return base_item_name
 
 
-def _format_parsed_properties(prop_list, version: int = 0x63, property_formatter=None) -> FormattedLines:
+def _format_parsed_properties(
+    prop_list, version: int = 0x63, property_formatter=None
+) -> FormattedLines:
     """Format a property list into human-readable strings, falling back to raw IDs."""
-    if not prop_list or not getattr(prop_list, 'properties', None):
+    if not prop_list or not getattr(prop_list, "properties", None):
         return []
     format_func = property_formatter or format_property
     result = []
@@ -182,14 +201,14 @@ def format_item_summary(
     if resolver is None:
         ensure_data_loaded()
         resolver = GameDataResolver(version)
-    info = getattr(item, 'item_info', None)
+    info = getattr(item, "item_info", None)
     if info and info.gold:
         return f"Gold: {info.gold.quantity}"
 
     title = get_item_display_name(item, version=version, resolver=resolver)
 
     meta_tags = []
-    tp = getattr(info, 'type_specific_info', None)
+    tp = getattr(info, "type_specific_info", None)
     if tp:
         if tp.defence is not None:
             meta_tags.append(f"Def: {tp.get_defence()}")
@@ -197,18 +216,18 @@ def format_item_summary(
         if sockets > 0:
             meta_tags.append(f"Sockets: {sockets}")
 
-    if getattr(item, 'is_ethereal', False):
+    if getattr(item, "is_ethereal", False):
         meta_tags.append("Eth")
-    if getattr(item, 'is_disabled', False):
+    if getattr(item, "is_disabled", False):
         meta_tags.append("Broken")
 
-    stack_size = getattr(info, 'stash_stack_size', 0)
+    stack_size = getattr(info, "stash_stack_size", 0)
     if stack_size > 1:
         meta_tags.append(f"x{stack_size}")
     elif tp and tp.quantity is not None and tp.quantity > 1:
         meta_tags.append(f"Qty: {tp.quantity}")
 
-    if getattr(item, 'gem_items', None):
+    if getattr(item, "gem_items", None):
         socketed = []
         for gem in item.gem_items:
             g_name = get_item_display_name(gem, version=version, resolver=resolver)
@@ -218,15 +237,25 @@ def format_item_summary(
 
     props = []
     if include_properties and tp:
-        props.extend(_format_parsed_properties(getattr(tp, 'property_list', None), version, property_formatter=property_formatter))
-        props.extend(_format_parsed_properties(getattr(tp, 'runeword_property_list', None), version, property_formatter=property_formatter))
+        props.extend(
+            _format_parsed_properties(
+                getattr(tp, "property_list", None), version, property_formatter=property_formatter
+            )
+        )
+        props.extend(
+            _format_parsed_properties(
+                getattr(tp, "runeword_property_list", None),
+                version,
+                property_formatter=property_formatter,
+            )
+        )
 
-    return f"{title}{f" [{', '.join(meta_tags)}]" if meta_tags else ""}{f" ({', '.join(props)})" if props else ""}"
+    return f"{title}{f' [{", ".join(meta_tags)}]' if meta_tags else ''}{f' ({", ".join(props)})' if props else ''}"
 
 
 def _format_item_lines(item, indent="  ", version=None, resolver=None) -> FormattedLines:
     result = []
-    type_name = item.type_name.decode('ascii', errors='replace') if item.type_name else 'Unknown'
+    type_name = item.type_name.decode("ascii", errors="replace") if item.type_name else "Unknown"
 
     if version is None:
         version = item.version if item.version else 0x63
@@ -240,14 +269,16 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
         item_full_name = type_info.name
         req_level = type_info.levelreq
 
-    result.append(f"{indent}Type: {type_name}{f" ({item_full_name})" if item_full_name else ""}")
+    result.append(f"{indent}Type: {type_name}{f' ({item_full_name})' if item_full_name else ''}")
 
     if req_level > 0:
         result.append(f"{indent}Required Level: {req_level}")
 
     location = ItemLocation(item.location)
     if location == ItemLocation.EQUIPPED and item.position in EquipSlot:
-        result.append(f"{indent}Location: {location}, Position: {item.position} ({EquipSlot(item.position)})")
+        result.append(
+            f"{indent}Location: {location}, Position: {item.position} ({EquipSlot(item.position)})"
+        )
     else:
         result.append(f"{indent}Location: {location}, Position: {item.position}")
     storedin = StoredIn(item.stored_in)
@@ -255,9 +286,11 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
     quality = ItemQuality(item.quality())
     result.append(f"{indent}Quality: {quality}")
 
-    flags = item.get_flag_names() if hasattr(item, 'get_flag_names') else [
-        label for attr, label in ITEM_FLAG_LABELS if getattr(item, attr, False)
-    ]
+    flags = (
+        item.get_flag_names()
+        if hasattr(item, "get_flag_names")
+        else [label for attr, label in ITEM_FLAG_LABELS if getattr(item, attr, False)]
+    )
     if flags:
         result.append(f"{indent}Flags: {', '.join(flags)}")
 
@@ -269,32 +302,64 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
                 result.append(f"{indent}Drop Level: {ext.drop_level}")
             if ext.magic_prefix:
                 prefix_id = ext.magic_prefix
-                prefix_name = prefix_info.name if (prefix_info := resolver.get_magic_prefix(prefix_id)) else ""
-                result.append(f"{indent}Prefix: {prefix_id}{f" ({prefix_name})" if prefix_name else ""}")
+                prefix_name = (
+                    prefix_info.name
+                    if (prefix_info := resolver.get_magic_prefix(prefix_id))
+                    else ""
+                )
+                result.append(
+                    f"{indent}Prefix: {prefix_id}{f' ({prefix_name})' if prefix_name else ''}"
+                )
             if ext.magic_suffix:
                 suffix_id = ext.magic_suffix
-                suffix_name = suffix_info.name if (suffix_info := resolver.get_magic_suffix(suffix_id)) else ""
-                result.append(f"{indent}Suffix: {suffix_id}{f" ({suffix_name})" if suffix_name else ""}")
+                suffix_name = (
+                    suffix_info.name
+                    if (suffix_info := resolver.get_magic_suffix(suffix_id))
+                    else ""
+                )
+                result.append(
+                    f"{indent}Suffix: {suffix_id}{f' ({suffix_name})' if suffix_name else ''}"
+                )
             if ext.set_id is not None:
                 set_id = ext.set_id
                 set_name = set_info.name if (set_info := resolver.get_set_item(set_id)) else ""
-                result.append(f"{indent}Set ID: {set_id}{f" ({set_name})" if set_name else ""}")
+                result.append(f"{indent}Set ID: {set_id}{f' ({set_name})' if set_name else ''}")
             if ext.unique_id is not None:
                 unique_id = ext.unique_id
-                unique_idx = unique_info.index if (unique_info := resolver.get_unique_item(unique_id)) else ""
-                result.append(f"{indent}Unique ID: {unique_id}{f" ({unique_idx})" if unique_idx else ""}")
+                unique_idx = (
+                    unique_info.index
+                    if (unique_info := resolver.get_unique_item(unique_id))
+                    else ""
+                )
+                result.append(
+                    f"{indent}Unique ID: {unique_id}{f' ({unique_idx})' if unique_idx else ''}"
+                )
             if ext.rune_id is not None:
                 runeword_id = ext.rune_word_id()
-                rw_name = runeword_info.name if (runeword_info := resolver.get_runeword(runeword_id)) else ""
-                result.append(f"{indent}Rune Word ID: {runeword_id}{f" ({rw_name})" if rw_name else ""}")
+                rw_name = (
+                    runeword_info.name
+                    if (runeword_info := resolver.get_runeword(runeword_id))
+                    else ""
+                )
+                result.append(
+                    f"{indent}Rune Word ID: {runeword_id}{f' ({rw_name})' if rw_name else ''}"
+                )
                 if item.gem_items:
                     rune_names = []
                     for gem in item.gem_items:
-                        gem_type = gem.type_name.decode('ascii', errors='replace').strip() if gem.type_name else ''
-                        if gem_type.startswith('r'):
+                        gem_type = (
+                            gem.type_name.decode("ascii", errors="replace").strip()
+                            if gem.type_name
+                            else ""
+                        )
+                        if gem_type.startswith("r"):
                             try:
                                 rune_num = int(gem_type[1:])
-                                rune_name = rune_info.name if (rune_info := resolver.get_item(gem_type)) else ""
+                                rune_name = (
+                                    rune_info.name
+                                    if (rune_info := resolver.get_item(gem_type))
+                                    else ""
+                                )
                                 rune_names.append(f"{rune_name}({rune_num})")
                             except ValueError:
                                 pass
@@ -303,7 +368,9 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
             if ext.rare_name:
                 result.append(f"{indent}Rare Name: {ext.rare_name.name_1}-{ext.rare_name.name_2}")
             if ext.craft_name:
-                result.append(f"{indent}Craft Name: {ext.craft_name.name_1}-{ext.craft_name.name_2}")
+                result.append(
+                    f"{indent}Craft Name: {ext.craft_name.name_1}-{ext.craft_name.name_2}"
+                )
 
         if tp := info.type_specific_info:
             if tp.defence is not None:
@@ -319,17 +386,19 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
             if (sockets := tp.total_sockets()) > 0:
                 result.append(f"{indent}Sockets: {sockets}")
 
-            if props := _format_parsed_properties(getattr(tp, 'property_list', None), version):
+            if props := _format_parsed_properties(getattr(tp, "property_list", None), version):
                 result.append(f"{indent}Properties:")
                 for p in props:
                     result.append(f"{indent}  - {p}")
 
-            if rw_props := _format_parsed_properties(getattr(tp, 'runeword_property_list', None), version):
+            if rw_props := _format_parsed_properties(
+                getattr(tp, "runeword_property_list", None), version
+            ):
                 result.append(f"{indent}Rune Word Properties:")
                 for p in rw_props:
                     result.append(f"{indent}  - {p}")
 
-            if getattr(tp, 'set_properties', None):
+            if getattr(tp, "set_properties", None):
                 for idx, set_prop_list in enumerate(tp.set_properties):
                     if set_props := _format_parsed_properties(set_prop_list, version):
                         piece_count = idx + 2
@@ -337,7 +406,7 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
                         for p in set_props:
                             result.append(f"{indent}  - {p}")
 
-        if getattr(info, 'stash_stack_size', 0) > 0:
+        if getattr(info, "stash_stack_size", 0) > 0:
             result.append(f"{indent}Stack Size: {info.stash_stack_size}")
         if info.gold:
             result.append(f"{indent}Gold: {info.gold.quantity}")
@@ -345,7 +414,9 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
     if item.gem_items:
         for j, gem in enumerate(item.gem_items):
             result.append(f"{indent}Socketed Item [{j}]:")
-            result.extend(_format_item_lines(gem, indent + "  ", version=version, resolver=resolver))
+            result.extend(
+                _format_item_lines(gem, indent + "  ", version=version, resolver=resolver)
+            )
 
     return result
 
@@ -382,11 +453,17 @@ def _format_waypoints_lines(char_data: D2SStruct) -> FormattedLines:
                 act_stats.append((act_name, len(wp_names), unlocked_in_act, missing))
 
             # Check if this difficulty has been started (has waypoints beyond starter town or has quest activity)
-            has_wp_progress = (wp_data.waypoints[0] & ~1) != 0 or any(b != 0 for b in wp_data.waypoints[1:])
+            has_wp_progress = (wp_data.waypoints[0] & ~1) != 0 or any(
+                b != 0 for b in wp_data.waypoints[1:]
+            )
             has_quest_progress = False
             if char_data.quests.magic == 0x216F6F57 and diff_idx < len(char_data.quests.qi_data):
                 qd = char_data.quests.qi_data[diff_idx]
-                has_quest_progress = any(w != 0 for words in [qd.act_1, qd.act_2, qd.act_3, qd.act_4, qd.act_5] for w in words)
+                has_quest_progress = any(
+                    w != 0
+                    for words in [qd.act_1, qd.act_2, qd.act_3, qd.act_4, qd.act_5]
+                    for w in words
+                )
 
             if not has_wp_progress and not has_quest_progress:
                 result.append(f"{diff_name}: Not started")
@@ -396,14 +473,18 @@ def _format_waypoints_lines(char_data: D2SStruct) -> FormattedLines:
             if total_unlocked == 39:
                 result.append(f"{diff_name} (39/39 unlocked): All unlocked")
             else:
-                result.append(f"{diff_name} ({total_unlocked}/39 unlocked, {total_missing} missing):")
+                result.append(
+                    f"{diff_name} ({total_unlocked}/39 unlocked, {total_missing} missing):"
+                )
                 for act_name, total_act, unlocked_act, missing in act_stats:
                     if unlocked_act == total_act:
                         result.append(f"  {act_name} ({total_act}/{total_act}): All unlocked")
                     elif unlocked_act == 0:
                         result.append(f"  {act_name} (0/{total_act}): None unlocked")
                     else:
-                        result.append(f"  {act_name} ({unlocked_act}/{total_act}): Missing {', '.join(missing)}")
+                        result.append(
+                            f"  {act_name} ({unlocked_act}/{total_act}): Missing {', '.join(missing)}"
+                        )
     return result
 
 
@@ -427,12 +508,24 @@ def _format_quests_lines(char_data: D2SStruct) -> FormattedLines:
                 result.append(f"{diff_name}: Not started")
                 continue
 
-            reset_status = "Available" if qd.reset_stats == 2 else ("Used" if qd.reset_stats == 1 else "Locked")
+            reset_status = (
+                "Available"
+                if qd.reset_stats == 2
+                else ("Used" if qd.reset_stats == 1 else "Locked")
+            )
             total_completed = sum(1 for words in act_words for w in words if (w & 1) or (w & 2))
-            rewards_unclaimed = sum(1 for words in act_words for w in words if (w & 2) and not (w & 1))
-            reward_str = f", {rewards_unclaimed} reward{'s' if rewards_unclaimed > 1 else ''} unclaimed" if rewards_unclaimed else ""
+            rewards_unclaimed = sum(
+                1 for words in act_words for w in words if (w & 2) and not (w & 1)
+            )
+            reward_str = (
+                f", {rewards_unclaimed} reward{'s' if rewards_unclaimed > 1 else ''} unclaimed"
+                if rewards_unclaimed
+                else ""
+            )
 
-            result.append(f"{diff_name} ({total_completed}/27 completed{reward_str}) — Akara Reset: {reset_status}")
+            result.append(
+                f"{diff_name} ({total_completed}/27 completed{reward_str}) — Akara Reset: {reset_status}"
+            )
             for (act_name, quest_defs), words in zip(QUESTS_BY_ACT, act_words):
                 words_ordered = [words[idx] for _, idx in quest_defs]
                 if all(w & 1 for w in words_ordered):
@@ -457,9 +550,11 @@ def format_quests_info(char_data: D2SStruct) -> str:
     return "\n".join(_format_quests_lines(char_data))
 
 
-def _get_character_skills(char_data: D2SStruct, resolver: GameDataResolver | None = None) -> list[SkillInfo]:
+def _get_character_skills(
+    char_data: D2SStruct, resolver: GameDataResolver | None = None
+) -> list[SkillInfo]:
     """Return invested skills as a list of (skill_index, skill_name, level) tuples."""
-    if not getattr(char_data, 'skills', None) or char_data.skills.magic != 0x6669:
+    if not getattr(char_data, "skills", None) or char_data.skills.magic != 0x6669:
         return []
     if resolver is None:
         ensure_data_loaded()
@@ -495,15 +590,15 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     char_type_name = get_char_type_name(char_data.char_flags)
     result.append(f"Character Flags: 0x{char_data.char_flags:X} ({char_type_name})")
 
-    char_title = getattr(char_data, 'char_title', 0)
+    char_title = getattr(char_data, "char_title", 0)
     char_title_name = get_char_title_name(char_title, char_data.char_class)
     result.append(f"Character Title: 0x{char_title:X} ({char_title_name})")
 
     result.append(f"Weapon Set: {'I' if char_data.weapon_set == 0 else 'II'}")
 
-    create_time = getattr(char_data, 'create_time', 0)
-    last_save_time = getattr(char_data, 'last_save_time', 0) or getattr(char_data, 'dw_time', 0)
-    play_time = getattr(char_data, 'play_time', 0)
+    create_time = getattr(char_data, "create_time", 0)
+    last_save_time = getattr(char_data, "last_save_time", 0) or getattr(char_data, "dw_time", 0)
+    play_time = getattr(char_data, "play_time", 0)
 
     result.append(f"Create Time: {format_timestamp(create_time)}")
     result.append(f"Last Save Time: {format_timestamp(last_save_time)}")
@@ -514,7 +609,9 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     else:
         result.append(f"NumStats/NumSkills: 0x{getattr(char_data, 'num_stats_num_skills', 0):04X}")
         result.append(f"Merc Dead: {'Yes' if getattr(char_data, 'merc_dead', 0) else 'No'}")
-        result.append(f"Merc Flags: 0x{getattr(char_data, 'merc_flags_low', 0):04X}{getattr(char_data, 'merc_flags_high', 0):02X}")
+        result.append(
+            f"Merc Flags: 0x{getattr(char_data, 'merc_flags_low', 0):04X}{getattr(char_data, 'merc_flags_high', 0):02X}"
+        )
 
     result.append("")
     result.append("=== Player Stats ===")
@@ -553,9 +650,9 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     result.extend(_format_quests_lines(char_data))
     result.append("")
     result.append("=== Items ===")
-    item_list = getattr(char_data, 'item_list', None)
-    if item_list and getattr(item_list, 'magic', None) == 0x4D4A:
-        items = getattr(item_list, 'items', [])
+    item_list = getattr(char_data, "item_list", None)
+    if item_list and getattr(item_list, "magic", None) == 0x4D4A:
+        items = getattr(item_list, "items", [])
         result.append(f"Total items: {len(items)}")
         for i, item in enumerate(items):
             result.append(f"--- Item {i} ---")
@@ -572,10 +669,12 @@ def format_char_info(char_data: D2SStruct, resolver=None):
     result.append("=== Mercenary ===")
     if char_data.is_expansion():
         if char_data.has_mercenary():
-            result.append(f"Has mercenary (Name: {char_data.merc_name_id}, Type: {char_data.merc_type_id})")
+            result.append(
+                f"Has mercenary (Name: {char_data.merc_name_id}, Type: {char_data.merc_type_id})"
+            )
             if char_data.version >= 0x69:
-                merc_seed = getattr(char_data, 'merc_seed', 0)
-                merc_flags = getattr(char_data, 'merc_flags', 0)
+                merc_seed = getattr(char_data, "merc_seed", 0)
+                merc_flags = getattr(char_data, "merc_flags", 0)
                 result.append(f"Mercenary Seed: 0x{merc_seed:08X}")
                 result.append(f"Mercenary Exp: {char_data.merc_experience}")
                 result.append(f"Mercenary Flags: 0x{merc_flags:08X}")
@@ -586,7 +685,9 @@ def format_char_info(char_data: D2SStruct, resolver=None):
                 result.append(f"Mercenary items: {char_data.mercenary.items.count}")
                 for i, item in enumerate(char_data.mercenary.items.items):
                     result.append(f"--- Mercenary Item {i} ---")
-                    result.extend(_format_item_lines(item, version=char_data.version, resolver=resolver))
+                    result.extend(
+                        _format_item_lines(item, version=char_data.version, resolver=resolver)
+                    )
         else:
             result.append("No mercenary")
     else:
@@ -606,7 +707,7 @@ def format_char_info(char_data: D2SStruct, resolver=None):
         result.append(f"Has demon (Magic: 0x{char_data.demon.magic:X})")
     else:
         result.append("No demon")
-    return '\n'.join(result)
+    return "\n".join(result)
 
 
 def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
@@ -619,15 +720,17 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
         resolver = GameDataResolver(version)
     char_class = resolver.get_localized_class_name(char_data.char_class)
     flags_str = get_char_type_name(char_data.char_flags)
-    char_title = getattr(char_data, 'char_title', 0)
+    char_title = getattr(char_data, "char_title", 0)
     title_str = get_char_title_name(char_title, char_data.char_class)
-    weapon_set = 'I' if char_data.weapon_set == 0 else 'II'
+    weapon_set = "I" if char_data.weapon_set == 0 else "II"
 
-    result.append(f"Name: {char_name} | Class: {char_class} | Level: {char_data.char_level} | Title: {title_str}")
+    result.append(
+        f"Name: {char_name} | Class: {char_class} | Level: {char_data.char_level} | Title: {title_str}"
+    )
     result.append(f"Status: {flags_str} | Weapon Set: {weapon_set}")
 
-    last_save_time = getattr(char_data, 'last_save_time', 0) or getattr(char_data, 'dw_time', 0)
-    play_time = getattr(char_data, 'play_time', 0)
+    last_save_time = getattr(char_data, "last_save_time", 0) or getattr(char_data, "dw_time", 0)
+    play_time = getattr(char_data, "play_time", 0)
     time_parts = []
     if last_save_time:
         time_parts.append(f"Last Saved: {format_timestamp(last_save_time)}")
@@ -638,10 +741,16 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
 
     stats = char_data.player_stats
     if stats.is_valid:
-        result.append(f"Attributes: Str: {stats.strength}, Dex: {stats.dexterity}, Vit: {stats.vitality}, Ene: {stats.energy}")
-        result.append(f"Life: {stats.current_life}/{stats.max_life} | Mana: {stats.current_mana}/{stats.max_mana} | Gold: {stats.gold} (Person), {stats.gold_stash} (Stash)")
+        result.append(
+            f"Attributes: Str: {stats.strength}, Dex: {stats.dexterity}, Vit: {stats.vitality}, Ene: {stats.energy}"
+        )
+        result.append(
+            f"Life: {stats.current_life}/{stats.max_life} | Mana: {stats.current_mana}/{stats.max_mana} | Gold: {stats.gold} (Person), {stats.gold_stash} (Stash)"
+        )
         if stats.stat_points_remaining > 0 or stats.skill_points_remaining > 0:
-            result.append(f"Remaining Points: {stats.stat_points_remaining} Stat, {stats.skill_points_remaining} Skill")
+            result.append(
+                f"Remaining Points: {stats.stat_points_remaining} Stat, {stats.skill_points_remaining} Skill"
+            )
 
     result.append("")
     result.append("=== Skills ===")
@@ -669,9 +778,9 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     belt_items = []
     cursor_items = []
 
-    item_list = getattr(char_data, 'item_list', None)
-    if item_list and getattr(item_list, 'magic', None) == 0x4D4A:
-        items = getattr(item_list, 'items', [])
+    item_list = getattr(char_data, "item_list", None)
+    if item_list and getattr(item_list, "magic", None) == 0x4D4A:
+        items = getattr(item_list, "items", [])
         for item in items:
             loc = ItemLocation(item.location)
             match (loc, item.stored_in):
@@ -695,14 +804,18 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
         if slot.value in equipped_items:
             has_equipped = True
             it = equipped_items[slot.value]
-            result.append(f"- {slot.display_name}: {format_item_summary(it, version, resolver=resolver)}")
+            result.append(
+                f"- {slot.display_name}: {format_item_summary(it, version, resolver=resolver)}"
+            )
     if not has_equipped:
         result.append("None")
 
     result.append("")
     result.append("=== Mercenary ===")
     if char_data.is_expansion() and char_data.has_mercenary():
-        result.append(f"Mercenary: Name Index {char_data.merc_name_id}, Type {char_data.merc_type_id}{" (Dead)" if char_data.merc_is_dead else ""}")
+        result.append(
+            f"Mercenary: Name Index {char_data.merc_name_id}, Type {char_data.merc_type_id}{' (Dead)' if char_data.merc_is_dead else ''}"
+        )
         if char_data.mercenary.items and char_data.mercenary.items.items:
             result.append("Equipped:")
             for m_item in char_data.mercenary.items.items:
@@ -710,7 +823,9 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
                 slot_str = ""
                 if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot:
                     slot_str = f"{EquipSlot(m_item.position).display_name}: "
-                result.append(f"  - {slot_str}{format_item_summary(m_item, version, resolver=resolver)}")
+                result.append(
+                    f"  - {slot_str}{format_item_summary(m_item, version, resolver=resolver)}"
+                )
         else:
             result.append("Equipped: None")
     else:
@@ -732,7 +847,7 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
             summary = format_item_summary(it, version, resolver=resolver)
             belt_counts[summary] = belt_counts.get(summary, 0) + 1
         for summary, count in belt_counts.items():
-            stored_lines.append(f"- [Belt] {summary}{f" (x{count})" if count > 1 else ""}")
+            stored_lines.append(f"- [Belt] {summary}{f' (x{count})' if count > 1 else ''}")
 
     for it in cursor_items:
         stored_lines.append(f"- [Cursor] {format_item_summary(it, version, resolver=resolver)}")
@@ -742,7 +857,7 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     else:
         result.append("No stored items")
 
-    return '\n'.join(result).rstrip()
+    return "\n".join(result).rstrip()
 
 
 def format_stash_info(stash: SharedStash, resolver=None) -> str:
@@ -753,7 +868,9 @@ def format_stash_info(stash: SharedStash, resolver=None) -> str:
     result.append("")
 
     for tab_idx, tab in enumerate(stash.tabs):
-        result.append(f"=== Tab {tab_idx + 1} ({TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")}) ===")
+        result.append(
+            f"=== Tab {tab_idx + 1} ({TAB_TYPE_NAMES.get(tab.tab_type, f'Unknown({tab.tab_type})')}) ==="
+        )
         if tab.gold:
             result.append(f"Gold: {tab.gold}")
 
@@ -762,8 +879,9 @@ def format_stash_info(stash: SharedStash, resolver=None) -> str:
         tab_resolver = resolver if resolver is not None else GameDataResolver(version)
         if tab.tab_type == STASH_TAB_TYPE_ADVANCED:
             active_items = [
-                item for item in items
-                if getattr(getattr(item, 'item_info', None), 'stash_stack_size', 0) > 0
+                item
+                for item in items
+                if getattr(getattr(item, "item_info", None), "stash_stack_size", 0) > 0
             ]
             result.append(f"Total items: {len(active_items)}")
             for item_idx, item in enumerate(active_items):
@@ -776,7 +894,7 @@ def format_stash_info(stash: SharedStash, resolver=None) -> str:
                 result.extend(_format_item_lines(item, version=version, resolver=tab_resolver))
         result.append("")
 
-    return '\n'.join(result).rstrip()
+    return "\n".join(result).rstrip()
 
 
 def format_stash_summary(stash: SharedStash, resolver=None) -> str:
@@ -787,7 +905,7 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
     result.append(f"Total Tabs: {tab_count}")
 
     tab_summaries = [
-        f"Tab {tab_idx + 1}: {TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")}"
+        f"Tab {tab_idx + 1}: {TAB_TYPE_NAMES.get(tab.tab_type, f'Unknown({tab.tab_type})')}"
         for tab_idx, tab in enumerate(stash.tabs)
     ]
     result.append(f"Tabs: {', '.join(tab_summaries)}")
@@ -796,7 +914,9 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
     slot_order_map = {code: idx for idx, code in enumerate(COMBINED_SLOT_ORDER_STRIPPED)}
 
     for tab_idx, tab in enumerate(stash.tabs):
-        result.append(f"=== Tab {tab_idx + 1} ({TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")}) ===")
+        result.append(
+            f"=== Tab {tab_idx + 1} ({TAB_TYPE_NAMES.get(tab.tab_type, f'Unknown({tab.tab_type})')}) ==="
+        )
         if tab.gold:
             result.append(f"Gold: {tab.gold}")
 
@@ -806,8 +926,9 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
 
         if tab.tab_type == STASH_TAB_TYPE_ADVANCED:
             active_items = [
-                it for it in items
-                if getattr(getattr(it, 'item_info', None), 'stash_stack_size', 0) > 0
+                it
+                for it in items
+                if getattr(getattr(it, "item_info", None), "stash_stack_size", 0) > 0
             ]
             if not active_items:
                 result.append("  (empty)")
@@ -815,17 +936,17 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
                 runes_list = []
                 materials_list = []
                 other_list = []
-                gem_stats = {g: {'p': 0, 'f': 0, 'o': 0} for g in GEM_TYPE_NAMES}
+                gem_stats = {g: {"p": 0, "f": 0, "o": 0} for g in GEM_TYPE_NAMES}
 
                 sorted_active = sorted(
                     active_items,
-                    key=lambda it: slot_order_map.get(getattr(it, 'type_name', b'').strip(), 9999)
+                    key=lambda it: slot_order_map.get(getattr(it, "type_name", b"").strip(), 9999),
                 )
 
                 for it in sorted_active:
-                    code_b = getattr(it, 'type_name', b'').strip()
-                    code_str = code_b.decode('ascii', errors='replace')
-                    stack_size = getattr(getattr(it, 'item_info', None), 'stash_stack_size', 0)
+                    code_b = getattr(it, "type_name", b"").strip()
+                    code_str = code_b.decode("ascii", errors="replace")
+                    stack_size = getattr(getattr(it, "item_info", None), "stash_stack_size", 0)
 
                     if code_b in GEM_CODE_MAP:
                         g_type, tier = GEM_CODE_MAP[code_b]
@@ -836,19 +957,23 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
                     elif code_b in MATERIAL_CODES_STRIPPED:
                         type_info = cur_resolver.get_item(code_str)
                         raw_name = type_info.name if type_info else code_str
-                        item_name = cur_resolver.get_localized_item_name(code_str, fallback=raw_name)
+                        item_name = cur_resolver.get_localized_item_name(
+                            code_str, fallback=raw_name
+                        )
                         materials_list.append(f"{item_name}: {stack_size}")
                     else:
                         type_info = cur_resolver.get_item(code_str)
                         raw_name = type_info.name if type_info else code_str
-                        item_name = cur_resolver.get_localized_item_name(code_str, fallback=raw_name)
+                        item_name = cur_resolver.get_localized_item_name(
+                            code_str, fallback=raw_name
+                        )
                         other_list.append(f"{item_name}: {stack_size}")
 
                 gems_list = []
                 for g_type in GEM_TYPE_NAMES:
-                    p = gem_stats[g_type]['p']
-                    f = gem_stats[g_type]['f']
-                    o = gem_stats[g_type]['o']
+                    p = gem_stats[g_type]["p"]
+                    f = gem_stats[g_type]["f"]
+                    o = gem_stats[g_type]["o"]
                     if p > 0 or f > 0 or o > 0:
                         loc_g_type = cur_resolver.get_localized_gem_type_name(g_type)
                         gems_list.append(f"{loc_g_type}: p {p}, f {f}, o {o}")
@@ -856,7 +981,9 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
                 if runes_list:
                     result.append(f"  Runes: {', '.join(runes_list)}")
                 if gems_list:
-                    result.append(f"  Gems (p=perfect, f=flawless, o=other): {', '.join(gems_list)}")
+                    result.append(
+                        f"  Gems (p=perfect, f=flawless, o=other): {', '.join(gems_list)}"
+                    )
                 if materials_list:
                     result.append(f"  Materials: {', '.join(materials_list)}")
                 if other_list:
@@ -868,7 +995,9 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
                 item_counts = {}
                 item_order = []
                 for it in items:
-                    summary = format_item_summary(it, version=version, include_properties=False, resolver=cur_resolver)
+                    summary = format_item_summary(
+                        it, version=version, include_properties=False, resolver=cur_resolver
+                    )
                     if summary not in item_counts:
                         item_counts[summary] = 0
                         item_order.append(summary)
@@ -883,4 +1012,4 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
                         result.append(f"  - {summary}")
         result.append("")
 
-    return '\n'.join(result).rstrip()
+    return "\n".join(result).rstrip()
