@@ -1,9 +1,8 @@
 """Little endian binary output stream writing data as bits."""
 
-from collections.abc import Buffer
 from typing import Any
 
-type ByteInput = Buffer | list[int]
+type ByteInput = bytes | bytearray | list[int]
 
 
 class OBitStream:
