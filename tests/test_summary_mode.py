@@ -195,10 +195,10 @@ class TestSummaryMode(unittest.TestCase):
 
     def test_char_summary_formatting(self):
         char = D2SStruct()
-        char.Name = b"Sork\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-        char.charClass = 1  # Sorceress
-        char.charLevel = 85
-        char.charFlags = 0x24  # Expansion | Hardcore
+        char.name = b"Sork\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        char.char_class = 1  # Sorceress
+        char.char_level = 85
+        char.char_flags = 0x24  # Expansion | Hardcore
 
         # Stats
         char.player_stats.magic = 0x6667
@@ -216,10 +216,10 @@ class TestSummaryMode(unittest.TestCase):
         char.player_stats.stat_values[0xF] = 2500000 # Gold stash
 
         # Skills
-        char.skills.wMagic = 0x6669
-        char.skills.bSkillLevel[20] = 20  # Blizzard
-        char.skills.bSkillLevel[25] = 15  # Cold Mastery
-        char.skills.bSkillLevel[8] = 1    # Teleport
+        char.skills.magic = 0x6669
+        char.skills.skill_levels[20] = 20  # Blizzard
+        char.skills.skill_levels[25] = 15  # Cold Mastery
+        char.skills.skill_levels[8] = 1    # Teleport
 
         # Items
         class MockItemList:
@@ -307,7 +307,7 @@ class TestSummaryMode(unittest.TestCase):
         from d2s_parse import process_file
 
         mock_char = D2SStruct()
-        mock_char.Name = b"Test\x00"
+        mock_char.name = b"Test\x00"
 
         mock_stash = SharedStash()
 
@@ -392,10 +392,10 @@ class TestSummaryMode(unittest.TestCase):
         char_data = D2SStruct()
         self.assertEqual(_get_character_skills(char_data), [])
 
-        char_data.skills.wMagic = 0x6669
-        char_data.charClass = 1  # Sorceress (base skill 36)
-        char_data.skills.bSkillLevel[18] = 20  # 36 + 18 = 54 (Teleport)
-        char_data.skills.bSkillLevel[0] = 5   # 36 + 0 = 36 (Fire Bolt)
+        char_data.skills.magic = 0x6669
+        char_data.char_class = 1  # Sorceress (base skill 36)
+        char_data.skills.skill_levels[18] = 20  # 36 + 18 = 54 (Teleport)
+        char_data.skills.skill_levels[0] = 5   # 36 + 0 = 36 (Fire Bolt)
 
         skills = _get_character_skills(char_data)
         self.assertEqual(len(skills), 2)
@@ -504,8 +504,8 @@ class TestSummaryMode(unittest.TestCase):
 
             # Test char summary in Russian
             char = D2SStruct()
-            char.charClass = 1  # Sorceress
-            char.charLevel = 80
+            char.char_class = 1  # Sorceress
+            char.char_level = 80
             char_out = d2s_parse.format_char_summary(char)
             self.assertIn("Волшебница", char_out)
         finally:

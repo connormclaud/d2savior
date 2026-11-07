@@ -50,14 +50,14 @@ class Test0x69Warlock:
         assert self.d2s.version == 0x69
 
     def test_char_class(self):
-        assert self.d2s.charClass == 7
+        assert self.d2s.char_class == 7
         assert self.d2s.get_char_class_name() == 'Warlock'
 
     def test_char_name(self):
         assert self.d2s.get_char_name() == 'warlock'
 
     def test_game_version(self):
-        assert self.d2s.gameVersion == 3
+        assert self.d2s.game_version == 3
 
     def test_is_expansion(self):
         assert self.d2s.is_expansion() is True
@@ -72,13 +72,13 @@ class Test0x69Warlock:
         assert self.d2s.is_died_before() is False
 
     def test_char_level(self):
-        assert self.d2s.charLevel == 92
+        assert self.d2s.char_level == 92
 
     def test_char_title(self):
-        assert self.d2s.charTitle == 15
+        assert self.d2s.char_title == 15
 
     def test_weapon_set(self):
-        assert self.d2s.dwWeaponSet == 0
+        assert self.d2s.weapon_set == 0
 
     def test_has_mercenary(self):
         assert self.d2s.has_mercenary() is True
@@ -92,17 +92,17 @@ class Test0x69Warlock:
         assert ps.stat_values[3] == 279
 
     def test_demon_present(self):
-        assert self.d2s.demon.hasDemon is True
+        assert self.d2s.demon.has_demon is True
 
     def test_item_list_not_empty(self):
         assert len(self.d2s.item_list.items) > 0
 
     def test_preview_data(self):
-        assert len(self.d2s.previewData) == 228
-        assert self.d2s.previewData[0x49] == 3
+        assert len(self.d2s.preview_data) == 228
+        assert self.d2s.preview_data[0x49] == 3
 
     def test_char_flags(self):
-        assert self.d2s.charFlags == 0xF00
+        assert self.d2s.char_flags == 0xF00
 
 
 class Test0x69Amazon:
@@ -118,14 +118,14 @@ class Test0x69Amazon:
         assert self.d2s.version == 0x69
 
     def test_char_class(self):
-        assert self.d2s.charClass == 0
+        assert self.d2s.char_class == 0
         assert self.d2s.get_char_class_name() == 'Amazon'
 
     def test_char_name(self):
         assert self.d2s.get_char_name() == '白皮克星'
 
     def test_game_version(self):
-        assert self.d2s.gameVersion == 3
+        assert self.d2s.game_version == 3
 
     def test_is_expansion(self):
         assert self.d2s.is_expansion() is True
@@ -134,13 +134,13 @@ class Test0x69Amazon:
         assert self.d2s.is_hardcore() is False
 
     def test_char_level(self):
-        assert self.d2s.charLevel == 25
+        assert self.d2s.char_level == 25
 
     def test_char_title(self):
-        assert self.d2s.charTitle == 1
+        assert self.d2s.char_title == 1
 
     def test_weapon_set(self):
-        assert self.d2s.dwWeaponSet == 0
+        assert self.d2s.weapon_set == 0
 
     def test_has_mercenary(self):
         assert self.d2s.has_mercenary() is True
@@ -154,10 +154,10 @@ class Test0x69Amazon:
         assert ps.stat_values[3] == 80
 
     def test_demon_not_present(self):
-        assert self.d2s.demon.hasDemon is False
+        assert self.d2s.demon.has_demon is False
 
     def test_char_flags(self):
-        assert self.d2s.charFlags == 0x100
+        assert self.d2s.char_flags == 0x100
 
 
 class Test0x69Necromancer:
@@ -173,14 +173,14 @@ class Test0x69Necromancer:
         assert self.d2s.version == 0x69
 
     def test_char_class(self):
-        assert self.d2s.charClass == 2
+        assert self.d2s.char_class == 2
         assert self.d2s.get_char_class_name() == 'Necromancer'
 
     def test_char_name(self):
         assert self.d2s.get_char_name() == '魑魅'
 
     def test_game_version(self):
-        assert self.d2s.gameVersion == 3
+        assert self.d2s.game_version == 3
 
     def test_is_expansion(self):
         assert self.d2s.is_expansion() is True
@@ -189,13 +189,13 @@ class Test0x69Necromancer:
         assert self.d2s.is_hardcore() is False
 
     def test_char_level(self):
-        assert self.d2s.charLevel == 64
+        assert self.d2s.char_level == 64
 
     def test_char_title(self):
-        assert self.d2s.charTitle == 7
+        assert self.d2s.char_title == 7
 
     def test_weapon_set(self):
-        assert self.d2s.dwWeaponSet == 1
+        assert self.d2s.weapon_set == 1
 
     def test_has_mercenary(self):
         assert self.d2s.has_mercenary() is True
@@ -209,10 +209,10 @@ class Test0x69Necromancer:
         assert ps.stat_values[3] == 230
 
     def test_demon_not_present(self):
-        assert self.d2s.demon.hasDemon is False
+        assert self.d2s.demon.has_demon is False
 
     def test_char_flags(self):
-        assert self.d2s.charFlags == 0x720
+        assert self.d2s.char_flags == 0x720
 
 
 class Test0x69Sorceress:
@@ -228,14 +228,14 @@ class Test0x69Sorceress:
         assert self.d2s.version == 0x69
 
     def test_char_class(self):
-        assert self.d2s.charClass == 1
+        assert self.d2s.char_class == 1
         assert self.d2s.get_char_class_name() == 'Sorceress'
 
     def test_char_name(self):
         assert self.d2s.get_char_name() == '大明女医'
 
     def test_game_version(self):
-        assert self.d2s.gameVersion == 2
+        assert self.d2s.game_version == 2
 
     def test_is_expansion(self):
         assert self.d2s.is_expansion() is True
@@ -244,13 +244,13 @@ class Test0x69Sorceress:
         assert self.d2s.is_hardcore() is False
 
     def test_char_level(self):
-        assert self.d2s.charLevel == 1
+        assert self.d2s.char_level == 1
 
     def test_char_title(self):
-        assert self.d2s.charTitle == 0
+        assert self.d2s.char_title == 0
 
     def test_weapon_set(self):
-        assert self.d2s.dwWeaponSet == 1
+        assert self.d2s.weapon_set == 1
 
     def test_has_mercenary(self):
         assert self.d2s.has_mercenary() is False
@@ -264,10 +264,10 @@ class Test0x69Sorceress:
         assert ps.stat_values[3] == 10
 
     def test_demon_not_present(self):
-        assert self.d2s.demon.hasDemon is False
+        assert self.d2s.demon.has_demon is False
 
     def test_char_flags(self):
-        assert self.d2s.charFlags == 0x0
+        assert self.d2s.char_flags == 0x0
 
 
 class Test0x69PaladinPet:
@@ -283,14 +283,14 @@ class Test0x69PaladinPet:
         assert self.d2s.version == 0x69
 
     def test_char_class(self):
-        assert self.d2s.charClass == 3
+        assert self.d2s.char_class == 3
         assert self.d2s.get_char_class_name() == 'Paladin'
 
     def test_char_name(self):
         assert self.d2s.get_char_name() == 'pet'
 
     def test_game_version(self):
-        assert self.d2s.gameVersion == 3
+        assert self.d2s.game_version == 3
 
     def test_is_expansion(self):
         assert self.d2s.is_expansion() is True
@@ -299,13 +299,13 @@ class Test0x69PaladinPet:
         assert self.d2s.is_hardcore() is False
 
     def test_char_level(self):
-        assert self.d2s.charLevel == 1
+        assert self.d2s.char_level == 1
 
     def test_char_title(self):
-        assert self.d2s.charTitle == 0
+        assert self.d2s.char_title == 0
 
     def test_weapon_set(self):
-        assert self.d2s.dwWeaponSet == 0
+        assert self.d2s.weapon_set == 0
 
     def test_has_mercenary(self):
         assert self.d2s.has_mercenary() is False
@@ -319,10 +319,10 @@ class Test0x69PaladinPet:
         assert ps.stat_values[3] == 25
 
     def test_demon_not_present(self):
-        assert self.d2s.demon.hasDemon is False
+        assert self.d2s.demon.has_demon is False
 
     def test_char_flags(self):
-        assert self.d2s.charFlags == 0x20
+        assert self.d2s.char_flags == 0x20
 
 
 class Test0x63Paladin:
@@ -338,7 +338,7 @@ class Test0x63Paladin:
         assert self.d2s.version == 0x63
 
     def test_char_class(self):
-        assert self.d2s.charClass == 3
+        assert self.d2s.char_class == 3
         assert self.d2s.get_char_class_name() == 'Paladin'
 
     def test_char_name(self):
@@ -354,13 +354,13 @@ class Test0x63Paladin:
         assert self.d2s.is_died_before() is True
 
     def test_char_level(self):
-        assert self.d2s.charLevel == 93
+        assert self.d2s.char_level == 93
 
     def test_char_title(self):
-        assert self.d2s.charTitle == 15
+        assert self.d2s.char_title == 15
 
     def test_weapon_set(self):
-        assert self.d2s.dwWeaponSet == 0
+        assert self.d2s.weapon_set == 0
 
     def test_has_mercenary(self):
         assert self.d2s.has_mercenary() is True
@@ -374,10 +374,10 @@ class Test0x63Paladin:
         assert ps.stat_values[3] == 300
 
     def test_char_flags(self):
-        assert self.d2s.charFlags == 0x28
+        assert self.d2s.char_flags == 0x28
 
     def test_game_version_zero(self):
-        assert self.d2s.gameVersion == 0
+        assert self.d2s.game_version == 0
 
 
 class Test0x69PreviewData:
@@ -386,22 +386,22 @@ class Test0x69PreviewData:
         if not os.path.exists(save_file):
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
-        assert len(d2s.previewData) == 228
+        assert len(d2s.preview_data) == 228
 
     def test_game_version_from_preview_data(self):
         save_file = os.path.join(EXAMPLES_DIR, '0x69', 'warlock.d2s')
         if not os.path.exists(save_file):
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
-        assert d2s.previewData[0x49] == 3
-        assert d2s.gameVersion == 3
+        assert d2s.preview_data[0x49] == 3
+        assert d2s.game_version == 3
 
     def test_game_version_expansion_classic(self):
         save_file = os.path.join(EXAMPLES_DIR, '0x69', '大明女医.d2s')
         if not os.path.exists(save_file):
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
-        assert d2s.gameVersion == 2
+        assert d2s.game_version == 2
         assert d2s.is_expansion() is True
 
     def test_name_from_preview_data(self):
@@ -409,7 +409,7 @@ class Test0x69PreviewData:
         if not os.path.exists(save_file):
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
-        name_bytes = d2s.previewData[0x7C:0x7C + 96]
+        name_bytes = d2s.preview_data[0x7C:0x7C + 96]
         name = name_bytes.split(b'\x00')[0].decode('utf-8', errors='replace')
         assert name == 'warlock'
 
@@ -418,7 +418,7 @@ class Test0x69PreviewData:
         if not os.path.exists(save_file):
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
-        name_bytes = d2s.previewData[0x7C:0x7C + 96]
+        name_bytes = d2s.preview_data[0x7C:0x7C + 96]
         name = name_bytes.split(b'\x00')[0].decode('utf-8', errors='replace')
         assert name == '魑魅'
 
@@ -427,39 +427,39 @@ class Test0x69GameVersionExpansionLogic:
     def test_game_version_1_not_expansion(self):
         d2s = D2SStruct()
         d2s.version = 0x69
-        d2s.gameVersion = 1
+        d2s.game_version = 1
         assert d2s.is_expansion() is False
 
     def test_game_version_2_is_expansion(self):
         d2s = D2SStruct()
         d2s.version = 0x69
-        d2s.gameVersion = 2
+        d2s.game_version = 2
         assert d2s.is_expansion() is True
 
     def test_game_version_3_is_expansion(self):
         d2s = D2SStruct()
         d2s.version = 0x69
-        d2s.gameVersion = 3
+        d2s.game_version = 3
         assert d2s.is_expansion() is True
 
     def test_game_version_0_not_expansion(self):
         d2s = D2SStruct()
         d2s.version = 0x69
-        d2s.gameVersion = 0
+        d2s.game_version = 0
         assert d2s.is_expansion() is False
 
     def test_charflags_expansion_bit_ignored_in_0x69(self):
         d2s = D2SStruct()
         d2s.version = 0x69
-        d2s.charFlags = 0x20
-        d2s.gameVersion = 1
+        d2s.char_flags = 0x20
+        d2s.game_version = 1
         assert d2s.is_expansion() is False
 
     def test_charflags_no_expansion_but_gameversion_says_expansion(self):
         d2s = D2SStruct()
         d2s.version = 0x69
-        d2s.charFlags = 0x0
-        d2s.gameVersion = 3
+        d2s.char_flags = 0x0
+        d2s.game_version = 3
         assert d2s.is_expansion() is True
 
 
@@ -469,23 +469,23 @@ class Test0x69DemonLogic:
         if not os.path.exists(save_file):
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
-        assert d2s.gameVersion >= 3
-        assert d2s.demon.hasDemon is True
+        assert d2s.game_version >= 3
+        assert d2s.demon.has_demon is True
 
     def test_demon_absent_when_not_warlock_expansion(self):
         save_file = os.path.join(EXAMPLES_DIR, '0x69', '白皮克星.d2s')
         if not os.path.exists(save_file):
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
-        assert d2s.demon.hasDemon is False
+        assert d2s.demon.has_demon is False
 
     def test_demon_absent_in_classic_expansion(self):
         save_file = os.path.join(EXAMPLES_DIR, '0x69', '大明女医.d2s')
         if not os.path.exists(save_file):
             pytest.skip(f'Save file not found: {save_file}')
         d2s = _load_d2s(save_file)
-        assert d2s.gameVersion == 2
-        assert d2s.demon.hasDemon is False
+        assert d2s.game_version == 2
+        assert d2s.demon.has_demon is False
 
 
 class Test0x69Roundtrip:

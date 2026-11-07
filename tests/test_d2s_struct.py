@@ -11,133 +11,133 @@ from core.obitstream import OBitStream
 class TestD2SStruct(unittest.TestCase):
     def test_char_class_name(self):
         char_data = D2SStruct()
-        char_data.charClass = 0
+        char_data.char_class = 0
         self.assertEqual(char_data.get_char_class_name(), "Amazon")
-        char_data.charClass = 1
+        char_data.char_class = 1
         self.assertEqual(char_data.get_char_class_name(), "Sorceress")
-        char_data.charClass = 2
+        char_data.char_class = 2
         self.assertEqual(char_data.get_char_class_name(), "Necromancer")
-        char_data.charClass = 3
+        char_data.char_class = 3
         self.assertEqual(char_data.get_char_class_name(), "Paladin")
-        char_data.charClass = 4
+        char_data.char_class = 4
         self.assertEqual(char_data.get_char_class_name(), "Barbarian")
-        char_data.charClass = 5
+        char_data.char_class = 5
         self.assertEqual(char_data.get_char_class_name(), "Druid")
-        char_data.charClass = 6
+        char_data.char_class = 6
         self.assertEqual(char_data.get_char_class_name(), "Assassin")
-        char_data.charClass = 7
+        char_data.char_class = 7
         self.assertEqual(char_data.get_char_class_name(), "Warlock")
-        char_data.charClass = 8
+        char_data.char_class = 8
         self.assertEqual(char_data.get_char_class_name(), "Unknown")
     
     def test_char_name(self):
         char_data = D2SStruct()
         # 测试 ASCII 名称
-        char_data.Name = b"TestChar\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-        char_data.NamePTR = b"\x00" * 64
+        char_data.name = b"TestChar\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        char_data.name_ptr = b"\x00" * 64
         char_data.version = 0x60  # 1.10 版本
         self.assertEqual(char_data.get_char_name(), "TestChar")
         
         # 测试 PTR2.4+ UTF-8 名称
-        char_data.Name = b"\x00" * 16
-        char_data.NamePTR = b"TestCharUTF8\x00" + b"\x00" * 50
+        char_data.name = b"\x00" * 16
+        char_data.name_ptr = b"TestCharUTF8\x00" + b"\x00" * 50
         char_data.version = 0x62  # PTR2.4 版本
         self.assertEqual(char_data.get_char_name(), "TestCharUTF8")
     
     def test_flags(self):
         char_data = D2SStruct()
         # 测试 hardcore 标志
-        char_data.charFlags = 0x4
+        char_data.char_flags = 0x4
         self.assertTrue(char_data.is_hardcore())
-        char_data.charFlags = 0x0
+        char_data.char_flags = 0x0
         self.assertFalse(char_data.is_hardcore())
         
         # 测试 ladder 标志
-        char_data.charFlags = 0x40
+        char_data.char_flags = 0x40
         self.assertTrue(char_data.is_ladder())
-        char_data.charFlags = 0x0
+        char_data.char_flags = 0x0
         self.assertFalse(char_data.is_ladder())
         
         # 测试 expansion 标志
-        char_data.charFlags = 0x20
+        char_data.char_flags = 0x20
         self.assertTrue(char_data.is_expansion())
-        char_data.charFlags = 0x0
+        char_data.char_flags = 0x0
         self.assertFalse(char_data.is_expansion())
         
         # 测试 died_before 标志
-        char_data.charFlags = 0x8
+        char_data.char_flags = 0x8
         self.assertTrue(char_data.is_died_before())
-        char_data.charFlags = 0x0
+        char_data.char_flags = 0x0
         self.assertFalse(char_data.is_died_before())
 
     def test_has_mercenary_0x63(self):
-        """测试 0x63 版本雇佣兵判断逻辑: dwMercControl != 0"""
+        """测试 0x63 版本雇佣兵判断逻辑: merc_control != 0"""
         char_data = D2SStruct()
         char_data.version = 0x63
         
-        char_data.dwMercControl = 0
+        char_data.merc_control = 0
         self.assertFalse(char_data.has_mercenary())
         
-        char_data.dwMercControl = 1
+        char_data.merc_control = 1
         self.assertTrue(char_data.has_mercenary())
         
-        char_data.dwMercControl = 0x12345678
+        char_data.merc_control = 0x12345678
         self.assertTrue(char_data.has_mercenary())
 
     def test_has_mercenary_0x69(self):
-        """测试 0x69 版本雇佣兵判断逻辑: mercSeed!=0 or mercNameIndex!=0 or mercExperience!=0"""
+        """测试 0x69 版本雇佣兵判断逻辑: merc_seed!=0 or merc_name_index!=0 or merc_experience!=0"""
         char_data = D2SStruct()
         char_data.version = 0x69
         
-        char_data.mercSeed = 0
-        char_data.mercNameIndex = 0
-        char_data.mercExperience = 0
+        char_data.merc_seed = 0
+        char_data.merc_name_index = 0
+        char_data.merc_experience = 0
         self.assertFalse(char_data.has_mercenary())
         
-        char_data.mercSeed = 1
-        char_data.mercNameIndex = 0
-        char_data.mercExperience = 0
+        char_data.merc_seed = 1
+        char_data.merc_name_index = 0
+        char_data.merc_experience = 0
         self.assertTrue(char_data.has_mercenary())
         
-        char_data.mercSeed = 0
-        char_data.mercNameIndex = 1
-        char_data.mercExperience = 0
+        char_data.merc_seed = 0
+        char_data.merc_name_index = 1
+        char_data.merc_experience = 0
         self.assertTrue(char_data.has_mercenary())
         
-        char_data.mercSeed = 0
-        char_data.mercNameIndex = 0
-        char_data.mercExperience = 1
+        char_data.merc_seed = 0
+        char_data.merc_name_index = 0
+        char_data.merc_experience = 1
         self.assertTrue(char_data.has_mercenary())
         
-        char_data.mercSeed = 0x12345678
-        char_data.mercNameIndex = 0
-        char_data.mercExperience = 0
+        char_data.merc_seed = 0x12345678
+        char_data.merc_name_index = 0
+        char_data.merc_experience = 0
         self.assertTrue(char_data.has_mercenary())
 
     def test_has_mercenary_classic(self):
-        """测试 Classic 版本雇佣兵判断逻辑: wMercName > 0"""
+        """测试 Classic 版本雇佣兵判断逻辑: merc_name > 0"""
         char_data = D2SStruct()
         char_data.version = 0x60
         
-        char_data.wMercName = 0
+        char_data.merc_name = 0
         self.assertFalse(char_data.has_mercenary())
         
-        char_data.wMercName = 1
+        char_data.merc_name = 1
         self.assertTrue(char_data.has_mercenary())
 
     def test_is_expansion_0x63_charflags(self):
-        """测试 0x63 版本资料片判断: charFlags & 0x20"""
+        """测试 0x63 版本资料片判断: char_flags & 0x20"""
         char_data = D2SStruct()
         char_data.version = 0x63
         char_data.quests = None
         
-        char_data.charFlags = 0x20
+        char_data.char_flags = 0x20
         self.assertTrue(char_data.is_expansion())
         
-        char_data.charFlags = 0x00
+        char_data.char_flags = 0x00
         self.assertFalse(char_data.is_expansion())
         
-        char_data.charFlags = 0x24
+        char_data.char_flags = 0x24
         self.assertTrue(char_data.is_expansion())
 
     def test_is_expansion_0x63_acts(self):
@@ -145,7 +145,7 @@ class TestD2SStruct(unittest.TestCase):
         from core.d2s_struct import QuestInfo
         char_data = D2SStruct()
         char_data.version = 0x63
-        char_data.charFlags = 0x00
+        char_data.char_flags = 0x00
         char_data.quests = QuestInfo()
         
         char_data.quests.acts = 4
@@ -155,17 +155,17 @@ class TestD2SStruct(unittest.TestCase):
         self.assertTrue(char_data.is_expansion())
 
     def test_is_expansion_0x69(self):
-        """测试 0x69 版本资料片判断: gameVersion > 1"""
+        """测试 0x69 版本资料片判断: game_version > 1"""
         char_data = D2SStruct()
         char_data.version = 0x69
         
-        char_data.gameVersion = 1
+        char_data.game_version = 1
         self.assertFalse(char_data.is_expansion())
         
-        char_data.gameVersion = 2
+        char_data.game_version = 2
         self.assertTrue(char_data.is_expansion())
         
-        char_data.gameVersion = 3
+        char_data.game_version = 3
         self.assertTrue(char_data.is_expansion())
 
     def test_player_stats_magic(self):
@@ -245,11 +245,11 @@ class TestD2SStruct(unittest.TestCase):
         from core.d2s_struct import Demon
         
         demon = Demon()
-        self.assertFalse(demon.hasDemon)
-        self.assertEqual(demon.wMagic, 0)
+        self.assertFalse(demon.has_demon)
+        self.assertEqual(demon.magic, 0)
     
     def test_demon_read_data_no_demon(self):
-        """测试 Demon 解析: 无 Demon 数据 (hasDemon=False)"""
+        """测试 Demon 解析: 无 Demon 数据 (has_demon=False)"""
         from core.d2s_struct import Demon
         
         obs = OBitStream()
@@ -263,8 +263,8 @@ class TestD2SStruct(unittest.TestCase):
         demon = Demon()
         demon.deserialize(bs)
         
-        self.assertEqual(demon.wMagic, 0x666C)
-        self.assertFalse(demon.hasDemon)
+        self.assertEqual(demon.magic, 0x666C)
+        self.assertFalse(demon.has_demon)
     
     def test_demon_read_data_invalid_magic(self):
         """测试 Demon 解析: 无效魔法数时跳过"""
@@ -279,14 +279,14 @@ class TestD2SStruct(unittest.TestCase):
         demon = Demon()
         demon.deserialize(bs)
         
-        self.assertNotEqual(demon.wMagic, 0x666C)
-        self.assertFalse(demon.hasDemon)
+        self.assertNotEqual(demon.magic, 0x666C)
+        self.assertFalse(demon.has_demon)
 
     def test_char_name_0x69(self):
-        """测试 0x69 版本角色名称从 Name 字段读取"""
+        """测试 0x69 版本角色名称从 name 字段读取"""
         char_data = D2SStruct()
         char_data.version = 0x69
-        char_data.Name = b"D2RChar\x00" + b"\x00" * 8
+        char_data.name = b"D2RChar\x00" + b"\x00" * 8
         self.assertEqual(char_data.get_char_name(), "D2RChar")
 
     def test_equip_slot_enum(self):
@@ -356,46 +356,46 @@ class TestD2SStruct(unittest.TestCase):
         from d2s_parse import format_char_info
         char = D2SStruct()
         char.version = 0x69
-        char.Name = b"TestHero\x00" + b"\x00" * 7
-        char.charClass = 1
+        char.name = b"TestHero\x00" + b"\x00" * 7
+        char.char_class = 1
 
         # Setup waypoints
         char.waypoints.magic = 0x5357
         # Normal: all 39 waypoints active (5 bytes: 0xFF, 0xFF, 0xFF, 0xFF, 0x7F)
-        char.waypoints.wp[0].Waypoints = [0xFF, 0xFF, 0xFF, 0xFF, 0x7F]
+        char.waypoints.wp[0].waypoints = [0xFF, 0xFF, 0xFF, 0xFF, 0x7F]
         # Nightmare: bit 2 (Stony Field) missing in Act 1
-        char.waypoints.wp[1].Waypoints = [0xFB, 0xFF, 0xFF, 0xFF, 0x7F]
+        char.waypoints.wp[1].waypoints = [0xFB, 0xFF, 0xFF, 0xFF, 0x7F]
         # Hell: none active
-        char.waypoints.wp[2].Waypoints = [0x00, 0x00, 0x00, 0x00, 0x00]
+        char.waypoints.wp[2].waypoints = [0x00, 0x00, 0x00, 0x00, 0x00]
 
         # Setup quests
         char.quests.magic = 0x216F6F57
         # Normal: all completed, Akara reset used
-        char.quests.qi_data[0].bResetStats = 1
-        char.quests.qi_data[0].wActI = [1] * 6
-        char.quests.qi_data[0].wActII = [1] * 6
-        char.quests.qi_data[0].wActIII = [1] * 6
-        char.quests.qi_data[0].wActIV = [1] * 3
-        char.quests.qi_data[0].wActV = [1] * 6
+        char.quests.qi_data[0].reset_stats = 1
+        char.quests.qi_data[0].act_1 = [1] * 6
+        char.quests.qi_data[0].act_2 = [1] * 6
+        char.quests.qi_data[0].act_3 = [1] * 6
+        char.quests.qi_data[0].act_4 = [1] * 3
+        char.quests.qi_data[0].act_5 = [1] * 6
 
         # Nightmare: Akara reset available
         # Act I quest 2 (Tools of the Trade): reward unclaimed (0x804a)
         # Act V quest 0 (Siege on Harrogath): reward unclaimed (0x8022)
         # Act V quest 3 (Betrayal of Harrogath): not attempted (0x000c)
-        char.quests.qi_data[1].bResetStats = 2
-        char.quests.qi_data[1].wActI = [1, 1, 0x804a, 1, 1, 1]
-        char.quests.qi_data[1].wActII = [1] * 6
-        char.quests.qi_data[1].wActIII = [1] * 6
-        char.quests.qi_data[1].wActIV = [1] * 3
-        char.quests.qi_data[1].wActV = [0x8022, 1, 1, 0x000c, 1, 1]
+        char.quests.qi_data[1].reset_stats = 2
+        char.quests.qi_data[1].act_1 = [1, 1, 0x804a, 1, 1, 1]
+        char.quests.qi_data[1].act_2 = [1] * 6
+        char.quests.qi_data[1].act_3 = [1] * 6
+        char.quests.qi_data[1].act_4 = [1] * 3
+        char.quests.qi_data[1].act_5 = [0x8022, 1, 1, 0x000c, 1, 1]
 
         # Hell: not started, reset locked
-        char.quests.qi_data[2].bResetStats = 0
-        char.quests.qi_data[2].wActI = [0] * 6
-        char.quests.qi_data[2].wActII = [0] * 6
-        char.quests.qi_data[2].wActIII = [0] * 6
-        char.quests.qi_data[2].wActIV = [0] * 3
-        char.quests.qi_data[2].wActV = [0] * 6
+        char.quests.qi_data[2].reset_stats = 0
+        char.quests.qi_data[2].act_1 = [0] * 6
+        char.quests.qi_data[2].act_2 = [0] * 6
+        char.quests.qi_data[2].act_3 = [0] * 6
+        char.quests.qi_data[2].act_4 = [0] * 3
+        char.quests.qi_data[2].act_5 = [0] * 6
 
         output = format_char_info(char)
 
@@ -460,10 +460,10 @@ class TestD2SStruct(unittest.TestCase):
         # Version < 0x69
         char_v60 = D2SStruct()
         char_v60.version = 0x60
-        char_v60.wMercName = 12
-        char_v60.wMercType = 3
-        char_v60.dwMercExp = 99999
-        char_v60.bMercDead = 1
+        char_v60.merc_name = 12
+        char_v60.merc_type = 3
+        char_v60.merc_exp = 99999
+        char_v60.merc_dead = 1
         self.assertEqual(char_v60.merc_name_id, 12)
         self.assertEqual(char_v60.merc_type_id, 3)
         self.assertEqual(char_v60.merc_experience, 99999)
@@ -472,9 +472,9 @@ class TestD2SStruct(unittest.TestCase):
         # Version >= 0x69
         char_v69 = D2SStruct()
         char_v69.version = 0x69
-        char_v69.mercNameIndex = 42
-        char_v69.mercHirelingId = 7
-        char_v69.mercExperience = 1500000
+        char_v69.merc_name_index = 42
+        char_v69.merc_hireling_id = 7
+        char_v69.merc_experience = 1500000
         self.assertEqual(char_v69.merc_name_id, 42)
         self.assertEqual(char_v69.merc_type_id, 7)
         self.assertEqual(char_v69.merc_experience, 1500000)

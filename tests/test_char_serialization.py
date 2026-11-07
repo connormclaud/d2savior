@@ -106,7 +106,7 @@ class TestCharSerialization:
         d2s.serialize(obs)
         serialized_data = obs.get_data()
         
-        d2s.dwSize = len(serialized_data)
+        d2s.size = len(serialized_data)
         final_data = d2s.update_checksum(serialized_data)
         
         checksum = int.from_bytes(final_data[0x0C:0x10], 'little')
