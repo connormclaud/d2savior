@@ -703,10 +703,7 @@ class PropertyList:
         return r
 
     def is_indestructible(self) -> bool:
-        for prop_id, layer, value in self.properties:
-            if prop_id == 152 and value != 0:
-                return True
-        return False
+        return any(prop_id == 152 and value != 0 for prop_id, layer, value in self.properties)
 
     def get_parsed_properties(self, version: int = None) -> list[tuple[int, int, list[int]]]:
         ver = version if version is not None else self._version
