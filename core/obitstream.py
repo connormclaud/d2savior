@@ -1,6 +1,9 @@
 """Little endian binary output stream writing data as bits."""
 
-from typing import List, Union, Any
+from collections.abc import Buffer
+from typing import List, Any
+
+type ByteInput = Buffer | List[int]
 
 
 class OBitStream:
@@ -70,7 +73,7 @@ class OBitStream:
     def write_dword(self, value: int):
         self.write_bits(32, value)
 
-    def write_bytes(self, data: Union[bytes, bytearray, List[int]]):
+    def write_bytes(self, data: ByteInput):
         for b in data:
             self.write_bits(8, b)
 

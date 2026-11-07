@@ -4,6 +4,9 @@ import os
 import datetime
 from typing import Optional, List, Tuple
 
+type SkillInfo = Tuple[int, str, int]
+type FormattedLines = List[str]
+
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 from core.property import (
@@ -174,7 +177,7 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
     return base_item_name
 
 
-def _format_parsed_properties(prop_list, version: int = 0x63, property_formatter=None) -> List[str]:
+def _format_parsed_properties(prop_list, version: int = 0x63, property_formatter=None) -> FormattedLines:
     """Format a property list into human-readable strings, falling back to raw IDs."""
     if not prop_list or not getattr(prop_list, 'properties', None):
         return []
@@ -245,7 +248,7 @@ def format_item_summary(
     return f"{title}{meta_str}{props_str}"
 
 
-def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[str]:
+def _format_item_lines(item, indent="  ", version=None, resolver=None) -> FormattedLines:
     result = []
     type_name = item.type_name.decode('ascii', errors='replace') if item.type_name else 'Unknown'
 
@@ -392,7 +395,7 @@ def format_item_info(item, indent="  ", version=None, resolver=None) -> str:
     return "\n".join(_format_item_lines(item, indent=indent, version=version, resolver=resolver))
 
 
-def _format_waypoints_lines(char_data: D2SStruct) -> List[str]:
+def _format_waypoints_lines(char_data: D2SStruct) -> FormattedLines:
     ensure_data_loaded()
     loc = get_localized_data()
     result = []
@@ -449,7 +452,7 @@ def format_waypoints_info(char_data: D2SStruct) -> str:
     return "\n".join(_format_waypoints_lines(char_data))
 
 
-def _format_quests_lines(char_data: D2SStruct) -> List[str]:
+def _format_quests_lines(char_data: D2SStruct) -> FormattedLines:
     ensure_data_loaded()
     loc = get_localized_data()
     result = []
@@ -495,7 +498,7 @@ def format_quests_info(char_data: D2SStruct) -> str:
     return "\n".join(_format_quests_lines(char_data))
 
 
-def _get_character_skills(char_data: D2SStruct, resolver: Optional[GameDataResolver] = None) -> List[Tuple[int, str, int]]:
+def _get_character_skills(char_data: D2SStruct, resolver: Optional[GameDataResolver] = None) -> List[SkillInfo]:
     """Return invested skills as a list of (skill_index, skill_name, level) tuples."""
     if not getattr(char_data, 'skills', None) or char_data.skills.magic != 0x6669:
         return []

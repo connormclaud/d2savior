@@ -1,14 +1,17 @@
 """Little endian binary input stream reading data from bytes as bits."""
 
-from typing import Optional, Union
+from collections.abc import Buffer
+from typing import Optional
+
+type BitStreamData = Buffer
 
 
 class IBitStream:
     """Little endian binary input stream, reads data from bytes as bits."""
 
-    def __init__(self, data: Optional[Union[bytes, bytearray, memoryview]] = None):
+    def __init__(self, data: Optional[BitStreamData] = None):
         self._data: bytes = b''
-        self.data: Optional[Union[bytes, bytearray, memoryview]] = None
+        self.data: Optional[BitStreamData] = None
         self._offset: int = 0
         if data is not None:
             self.set_data(data)
@@ -26,7 +29,7 @@ class IBitStream:
         """Construct the ASCII bit string representation ('0' and '1')."""
         return ''.join(["{0:08b}".format(b)[::-1] for b in self._data])
 
-    def set_data(self, data: Union[bytes, bytearray, memoryview]):
+    def set_data(self, data: BitStreamData):
         self.data = data
         self._data = bytes(data) if data is not None else b''
         self._offset = 0

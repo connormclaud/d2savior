@@ -1,6 +1,10 @@
 import os
+from collections.abc import Buffer
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
+
+type RawProperty = Tuple[int, int, int]
+type ItemTypeId = Buffer | str
 
 from core.huffman import HuffmanDecoder, get_huffman
 from core.enums import ITEM_LIST_MAGIC
@@ -169,7 +173,7 @@ class ItemMetaDataManager:
             self._items[item.type_id] = []
         self._items[item.type_id].append(item)
 
-    def get_item(self, type_id: bytes, version: int = 0) -> Optional[ItemMetaData]:
+    def get_item(self, type_id: ItemTypeId, version: int = 0) -> Optional[ItemMetaData]:
         items = self._items.get(type_id)
         if not items:
             return None
@@ -459,7 +463,7 @@ def init_item_data(itemdata_path: str = None, property_path: str = None,
         _g_stat_cost = parse_itemstatcost_txt(statcost_path)
 
 
-def get_item_meta(type_id: bytes, version: int = 0) -> Optional[ItemMetaData]:
+def get_item_meta(type_id: ItemTypeId, version: int = 0) -> Optional[ItemMetaData]:
     global _g_item_manager
     
     from core.d2data import get_d2data_manager, get_d2data
@@ -632,7 +636,7 @@ _TRACE_ITEM_IDX = -1
 
 class PropertyList:
     def __init__(self):
-        self.properties: List[Tuple[int, int, int]] = []
+        self.properties: List[RawProperty] = []
         self.end_flag = 0
         self._version: int = 0
         self._use_stat_cost: bool = False
