@@ -176,16 +176,16 @@ class TestBackupRotation:
             with open(test_file, "wb") as f:
                 f.write(b"test_data_v0")
 
-            MAX_BACKUPS = 7
+            max_backups = 7
 
             def create_backup(file_path):
                 if not file_path or not os.path.exists(file_path):
                     return
                 base, ext = os.path.splitext(file_path)
-                oldest = f"{base}.{MAX_BACKUPS}{ext}"
+                oldest = f"{base}.{max_backups}{ext}"
                 if os.path.exists(oldest):
                     os.remove(oldest)
-                for i in range(MAX_BACKUPS - 1, 0, -1):
+                for i in range(max_backups - 1, 0, -1):
                     src = f"{base}.{i}{ext}"
                     dst = f"{base}.{i + 1}{ext}"
                     if os.path.exists(src):

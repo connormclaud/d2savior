@@ -414,12 +414,12 @@ class D2DataLoader:
             if not code or code == "xxx":
                 continue
 
-            BELT_COL_TO_ROWS = {0: 3, 1: 2, 3: 4, 4: 2, 5: 3, 6: 4}
+            belt_col_to_rows = {0: 3, 1: 2, 3: 4, 4: 2, 5: 3, 6: 4}
             item_type_col = get_col("type").lower().strip()
             belt_rows = 0
             if item_type_col == "belt":
                 belt_col_val = get_int("belt", -1)
-                belt_rows = BELT_COL_TO_ROWS.get(belt_col_val, 0)
+                belt_rows = belt_col_to_rows.get(belt_col_val, 0)
 
             item = ItemTypeInfo(
                 code=code,
@@ -1556,12 +1556,12 @@ class GameDataResolver:
         name = loc.get_clean_string("ui.json", ui_key, default="")
         if name:
             return name
-        _QUALITY_FALLBACKS = {
+        quality_fallbacks = {
             "ruRU": {"Crafted": "созданный", "Rare": "редкий"},
             "zhCN": {"Crafted": "手工艺", "Rare": "稀有"},
             "zhTW": {"Crafted": "手工艺", "Rare": "稀有"},
         }
-        fb = _QUALITY_FALLBACKS.get(loc.current_lang, {}).get(quality_name)
+        fb = quality_fallbacks.get(loc.current_lang, {}).get(quality_name)
         if fb:
             return fb
         return quality_name

@@ -53,13 +53,13 @@ class LocalizedDataLoader:
                 text = item.get("enUS", "")
             if text:
                 self._data[file_key][key] = text
-            enUS = item.get("enUS", "")
-            if enUS and enUS != key and lang_key != "enUS":
+            en_us = item.get("enUS", "")
+            if en_us and en_us != key and lang_key != "enUS":
                 translated = item.get(lang_key, "")
                 if not translated and fallback_lang:
                     translated = item.get(fallback_lang, "")
                 if translated:
-                    self._data[file_key][enUS] = translated
+                    self._data[file_key][en_us] = translated
 
     def _rebuild_all_indexes(self):
         for file_key in self._raw:

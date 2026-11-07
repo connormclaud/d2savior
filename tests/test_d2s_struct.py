@@ -182,14 +182,14 @@ class TestD2SStruct(unittest.TestCase):
         """测试 PlayerStats 从 bitstream 解析"""
         from core.d2s_struct import PlayerStats
 
-        PLAYER_STATS_BITS_COUNT = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
+        player_stats_bits_count = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
 
         obs = OBitStream()
         obs.write_word(0x6667)
         obs.write_bits(9, 0)
-        obs.write_bits(PLAYER_STATS_BITS_COUNT[0], 50)
+        obs.write_bits(player_stats_bits_count[0], 50)
         obs.write_bits(9, 3)
-        obs.write_bits(PLAYER_STATS_BITS_COUNT[3], 25)
+        obs.write_bits(player_stats_bits_count[3], 25)
         obs.write_bits(9, 0x10)
         obs.align_byte()
 
@@ -219,7 +219,7 @@ class TestD2SStruct(unittest.TestCase):
         """测试 PlayerStats 解析所有16个属性"""
         from core.d2s_struct import PlayerStats
 
-        PLAYER_STATS_BITS_COUNT = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
+        player_stats_bits_count = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
         test_values = [
             100,
             200,
@@ -243,8 +243,8 @@ class TestD2SStruct(unittest.TestCase):
         obs.write_word(0x6667)
         for i in range(16):
             obs.write_bits(9, i)
-            max_val = (1 << PLAYER_STATS_BITS_COUNT[i]) - 1
-            obs.write_bits(PLAYER_STATS_BITS_COUNT[i], min(test_values[i], max_val))
+            max_val = (1 << player_stats_bits_count[i]) - 1
+            obs.write_bits(player_stats_bits_count[i], min(test_values[i], max_val))
         obs.write_bits(9, 0x10)
         obs.align_byte()
 
@@ -254,7 +254,7 @@ class TestD2SStruct(unittest.TestCase):
 
         self.assertEqual(ps.magic, 0x6667)
         for i in range(16):
-            max_val = (1 << PLAYER_STATS_BITS_COUNT[i]) - 1
+            max_val = (1 << player_stats_bits_count[i]) - 1
             expected = min(test_values[i], max_val)
             self.assertEqual(
                 ps.stat_values[i],
