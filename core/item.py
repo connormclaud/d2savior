@@ -2,10 +2,12 @@ import os
 from collections.abc import Buffer, Iterator
 from dataclasses import dataclass, field
 from itertools import batched
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from core.enums import ITEM_LIST_MAGIC
 from core.huffman import get_huffman
+from core.ibitstream import IBitStream
+from core.obitstream import OBitStream
 
 type RawProperty = tuple[int, int, int]
 type ItemTypeId = Buffer | str
@@ -15,7 +17,7 @@ def is_d2r(version: int) -> bool:
     return version >= 0x61
 
 
-def _convert_item_type_to_meta(type_info, d2data=None) -> ItemMetaData | None:
+def _convert_item_type_to_meta(type_info: Any, d2data: Any = None) -> ItemMetaData | None:
     if type_info is None:
         return None
 
@@ -415,7 +417,7 @@ def parse_itemstatcost_txt(filepath: str) -> dict[int, StatCostItem]:
                 col_idx[h.strip().lower()] = i
             continue
 
-        def get_col(name: str, default: str = "", _parts=parts) -> str:
+        def get_col(name: str, default: str = "", _parts: list[str] = parts) -> str:
             idx = col_idx.get(name.strip().lower(), -1)
             return _parts[idx].strip() if 0 <= idx < len(_parts) else default
 
@@ -497,7 +499,7 @@ def get_item_meta(type_id: ItemTypeId, version: int = 0) -> ItemMetaData | None:
     return _convert_item_type_to_meta(type_info, d2data)
 
 
-def _supplement_meta_from_d2data(meta: ItemMetaData, d2data) -> None:
+def _supplement_meta_from_d2data(meta: ItemMetaData, d2data: Any) -> None:
     code = meta.type_id.decode("ascii", errors="replace").strip()
     type_info = d2data.get_item(code)
     if type_info is None or not type_info.item_type2:
@@ -548,7 +550,7 @@ class Ear:
         self.ear_level = 1
         self.ear_name = name
 
-    def deserialize(self, bs, version: int) -> None:
+    def deserialize(self, bs: IBitStream, version: int) -> None:
         self.ear_class = bs.read_bits(3)
         self.ear_level = bs.read_bits(7)
         bits_per_char = 8 if is_ptr24_and_above(version) else 7
@@ -567,7 +569,7 @@ class Ear:
     def is_valid(self) -> bool:
         return self.ear_level > 0
 
-    def serialize(self, bs, version: int) -> None:
+    def serialize(self, bs: OBitStream, version: int) -> None:
         bs.write_bits(3, self.ear_class)
         bs.write_bits(7, self.ear_level)
         bits_per_char = 8 if is_ptr24_and_above(version) else 7
@@ -590,7 +592,7 @@ class LongName:
         self.pref_3: int | None = None
         self.suff_3: int | None = None
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         self.name_1 = bs.read_bits(8)
         self.name_2 = bs.read_bits(8)
         if bs.read_bits(1):
@@ -606,7 +608,7 @@ class LongName:
         if bs.read_bits(1):
             self.suff_3 = bs.read_bits(11)
 
-    def serialize(self, bs) -> None:
+    def serialize(self, bs: OBitStream) -> None:
         bs.write_bits(8, self.name_1)
         bs.write_bits(8, self.name_2)
         bs.write_bits(1, 1 if self.pref_1 is not None else 0)
@@ -634,7 +636,7 @@ class GoldQuantity:
         self.is_not_gold = False
         self.quantity = 0
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         self.is_not_gold = bs.read_bits(1) != 0
         self.quantity = bs.read_bits(12)
 
@@ -651,7 +653,7 @@ class PropertyList:
         self._version: int = 0
         self._use_stat_cost: bool = False
 
-    def deserialize(self, bs, version: int) -> None:
+    def deserialize(self, bs: IBitStream, version: int) -> None:
         self._version = version
         self.properties = []
         self._use_stat_cost = _g_stat_cost is not None and is_d2r(version)
@@ -788,7 +790,7 @@ class PropertyList:
 
     IMPLICIT_STATS: ClassVar[set[int]] = {88}
 
-    def serialize(self, bs, version: int) -> None:
+    def serialize(self, bs: OBitStream, version: int) -> None:
         self._use_stat_cost = _g_stat_cost is not None and is_d2r(version)
 
         all_paired_ids = set()
@@ -869,7 +871,7 @@ class ExtItemInfo:
 
     def deserialize(
         self,
-        bs,
+        bs: IBitStream,
         version: int,
         is_charm: bool,
         is_runeword: bool,
@@ -934,7 +936,7 @@ class ExtItemInfo:
 
     def serialize(
         self,
-        bs,
+        bs: OBitStream,
         version: int,
         is_charm: bool,
         is_runeword: bool,
@@ -1034,7 +1036,7 @@ class TypeSpecificInfo:
 
     def deserialize(
         self,
-        bs,
+        bs: IBitStream,
         version: int,
         has_def: bool,
         has_dur: bool,
@@ -1117,7 +1119,7 @@ class TypeSpecificInfo:
 
     def serialize(
         self,
-        bs,
+        bs: OBitStream,
         version: int,
         has_def: bool,
         has_dur: bool,
@@ -1327,7 +1329,7 @@ class ItemInfo:
 
     def deserialize(
         self,
-        bs,
+        bs: IBitStream,
         version: int,
         is_simple: bool,
         is_runeword: bool,
@@ -1522,13 +1524,13 @@ class D2Item:
     def has_property_list(self) -> bool:
         return self.item_info is not None and self.item_info.type_specific_info is not None
 
-    def deserialize(self, bs, version: int, read_magic: bool = True) -> None:
+    def deserialize(self, bs: IBitStream, version: int, read_magic: bool = True) -> None:
         if is_d2r(version):
             self._read_data_d2r(bs, version, read_magic)
         else:
             self._read_data_classic(bs, version, read_magic)
 
-    def _read_data_d2r(self, bs, version: int, read_magic: bool = True) -> None:
+    def _read_data_d2r(self, bs: IBitStream, version: int, read_magic: bool = True) -> None:
         if read_magic:
             bs.align_byte()
             self.magic = bs.read_word()
@@ -1605,7 +1607,12 @@ class D2Item:
             self.gem_items.append(item)
 
     def _read_compact_d2r(
-        self, bs, version: int, type_name: bytes, is_chronicle: bool, is_chronicle_compact: bool
+        self,
+        bs: IBitStream,
+        version: int,
+        type_name: bytes,
+        is_chronicle: bool,
+        is_chronicle_compact: bool,
     ) -> None:
         if self.is_ear:
             return
@@ -1634,7 +1641,12 @@ class D2Item:
         self._read_advanced_stash_size(bs, version, type_name)
 
     def _read_complete_d2r(
-        self, bs, version: int, type_name: bytes, is_chronicle: bool, is_chronicle_compact: bool
+        self,
+        bs: IBitStream,
+        version: int,
+        type_name: bytes,
+        is_chronicle: bool,
+        is_chronicle_compact: bool,
     ) -> None:
         if self.is_ear:
             return
@@ -1694,7 +1706,7 @@ class D2Item:
 
         self._read_advanced_stash_size(bs, version, type_name)
 
-    def _read_advanced_stash_size(self, bs, version: int, type_name: bytes) -> None:
+    def _read_advanced_stash_size(self, bs: IBitStream, version: int, type_name: bytes) -> None:
         if version <= 99 or not self.item_info:
             return
         if version <= 101:
@@ -1706,7 +1718,7 @@ class D2Item:
                 self.item_info.stash_stack_size = bs.read_bits(8)
                 self.item_info.has_stash_stack_size = True
 
-    def _read_data_classic(self, bs, version: int, read_magic: bool = True) -> None:
+    def _read_data_classic(self, bs: IBitStream, version: int, read_magic: bool = True) -> None:
         if read_magic:
             bs.align_byte()
             self.magic = bs.read_word()
@@ -1775,13 +1787,13 @@ class D2Item:
             item.deserialize(bs, self.version, True)
             self.gem_items.append(item)
 
-    def serialize(self, bs, version: int, write_magic: bool = True) -> None:
+    def serialize(self, bs: OBitStream, version: int, write_magic: bool = True) -> None:
         if is_d2r(version):
             self._serialize_d2r(bs, version, write_magic and version <= 96)
         else:
             self._serialize_classic(bs, version, write_magic)
 
-    def _serialize_d2r(self, bs, version: int, write_magic: bool = True) -> None:
+    def _serialize_d2r(self, bs: OBitStream, version: int, write_magic: bool = True) -> None:
         if write_magic:
             bs.align_byte()
             bs.write_word(self.magic)
@@ -1825,7 +1837,7 @@ class D2Item:
         for gem_item in self.gem_items:
             gem_item.serialize(bs, self.version, True)
 
-    def _write_compact_d2r(self, bs, version: int) -> None:
+    def _write_compact_d2r(self, bs: OBitStream, version: int) -> None:
         if not self.item_info:
             return
 
@@ -1849,7 +1861,7 @@ class D2Item:
 
         self._write_advanced_stash_size(bs, version)
 
-    def _write_complete_d2r(self, bs, version: int) -> None:
+    def _write_complete_d2r(self, bs: OBitStream, version: int) -> None:
         if not self.item_info or not self.item_info.ext_info:
             return
 
@@ -1895,7 +1907,7 @@ class D2Item:
 
         self._write_advanced_stash_size(bs, version)
 
-    def _write_advanced_stash_size(self, bs, version: int) -> None:
+    def _write_advanced_stash_size(self, bs: OBitStream, version: int) -> None:
         if version <= 99 or not self.item_info:
             return
 
@@ -1910,7 +1922,7 @@ class D2Item:
             if has_stash_size:
                 bs.write_bits(8, self.item_info.stash_stack_size)
 
-    def _serialize_classic(self, bs, version: int, write_magic: bool = True) -> None:
+    def _serialize_classic(self, bs: OBitStream, version: int, write_magic: bool = True) -> None:
         if write_magic:
             bs.align_byte()
             bs.write_word(self.magic)
@@ -2002,7 +2014,7 @@ class ItemList:
     def __getitem__(self, index: int) -> D2Item:
         return self.items[index]
 
-    def deserialize(self, bs, version: int) -> None:
+    def deserialize(self, bs: IBitStream, version: int) -> None:
         self.magic = bs.read_word()
         self.count = bs.read_word()
         if self.magic != ITEM_LIST_MAGIC:
@@ -2035,7 +2047,7 @@ class ItemList:
             _self_mod._TRACE_PROPERTY = old_trace_prop
             self.items.append(item)
 
-    def serialize(self, bs, version: int) -> None:
+    def serialize(self, bs: OBitStream, version: int) -> None:
         bs.align_byte()
         bs.write_word(self.magic)
         bs.write_word(len(self.items))

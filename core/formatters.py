@@ -2,6 +2,8 @@
 
 import datetime
 import os
+from collections.abc import Callable
+from typing import Any
 
 from core.constants import (
     CLASS_SKILL_BASES,
@@ -115,7 +117,9 @@ def format_duration(seconds: int) -> str:
     return " ".join(parts)
 
 
-def get_item_display_name(item, version=0x63, resolver=None) -> str:
+def get_item_display_name(
+    item: Any, version: int = 0x63, resolver: GameDataResolver | None = None
+) -> str:
     type_name = (
         item.type_name.decode("ascii", errors="replace").strip() if item.type_name else "Unknown"
     )
@@ -168,7 +172,9 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
 
 
 def _format_parsed_properties(
-    prop_list, version: int = 0x63, property_formatter=None
+    prop_list: Any,
+    version: int = 0x63,
+    property_formatter: Callable[..., str | None] | None = None,
 ) -> FormattedLines:
     """Format a property list into human-readable strings, falling back to raw IDs."""
     if not prop_list or not getattr(prop_list, "properties", None):
@@ -187,11 +193,11 @@ def _format_parsed_properties(
 
 
 def format_item_summary(
-    item,
-    version=0x63,
-    include_properties=True,
-    resolver=None,
-    property_formatter=None,
+    item: Any,
+    version: int = 0x63,
+    include_properties: bool = True,
+    resolver: GameDataResolver | None = None,
+    property_formatter: Callable[..., str | None] | None = None,
 ) -> str:
     if resolver is None:
         ensure_data_loaded()
@@ -248,7 +254,12 @@ def format_item_summary(
     return f"{title}{f' [{", ".join(meta_tags)}]' if meta_tags else ''}{f' ({", ".join(props)})' if props else ''}"
 
 
-def _format_item_lines(item, indent="  ", version=None, resolver=None) -> FormattedLines:
+def _format_item_lines(
+    item: Any,
+    indent: str = "  ",
+    version: int | None = None,
+    resolver: GameDataResolver | None = None,
+) -> FormattedLines:
     result = []
     type_name = item.type_name.decode("ascii", errors="replace") if item.type_name else "Unknown"
 
@@ -416,7 +427,12 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
     return result
 
 
-def format_item_info(item, indent="  ", version=None, resolver=None) -> str:
+def format_item_info(
+    item: Any,
+    indent: str = "  ",
+    version: int | None = None,
+    resolver: GameDataResolver | None = None,
+) -> str:
     return "\n".join(_format_item_lines(item, indent=indent, version=version, resolver=resolver))
 
 
@@ -566,7 +582,7 @@ def _get_character_skills(
     return skills
 
 
-def format_char_info(char_data: D2SStruct, resolver=None) -> str:
+def format_char_info(char_data: D2SStruct, resolver: GameDataResolver | None = None) -> str:
     ensure_data_loaded()
     result = []
     result.append("=== Diablo II Character Info ===")
@@ -705,7 +721,7 @@ def format_char_info(char_data: D2SStruct, resolver=None) -> str:
     return "\n".join(result)
 
 
-def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
+def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver | None = None) -> str:
     ensure_data_loaded()
     result = []
     result.append("=== Diablo II Character Summary ===")
@@ -855,7 +871,7 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     return "\n".join(result).rstrip()
 
 
-def format_stash_info(stash: SharedStash, resolver=None) -> str:
+def format_stash_info(stash: SharedStash, resolver: GameDataResolver | None = None) -> str:
     ensure_data_loaded()
     result = []
     result.append("=== Diablo II Shared Stash ===")
@@ -892,7 +908,7 @@ def format_stash_info(stash: SharedStash, resolver=None) -> str:
     return "\n".join(result).rstrip()
 
 
-def format_stash_summary(stash: SharedStash, resolver=None) -> str:
+def format_stash_summary(stash: SharedStash, resolver: GameDataResolver | None = None) -> str:
     ensure_data_loaded()
     result = []
     result.append("=== Diablo II Shared Stash Summary ===")

@@ -177,7 +177,7 @@ class HuffmanDecoder:
 
         return build()
 
-    def _build_codes(self, node, bits, code) -> None:
+    def _build_codes(self, node: dict[str, Any] | None, bits: int, code: int) -> None:
         if node is None:
             return
         if node["data"] != 0:
@@ -186,7 +186,7 @@ class HuffmanDecoder:
         self._build_codes(node["left"], bits + 1, code)
         self._build_codes(node["right"], bits + 1, code + (1 << bits))
 
-    def read_char(self, bs) -> int:
+    def read_char(self, bs: Any) -> int:
         node = self._root
         while node:
             if node["data"] != 0:
@@ -195,7 +195,7 @@ class HuffmanDecoder:
             node = node["right"] if bit else node["left"]
         return 0
 
-    def write_char(self, bs, ch: int) -> None:
+    def write_char(self, bs: Any, ch: int) -> None:
         if ch in self._codes:
             code, bits = self._codes[ch]
             bs.write_bits(bits, code)

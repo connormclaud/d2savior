@@ -10,7 +10,7 @@ class IBitStream:
 
     def __init__(self, data: BitStreamData | None = None) -> None:
         self._data: bytes = b""
-        self.data: BitStreamData | None = None
+        self.data: bytes = b""
         self._offset: int = 0
         if data is not None:
             self.set_data(data)
@@ -29,8 +29,8 @@ class IBitStream:
         return "".join([f"{b:08b}"[::-1] for b in self._data])
 
     def set_data(self, data: BitStreamData) -> None:
-        self.data = data
         self._data = bytes(data) if data is not None else b""
+        self.data = self._data
         self._offset = 0
 
     @property

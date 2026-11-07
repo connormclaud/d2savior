@@ -18,7 +18,9 @@ from core.ibitstream import IBitStream
 from core.stash import SharedStash
 
 
-def parse_d2i_file(file_path, debug=False) -> tuple[bool, Any, str | None, IBitStream | None]:
+def parse_d2i_file(
+    file_path: str, debug: bool = False
+) -> tuple[bool, Any, str | None, IBitStream | None]:
     try:
         with open(file_path, "rb") as f:
             data = f.read()
@@ -51,7 +53,9 @@ def parse_d2i_file(file_path, debug=False) -> tuple[bool, Any, str | None, IBitS
         return False, None, None, None
 
 
-def parse_d2s_file(file_path, debug=False) -> tuple[bool, D2SStruct | None, IBitStream | None]:
+def parse_d2s_file(
+    file_path: str, debug: bool = False
+) -> tuple[bool, D2SStruct | None, IBitStream | None]:
     try:
         with open(file_path, "rb") as f:
             data = f.read()
@@ -101,7 +105,7 @@ FORMATTERS = {
 }
 
 
-def process_file(file_path, args) -> None:
+def process_file(file_path: str, args: Any) -> None:
     ensure_data_loaded(lang_key=getattr(args, "lang", None) or "enUS")
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' does not exist")

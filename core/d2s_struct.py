@@ -9,7 +9,9 @@ from core.enums import (
     PLAYER_STATS_BITS_COUNT,
     PLAYER_STATS_MAGIC,
 )
+from core.ibitstream import IBitStream
 from core.item import D2Item, ItemList
+from core.obitstream import OBitStream
 
 
 class CharStatus(IntFlag, boundary=FlagBoundary.KEEP):
@@ -41,7 +43,7 @@ class QuestInfoData:
         self.unknown3 = 0
         self.unknown4 = [0] * 6
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         self.introduced_1 = bs.read_word()
         for i in range(6):
             self.act_1[i] = bs.read_word()
@@ -70,7 +72,7 @@ class QuestInfoData:
         for i in range(6):
             self.unknown4[i] = bs.read_word()
 
-    def serialize(self, bs) -> None:
+    def serialize(self, bs: OBitStream) -> None:
         bs.write_word(self.introduced_1)
         for i in range(6):
             bs.write_word(self.act_1[i])
@@ -107,14 +109,14 @@ class QuestInfo:
         self.size = 0
         self.qi_data = [QuestInfoData() for _ in range(3)]
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         self.magic = bs.read_dword()
         self.acts = bs.read_dword()
         self.size = bs.read_word()
         for i in range(3):
             self.qi_data[i].deserialize(bs)
 
-    def serialize(self, bs) -> None:
+    def serialize(self, bs: OBitStream) -> None:
         bs.write_dword(self.magic)
         bs.write_dword(self.acts)
         bs.write_word(self.size)
@@ -128,14 +130,14 @@ class WaypointData:
         self.waypoints = [0] * 5
         self.unknown2 = [0] * 17
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         self.unknown = bs.read_word()
         for i in range(5):
             self.waypoints[i] = bs.read_byte()
         for i in range(17):
             self.unknown2[i] = bs.read_byte()
 
-    def serialize(self, bs) -> None:
+    def serialize(self, bs: OBitStream) -> None:
         bs.write_word(self.unknown)
         for i in range(5):
             bs.write_byte(self.waypoints[i])
@@ -150,14 +152,14 @@ class Waypoints:
         self.size = 0
         self.wp = [WaypointData() for _ in range(3)]
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         self.magic = bs.read_word()
         self.unknown = bs.read_dword()
         self.size = bs.read_word()
         for i in range(3):
             self.wp[i].deserialize(bs)
 
-    def serialize(self, bs) -> None:
+    def serialize(self, bs: OBitStream) -> None:
         bs.write_word(self.magic)
         bs.write_dword(self.unknown)
         bs.write_word(self.size)
@@ -171,7 +173,7 @@ class PlayerStats:
         self.stat_values = [0] * 0x10
         self.end_flag = 0
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         self.magic = bs.read_word()
         if self.magic != PLAYER_STATS_MAGIC:
             return
@@ -188,7 +190,7 @@ class PlayerStats:
                 break
         bs.align_byte()
 
-    def serialize(self, bs) -> None:
+    def serialize(self, bs: OBitStream) -> None:
         bs.write_word(self.magic)
 
         for i in range(0x10):
@@ -273,12 +275,12 @@ class CharSkills:
         self.magic = 0
         self.skill_levels = [0] * 30
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         self.magic = bs.read_word()
         for i in range(30):
             self.skill_levels[i] = bs.read_byte()
 
-    def serialize(self, bs) -> None:
+    def serialize(self, bs: OBitStream) -> None:
         bs.write_word(self.magic)
         for i in range(30):
             bs.write_byte(self.skill_levels[i])
@@ -289,13 +291,13 @@ class CorpseData:
         self.unknown = b""
         self.items = None
 
-    def deserialize(self, bs, version) -> None:
+    def deserialize(self, bs: IBitStream, version: int) -> None:
         self.unknown = bs.data[bs.bytes_pos : bs.bytes_pos + 12]
         bs.bytes_pos += 12
         self.items = ItemList()
         self.items.deserialize(bs, version)
 
-    def serialize(self, bs, version) -> None:
+    def serialize(self, bs: OBitStream, version: int) -> None:
         bs.write_bytes(self.unknown)
         if self.items:
             self.items.serialize(bs, version)
@@ -307,7 +309,7 @@ class Corpse:
         self.count = 0
         self.corpse_data = None
 
-    def deserialize(self, bs, version) -> None:
+    def deserialize(self, bs: IBitStream, version: int) -> None:
         self.magic = bs.read_word()
         self.count = bs.read_word()
         if self.magic != ITEM_LIST_MAGIC:
@@ -321,7 +323,7 @@ class Corpse:
     def has_corpse(self) -> bool:
         return self.count > 0 and self.corpse_data is not None
 
-    def serialize(self, bs, version) -> None:
+    def serialize(self, bs: OBitStream, version: int) -> None:
         bs.write_word(self.magic)
         bs.write_word(self.count)
         if self.corpse_data:
@@ -333,7 +335,7 @@ class Mercenary:
         self.magic = 0
         self.items = None
 
-    def deserialize(self, bs, has_mercenary, version) -> None:
+    def deserialize(self, bs: IBitStream, has_mercenary: bool, version: int) -> None:
         self.magic = bs.read_word()
         if self.magic != MERCENARY_MAGIC:
             # 不是CMercenary，回退并返回
@@ -343,7 +345,7 @@ class Mercenary:
             self.items = ItemList()
             self.items.deserialize(bs, version)
 
-    def serialize(self, bs, has_mercenary, version) -> None:
+    def serialize(self, bs: OBitStream, has_mercenary: bool, version: int) -> None:
         bs.write_word(self.magic)
         if has_mercenary and self.items:
             self.items.serialize(bs, version)
@@ -355,7 +357,7 @@ class Golem:
         self.has_golem = 0
         self.item = None
 
-    def deserialize(self, bs, version) -> None:
+    def deserialize(self, bs: IBitStream, version: int) -> None:
         self.magic = bs.read_word()
         self.has_golem = bs.read_byte()
         if self.magic not in [GOLEM_MAGIC_1, GOLEM_MAGIC_2]:
@@ -365,7 +367,7 @@ class Golem:
             self.item = D2Item()
             self.item.deserialize(bs, version)
 
-    def serialize(self, bs, version) -> None:
+    def serialize(self, bs: OBitStream, version: int) -> None:
         bs.write_word(self.magic)
         bs.write_byte(self.has_golem)
         if self.has_golem and self.item:
@@ -381,7 +383,7 @@ class Demon:
         self.demon_data = None
         self._raw_data = b""
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         start_pos = bs.bytes_pos
         self.section_version = bs.read_word()
         self.magic = bs.read_word()
@@ -399,7 +401,7 @@ class Demon:
         self._raw_data = bs.data[start_pos:end_pos]
         bs.bytes_pos = end_pos
 
-    def _read_demon_data(self, bs) -> None:
+    def _read_demon_data(self, bs: IBitStream) -> None:
         stat_data_size = bs.read_word()
         _demon_type = bs.read_word()
         _class_id = bs.read_word() - 1
@@ -426,7 +428,7 @@ class Demon:
             bs.data[bs.bytes_pos : bs.bytes_pos + stat_data_size]
             bs.bytes_pos += stat_data_size
 
-    def serialize(self, bs) -> None:
+    def serialize(self, bs: OBitStream) -> None:
         if self._raw_data:
             bs.write_bytes(self._raw_data)
 
@@ -498,7 +500,7 @@ class D2SStruct:
     def merc_experience(self, val: int) -> None:
         self._merc_experience = val
 
-    def deserialize(self, bs) -> None:
+    def deserialize(self, bs: IBitStream) -> None:
         self.magic = bs.read_dword()
         self.version = bs.read_dword()
         self.size = bs.read_dword()
@@ -510,7 +512,7 @@ class D2SStruct:
         else:
             self._read_data_common(bs)
 
-    def _read_data_v69(self, bs) -> None:
+    def _read_data_v69(self, bs: IBitStream) -> None:
         self.char_flags = CharStatus(bs.read_dword())
         self.char_type = self.char_flags
         self.char_title = (self.char_flags >> 8) & 0x1F
@@ -580,7 +582,7 @@ class D2SStruct:
 
         bs.align_byte()
 
-    def _read_data_common(self, bs) -> None:
+    def _read_data_common(self, bs: IBitStream) -> None:
         self.name = bs.data[bs.bytes_pos : bs.bytes_pos + 16]
         bs.bytes_pos += 16
 
@@ -741,7 +743,7 @@ class D2SStruct:
         }
         return title_names.get(title, f"Unknown({title})")
 
-    def serialize(self, bs) -> None:
+    def serialize(self, bs: OBitStream) -> None:
         bs.write_dword(self.magic)
         bs.write_dword(self.version)
         bs.write_dword(self.size)
@@ -753,7 +755,7 @@ class D2SStruct:
         else:
             self._serialize_common(bs)
 
-    def _serialize_v69(self, bs) -> None:
+    def _serialize_v69(self, bs: OBitStream) -> None:
         bs.write_dword(self.char_flags)
         bs.write_byte(self.char_class)
         bs.write_byte(self.num_stats)
@@ -802,7 +804,7 @@ class D2SStruct:
 
         bs.align_byte()
 
-    def _serialize_common(self, bs) -> None:
+    def _serialize_common(self, bs: OBitStream) -> None:
         bs.write_bytes(self.name)
         bs.write_byte(self.char_type)
         bs.write_byte(self.char_title)

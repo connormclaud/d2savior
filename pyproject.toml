@@ -45,7 +45,6 @@ ignore = [
     "E501",
     "ANN401",
     # Temporary ignores to be removed one rule per commit:
-    "ANN001",
     "PT009",
 ]
 

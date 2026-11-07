@@ -220,7 +220,7 @@ MATERIAL_CODES = {
 }
 
 
-def classify_advanced_tab(items) -> int:
+def classify_advanced_tab(items: list[Any]) -> int:
     if not items:
         return ADVANCED_SUBTYPE_UNKNOWN
     rune_count = 0
@@ -273,7 +273,7 @@ def get_advanced_slot_order(subtype: int) -> list:
     return COMBINED_SLOT_ORDER
 
 
-def compute_advanced_grid(items, subtype: int) -> tuple[int, int, list]:
+def compute_advanced_grid(items: list[Any], subtype: int) -> tuple[int, int, list]:
     if not items:
         layout = get_advanced_layout(subtype)
         return layout[0], layout[1], get_advanced_slot_order(subtype)
@@ -311,7 +311,7 @@ class StashTab:
         self.chronicle = None
         self._tab_size = 0
 
-    def deserialize(self, bs, version=None) -> None:
+    def deserialize(self, bs: Any, version: int | None = None) -> None:
         start_pos = bs.bytes_pos
 
         magic = bs.read_dword()
@@ -350,11 +350,11 @@ class StashTab:
         end_pos = start_pos + self._tab_size
         bs.bytes_pos = end_pos
 
-    def _read_chronicle(self, bs) -> None:
+    def _read_chronicle(self, bs: Any) -> None:
         body_size = max(0, self._tab_size - STASH_TAB_HEADER_SIZE)
         self.chronicle = bytes(bs.read_byte() for _ in range(body_size))
 
-    def serialize(self, bs, version=None) -> None:
+    def serialize(self, bs: Any, version: int | None = None) -> None:
         item_version = version if version else self.item_format
 
         bs.write_dword(STASH_TAB_MAGIC)
@@ -377,7 +377,7 @@ class SharedStash:
         self.tabs: list[StashTab] = []
         self.file_path = ""
 
-    def deserialize(self, bs, version=None) -> None:
+    def deserialize(self, bs: Any, version: int | None = None) -> None:
         self.tabs = []
         while bs.remaining() >= STASH_TAB_HEADER_SIZE * 8:
             try:
@@ -392,7 +392,7 @@ class SharedStash:
                 logging.warning(f"Failed to parse stash tab #{len(self.tabs)}: {e}")
                 break
 
-    def serialize(self, bs, version=None) -> None:
+    def serialize(self, bs: Any, version: int | None = None) -> None:
         import struct
 
         for tab in self.tabs:
