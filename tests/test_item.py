@@ -274,11 +274,6 @@ class TestCD2ItemVersionDifferences:
         from core.d2data import init_d2data
 
         init_d2data(data_dir)
-        huffman_path = os.path.join(data_dir, "huffman_tree.json")
-        if os.path.exists(huffman_path):
-            from core.huffman import init_huffman
-
-            init_huffman(huffman_path)
         self._has_data = True
 
     def _build_simple_item_d2r(self, version, type_name=b"elx "):
