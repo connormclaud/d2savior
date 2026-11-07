@@ -103,6 +103,11 @@ class TestD2DataManager:
         assert str(path).startswith(d2r_dir), "缺失文件应从d2r基础目录回退加载"
         assert "0x63" not in str(path)
 
+        # Sequence search_dirs with explicit fallback_dir
+        path = loader._resolve_path("Properties.txt", search_dirs=[v63_dir], fallback_dir=d2r_dir)
+        assert isinstance(path, Traversable)
+        assert str(path).startswith(d2r_dir)
+
         # 都不存在的文件抛出FileNotFoundError
         import pytest
 
@@ -164,6 +169,11 @@ class TestD2DataManager:
             assert info is not None, f"Missing set item at index {idx}"
             assert info.name == name
             assert info.set_id == item_id
+
+            # Resolution by D2R string ID as well
+            info_by_id = self.manager.for_version(0x69).get_set_item(item_id)
+            assert info_by_id is not None, f"Missing set item by D2R id {item_id}"
+            assert info_by_id.name == name
 
     def test_runeword_resolution_by_d2r_and_classic_id(self):
         """测试通过D2R字符串ID (20635) 和经典runes.txt索引 (130) 解析符文之语Spirit"""
