@@ -20,6 +20,7 @@ dev = [
 [project.scripts]
 d2savior = "d2savior.cli:main"
 d2s-parse = "d2savior.cli:main"
+d2s_parse = "d2savior.cli:main"
 
 [tool.ruff]
 line-length = 100
