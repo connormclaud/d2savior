@@ -7,6 +7,7 @@ import d2savior.cli as _cli
 from d2savior.cli import (
     FORMATTERS,
     ensure_data_loaded,
+    find_saves_in_dir,
     format_char_info,
     format_char_summary,
     format_item_info,
@@ -18,11 +19,13 @@ from d2savior.cli import (
     parse_d2s_file,
     parse_file,
     process_file,
+    resolve_target_files,
 )
 
 __all__ = [
     "FORMATTERS",
     "ensure_data_loaded",
+    "find_saves_in_dir",
     "format_char_info",
     "format_char_summary",
     "format_item_info",
@@ -34,6 +37,7 @@ __all__ = [
     "parse_d2s_file",
     "parse_file",
     "process_file",
+    "resolve_target_files",
 ]
 
 sys.modules[__name__] = _cli

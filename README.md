@@ -48,6 +48,27 @@ uv run d2savior --lang zhCN path/to/character.d2s
 uv run d2savior --debug path/to/character.d2s
 ```
 
+### Save Directory & Automatic Lookup
+
+When pointing `d2savior` to a character file or save folder, it automatically saves that folder to your user configuration (`~/.config/d2savior/config.toml` on Linux):
+
+```bash
+# 1. Run once with full path (remembers the save directory)
+d2savior "/path/to/Saved Games/Diablo II Resurrected/sork.d2s"
+
+# 2. Later, simply pass character name or filename
+d2savior sork.d2s
+d2savior sork
+
+# 3. Or summarize all characters and stashes in the folder
+d2savior --summary
+
+# 4. Skip reading/writing config for one-offs
+d2savior --no-config /path/to/other.d2s
+```
+
+When `save_dir` changes in your configuration, `d2savior` prints a confirmation to `stderr`. If multiple files or directories are provided in a single run, the last valid directory is saved.
+
 `d2s-parse` and `python d2s_parse.py` are also available as compatibility aliases.
 
 ## Testing
