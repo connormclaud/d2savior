@@ -696,7 +696,7 @@ class PropertyList:
 
     def ext_sockets(self) -> int:
         r = 0
-        for prop_id, layer, value in self.properties:
+        for prop_id, _layer, value in self.properties:
             if prop_id == 194:
                 r += value
         return r
@@ -814,7 +814,7 @@ class PropertyList:
                     paired_cost = get_stat_cost(paired_id)
                     if paired_cost and paired_cost.save_bits > 0:
                         paired_found = False
-                        for pid, pl, pv in self.properties:
+                        for pid, _pl, pv in self.properties:
                             if pid == paired_id:
                                 paired_raw = (pv >> paired_cost.val_shift) + paired_cost.save_add
                                 bs.write_bits(paired_cost.save_bits, paired_raw)

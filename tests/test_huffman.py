@@ -105,7 +105,7 @@ class TestHuffmanDecoder(unittest.TestCase):
         codes = self.huffman.get_all_codes()
         seen = set()
 
-        for ch, (code, bits) in codes.items():
+        for _ch, (code, bits) in codes.items():
             key = (code, bits)
             self.assertNotIn(key, seen, f"Duplicate code {code} with {bits} bits")
             seen.add(key)

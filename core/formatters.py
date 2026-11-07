@@ -534,7 +534,7 @@ def _format_quests_lines(char_data: D2SStruct) -> FormattedLines:
                     result.append(f"  {act_name}: {' '.join('[ ]' for _ in quest_defs)}")
                 else:
                     parts = []
-                    for (name, idx), w in zip(quest_defs, words_ordered):
+                    for (name, _idx), w in zip(quest_defs, words_ordered):
                         loc_qname = loc.get_quest_name(name) if loc else name
                         if w & 1:
                             parts.append("[x]")
