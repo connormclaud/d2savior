@@ -92,7 +92,7 @@ class TestSummaryMode(unittest.TestCase):
         
         # Tab 1: Normal with 1 unique item
         tab1 = StashTab()
-        tab1.TabType = STASH_TAB_TYPE_NORMAL
+        tab1.tab_type = STASH_TAB_TYPE_NORMAL
         item1 = D2Item()
         item1.type_name = b'uap '
         item1.item_info = ItemInfo()
@@ -106,12 +106,12 @@ class TestSummaryMode(unittest.TestCase):
                 self.items = items
                 self.count = len(items)
         
-        tab1.Items = MockItemList([item1])
+        tab1.items = MockItemList([item1])
         stash.tabs.append(tab1)
 
         # Tab 2: Advanced (Currency)
         tab2 = StashTab()
-        tab2.TabType = STASH_TAB_TYPE_ADVANCED
+        tab2.tab_type = STASH_TAB_TYPE_ADVANCED
         
         rune_pul = D2Item()
         rune_pul.type_name = b'r21 '  # Pul
@@ -133,18 +133,18 @@ class TestSummaryMode(unittest.TestCase):
         empty_item.item_info = ItemInfo()
         empty_item.item_info.stash_stack_size = 0
 
-        tab2.Items = MockItemList([rune_pul, rune_hel, gem_topaz, empty_item])
+        tab2.items = MockItemList([rune_pul, rune_hel, gem_topaz, empty_item])
         stash.tabs.append(tab2)
 
         # Tab 3: Normal tab with repeated items (jewels)
         tab3 = StashTab()
-        tab3.TabType = STASH_TAB_TYPE_NORMAL
+        tab3.tab_type = STASH_TAB_TYPE_NORMAL
         jewels = []
         for _ in range(24):
             jewel = D2Item()
             jewel.type_name = b'jew '
             jewels.append(jewel)
-        tab3.Items = MockItemList(jewels)
+        tab3.items = MockItemList(jewels)
         stash.tabs.append(tab3)
 
         output = format_stash_summary(stash)
@@ -164,7 +164,7 @@ class TestSummaryMode(unittest.TestCase):
     def test_stash_summary_gem_compaction(self):
         stash = SharedStash()
         tab = StashTab()
-        tab.TabType = STASH_TAB_TYPE_ADVANCED
+        tab.tab_type = STASH_TAB_TYPE_ADVANCED
 
         items = []
         # Perfect Ruby x 5
@@ -187,7 +187,7 @@ class TestSummaryMode(unittest.TestCase):
                 self.items = items
                 self.count = len(items)
 
-        tab.Items = MockItemList(items)
+        tab.items = MockItemList(items)
         stash.tabs.append(tab)
 
         output = format_stash_summary(stash)
@@ -459,8 +459,8 @@ class TestSummaryMode(unittest.TestCase):
             # Test stash summary in Russian
             s = SharedStash()
             t1 = StashTab()
-            t1.TabType = STASH_TAB_TYPE_NORMAL
-            t1.Items = ItemList()
+            t1.tab_type = STASH_TAB_TYPE_NORMAL
+            t1.items = ItemList()
 
             cap = D2Item()
             cap.type_name = b'cap '
@@ -470,30 +470,30 @@ class TestSummaryMode(unittest.TestCase):
             ral = D2Item()
             ral.type_name = b'r08 '
             cap.gem_items = [ral]
-            t1.Items.items.append(cap)
+            t1.items.items.append(cap)
 
             shako = D2Item()
             shako.type_name = b'uap '
             shako.item_info = ItemInfo()
             shako.item_info.ext_info = ExtItemInfo()
             shako.item_info.ext_info.unique_id = 248
-            t1.Items.items.append(shako)
+            t1.items.items.append(shako)
             s.tabs.append(t1)
 
             t2 = StashTab()
-            t2.TabType = STASH_TAB_TYPE_ADVANCED
-            t2.Items = ItemList()
+            t2.tab_type = STASH_TAB_TYPE_ADVANCED
+            t2.items = ItemList()
             r_ral = D2Item()
             r_ral.type_name = b'r08 '
             r_ral.item_info = ItemInfo()
             r_ral.item_info.stash_stack_size = 10
-            t2.Items.items.append(r_ral)
+            t2.items.items.append(r_ral)
 
             p_rub = D2Item()
             p_rub.type_name = b'gpr '
             p_rub.item_info = ItemInfo()
             p_rub.item_info.stash_stack_size = 5
-            t2.Items.items.append(p_rub)
+            t2.items.items.append(p_rub)
             s.tabs.append(t2)
 
             stash_out = d2s_parse.format_stash_summary(s)

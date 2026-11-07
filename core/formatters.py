@@ -793,15 +793,15 @@ def format_stash_info(stash: SharedStash, resolver=None) -> str:
     result.append("")
 
     for tab_idx, tab in enumerate(stash.tabs):
-        tab_type_name = TAB_TYPE_NAMES.get(tab.TabType, f"Unknown({tab.TabType})")
+        tab_type_name = TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")
         result.append(f"=== Tab {tab_idx + 1} ({tab_type_name}) ===")
-        if tab.Gold:
-            result.append(f"Gold: {tab.Gold}")
+        if tab.gold:
+            result.append(f"Gold: {tab.gold}")
 
-        items = tab.Items.items if tab.Items else []
-        version = tab.ItemFormat if tab.ItemFormat else 0x63
+        items = tab.items.items if tab.items else []
+        version = tab.item_format if tab.item_format else 0x63
         tab_resolver = resolver if resolver is not None else GameDataResolver(version)
-        if tab.TabType == STASH_TAB_TYPE_ADVANCED:
+        if tab.tab_type == STASH_TAB_TYPE_ADVANCED:
             active_items = [
                 item for item in items
                 if getattr(getattr(item, 'item_info', None), 'stash_stack_size', 0) > 0
@@ -829,7 +829,7 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
 
     tab_summaries = []
     for tab_idx, tab in enumerate(stash.tabs):
-        tname = TAB_TYPE_NAMES.get(tab.TabType, f"Unknown({tab.TabType})")
+        tname = TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")
         tab_summaries.append(f"Tab {tab_idx + 1}: {tname}")
     result.append(f"Tabs: {', '.join(tab_summaries)}")
     result.append("")
@@ -837,16 +837,16 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
     slot_order_map = {code: idx for idx, code in enumerate(COMBINED_SLOT_ORDER_STRIPPED)}
 
     for tab_idx, tab in enumerate(stash.tabs):
-        tname = TAB_TYPE_NAMES.get(tab.TabType, f"Unknown({tab.TabType})")
+        tname = TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")
         result.append(f"=== Tab {tab_idx + 1} ({tname}) ===")
-        if tab.Gold:
-            result.append(f"Gold: {tab.Gold}")
+        if tab.gold:
+            result.append(f"Gold: {tab.gold}")
 
-        items = tab.Items.items if tab.Items else []
-        version = tab.ItemFormat if tab.ItemFormat else 0x63
+        items = tab.items.items if tab.items else []
+        version = tab.item_format if tab.item_format else 0x63
         cur_resolver = resolver if resolver is not None else GameDataResolver(version)
 
-        if tab.TabType == STASH_TAB_TYPE_ADVANCED:
+        if tab.tab_type == STASH_TAB_TYPE_ADVANCED:
             active_items = [
                 it for it in items
                 if getattr(getattr(it, 'item_info', None), 'stash_stack_size', 0) > 0

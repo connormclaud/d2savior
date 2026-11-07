@@ -56,14 +56,14 @@ def _build_empty_item_list(version=99):
 class TestCStashTabHeader(unittest.TestCase):
     def test_default_values(self):
         tab = StashTab()
-        self.assertEqual(tab.StashFormat, 0)
-        self.assertEqual(tab.ItemFormat, 0)
-        self.assertEqual(tab.Gold, 0)
-        self.assertEqual(tab.Season, 0)
-        self.assertEqual(tab.TabType, STASH_TAB_TYPE_NORMAL)
-        self.assertEqual(tab.Reserved, b'\x00' * 43)
-        self.assertIsNone(tab.Items)
-        self.assertIsNone(tab.Chronicle)
+        self.assertEqual(tab.stash_format, 0)
+        self.assertEqual(tab.item_format, 0)
+        self.assertEqual(tab.gold, 0)
+        self.assertEqual(tab.season, 0)
+        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_NORMAL)
+        self.assertEqual(tab.reserved, b'\x00' * 43)
+        self.assertIsNone(tab.items)
+        self.assertIsNone(tab.chronicle)
         self.assertEqual(tab._tab_size, 0)
 
     def test_read_classic_header(self):
@@ -74,10 +74,10 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=99)
-        self.assertEqual(tab.StashFormat, 1)
-        self.assertEqual(tab.ItemFormat, 99)
-        self.assertEqual(tab.Gold, 12345)
-        self.assertEqual(tab.TabType, STASH_TAB_TYPE_NORMAL)
+        self.assertEqual(tab.stash_format, 1)
+        self.assertEqual(tab.item_format, 99)
+        self.assertEqual(tab.gold, 12345)
+        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_NORMAL)
 
     def test_read_modern_header(self):
         header = _build_stash_tab_header(
@@ -87,11 +87,11 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.StashFormat, 2)
-        self.assertEqual(tab.ItemFormat, 105)
-        self.assertEqual(tab.Gold, 50000)
-        self.assertEqual(tab.Season, 3)
-        self.assertEqual(tab.TabType, STASH_TAB_TYPE_NORMAL)
+        self.assertEqual(tab.stash_format, 2)
+        self.assertEqual(tab.item_format, 105)
+        self.assertEqual(tab.gold, 50000)
+        self.assertEqual(tab.season, 3)
+        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_NORMAL)
 
     def test_invalid_magic_raises(self):
         header = struct.pack('<I', 0xDEADBEEF)
@@ -110,8 +110,8 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=99)
-        self.assertEqual(tab.StashFormat, 1)
-        self.assertEqual(tab.TabType, STASH_TAB_TYPE_NORMAL)
+        self.assertEqual(tab.stash_format, 1)
+        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_NORMAL)
 
     def test_stash_format_2_preserves_tab_type(self):
         header = _build_stash_tab_header(
@@ -121,8 +121,8 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.StashFormat, 2)
-        self.assertEqual(tab.TabType, STASH_TAB_TYPE_ADVANCED)
+        self.assertEqual(tab.stash_format, 2)
+        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_ADVANCED)
 
     def test_stash_format_2_chronicle_type(self):
         header = _build_stash_tab_header(
@@ -132,8 +132,8 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.StashFormat, 2)
-        self.assertEqual(tab.TabType, STASH_TAB_TYPE_CHRONICLE)
+        self.assertEqual(tab.stash_format, 2)
+        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_CHRONICLE)
 
     def test_reserved_bytes_read(self):
         custom_reserved = bytes([i % 256 for i in range(43)])
@@ -144,7 +144,7 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=99)
-        self.assertEqual(tab.Reserved, custom_reserved)
+        self.assertEqual(tab.reserved, custom_reserved)
 
 
 class TestCStashTabChronicle(unittest.TestCase):
@@ -159,9 +159,9 @@ class TestCStashTabChronicle(unittest.TestCase):
         bs = IBitStream(data)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.TabType, STASH_TAB_TYPE_CHRONICLE)
-        self.assertIsNotNone(tab.Chronicle)
-        self.assertEqual(tab.Chronicle, chronicle_body)
+        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_CHRONICLE)
+        self.assertIsNotNone(tab.chronicle)
+        self.assertEqual(tab.chronicle, chronicle_body)
 
     def test_read_chronicle_tab_empty_body(self):
         header = _build_stash_tab_header(
@@ -171,9 +171,9 @@ class TestCStashTabChronicle(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.TabType, STASH_TAB_TYPE_CHRONICLE)
-        self.assertIsNotNone(tab.Chronicle)
-        self.assertEqual(len(tab.Chronicle), 0)
+        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_CHRONICLE)
+        self.assertIsNotNone(tab.chronicle)
+        self.assertEqual(len(tab.chronicle), 0)
 
     def test_read_chronicle_tab_large_body(self):
         chronicle_body = bytes(range(256)) * 4
@@ -186,18 +186,18 @@ class TestCStashTabChronicle(unittest.TestCase):
         bs = IBitStream(data)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.Chronicle, chronicle_body)
+        self.assertEqual(tab.chronicle, chronicle_body)
 
 
 class TestCStashTabSerialize(unittest.TestCase):
     def test_serialize_header_fields(self):
         tab = StashTab()
-        tab.StashFormat = 2
-        tab.ItemFormat = 105
-        tab.Gold = 99999
-        tab.Season = 5
-        tab.TabType = STASH_TAB_TYPE_NORMAL
-        tab.Reserved = b'\x00' * 43
+        tab.stash_format = 2
+        tab.item_format = 105
+        tab.gold = 99999
+        tab.season = 5
+        tab.tab_type = STASH_TAB_TYPE_NORMAL
+        tab.reserved = b'\x00' * 43
 
         obs = OBitStream()
         tab.serialize(obs, version=105)
@@ -221,11 +221,11 @@ class TestCStashTabSerialize(unittest.TestCase):
 
     def test_serialize_chronicle_tab(self):
         tab = StashTab()
-        tab.StashFormat = 2
-        tab.ItemFormat = 105
-        tab.TabType = STASH_TAB_TYPE_CHRONICLE
-        tab.Chronicle = b'\x01\x02\x03\x04\x05'
-        tab.Reserved = b'\x00' * 43
+        tab.stash_format = 2
+        tab.item_format = 105
+        tab.tab_type = STASH_TAB_TYPE_CHRONICLE
+        tab.chronicle = b'\x01\x02\x03\x04\x05'
+        tab.reserved = b'\x00' * 43
 
         obs = OBitStream()
         tab.serialize(obs, version=105)
@@ -266,7 +266,7 @@ class TestCSharedStash(unittest.TestCase):
         stash = SharedStash()
         stash.deserialize(bs, version=99)
         self.assertEqual(stash.get_tab_count(), 1)
-        self.assertEqual(stash.get_tab(0).StashFormat, 1)
+        self.assertEqual(stash.get_tab(0).stash_format, 1)
         self.assertEqual(stash.get_tab_gold(0), 1000)
 
     def test_read_multiple_tabs(self):
@@ -290,9 +290,9 @@ class TestCSharedStash(unittest.TestCase):
         self.assertEqual(stash.get_tab_gold(0), 1000)
         self.assertEqual(stash.get_tab_gold(1), 2000)
         self.assertEqual(stash.get_tab_gold(2), 3000)
-        self.assertEqual(stash.get_tab(0).Season, 1)
-        self.assertEqual(stash.get_tab(1).Season, 2)
-        self.assertEqual(stash.get_tab(2).Season, 3)
+        self.assertEqual(stash.get_tab(0).season, 1)
+        self.assertEqual(stash.get_tab(1).season, 2)
+        self.assertEqual(stash.get_tab(2).season, 3)
 
     def test_read_stops_on_invalid_magic(self):
         tab1 = _build_stash_tab_header(
@@ -321,12 +321,12 @@ class TestCSharedStash(unittest.TestCase):
 
     def test_serialize_updates_tab_size(self):
         tab = StashTab()
-        tab.StashFormat = 2
-        tab.ItemFormat = 105
-        tab.Gold = 1234
-        tab.TabType = STASH_TAB_TYPE_CHRONICLE
-        tab.Chronicle = b'\xAA\xBB\xCC'
-        tab.Reserved = b'\x00' * 43
+        tab.stash_format = 2
+        tab.item_format = 105
+        tab.gold = 1234
+        tab.tab_type = STASH_TAB_TYPE_CHRONICLE
+        tab.chronicle = b'\xAA\xBB\xCC'
+        tab.reserved = b'\x00' * 43
 
         stash = SharedStash()
         stash.tabs = [tab]
@@ -336,7 +336,7 @@ class TestCSharedStash(unittest.TestCase):
         data = obs.get_data()
 
         tab_size_in_data = struct.unpack_from('<H', data, 16)[0]
-        expected_size = STASH_TAB_HEADER_SIZE + len(tab.Chronicle)
+        expected_size = STASH_TAB_HEADER_SIZE + len(tab.chronicle)
         self.assertEqual(tab_size_in_data, expected_size)
 
     def test_roundtrip_chronicle_tab(self):
@@ -355,9 +355,9 @@ class TestCSharedStash(unittest.TestCase):
 
         self.assertEqual(stash.get_tab_count(), 1)
         tab = stash.get_tab(0)
-        self.assertEqual(tab.Chronicle, chronicle_body)
-        self.assertEqual(tab.Gold, 55555)
-        self.assertEqual(tab.Season, 7)
+        self.assertEqual(tab.chronicle, chronicle_body)
+        self.assertEqual(tab.gold, 55555)
+        self.assertEqual(tab.season, 7)
 
         obs = OBitStream()
         stash.serialize(obs, version=105)
@@ -368,9 +368,9 @@ class TestCSharedStash(unittest.TestCase):
         stash2.deserialize(bs2, version=105)
         self.assertEqual(stash2.get_tab_count(), 1)
         tab2 = stash2.get_tab(0)
-        self.assertEqual(tab2.Chronicle, chronicle_body)
-        self.assertEqual(tab2.Gold, 55555)
-        self.assertEqual(tab2.Season, 7)
+        self.assertEqual(tab2.chronicle, chronicle_body)
+        self.assertEqual(tab2.gold, 55555)
+        self.assertEqual(tab2.season, 7)
 
     def test_roundtrip_multiple_tabs(self):
         tabs_data = b''
@@ -399,9 +399,9 @@ class TestCSharedStash(unittest.TestCase):
         self.assertEqual(stash2.get_tab_count(), 3)
         for i in range(3):
             tab = stash2.get_tab(i)
-            self.assertEqual(tab.Gold, 1000 * (i + 1))
-            self.assertEqual(tab.Season, i)
-            self.assertEqual(tab.Chronicle, bytes([i] * 20))
+            self.assertEqual(tab.gold, 1000 * (i + 1))
+            self.assertEqual(tab.season, i)
+            self.assertEqual(tab.chronicle, bytes([i] * 20))
 
 
 class TestClassifyAdvancedTab(unittest.TestCase):

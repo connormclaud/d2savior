@@ -141,14 +141,14 @@ def compute_advanced_grid(items, subtype: int) -> Tuple[int, int, list]:
 
 class StashTab:
     def __init__(self):
-        self.StashFormat = 0
-        self.ItemFormat = 0
-        self.Gold = 0
-        self.Season = 0
-        self.TabType = STASH_TAB_TYPE_NORMAL
-        self.Reserved = b'\x00' * 43
-        self.Items = None
-        self.Chronicle = None
+        self.stash_format = 0
+        self.item_format = 0
+        self.gold = 0
+        self.season = 0
+        self.tab_type = STASH_TAB_TYPE_NORMAL
+        self.reserved = b'\x00' * 43
+        self.items = None
+        self.chronicle = None
         self._tab_size = 0
 
     def deserialize(self, bs, version=None):
@@ -158,54 +158,54 @@ class StashTab:
         if magic != STASH_TAB_MAGIC:
             raise ValueError(f"Invalid stash tab magic: 0x{magic:08X}")
 
-        self.StashFormat = bs.read_dword()
-        self.ItemFormat = bs.read_dword()
-        self.Gold = bs.read_dword()
+        self.stash_format = bs.read_dword()
+        self.item_format = bs.read_dword()
+        self.gold = bs.read_dword()
         self._tab_size = bs.read_word()
-        self.Season = bs.read_word()
-        self.TabType = bs.read_byte()
-        self.Reserved = bytes(bs.read_byte() for _ in range(43))
+        self.season = bs.read_word()
+        self.tab_type = bs.read_byte()
+        self.reserved = bytes(bs.read_byte() for _ in range(43))
 
-        if self.StashFormat < 2:
-            self.TabType = STASH_TAB_TYPE_NORMAL
+        if self.stash_format < 2:
+            self.tab_type = STASH_TAB_TYPE_NORMAL
 
-        item_version = version if version else self.ItemFormat
+        item_version = version if version else self.item_format
 
         try:
-            if self.TabType == STASH_TAB_TYPE_CHRONICLE:
+            if self.tab_type == STASH_TAB_TYPE_CHRONICLE:
                 self._read_chronicle(bs)
             else:
                 from core.item import ItemList
-                self.Items = ItemList()
-                self.Items.deserialize(bs, item_version)
+                self.items = ItemList()
+                self.items.deserialize(bs, item_version)
         except Exception as e:
             import logging
-            logging.warning(f"Failed to parse stash tab items (TabType={self.TabType}, "
-                            f"ItemFormat={self.ItemFormat:#x}): {e}")
+            logging.warning(f"Failed to parse stash tab items (TabType={self.tab_type}, "
+                            f"ItemFormat={self.item_format:#x}): {e}")
 
         end_pos = start_pos + self._tab_size
         bs.bytes_pos = end_pos
 
     def _read_chronicle(self, bs):
         body_size = max(0, self._tab_size - STASH_TAB_HEADER_SIZE)
-        self.Chronicle = bytes(bs.read_byte() for _ in range(body_size))
+        self.chronicle = bytes(bs.read_byte() for _ in range(body_size))
 
     def serialize(self, bs, version=None):
-        item_version = version if version else self.ItemFormat
+        item_version = version if version else self.item_format
 
         bs.write_dword(STASH_TAB_MAGIC)
-        bs.write_dword(self.StashFormat)
-        bs.write_dword(self.ItemFormat)
-        bs.write_dword(self.Gold)
+        bs.write_dword(self.stash_format)
+        bs.write_dword(self.item_format)
+        bs.write_dword(self.gold)
         bs.write_word(0)
-        bs.write_word(self.Season)
-        bs.write_byte(self.TabType)
-        bs.write_bytes(self.Reserved)
+        bs.write_word(self.season)
+        bs.write_byte(self.tab_type)
+        bs.write_bytes(self.reserved)
 
-        if self.TabType == STASH_TAB_TYPE_CHRONICLE and self.Chronicle:
-            bs.write_bytes(self.Chronicle)
-        elif self.Items:
-            self.Items.serialize(bs, item_version)
+        if self.tab_type == STASH_TAB_TYPE_CHRONICLE and self.chronicle:
+            bs.write_bytes(self.chronicle)
+        elif self.items:
+            self.items.serialize(bs, item_version)
 
 
 class SharedStash:
@@ -247,10 +247,10 @@ class SharedStash:
 
     def get_tab_items(self, index):
         tab = self.get_tab(index)
-        if tab and tab.Items:
-            return tab.Items.items
+        if tab and tab.items:
+            return tab.items.items
         return []
 
     def get_tab_gold(self, index):
         tab = self.get_tab(index)
-        return tab.Gold if tab else 0
+        return tab.gold if tab else 0
