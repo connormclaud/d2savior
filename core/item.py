@@ -1,10 +1,9 @@
 import os
 from itertools import batched
 from collections.abc import Buffer
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 
-type RawProperty = Tuple[int, int, int]
+type RawProperty = tuple[int, int, int]
 type ItemTypeId = Buffer | str
 
 from core.huffman import HuffmanDecoder, get_huffman
@@ -15,7 +14,7 @@ def is_d2r(version: int) -> bool:
     return version >= 0x61
 
 
-def _convert_item_type_to_meta(type_info, d2data=None) -> Optional[ItemMetaData]:
+def _convert_item_type_to_meta(type_info, d2data=None) -> ItemMetaData | None:
     if type_info is None:
         return None
     
@@ -76,11 +75,11 @@ class PropertyField:
 @dataclass
 class PropertyMetaDataItem:
     ver_min: int = 0
-    fields: List[PropertyField] = field(default_factory=list)
+    fields: list[PropertyField] = field(default_factory=list)
     default_value: int = 0
     bits_sum: int = 0
 
-    def parse(self, value: int) -> List[int]:
+    def parse(self, value: int) -> list[int]:
         result = []
         remaining = value
         for f in self.fields:
@@ -93,7 +92,7 @@ class PropertyMetaDataItem:
                 result.append(0)
         return result
 
-    def get_value(self, params: List[int]) -> Tuple[bool, int]:
+    def get_value(self, params: list[int]) -> tuple[bool, int]:
         if len(params) != len(self.fields):
             return False, 0
         value = 0
@@ -110,12 +109,12 @@ class PropertyMetaDataItem:
 
 class PropertyMetaData:
     def __init__(self):
-        self._data: List[PropertyMetaDataItem] = []
+        self._data: list[PropertyMetaDataItem] = []
 
     def add_item(self, item: PropertyMetaDataItem):
         self._data.append(item)
 
-    def find_data(self, version: int) -> Optional[PropertyMetaDataItem]:
+    def find_data(self, version: int) -> PropertyMetaDataItem | None:
         best_match = None
         best_ver_min = -1
         for item in self._data:
@@ -167,14 +166,14 @@ class ItemMetaData:
 
 class ItemMetaDataManager:
     def __init__(self):
-        self._items: Dict[bytes, List[ItemMetaData]] = {}
+        self._items: dict[bytes, list[ItemMetaData]] = {}
 
     def add_item(self, item: ItemMetaData):
         if item.type_id not in self._items:
             self._items[item.type_id] = []
         self._items[item.type_id].append(item)
 
-    def get_item(self, type_id: ItemTypeId, version: int = 0) -> Optional[ItemMetaData]:
+    def get_item(self, type_id: ItemTypeId, version: int = 0) -> ItemMetaData | None:
         items = self._items.get(type_id)
         if not items:
             return None
@@ -190,14 +189,14 @@ class ItemMetaDataManager:
             return items[-1]
         return best_match
 
-    def get_item_by_name(self, name: str, version: int = 0) -> Optional[ItemMetaData]:
+    def get_item_by_name(self, name: str, version: int = 0) -> ItemMetaData | None:
         padded_name = name.ljust(4)[:4].encode('ascii')
         return self.get_item(padded_name, version)
 
 
 
-def parse_property_txt(filepath: str) -> Dict[int, PropertyMetaData]:
-    properties: Dict[int, PropertyMetaData] = {}
+def parse_property_txt(filepath: str) -> dict[int, PropertyMetaData]:
+    properties: dict[int, PropertyMetaData] = {}
     
     if not os.path.exists(filepath):
         return properties
@@ -239,7 +238,7 @@ def parse_property_txt(filepath: str) -> Dict[int, PropertyMetaData]:
                 except ValueError:
                     default_value = 0
         
-        fields: List[PropertyField] = []
+        fields: list[PropertyField] = []
         bits_sum = 0
         
         for chunk in batched(parts[3:], 4):
@@ -359,9 +358,9 @@ def parse_itemdata_txt(filepath: str) -> ItemMetaDataManager:
     return manager
 
 
-_g_item_manager: Optional[ItemMetaDataManager] = None
-_g_properties: Optional[Dict[int, PropertyMetaData]] = None
-_g_stat_cost: Optional[Dict[int, StatCostItem]] = None
+_g_item_manager: ItemMetaDataManager | None = None
+_g_properties: dict[int, PropertyMetaData] | None = None
+_g_stat_cost: dict[int, StatCostItem] | None = None
 
 
 PAIRED_STATS = {
@@ -390,8 +389,8 @@ class StatCostItem:
     op_stat3: int = 0
 
 
-def parse_itemstatcost_txt(filepath: str) -> Dict[int, StatCostItem]:
-    result: Dict[int, StatCostItem] = {}
+def parse_itemstatcost_txt(filepath: str) -> dict[int, StatCostItem]:
+    result: dict[int, StatCostItem] = {}
     if not os.path.exists(filepath):
         return result
 
@@ -461,7 +460,7 @@ def init_item_data(itemdata_path: str = None, property_path: str = None,
         _g_stat_cost = parse_itemstatcost_txt(statcost_path)
 
 
-def get_item_meta(type_id: ItemTypeId, version: int = 0) -> Optional[ItemMetaData]:
+def get_item_meta(type_id: ItemTypeId, version: int = 0) -> ItemMetaData | None:
     global _g_item_manager
     
     from core.d2data import get_d2data_manager, get_d2data
@@ -506,7 +505,7 @@ def _supplement_meta_from_d2data(meta: ItemMetaData, d2data):
             meta.has_def = True
 
 
-def get_property_meta(prop_id: int, version: int) -> Optional[PropertyMetaDataItem]:
+def get_property_meta(prop_id: int, version: int) -> PropertyMetaDataItem | None:
     from core.d2data import get_d2data_manager
     d2data_manager = get_d2data_manager()
     if d2data_manager is not None:
@@ -519,7 +518,7 @@ def get_property_meta(prop_id: int, version: int) -> Optional[PropertyMetaDataIt
     return _g_properties[prop_id].find_data(version)
 
 
-def get_stat_cost(stat_id: int) -> Optional[StatCostItem]:
+def get_stat_cost(stat_id: int) -> StatCostItem | None:
     from core.d2data import get_d2data_manager
     d2data_manager = get_d2data_manager()
     if d2data_manager is not None:
@@ -571,12 +570,12 @@ class LongName:
     def __init__(self):
         self.name_1: int = 0
         self.name_2: int = 0
-        self.pref_1: Optional[int] = None
-        self.suff_1: Optional[int] = None
-        self.pref_2: Optional[int] = None
-        self.suff_2: Optional[int] = None
-        self.pref_3: Optional[int] = None
-        self.suff_3: Optional[int] = None
+        self.pref_1: int | None = None
+        self.suff_1: int | None = None
+        self.pref_2: int | None = None
+        self.suff_2: int | None = None
+        self.pref_3: int | None = None
+        self.suff_3: int | None = None
 
 
     def deserialize(self, bs):
@@ -634,7 +633,7 @@ _TRACE_ITEM_IDX = -1
 
 class PropertyList:
     def __init__(self):
-        self.properties: List[RawProperty] = []
+        self.properties: list[RawProperty] = []
         self.end_flag = 0
         self._version: int = 0
         self._use_stat_cost: bool = False
@@ -696,7 +695,7 @@ class PropertyList:
                 return True
         return False
 
-    def get_parsed_properties(self, version: int = None) -> List[Tuple[int, int, List[int]]]:
+    def get_parsed_properties(self, version: int = None) -> list[tuple[int, int, list[int]]]:
         ver = version if version is not None else self._version
         result = []
         for prop_id, layer, value in self.properties:
@@ -712,7 +711,7 @@ class PropertyList:
                     result.append((prop_id, value, []))
         return result
 
-    def _isc_to_params(self, prop_id: int, layer: int, value: int, version: int) -> List[int]:
+    def _isc_to_params(self, prop_id: int, layer: int, value: int, version: int) -> list[int]:
         prop_meta = get_property_meta(prop_id, version)
         stat_cost = get_stat_cost(prop_id)
         display_value = value >> stat_cost.val_shift if stat_cost and stat_cost.val_shift > 0 else value
@@ -748,7 +747,7 @@ class PropertyList:
 
         return params
 
-    def _isc_layer_to_params(self, prop_id: int, layer: int, display_value: int, version: int) -> List[int]:
+    def _isc_layer_to_params(self, prop_id: int, layer: int, display_value: int, version: int) -> list[int]:
         base_meta = get_property_meta(prop_id, 0x63)
         if base_meta:
             active_fields = [f for f in base_meta.fields if f.bits > 0]
@@ -820,24 +819,24 @@ class ExtItemInfo:
         self.drop_level: int = 99
         self.quality: int = 2
         self.has_var_gfx: bool = False
-        self.var_gfx: Optional[int] = None
+        self.var_gfx: int | None = None
         self.has_class: bool = False
-        self.item_class: Optional[int] = None
-        self.low_quality_id: Optional[int] = None
-        self.high_quality_id: Optional[int] = None
-        self.magic_prefix: Optional[int] = None
-        self.magic_suffix: Optional[int] = None
-        self.set_id: Optional[int] = None
-        self.rare_name: Optional[LongName] = None
-        self.unique_id: Optional[int] = None
-        self.craft_name: Optional[LongName] = None
-        self.rune_id: Optional[int] = None
-        self.person_name: List[int] = []
-        self.monster_id: Optional[int] = None
-        self.charm_id: Optional[int] = None
-        self.spell_id: Optional[int] = None
-        self.body_part_file_index: Optional[int] = None
-        self.spell_type: Optional[int] = None
+        self.item_class: int | None = None
+        self.low_quality_id: int | None = None
+        self.high_quality_id: int | None = None
+        self.magic_prefix: int | None = None
+        self.magic_suffix: int | None = None
+        self.set_id: int | None = None
+        self.rare_name: LongName | None = None
+        self.unique_id: int | None = None
+        self.craft_name: LongName | None = None
+        self.rune_id: int | None = None
+        self.person_name: list[int] = []
+        self.monster_id: int | None = None
+        self.charm_id: int | None = None
+        self.spell_id: int | None = None
+        self.body_part_file_index: int | None = None
+        self.spell_type: int | None = None
 
 
     def is_set(self) -> bool:
@@ -961,18 +960,18 @@ class ExtItemInfo:
 
 class TypeSpecificInfo:
     def __init__(self, meta: ItemMetaData = None):
-        self.defence: Optional[int] = None
-        self.max_durability: Optional[int] = None
-        self.current_durability: Optional[int] = None
-        self.sockets_count: Optional[int] = None
-        self.quantity: Optional[int] = None
-        self.has_set_prop_list: List[bool] = []
+        self.defence: int | None = None
+        self.max_durability: int | None = None
+        self.current_durability: int | None = None
+        self.sockets_count: int | None = None
+        self.quantity: int | None = None
+        self.has_set_prop_list: list[bool] = []
         self.property_list: PropertyList = PropertyList()
-        self.set_properties: List[Optional[PropertyList]] = []
-        self.runeword_property_list: Optional[PropertyList] = None
+        self.set_properties: list[PropertyList | None] = []
+        self.runeword_property_list: PropertyList | None = None
 
 
-    def sockets(self) -> Tuple[int, int]:
+    def sockets(self) -> tuple[int, int]:
         base = self.sockets_count if self.sockets_count is not None else 0
         ext = self.property_list.ext_sockets()
         return (base, ext)
@@ -1161,15 +1160,15 @@ class ItemInfo:
 
     def __init__(self, meta: ItemMetaData = None):
         self.type_name: bytes = b'    '
-        self.ext_info: Optional[ExtItemInfo] = None
-        self.gold: Optional[GoldQuantity] = None
+        self.ext_info: ExtItemInfo | None = None
+        self.gold: GoldQuantity | None = None
         self.has_rand: bool = False
-        self.timestamp_flag: List[int] = []
-        self.realm_data: List[int] = []
+        self.timestamp_flag: list[int] = []
+        self.realm_data: list[int] = []
         self.stash_stack_size: int = 0
         self.has_stash_stack_size: bool = False
         self.quest_difficulty: int = 0
-        self.type_specific_info: Optional[TypeSpecificInfo] = None
+        self.type_specific_info: TypeSpecificInfo | None = None
         self.pad: int = 0
         self._meta = meta
 
@@ -1198,7 +1197,7 @@ class ItemInfo:
         return self.type_name in self.STACKABLE_FOR_STASH
 
     def deserialize(self, bs, version: int, is_simple: bool, is_runeword: bool,
-                  is_personalized: bool, is_socketed: bool) -> Optional[ItemMetaData]:
+                  is_personalized: bool, is_socketed: bool) -> ItemMetaData | None:
         is_d2r_ = is_d2r(version)
         huffman = get_huffman()
 
@@ -1313,9 +1312,9 @@ class D2Item:
         self._is_chronicle = False
         self._is_chronicle_compact = False
 
-        self.ear: Optional[Ear] = None
-        self.item_info: Optional[ItemInfo] = None
-        self.gem_items: List[D2Item] = []
+        self.ear: Ear | None = None
+        self.item_info: ItemInfo | None = None
+        self.gem_items: list[D2Item] = []
 
         self._meta = meta
 
@@ -1351,7 +1350,7 @@ class D2Item:
             return self.item_info.ext_info.quality
         return 2
 
-    def get_flag_names(self) -> List[str]:
+    def get_flag_names(self) -> list[str]:
         """Return list of human-readable flag names that are set on this item."""
         return [label for attr, label in ITEM_FLAG_LABELS if getattr(self, attr, False)]
 
@@ -1812,7 +1811,7 @@ class ItemList:
     def __init__(self):
         self.magic = ITEM_LIST_MAGIC
         self.count = 0
-        self.items: List[D2Item] = []
+        self.items: list[D2Item] = []
 
 
     def __len__(self) -> int:
@@ -1867,5 +1866,5 @@ class ItemList:
         for item in self.items:
             item.serialize(bs, version, False)
     
-    def get_items(self) -> List[D2Item]:
+    def get_items(self) -> list[D2Item]:
         return self.items

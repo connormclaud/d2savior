@@ -1,5 +1,4 @@
 import os
-from typing import Dict, List, Optional, Tuple
 
 
 class LanguageData:
@@ -14,9 +13,9 @@ class LanguageData:
     }
 
     def __init__(self):
-        self._strings: List[str] = []
-        self._sections: Dict[str, Tuple[int, int]] = {}
-        self._section_strings: Dict[str, Dict[int, str]] = {}
+        self._strings: list[str] = []
+        self._sections: dict[str, tuple[int, int]] = {}
+        self._section_strings: dict[str, dict[int, str]] = {}
         self._lang_index: int = 1
 
     def load(self, filepath: str, lang_index: int = 1) -> bool:
@@ -33,7 +32,7 @@ class LanguageData:
         self._section_strings = {}
         current_section_key = None
         section_base_index = 0
-        section_index_map: Dict[int, str] = {}
+        section_index_map: dict[int, str] = {}
         
         for line in lines:
             line = line.rstrip('\n\r')
@@ -103,8 +102,8 @@ class LanguageData:
         return end - start
 
 
-_g_language: Optional[LanguageData] = None
-_g_item_modifiers: Dict[str, str] = {}
+_g_language: LanguageData | None = None
+_g_item_modifiers: dict[str, str] = {}
 _g_item_modifiers_raw: list = []
 _g_item_modifiers_lang: str = 'enUS'
 
@@ -161,7 +160,7 @@ def get_item_modifier(key: str) -> str:
     return _g_item_modifiers.get(key, key)
 
 
-def get_language() -> Optional[LanguageData]:
+def get_language() -> LanguageData | None:
     return _g_language
 
 
@@ -224,7 +223,7 @@ def get_class_name(class_id: int) -> str:
     return _DEFAULT_CLASS_NAMES.get(class_id, f'Class{class_id}')
 
 
-def get_skill_name(skill_id: int) -> Tuple[str, int]:
+def get_skill_name(skill_id: int) -> tuple[str, int]:
     from core.localized_data import get_localized_data
     class_id = -1
     if 6 <= skill_id < 156:
@@ -353,7 +352,7 @@ _CHANCE_CAST_KEYS = {
 }
 
 
-def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str:
+def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str:
     from core.d2data import get_d2data
     d2data = get_d2data()
     
@@ -591,7 +590,7 @@ def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str
     return _format_template(prop_name, [a[0], a[1], a[2], a[3]])
 
 
-def _format_template(template: str, values: List) -> str:
+def _format_template(template: str, values: list) -> str:
     if not template:
         return ''
     
@@ -632,7 +631,7 @@ def _format_template(template: str, values: List) -> str:
         return template
 
 
-def _format_with_strings(template: str, int_values: List[int], str_values: List[str]) -> str:
+def _format_with_strings(template: str, int_values: list[int], str_values: list[str]) -> str:
     if not template:
         return ''
     

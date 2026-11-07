@@ -1,7 +1,6 @@
 """Little endian binary input stream reading data from bytes as bits."""
 
 from collections.abc import Buffer
-from typing import Optional
 
 type BitStreamData = Buffer
 
@@ -9,9 +8,9 @@ type BitStreamData = Buffer
 class IBitStream:
     """Little endian binary input stream, reads data from bytes as bits."""
 
-    def __init__(self, data: Optional[BitStreamData] = None):
+    def __init__(self, data: BitStreamData | None = None):
         self._data: bytes = b''
-        self.data: Optional[BitStreamData] = None
+        self.data: BitStreamData | None = None
         self._offset: int = 0
         if data is not None:
             self.set_data(data)

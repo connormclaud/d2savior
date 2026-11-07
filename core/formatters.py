@@ -2,10 +2,8 @@
 
 import os
 import datetime
-from typing import Optional, List, Tuple
-
-type SkillInfo = Tuple[int, str, int]
-type FormattedLines = List[str]
+type SkillInfo = tuple[int, str, int]
+type FormattedLines = list[str]
 
 from core.d2s_struct import D2SStruct, CharStatus
 from core.ibitstream import IBitStream
@@ -39,7 +37,7 @@ from core.constants import (
 )
 
 
-def ensure_data_loaded(lang_key: Optional[str] = None, data_dir: Optional[str] = None, force: bool = False):
+def ensure_data_loaded(lang_key: str | None = None, data_dir: str | None = None, force: bool = False):
     """Ensure game and localization data are loaded into core managers."""
     mgr = get_d2data_manager()
     loc = get_localized_data()
@@ -481,7 +479,7 @@ def format_quests_info(char_data: D2SStruct) -> str:
     return "\n".join(_format_quests_lines(char_data))
 
 
-def _get_character_skills(char_data: D2SStruct, resolver: Optional[GameDataResolver] = None) -> List[SkillInfo]:
+def _get_character_skills(char_data: D2SStruct, resolver: GameDataResolver | None = None) -> list[SkillInfo]:
     """Return invested skills as a list of (skill_index, skill_name, level) tuples."""
     if not getattr(char_data, 'skills', None) or char_data.skills.magic != 0x6669:
         return []

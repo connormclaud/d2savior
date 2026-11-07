@@ -1,4 +1,3 @@
-from typing import List, Optional, Tuple
 from core.obitstream import OBitStream
 
 
@@ -90,7 +89,7 @@ def classify_advanced_tab(items) -> int:
     return max(counts, key=counts.get)
 
 
-def get_advanced_layout(subtype: int) -> Tuple[int, int]:
+def get_advanced_layout(subtype: int) -> tuple[int, int]:
     if subtype == ADVANCED_SUBTYPE_GEM:
         return GEM_LAYOUT
     elif subtype == ADVANCED_SUBTYPE_RUNE:
@@ -113,7 +112,7 @@ def get_advanced_slot_order(subtype: int) -> list:
     return COMBINED_SLOT_ORDER
 
 
-def compute_advanced_grid(items, subtype: int) -> Tuple[int, int, list]:
+def compute_advanced_grid(items, subtype: int) -> tuple[int, int, list]:
     if not items:
         layout = get_advanced_layout(subtype)
         return layout[0], layout[1], get_advanced_slot_order(subtype)
@@ -210,7 +209,7 @@ class StashTab:
 
 class SharedStash:
     def __init__(self):
-        self.tabs: List[StashTab] = []
+        self.tabs: list[StashTab] = []
         self.file_path = ""
 
     def deserialize(self, bs, version=None):

@@ -1,5 +1,4 @@
 import os
-from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 
 
@@ -134,25 +133,25 @@ class ItemTypeInfo:
 @dataclass
 class VersionData:
     """存储单个版本的所有数据"""
-    stats: Dict[int, StatInfo] = field(default_factory=dict)
-    stats_by_name: Dict[str, StatInfo] = field(default_factory=dict)
-    properties: Dict[int, PropertyInfo] = field(default_factory=dict)
-    properties_by_code: Dict[str, PropertyInfo] = field(default_factory=dict)
-    items: Dict[str, ItemTypeInfo] = field(default_factory=dict)
-    magic_prefixes: Dict[int, MagicAffixInfo] = field(default_factory=dict)
-    magic_suffixes: Dict[int, MagicAffixInfo] = field(default_factory=dict)
-    unique_items: Dict[int, UniqueItemInfo] = field(default_factory=dict)
-    set_items: Dict[int, SetItemInfo] = field(default_factory=dict)
-    runewords: Dict[int, RuneWordInfo] = field(default_factory=dict)
-    skills: Dict[int, str] = field(default_factory=dict)
-    aura_skill_ids: Set[int] = field(default_factory=set)
-    type_ancestors: Dict[str, Set[str]] = field(default_factory=dict)
-    type_descendants: Dict[str, Set[str]] = field(default_factory=dict)
-    type_bodyloc: Dict[str, Tuple[int, int]] = field(default_factory=dict)
-    type_beltable: Set[str] = field(default_factory=set)
+    stats: dict[int, StatInfo] = field(default_factory=dict)
+    stats_by_name: dict[str, StatInfo] = field(default_factory=dict)
+    properties: dict[int, PropertyInfo] = field(default_factory=dict)
+    properties_by_code: dict[str, PropertyInfo] = field(default_factory=dict)
+    items: dict[str, ItemTypeInfo] = field(default_factory=dict)
+    magic_prefixes: dict[int, MagicAffixInfo] = field(default_factory=dict)
+    magic_suffixes: dict[int, MagicAffixInfo] = field(default_factory=dict)
+    unique_items: dict[int, UniqueItemInfo] = field(default_factory=dict)
+    set_items: dict[int, SetItemInfo] = field(default_factory=dict)
+    runewords: dict[int, RuneWordInfo] = field(default_factory=dict)
+    skills: dict[int, str] = field(default_factory=dict)
+    aura_skill_ids: set[int] = field(default_factory=set)
+    type_ancestors: dict[str, set[str]] = field(default_factory=dict)
+    type_descendants: dict[str, set[str]] = field(default_factory=dict)
+    type_bodyloc: dict[str, tuple[int, int]] = field(default_factory=dict)
+    type_beltable: set[str] = field(default_factory=set)
     item_manager: object = None
-    prop_meta: Dict = field(default_factory=dict)
-    stat_cost: Dict = field(default_factory=dict)
+    prop_meta: dict = field(default_factory=dict)
+    stat_cost: dict = field(default_factory=dict)
     
     def is_descendant(self, item_type_code: str, ancestor_code: str) -> bool:
         if not item_type_code or not ancestor_code:
@@ -201,7 +200,7 @@ class D2DataLoader:
     def __init__(self):
         pass
     
-    def load_itemstatcost(self, filepath: str) -> Tuple[Dict[int, StatInfo], Dict[str, StatInfo]]:
+    def load_itemstatcost(self, filepath: str) -> tuple[dict[int, StatInfo], dict[str, StatInfo]]:
         stats = {}
         stats_by_name = {}
         
@@ -274,7 +273,7 @@ class D2DataLoader:
         
         return stats, stats_by_name
     
-    def load_properties(self, filepath: str) -> Tuple[Dict[int, PropertyInfo], Dict[str, PropertyInfo]]:
+    def load_properties(self, filepath: str) -> tuple[dict[int, PropertyInfo], dict[str, PropertyInfo]]:
         properties = {}
         properties_by_code = {}
         
@@ -365,7 +364,7 @@ class D2DataLoader:
         
         return properties, properties_by_code
     
-    def load_items_txt(self, filepath: str, item_category: str) -> Dict[str, ItemTypeInfo]:
+    def load_items_txt(self, filepath: str, item_category: str) -> dict[str, ItemTypeInfo]:
         items = {}
         
         if not os.path.exists(filepath):
@@ -474,7 +473,7 @@ class D2DataLoader:
         
         return items
     
-    def load_magic_affix(self, filepath: str, is_prefix: bool) -> Dict[int, MagicAffixInfo]:
+    def load_magic_affix(self, filepath: str, is_prefix: bool) -> dict[int, MagicAffixInfo]:
         affix_dict = {}
         
         if not os.path.exists(filepath):
@@ -526,7 +525,7 @@ class D2DataLoader:
         
         return affix_dict
     
-    def load_unique_items(self, filepath: str) -> Dict[int, UniqueItemInfo]:
+    def load_unique_items(self, filepath: str) -> dict[int, UniqueItemInfo]:
         unique_items = {}
         
         if not os.path.exists(filepath):
@@ -577,7 +576,7 @@ class D2DataLoader:
         
         return unique_items
     
-    def load_runewords(self, filepath: str) -> Dict[int, RuneWordInfo]:
+    def load_runewords(self, filepath: str) -> dict[int, RuneWordInfo]:
         runewords = {}
         
         if not os.path.exists(filepath):
@@ -604,7 +603,7 @@ class D2DataLoader:
         
         return runewords
     
-    def load_runes_txt(self, filepath: str, runewords: Dict[int, RuneWordInfo]) -> None:
+    def load_runes_txt(self, filepath: str, runewords: dict[int, RuneWordInfo]) -> None:
         if not os.path.exists(filepath):
             return
         
@@ -647,7 +646,7 @@ class D2DataLoader:
         except Exception:
             pass
     
-    def load_set_items(self, filepath: str) -> Dict[int, SetItemInfo]:
+    def load_set_items(self, filepath: str) -> dict[int, SetItemInfo]:
         set_items = {}
         
         if not os.path.exists(filepath):
@@ -715,7 +714,7 @@ class D2DataLoader:
         
         return set_items
     
-    def load_skills(self, filepath: str) -> Tuple[Dict[int, str], Set[int]]:
+    def load_skills(self, filepath: str) -> tuple[dict[int, str], set[int]]:
         skills = {}
         aura_skill_ids = set()
         
@@ -771,7 +770,7 @@ class D2DataLoader:
         'rrin': 6, 'lrin': 7, 'belt': 8, 'feet': 9, 'glov': 10,
     }
     
-    def load_itemtypes(self, filepath: str) -> Tuple[Dict[str, Set[str]], Dict[str, Set[str]], Dict[str, Tuple[int, int]], Set[str]]:
+    def load_itemtypes(self, filepath: str) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, tuple[int, int]], set[str]]:
         type_ancestors = {}
         type_descendants = {}
         type_bodyloc = {}
@@ -791,8 +790,8 @@ class D2DataLoader:
         for i, col in enumerate(header):
             col_map[col.strip().lower()] = i
         
-        type_equivs: Dict[str, Tuple[str, str]] = {}
-        all_codes: Set[str] = set()
+        type_equivs: dict[str, tuple[str, str]] = {}
+        all_codes: set[str] = set()
         for line in lines[1:]:
             line = line.strip()
             if not line or line.startswith('*') or line.startswith('Expansion'):
@@ -846,7 +845,7 @@ class D2DataLoader:
         
         return type_ancestors, type_descendants, type_bodyloc, beltable_codes
     
-    def _build_ancestors(self, code: str, type_equivs: Dict[str, Tuple[str, str]], visited: Set[str] = None) -> Set[str]:
+    def _build_ancestors(self, code: str, type_equivs: dict[str, tuple[str, str]], visited: set[str] = None) -> set[str]:
         if visited is None:
             visited = set()
         if code in visited:
@@ -956,7 +955,7 @@ class D2DataLoader:
 class D2DataManager:
     """管理多个版本的数据"""
     def __init__(self):
-        self.version_data: Dict[int, VersionData] = {}
+        self.version_data: dict[int, VersionData] = {}
         self.default_version: int = 0x63  # 默认版本
     
     def load_version(self, version: int, data_dir: str, fallback_dir: str = None) -> bool:
@@ -1001,14 +1000,14 @@ class D2DataManager:
         
         return success
     
-    def get_version_data(self, version: int) -> Optional[VersionData]:
+    def get_version_data(self, version: int) -> VersionData | None:
         """获取指定版本的数据"""
         if version in self.version_data:
             return self.version_data[version]
         # 如果请求的版本不存在，返回默认版本
         return self.version_data.get(self.default_version)
     
-    def get_stat(self, stat_id: int, version: int = None) -> Optional[StatInfo]:
+    def get_stat(self, stat_id: int, version: int = None) -> StatInfo | None:
         """获取指定版本的stat信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1016,7 +1015,7 @@ class D2DataManager:
             return data.stats.get(stat_id)
         return None
     
-    def get_stat_by_name(self, stat_name: str, version: int = None) -> Optional[StatInfo]:
+    def get_stat_by_name(self, stat_name: str, version: int = None) -> StatInfo | None:
         """通过名称获取指定版本的stat信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1024,7 +1023,7 @@ class D2DataManager:
             return data.stats_by_name.get(stat_name)
         return None
     
-    def get_property(self, prop_id: int, version: int = None) -> Optional[PropertyInfo]:
+    def get_property(self, prop_id: int, version: int = None) -> PropertyInfo | None:
         """获取指定版本的property信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1032,7 +1031,7 @@ class D2DataManager:
             return data.properties.get(prop_id)
         return None
     
-    def get_property_by_code(self, code: str, version: int = None) -> Optional[PropertyInfo]:
+    def get_property_by_code(self, code: str, version: int = None) -> PropertyInfo | None:
         """通过代码获取指定版本的property信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1040,7 +1039,7 @@ class D2DataManager:
             return data.properties_by_code.get(code)
         return None
     
-    def get_item(self, code: str, version: int = None) -> Optional[ItemTypeInfo]:
+    def get_item(self, code: str, version: int = None) -> ItemTypeInfo | None:
         """获取指定版本的item信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1048,7 +1047,7 @@ class D2DataManager:
             return data.items.get(code)
         return None
     
-    def get_magic_prefix(self, prefix_id: int, version: int = None) -> Optional[MagicAffixInfo]:
+    def get_magic_prefix(self, prefix_id: int, version: int = None) -> MagicAffixInfo | None:
         """获取指定版本的magic prefix信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1056,7 +1055,7 @@ class D2DataManager:
             return data.magic_prefixes.get(prefix_id)
         return None
     
-    def get_magic_suffix(self, suffix_id: int, version: int = None) -> Optional[MagicAffixInfo]:
+    def get_magic_suffix(self, suffix_id: int, version: int = None) -> MagicAffixInfo | None:
         """获取指定版本的magic suffix信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1064,7 +1063,7 @@ class D2DataManager:
             return data.magic_suffixes.get(suffix_id)
         return None
     
-    def get_unique_item(self, unique_id: int, version: int = None) -> Optional[UniqueItemInfo]:
+    def get_unique_item(self, unique_id: int, version: int = None) -> UniqueItemInfo | None:
         """获取指定版本的unique item信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1072,7 +1071,7 @@ class D2DataManager:
             return data.unique_items.get(unique_id)
         return None
     
-    def get_set_item(self, set_id: int, version: int = None) -> Optional[SetItemInfo]:
+    def get_set_item(self, set_id: int, version: int = None) -> SetItemInfo | None:
         """获取指定版本的set item信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1080,7 +1079,7 @@ class D2DataManager:
             return data.set_items.get(set_id)
         return None
     
-    def get_runeword(self, runeword_id: int, version: int = None) -> Optional[RuneWordInfo]:
+    def get_runeword(self, runeword_id: int, version: int = None) -> RuneWordInfo | None:
         """获取指定版本的runeword信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1096,7 +1095,7 @@ class D2DataManager:
             return data.skills.get(skill_id, '')
         return ''
     
-    def get_aura_skill_ids(self, version: int = None) -> Set[int]:
+    def get_aura_skill_ids(self, version: int = None) -> set[int]:
         """获取指定版本的aura技能ID集合"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1127,7 +1126,7 @@ class D2DataManager:
             return data.get_belt_rows(item_code)
         return 0
     
-    def get_item_meta(self, type_id: bytes, version: int = 0) -> Optional[object]:
+    def get_item_meta(self, type_id: bytes, version: int = 0) -> object | None:
         """获取指定版本的物品元数据"""
         ver = version if version in self.version_data else self.default_version
         data = self.get_version_data(ver)
@@ -1135,7 +1134,7 @@ class D2DataManager:
             return data.item_manager.get_item(type_id, version)
         return None
     
-    def get_property_meta(self, prop_id: int, version: int = 0) -> Optional[object]:
+    def get_property_meta(self, prop_id: int, version: int = 0) -> object | None:
         """获取指定版本的属性编码元数据"""
         ver = version if version in self.version_data else self.default_version
         data = self.get_version_data(ver)
@@ -1143,7 +1142,7 @@ class D2DataManager:
             return data.prop_meta[prop_id].find_data(version)
         return None
     
-    def get_stat_cost(self, stat_id: int, version: int = None) -> Optional[object]:
+    def get_stat_cost(self, stat_id: int, version: int = None) -> object | None:
         """获取指定版本的属性成本元数据"""
         ver = version if version in self.version_data else self.default_version
         data = self.get_version_data(ver)
@@ -1153,9 +1152,9 @@ class D2DataManager:
 
 
 # 全局数据管理器实例
-_g_d2data_manager: Optional[D2DataManager] = None
+_g_d2data_manager: D2DataManager | None = None
 # 向后兼容的全局数据加载器（包装器）
-_g_d2data_wrapper: Optional[D2DataWrapper] = None
+_g_d2data_wrapper: D2DataWrapper | None = None
 
 
 class D2DataWrapper:
@@ -1163,34 +1162,34 @@ class D2DataWrapper:
     def __init__(self, manager: D2DataManager):
         self.manager = manager
     
-    def get_stat(self, stat_id: int) -> Optional[StatInfo]:
+    def get_stat(self, stat_id: int) -> StatInfo | None:
         return self.manager.get_stat(stat_id)
     
-    def get_stat_by_name(self, stat_name: str) -> Optional[StatInfo]:
+    def get_stat_by_name(self, stat_name: str) -> StatInfo | None:
         return self.manager.get_stat_by_name(stat_name)
     
-    def get_property(self, prop_id: int) -> Optional[PropertyInfo]:
+    def get_property(self, prop_id: int) -> PropertyInfo | None:
         return self.manager.get_property(prop_id)
     
-    def get_property_by_code(self, code: str) -> Optional[PropertyInfo]:
+    def get_property_by_code(self, code: str) -> PropertyInfo | None:
         return self.manager.get_property_by_code(code)
     
-    def get_item(self, code: str) -> Optional[ItemTypeInfo]:
+    def get_item(self, code: str) -> ItemTypeInfo | None:
         return self.manager.get_item(code)
     
-    def get_magic_prefix(self, prefix_id: int) -> Optional[MagicAffixInfo]:
+    def get_magic_prefix(self, prefix_id: int) -> MagicAffixInfo | None:
         return self.manager.get_magic_prefix(prefix_id)
     
-    def get_magic_suffix(self, suffix_id: int) -> Optional[MagicAffixInfo]:
+    def get_magic_suffix(self, suffix_id: int) -> MagicAffixInfo | None:
         return self.manager.get_magic_suffix(suffix_id)
     
-    def get_unique_item(self, unique_id: int) -> Optional[UniqueItemInfo]:
+    def get_unique_item(self, unique_id: int) -> UniqueItemInfo | None:
         return self.manager.get_unique_item(unique_id)
     
-    def get_set_item(self, set_id: int, version: int = None) -> Optional[SetItemInfo]:
+    def get_set_item(self, set_id: int, version: int = None) -> SetItemInfo | None:
         return self.manager.get_set_item(set_id, version)
     
-    def get_runeword(self, runeword_id: int) -> Optional[RuneWordInfo]:
+    def get_runeword(self, runeword_id: int) -> RuneWordInfo | None:
         return self.manager.get_runeword(runeword_id)
     
     def get_skill_name(self, skill_id: int) -> str:
@@ -1233,12 +1232,12 @@ def init_d2data(data_dir: str) -> bool:
     return result
 
 
-def get_d2data() -> Optional[D2DataWrapper]:
+def get_d2data() -> D2DataWrapper | None:
     """获取数据加载器，保持向后兼容"""
     return _g_d2data_wrapper
 
 
-def get_d2data_manager() -> Optional[D2DataManager]:
+def get_d2data_manager() -> D2DataManager | None:
     """获取数据管理器"""
     return _g_d2data_manager
 
@@ -1252,14 +1251,14 @@ class GameDataResolver:
     def __init__(
         self,
         version: int = 0x63,
-        mgr: Optional[D2DataManager] = _UNSET,
-        legacy: Optional[D2DataWrapper] = _UNSET,
+        mgr: D2DataManager | None = _UNSET,
+        legacy: D2DataWrapper | None = _UNSET,
     ):
         self.version = version
         self._mgr = get_d2data_manager() if mgr is _UNSET else mgr
         self._legacy = get_d2data() if legacy is _UNSET else legacy
 
-    def get_item(self, code: str) -> Optional[ItemTypeInfo]:
+    def get_item(self, code: str) -> ItemTypeInfo | None:
         if self._mgr:
             return self._mgr.get_item(code, self.version)
         return self._legacy.get_item(code) if self._legacy else None
@@ -1279,37 +1278,37 @@ class GameDataResolver:
                 return name
         return ""
 
-    def get_runeword(self, runeword_id: int) -> Optional[RuneWordInfo]:
+    def get_runeword(self, runeword_id: int) -> RuneWordInfo | None:
         if self._mgr:
             return self._mgr.get_runeword(runeword_id, self.version)
         return self._legacy.get_runeword(runeword_id) if self._legacy else None
 
-    def get_unique_item(self, unique_id: int) -> Optional[UniqueItemInfo]:
+    def get_unique_item(self, unique_id: int) -> UniqueItemInfo | None:
         if self._mgr:
             return self._mgr.get_unique_item(unique_id, self.version)
         return self._legacy.get_unique_item(unique_id) if self._legacy else None
 
-    def get_set_item(self, set_id: int) -> Optional[SetItemInfo]:
+    def get_set_item(self, set_id: int) -> SetItemInfo | None:
         if self._mgr:
             return self._mgr.get_set_item(set_id, self.version)
         return self._legacy.get_set_item(set_id, self.version) if self._legacy else None
 
-    def get_magic_prefix(self, prefix_id: int) -> Optional[MagicAffixInfo]:
+    def get_magic_prefix(self, prefix_id: int) -> MagicAffixInfo | None:
         if self._mgr:
             return self._mgr.get_magic_prefix(prefix_id, self.version)
         return self._legacy.get_magic_prefix(prefix_id) if self._legacy else None
 
-    def get_magic_suffix(self, suffix_id: int) -> Optional[MagicAffixInfo]:
+    def get_magic_suffix(self, suffix_id: int) -> MagicAffixInfo | None:
         if self._mgr:
             return self._mgr.get_magic_suffix(suffix_id, self.version)
         return self._legacy.get_magic_suffix(suffix_id) if self._legacy else None
 
-    def get_stat(self, stat_id: int) -> Optional[StatInfo]:
+    def get_stat(self, stat_id: int) -> StatInfo | None:
         if self._mgr:
             return self._mgr.get_stat(stat_id, self.version)
         return self._legacy.get_stat(stat_id) if self._legacy else None
 
-    def get_property(self, prop_id: int) -> Optional[PropertyInfo]:
+    def get_property(self, prop_id: int) -> PropertyInfo | None:
         if self._mgr:
             return self._mgr.get_property(prop_id, self.version)
         return self._legacy.get_property(prop_id) if self._legacy else None

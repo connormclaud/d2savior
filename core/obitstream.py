@@ -1,9 +1,9 @@
 """Little endian binary output stream writing data as bits."""
 
 from collections.abc import Buffer
-from typing import List, Any
+from typing import Any
 
-type ByteInput = Buffer | List[int]
+type ByteInput = Buffer | list[int]
 
 
 class OBitStream:
@@ -36,7 +36,7 @@ class OBitStream:
             return bytes(self._bytes + bytes([self._buffer & 0xFF]))
         return bytes(self._bytes)
 
-    def get_byte_list(self) -> List[int]:
+    def get_byte_list(self) -> list[int]:
         return list(self.get_data())
 
     getByteList = get_byte_list

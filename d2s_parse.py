@@ -2,7 +2,6 @@
 import sys
 import os
 import argparse
-from typing import Optional, List, Tuple
 
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream

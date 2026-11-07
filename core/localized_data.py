@@ -1,7 +1,6 @@
 import os
 import re
 import json
-from typing import Dict, List, Optional
 
 
 def clean_d2_text(text: str) -> str:
@@ -18,8 +17,8 @@ class LocalizedDataLoader:
     LANG_KEYS = ['enUS', 'zhCN']
 
     def __init__(self):
-        self._raw: Dict[str, List[dict]] = {}
-        self._data: Dict[str, Dict[str, str]] = {}
+        self._raw: dict[str, list[dict]] = {}
+        self._data: dict[str, dict[str, str]] = {}
         self._current_lang: str = 'enUS'
         self._data_dir: str = ''
 
@@ -66,7 +65,7 @@ class LocalizedDataLoader:
         for file_key in self._raw:
             self._build_index(file_key, self._current_lang)
 
-    def load_all_localized_data(self, data_dir: str, lang_key: str = 'enUS') -> Dict[str, bool]:
+    def load_all_localized_data(self, data_dir: str, lang_key: str = 'enUS') -> dict[str, bool]:
         self._data_dir = data_dir
         self._current_lang = lang_key
         results = {}
@@ -217,7 +216,7 @@ class LocalizedDataLoader:
         return ''
 
 
-_g_localized_data: Optional[LocalizedDataLoader] = None
+_g_localized_data: LocalizedDataLoader | None = None
 
 
 def get_localized_data() -> LocalizedDataLoader:
@@ -227,7 +226,7 @@ def get_localized_data() -> LocalizedDataLoader:
     return _g_localized_data
 
 
-def init_localized_data(data_dir: str, lang_key: str = 'enUS') -> Dict[str, bool]:
+def init_localized_data(data_dir: str, lang_key: str = 'enUS') -> dict[str, bool]:
     global _g_localized_data
     if _g_localized_data is None:
         _g_localized_data = LocalizedDataLoader()
