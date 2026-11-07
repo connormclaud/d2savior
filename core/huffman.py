@@ -1,5 +1,3 @@
-from typing import Dict, Optional, Tuple
-
 HUFFMAN_TREE = [
     1,
     1,
