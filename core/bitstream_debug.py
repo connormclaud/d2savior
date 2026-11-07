@@ -25,10 +25,7 @@ def search_bits(bs, pattern, context=16):
     bits_str = bs.to_bit_string() if hasattr(bs, 'to_bit_string') else str(bs)
     results = []
     start = 0
-    while True:
-        pos = bits_str.find(pattern, start)
-        if pos == -1:
-            break
+    while (pos := bits_str.find(pattern, start)) != -1:
         byte_pos = pos // 8
         bit_pos = pos % 8
         before = bits_str[max(0, pos - context):pos]
@@ -47,10 +44,7 @@ def search_bytes(bs, byte_pattern, context=4):
     data = bs.data
     results = []
     start = 0
-    while True:
-        pos = data.find(byte_pattern, start)
-        if pos == -1:
-            break
+    while (pos := data.find(byte_pattern, start)) != -1:
         before = data[max(0, pos - context):pos].hex()
         after = data[pos + len(byte_pattern):pos + len(byte_pattern) + context].hex()
         results.append({

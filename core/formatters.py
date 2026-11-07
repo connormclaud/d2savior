@@ -123,34 +123,21 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
         ensure_data_loaded()
         resolver = GameDataResolver(version)
 
-    type_info = resolver.get_item(type_name)
-    raw_name = type_info.name if type_info else type_name
+    raw_name = type_info.name if (type_info := resolver.get_item(type_name)) else type_name
     base_item_name = resolver.get_localized_item_name(type_name, fallback=raw_name)
 
-    ext = getattr(getattr(item, 'item_info', None), 'ext_info', None)
-    if ext:
-        if ext.rune_id is not None:
-            rw_name = resolver.get_localized_runeword_name(ext.rune_word_id())
-            if rw_name:
-                return f"{rw_name} ({base_item_name})"
-        if ext.unique_id is not None:
-            u_name = resolver.get_localized_unique_name(ext.unique_id)
-            if u_name:
-                return f"{u_name} ({base_item_name})"
-        if ext.set_id is not None:
-            s_name = resolver.get_localized_set_name(ext.set_id)
-            if s_name:
-                return f"{s_name} ({base_item_name})"
+    if ext := getattr(getattr(item, 'item_info', None), 'ext_info', None):
+        if ext.rune_id is not None and (rw_name := resolver.get_localized_runeword_name(ext.rune_word_id())):
+            return f"{rw_name} ({base_item_name})"
+        if ext.unique_id is not None and (u_name := resolver.get_localized_unique_name(ext.unique_id)):
+            return f"{u_name} ({base_item_name})"
+        if ext.set_id is not None and (s_name := resolver.get_localized_set_name(ext.set_id)):
+            return f"{s_name} ({base_item_name})"
         match item.quality():
             case ItemQuality.MAGIC:
-                prefix_name = ""
-                suffix_name = ""
-                if ext.magic_prefix:
-                    prefix_name = resolver.get_localized_magic_prefix(ext.magic_prefix)
-                if ext.magic_suffix:
-                    suffix_name = resolver.get_localized_magic_suffix(ext.magic_suffix)
-                parts = [p for p in [prefix_name, base_item_name, suffix_name] if p]
-                if parts:
+                prefix_name = resolver.get_localized_magic_prefix(ext.magic_prefix) if ext.magic_prefix else ""
+                suffix_name = resolver.get_localized_magic_suffix(ext.magic_suffix) if ext.magic_suffix else ""
+                if parts := [p for p in [prefix_name, base_item_name, suffix_name] if p]:
                     return " ".join(parts)
             case ItemQuality.RARE:
                 rare_pfx = resolver.get_localized_quality_name("Rare")
@@ -249,8 +236,7 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
 
     item_full_name = ""
     req_level = 0
-    type_info = resolver.get_item(type_name.strip())
-    if type_info:
+    if type_info := resolver.get_item(type_name.strip()):
         item_full_name = type_info.name
         req_level = type_info.levelreq
 
@@ -275,34 +261,32 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
     if flags:
         result.append(f"{indent}Flags: {', '.join(flags)}")
 
-    if item.item_info:
-        info = item.item_info
-        if info.ext_info:
-            ext = info.ext_info
+    if info := item.item_info:
+        if ext := info.ext_info:
             if ext.guid:
                 result.append(f"{indent}GUID: 0x{ext.guid:08X}")
             if ext.drop_level:
                 result.append(f"{indent}Drop Level: {ext.drop_level}")
             if ext.magic_prefix:
                 prefix_id = ext.magic_prefix
-                prefix_info = resolver.get_magic_prefix(prefix_id)
-                result.append(f"{indent}Prefix: {prefix_id}{f" ({prefix_info.name})" if prefix_info else ""}")
+                prefix_name = prefix_info.name if (prefix_info := resolver.get_magic_prefix(prefix_id)) else ""
+                result.append(f"{indent}Prefix: {prefix_id}{f" ({prefix_name})" if prefix_name else ""}")
             if ext.magic_suffix:
                 suffix_id = ext.magic_suffix
-                suffix_info = resolver.get_magic_suffix(suffix_id)
-                result.append(f"{indent}Suffix: {suffix_id}{f" ({suffix_info.name})" if suffix_info else ""}")
+                suffix_name = suffix_info.name if (suffix_info := resolver.get_magic_suffix(suffix_id)) else ""
+                result.append(f"{indent}Suffix: {suffix_id}{f" ({suffix_name})" if suffix_name else ""}")
             if ext.set_id is not None:
                 set_id = ext.set_id
-                set_info = resolver.get_set_item(set_id)
-                result.append(f"{indent}Set ID: {set_id}{f" ({set_info.name})" if set_info else ""}")
+                set_name = set_info.name if (set_info := resolver.get_set_item(set_id)) else ""
+                result.append(f"{indent}Set ID: {set_id}{f" ({set_name})" if set_name else ""}")
             if ext.unique_id is not None:
                 unique_id = ext.unique_id
-                unique_info = resolver.get_unique_item(unique_id)
-                result.append(f"{indent}Unique ID: {unique_id}{f" ({unique_info.index})" if unique_info else ""}")
+                unique_idx = unique_info.index if (unique_info := resolver.get_unique_item(unique_id)) else ""
+                result.append(f"{indent}Unique ID: {unique_id}{f" ({unique_idx})" if unique_idx else ""}")
             if ext.rune_id is not None:
                 runeword_id = ext.rune_word_id()
-                runeword_info = resolver.get_runeword(runeword_id)
-                result.append(f"{indent}Rune Word ID: {runeword_id}{f" ({runeword_info.name})" if runeword_info else ""}")
+                rw_name = runeword_info.name if (runeword_info := resolver.get_runeword(runeword_id)) else ""
+                result.append(f"{indent}Rune Word ID: {runeword_id}{f" ({rw_name})" if rw_name else ""}")
                 if item.gem_items:
                     rune_names = []
                     for gem in item.gem_items:
@@ -310,8 +294,7 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
                         if gem_type.startswith('r'):
                             try:
                                 rune_num = int(gem_type[1:])
-                                rune_info = resolver.get_item(gem_type)
-                                rune_name = rune_info.name if rune_info else ""
+                                rune_name = rune_info.name if (rune_info := resolver.get_item(gem_type)) else ""
                                 rune_names.append(f"{rune_name}({rune_num})")
                             except ValueError:
                                 pass
@@ -322,8 +305,7 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
             if ext.craft_name:
                 result.append(f"{indent}Craft Name: {ext.craft_name.name_1}-{ext.craft_name.name_2}")
 
-        if info.type_specific_info:
-            tp = info.type_specific_info
+        if tp := info.type_specific_info:
             if tp.defence is not None:
                 result.append(f"{indent}Defence: {tp.get_defence()}")
             if tp.max_durability is not None:
@@ -334,26 +316,22 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
                     result.append(f"{indent}Durability: {cur}/{tp.max_durability}")
             if tp.quantity is not None:
                 result.append(f"{indent}Quantity: {tp.quantity}")
-            sockets = tp.total_sockets()
-            if sockets > 0:
+            if (sockets := tp.total_sockets()) > 0:
                 result.append(f"{indent}Sockets: {sockets}")
 
-            props = _format_parsed_properties(getattr(tp, 'property_list', None), version)
-            if props:
+            if props := _format_parsed_properties(getattr(tp, 'property_list', None), version):
                 result.append(f"{indent}Properties:")
                 for p in props:
                     result.append(f"{indent}  - {p}")
 
-            rw_props = _format_parsed_properties(getattr(tp, 'runeword_property_list', None), version)
-            if rw_props:
+            if rw_props := _format_parsed_properties(getattr(tp, 'runeword_property_list', None), version):
                 result.append(f"{indent}Rune Word Properties:")
                 for p in rw_props:
                     result.append(f"{indent}  - {p}")
 
             if getattr(tp, 'set_properties', None):
                 for idx, set_prop_list in enumerate(tp.set_properties):
-                    set_props = _format_parsed_properties(set_prop_list, version)
-                    if set_props:
+                    if set_props := _format_parsed_properties(set_prop_list, version):
                         piece_count = idx + 2
                         result.append(f"{indent}Set Properties ({piece_count} Items):")
                         for p in set_props:
