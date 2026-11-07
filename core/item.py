@@ -838,7 +838,7 @@ class PropertyList:
 
 
 class ExtItemInfo:
-    def __init__(self, meta: ItemMetaData = None) -> None:
+    def __init__(self, meta: ItemMetaData | None = None) -> None:
         self.gems: int = 0
         self.guid: int = 0
         self.drop_level: int = 99
@@ -1004,7 +1004,7 @@ class ExtItemInfo:
 
 
 class TypeSpecificInfo:
-    def __init__(self, meta: ItemMetaData = None) -> None:
+    def __init__(self, meta: ItemMetaData | None = None) -> None:
         self.defence: int | None = None
         self.max_durability: int | None = None
         self.current_durability: int | None = None
@@ -1290,7 +1290,7 @@ class ItemInfo:
         b"fed ",
     }
 
-    def __init__(self, meta: ItemMetaData = None) -> None:
+    def __init__(self, meta: ItemMetaData | None = None) -> None:
         self.type_name: bytes = b"    "
         self.ext_info: ExtItemInfo | None = None
         self.gold: GoldQuantity | None = None
@@ -1420,7 +1420,7 @@ ITEM_FLAG_LABELS = [
 
 
 class D2Item:
-    def __init__(self, meta: ItemMetaData = None) -> None:
+    def __init__(self, meta: ItemMetaData | None = None) -> None:
         self.version = 0
         self.magic = ITEM_LIST_MAGIC
         self.is_quest = False

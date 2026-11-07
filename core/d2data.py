@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import Any, ClassVar
 
 
 @dataclass(slots=True)
@@ -1377,7 +1377,7 @@ def get_d2data_manager() -> D2DataManager | None:
     return _g_d2data_manager
 
 
-_UNSET = object()
+_UNSET: Any = object()
 
 
 class GameDataResolver:
