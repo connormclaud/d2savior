@@ -271,7 +271,7 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[s
         result.append(f"{indent}Required Level: {req_level}")
 
     location = ItemLocation(item.location)
-    if location == ItemLocation.EQUIPPED and item.position in EquipSlot._value2member_map_:
+    if location == ItemLocation.EQUIPPED and item.position in EquipSlot:
         result.append(f"{indent}Location: {location}, Position: {item.position} ({EquipSlot(item.position)})")
     else:
         result.append(f"{indent}Location: {location}, Position: {item.position}")
@@ -747,7 +747,7 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
             for m_item in char_data.mercenary.items.items:
                 loc = ItemLocation(m_item.location)
                 slot_str = ""
-                if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot._value2member_map_:
+                if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot:
                     slot_str = f"{EquipSlot(m_item.position).display_name}: "
                 result.append(f"  - {slot_str}{format_item_summary(m_item, version, resolver=resolver)}")
         else:
