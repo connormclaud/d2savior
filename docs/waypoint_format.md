@@ -107,19 +107,19 @@ def is_waypoint_unlocked(wp_data: WaypointData, global_idx: int) -> bool:
         return False
     byte_idx = global_idx // 8
     bit_idx = global_idx % 8
-    return bool(wp_data.Waypoints[byte_idx] & (1 << bit_idx))
+    return bool(wp_data.waypoints[byte_idx] & (1 << bit_idx))
 
 def unlock_waypoint(wp_data: WaypointData, global_idx: int) -> None:
     byte_idx = global_idx // 8
     bit_idx = global_idx % 8
-    wp_data.Waypoints[byte_idx] |= (1 << bit_idx)
+    wp_data.waypoints[byte_idx] |= (1 << bit_idx)
 ```
 
 ### Difficulty Progress Detection
 Because the Rogue Encampment waypoint (bit 0) is default-enabled on newly created characters, detection of real progression beyond the starter town checks:
 
 ```python
-has_wp_progress = (wp_data.Waypoints[0] & ~1) != 0 or any(b != 0 for b in wp_data.Waypoints[1:])
+has_wp_progress = (wp_data.waypoints[0] & ~1) != 0 or any(b != 0 for b in wp_data.waypoints[1:])
 ```
 
 ## 6. Relation to Act Travel Flags

@@ -31,19 +31,19 @@ All item status flags are packed into a 32-bit bitmask:
 | Flag | Bitmask | Description |
 |------|---------|-------------|
 | Identified | `0x00000010` | Item is identified (`is_identified`) |
-| HasQuantity | `0x00000020` | Quantity field present (`_bHasQuantity`) |
+| HasQuantity | `0x00000020` | Quantity field present (`_has_quantity`) |
 | Socketed | `0x00000800` | Item has sockets (`is_socketed`) |
 | IsEar | `0x00010000` | Item is a player ear (`is_ear`) |
-| StarterItem | `0x00020000` | Starter equipment (`bNewbie`) |
+| StarterItem | `0x00020000` | Starter equipment (`is_newbie`) |
 | CompactSave | `0x00200000` | Compact / simple item format (`is_simple`) |
 | Ethereal | `0x00400000` | Item is ethereal (`is_ethereal`) |
 | Personalized | `0x01000000` | Personalized by Anya (`is_personalized`) |
-| LowQuality / Gamble | `0x02000000` | Low quality or vendor gamble item |
+| LowQuality / Gamble | `0x02000000` | Low quality or vendor gamble item (`is_low_quality`) |
 | Runeword | `0x04000000` | Active runeword item (`is_runeword`) |
-| Chronicle | `0x10000000` | Chronicle item tracking (`_bChronicle`) |
-| ChronicleCompact | `0x20000000` | Compact chronicle data (`_bChronicleCompact`) |
+| Chronicle | `0x10000000` | Chronicle item tracking (`_is_chronicle`) |
+| ChronicleCompact | `0x20000000` | Compact chronicle data (`_is_chronicle_compact`) |
 
-### 2.3 Item Format Version (`wVersion`)
+### 2.3 Item Format Version (`item_version`)
 
 In D2R format (`version > 96`):
 
@@ -53,28 +53,28 @@ In D2R format (`version > 96`):
 | `vv` | 2 | Version offset value |
 
 Decoding logic:
-- If `hf == 1`: `wVersion = vv + 99` (codes 99..102)
-- If `hf == 0`: `wVersion = vv` (codes 0..3)
+- If `hf == 1`: `item_version = vv + 99` (codes 99..102)
+- If `hf == 0`: `item_version = vv` (codes 0..3)
 
 ### 2.4 Location and Coordinates
 
 | Field | Size (Bits) | Condition | Description |
 |-------|-------------|-----------|-------------|
-| `mode` | 3 | Always | Location mode index (`iLocation`) |
+| `mode` | 3 | Always | Location mode index (`location`) |
 
 **Modes 3 and 5 (Ground / Dropping)**:
 | Field | Size (Bits) | Description |
 |-------|-------------|-------------|
-| `GroundX` | 16 | World X coordinate (`iColumn`) |
-| `GroundY` | 16 | World Y coordinate (`iRow`) |
+| `GroundX` | 16 | World X coordinate (`column`) |
+| `GroundY` | 16 | World Y coordinate (`row`) |
 
 **All other modes (Inventory, Equipped, Belt, Stash, Cube)**:
 | Field | Size (Bits) | Description |
 |-------|-------------|-------------|
-| `BodyLocation` | 4 | Equipped body slot (`iPosition`, see `EquipSlot`) |
-| `InvX` | 4 | Inventory column 0-9 (`iColumn`) |
-| `InvY` | 4 | Inventory row 0-9 (`iRow`) |
-| `StorePage` | 3 | Stored page (`iStoredIn = read_bits(3) - 1`) |
+| `BodyLocation` | 4 | Equipped body slot (`position`, see `EquipSlot`) |
+| `InvX` | 4 | Inventory column 0-9 (`column`) |
+| `InvY` | 4 | Inventory row 0-9 (`row`) |
+| `StorePage` | 3 | Stored page (`stored_in = read_bits(3) - 1`) |
 
 #### Location Modes (`ItemLocation`)
 - `0`: Stored (Inventory, Stash, Cube)
@@ -111,9 +111,9 @@ else:
 Compact items (potions, scrolls, gems, runes, quest items, keys) omit extended properties:
 
 1. **Ear Data** (if `is_ear`):
-   - `iEarClass` (3 bits): Class of slain player
-   - `iEarLevel` (7 bits): Level of slain player
-   - `sEarName`: UTF-8 string terminated by a null character (8 bits per character for `version >= 0x62`).
+   - `ear_class` (3 bits): Class of slain player (`iEarClass`)
+   - `ear_level` (7 bits): Level of slain player (`iEarLevel`)
+   - `ear_name`: UTF-8 string terminated by a null character (8 bits per character for `version >= 0x62`, `sEarName`).
 2. **Quest Difficulty** (if `version > 92` and item has `quest > 0` and `questdiffcheck`):
    - Reads stat 356 (`quest_difficulty`) bit-length from `ItemStatCost.txt`.
 3. **Realm Data** (if `version > 86`):
@@ -182,9 +182,9 @@ Complete items contain full extended information and property lists.
 
 ### 4.5 Chronicle Data (version > 99)
 
-If `flags & 0x10000000` (`_bChronicle`):
+If `flags & 0x10000000` (`_is_chronicle`):
 - `chronicle_id` (16 bits)
-- If `_bChronicleCompact`: 64 bits compact data
+- If `_is_chronicle_compact`: 64 bits compact data
 - Else: 32-bit timestamp, 4-bit recipient count, followed by `count * 64` bits recipient records.
 
 ## 5. Byte Alignment & Socketed Gems

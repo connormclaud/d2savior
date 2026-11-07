@@ -16,7 +16,7 @@ D2Savior supports parsing and manipulating Diablo II and Diablo II: Resurrected 
   - `0x63`: D2R Patch 2.5+
 - **v3.x (Reign of the Warlock)**: Save version `0x69` (105 decimal)
   - Expansion release introducing the Warlock class (`charClass = 7`)
-  - Substantial header revisions: introduction of the 228-byte `previewData` structure containing character names and game mode versioning, dedicated `Demon` data section (`magic = 0x666C`), and shared stash tabs support (`ModernSharedStash*.d2i`).
+  - Substantial header revisions: introduction of the 228-byte `preview_data` structure containing character names and game mode versioning, dedicated `Demon` data section (`magic = 0x666C`), and shared stash tabs support (`ModernSharedStash*.d2i`).
 
 ## 2. Version Detection Helpers
 

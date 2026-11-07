@@ -8,41 +8,41 @@ Version `0x63` (Patch 2.5+) of Diablo II: Resurrected save files (`.d2s`) uses a
 |--------------|--------------|-------|-------------|
 | 0x0000       | 4            | `magic` | File magic identifier (`0xAA55AA55`) |
 | 0x0004       | 4            | `version` | Save format version (`0x63` = 99 decimal) |
-| 0x0008       | 4            | `dwSize` | Total file size in bytes |
-| 0x000C       | 4            | `dwCRC` | 32-bit rotational checksum (CRC) |
-| 0x0010       | 4            | `dwWeaponSet` | Active weapon swap set (0 or 1) |
-| 0x0014       | 16           | `Name` | Legacy character name (ASCII, null-padded) |
-| 0x0024       | 1            | `charType` / `charFlags` | Character type bitmask flags |
-| 0x0025       | 1            | `charTitle` | Character title index (0=None, 5=Slayer, etc.) |
-| 0x0026       | 2            | `numStatsNumSkills` | High 8 bits: stat count; Low 8 bits: skill count |
-| 0x0028       | 1            | `charClass` | Character class (0=Amazon .. 6=Assassin) |
+| 0x0008       | 4            | `size` | Total file size in bytes (`dwSize`) |
+| 0x000C       | 4            | `crc` | 32-bit rotational checksum CRC (`dwCRC`) |
+| 0x0010       | 4            | `weapon_set` | Active weapon swap set (0 or 1, `dwWeaponSet`) |
+| 0x0014       | 16           | `name` | Legacy character name (ASCII, null-padded, `Name`) |
+| 0x0024       | 1            | `char_flags` / `char_type` | Character type bitmask flags (`charFlags`) |
+| 0x0025       | 1            | `char_title` | Character title index (0=None, 5=Slayer, etc., `charTitle`) |
+| 0x0026       | 2            | `num_stats_num_skills` | High 8 bits: stat count; Low 8 bits: skill count |
+| 0x0028       | 1            | `char_class` | Character class (0=Amazon .. 6=Assassin, `charClass`) |
 | 0x0029       | 2            | `padding1` | Constant padding (`0x101E`) |
-| 0x002B       | 1            | `charLevel` | Character level (1-99) |
-| 0x002C       | 4            | `createTime` | Creation timestamp (unused/0 in 0x63) |
-| 0x0030       | 4            | `dwTime` | Last save timestamp (Unix epoch seconds) |
-| 0x0034       | 4            | `playTime` | Total play time (unused/`0xFFFFFFFF`) |
-| 0x0038       | 64           | `dwSkillKey[16]` | Hotkey skill assignments (16 x 32-bit dwords) |
-| 0x0078       | 4            | `dwLeftSkill1` | Primary left-hand skill ID |
-| 0x007C       | 4            | `dwRightSkill1` | Primary right-hand skill ID |
-| 0x0080       | 4            | `dwLeftSkill2` | Alternate (swap) left-hand skill ID |
-| 0x0084       | 4            | `dwRightSkill2` | Alternate (swap) right-hand skill ID |
+| 0x002B       | 1            | `char_level` | Character level (1-99, `charLevel`) |
+| 0x002C       | 4            | `create_time` | Creation timestamp (unused/0 in 0x63, `createTime`) |
+| 0x0030       | 4            | `dw_time` / `last_save_time` | Last save timestamp (Unix epoch seconds, `dwTime`) |
+| 0x0034       | 4            | `play_time` | Total play time (unused/`0xFFFFFFFF`, `playTime`) |
+| 0x0038       | 64           | `skill_keys[16]` | Hotkey skill assignments (16 x 32-bit dwords, `dwSkillKey`) |
+| 0x0078       | 4            | `left_skill_1` | Primary left-hand skill ID (`dwLeftSkill1`) |
+| 0x007C       | 4            | `right_skill_1` | Primary right-hand skill ID (`dwRightSkill1`) |
+| 0x0080       | 4            | `left_skill_2` | Alternate (swap) left-hand skill ID (`dwLeftSkill2`) |
+| 0x0084       | 4            | `right_skill_2` | Alternate (swap) right-hand skill ID (`dwRightSkill2`) |
 | 0x0088       | 16           | `outfit[16]` | Character appearance configuration |
 | 0x0098       | 16           | `colors[16]` | Character color palette settings |
-| 0x00A8       | 3            | `Town[3]` | Current town per difficulty (Normal, NM, Hell) |
-| 0x00AB       | 4            | `dwMapSeed` | Random map generation seed |
-| 0x00AF       | 2            | `mercFlagsLow` | Mercenary flags lower 16 bits |
-| 0x00B1       | 1            | `bMercDead` | Mercenary dead flag (1=Dead, 0=Alive) |
-| 0x00B2       | 1            | `mercFlagsHigh` | Mercenary flags upper 8 bits |
-| 0x00B3       | 4            | `dwMercControl` | Mercenary control seed/flag |
-| 0x00B7       | 2            | `wMercName` | Mercenary name ID table index |
-| 0x00B9       | 2            | `wMercType` | Mercenary hireling type / difficulty index |
-| 0x00BB       | 4            | `dwMercExp` | Mercenary accumulated experience points |
-| 0x00BF       | 76           | `previewPrefix` | Preview metadata (equipment, guild emblem, XP) |
-| 0x010B       | 64           | `NamePTR` | D2R character name (UTF-8, null-terminated) |
-| 0x014B       | 4            | `previewSuffix` | Preview metadata suffix |
+| 0x00A8       | 3            | `town[3]` | Current town per difficulty (Normal, NM, Hell, `Town`) |
+| 0x00AB       | 4            | `map_seed` | Random map generation seed (`dwMapSeed`) |
+| 0x00AF       | 2            | `merc_flags_low` | Mercenary flags lower 16 bits (`mercFlagsLow`) |
+| 0x00B1       | 1            | `merc_dead` | Mercenary dead flag (1=Dead, 0=Alive, `bMercDead`) |
+| 0x00B2       | 1            | `merc_flags_high` | Mercenary flags upper 8 bits (`mercFlagsHigh`) |
+| 0x00B3       | 4            | `merc_control` | Mercenary control seed/flag (`dwMercControl`) |
+| 0x00B7       | 2            | `merc_name` | Mercenary name ID table index (`wMercName`) |
+| 0x00B9       | 2            | `merc_type` | Mercenary hireling type / difficulty index (`wMercType`) |
+| 0x00BB       | 4            | `merc_exp` | Mercenary accumulated experience points (`dwMercExp`) |
+| 0x00BF       | 76           | `preview_prefix` | Preview metadata (equipment, guild emblem, XP, `previewPrefix`) |
+| 0x010B       | 64           | `name_ptr` | D2R character name (UTF-8, null-terminated, `NamePTR`) |
+| 0x014B       | 4            | `preview_suffix` | Preview metadata suffix (`previewSuffix`) |
 | Variable     | Variable     | `quests` | Quest data block (`QuestInfo`) |
 | Variable     | Variable     | `waypoints` | Waypoint activation block (`Waypoints`) |
-| Variable     | 52           | `NPC` | NPC introduction / talk state flags (0x34 bytes) |
+| Variable     | 52           | `npc` | NPC introduction / talk state flags (0x34 bytes, `NPC`) |
 | Variable     | Variable     | `player_stats` | Attributes block (`PlayerStats`) |
 | Variable     | 32           | `skills` | Skill allocation block (`CharSkills`) |
 | Variable     | Variable     | `item_list` | Inventory, equipped, and stash items (`ItemList`) |
@@ -50,7 +50,7 @@ Version `0x63` (Patch 2.5+) of Diablo II: Resurrected save files (`.d2s`) uses a
 | Variable     | Variable     | `mercenary` | Mercenary item block (`Mercenary`, expansion only) |
 | Variable     | Variable     | `golem` | Iron Golem item data (`Golem`, expansion only) |
 
-## 2. Character Type Flags (`charFlags` / `charType`)
+## 2. Character Type Flags (`char_flags` / `char_type`)
 
 The character type byte at offset `0x0024` stores boolean gameplay flags:
 
@@ -100,7 +100,7 @@ def get_char_name(self) -> str:
 
 ## 5. Quest Information (`QuestInfo`)
 
-The quest block starts immediately after `previewSuffix` (offset `0x014F`):
+The quest block starts immediately after `preview_suffix` (offset `0x014F`):
 
 | Field | Size (Bytes) | Description |
 |-------|--------------|-------------|
@@ -113,23 +113,23 @@ The quest block starts immediately after `previewSuffix` (offset `0x014F`):
 
 | Field | Size (Bytes) | Description |
 |-------|--------------|-------------|
-| `wIntroduced1` | 2 | Act I intro dialogue flag |
-| `wActI[6]` | 12 | Act I quest state words (6 quests) |
+| `introduced_1` | 2 | Act I intro dialogue flag (`wIntroduced1`) |
+| `act_1[6]` | 12 | Act I quest state words (6 quests, `wActI`) |
 | `travel_1` | 2 | Act I -> Act II transition flag |
-| `wIntroduced2` | 2 | Act II intro dialogue flag |
-| `wActII[6]` | 12 | Act II quest state words (6 quests) |
+| `introduced_2` | 2 | Act II intro dialogue flag (`wIntroduced2`) |
+| `act_2[6]` | 12 | Act II quest state words (6 quests, `wActII`) |
 | `travel_2` | 2 | Act II -> Act III transition flag |
-| `wIntroduced3` | 2 | Act III intro dialogue flag |
-| `wActIII[6]` | 12 | Act III quest state words (6 quests) |
+| `introduced_3` | 2 | Act III intro dialogue flag (`wIntroduced3`) |
+| `act_3[6]` | 12 | Act III quest state words (6 quests, `wActIII`) |
 | `travel_3` | 2 | Act III -> Act IV transition flag |
-| `wIntroduced4` | 2 | Act IV intro dialogue flag |
-| `wActIV[3]` | 6 | Act IV quest state words (3 quests) |
+| `introduced_4` | 2 | Act IV intro dialogue flag (`wIntroduced4`) |
+| `act_4[3]` | 6 | Act IV quest state words (3 quests, `wActIV`) |
 | `travel_4` | 2 | Act IV -> Act V transition flag |
 | `unknown1[3]` | 6 | Padding / reserved |
-| `wIntroduced5` | 2 | Act V intro dialogue flag |
+| `introduced_5` | 2 | Act V intro dialogue flag (`wIntroduced5`) |
 | `unknown2[2]` | 4 | Padding / reserved |
-| `wActV[6]` | 12 | Act V quest state words (6 quests) |
-| `bResetStats` | 1 | Akara stat/skill reset available flag |
+| `act_5[6]` | 12 | Act V quest state words (6 quests, `wActV`) |
+| `reset_stats` | 1 | Akara stat/skill reset available flag (`bResetStats`) |
 | `unknown3` | 1 | Padding / reserved |
 | `unknown4[6]` | 12 | Reserved trailing words |
 
@@ -142,7 +142,7 @@ Refer to [waypoint_format.md](waypoint_format.md) for full bitmask details.
 | `magic` | 2 | Magic identifier (`0x5357` = ASCII "WS") |
 | `unknown` | 4 | Section version (always `1`) |
 | `size` | 2 | Section size (`0x0050` = 80 bytes) |
-| `wp[3]` | 72 | 3 difficulty waypoint structures (24 bytes each) |
+| `wp[3]` | 72 | 3 difficulty waypoint structures (24 bytes each, `WaypointData`) |
 
 ## 7. Player Attributes (`PlayerStats`)
 
@@ -156,8 +156,8 @@ Refer to [0x63_player_stat.md](0x63_player_stat.md) for full attribute unpacking
 
 | Field | Size (Bytes) | Description |
 |-------|--------------|-------------|
-| `wMagic` | 2 | Magic identifier (`0x6669` = ASCII "if") |
-| `bSkillLevel[30]` | 30 | Base skill points allocated per skill (1 byte each) |
+| `magic` | 2 | Magic identifier (`0x6669` = ASCII "if", `wMagic`) |
+| `skill_levels[30]` | 30 | Base skill points allocated per skill (1 byte each, `bSkillLevel`) |
 
 ## 9. Items Block (`ItemList`)
 
@@ -171,9 +171,9 @@ Refer to [0x63_itemlist_format.md](0x63_itemlist_format.md).
 
 | Field | Size (Bytes) | Description |
 |-------|--------------|-------------|
-| `wMagic` | 2 | Magic identifier (`0x4D4A` = ASCII "JM") |
-| `wCount` | 2 | Corpse count (0 or 1) |
-| `pCorpseData` | Variable | If `wCount > 0`: 12-byte header + `ItemList` |
+| `magic` | 2 | Magic identifier (`0x4D4A` = ASCII "JM", `wMagic`) |
+| `count` | 2 | Corpse count (0 or 1, `wCount`) |
+| `corpse_data` | Variable | If `count > 0`: 12-byte header + `ItemList` (`pCorpseData`) |
 
 ## 11. Mercenary Gear (`Mercenary`)
 
@@ -181,15 +181,15 @@ Present only when `is_expansion()` is True:
 
 | Field | Size (Bytes) | Description |
 |-------|--------------|-------------|
-| `wMagic` | 2 | Magic identifier (`0x666A` = ASCII "jf") |
-| `stItems` | Variable | `ItemList` containing mercenary equipped items |
+| `magic` | 2 | Magic identifier (`0x666A` = ASCII "jf", `wMagic`) |
+| `items` | Variable | `ItemList` containing mercenary equipped items (`stItems`) |
 
 Presence detection in 0x63:
 ```python
 def has_mercenary(self) -> bool:
     if self.version >= 0x61:
-        return self.dwMercControl != 0
-    return self.wMercName > 0
+        return self.merc_control != 0
+    return self.merc_name > 0
 ```
 
 ## 12. Iron Golem Item (`Golem`)
@@ -198,9 +198,9 @@ Present only when `is_expansion()` is True:
 
 | Field | Size (Bytes) | Description |
 |-------|--------------|-------------|
-| `wMagic` | 2 | Magic identifier (`0x666B` or `0x6669`) |
-| `bHasGolem` | 1 | Boolean flag (1 = Active Golem, 0 = None) |
-| `pItem` | Variable | If `bHasGolem`: serialized `D2Item` |
+| `magic` | 2 | Magic identifier (`0x666B` or `0x6669`, `wMagic`) |
+| `has_golem` | 1 | Boolean flag (1 = Active Golem, 0 = None, `bHasGolem`) |
+| `item` | Variable | If `has_golem`: serialized `D2Item` (`pItem`) |
 
 ## 13. CRC Checksum Calculation
 

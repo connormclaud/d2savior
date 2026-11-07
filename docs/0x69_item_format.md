@@ -20,8 +20,8 @@ Because version `0x69` (105 decimal) is greater than 96, individual items omit t
 |-------|-------------|-------------|
 | `flags` | 32 | Packed 32-bit status flags |
 | `hf` | 1 | High version flag |
-| `vv` | 2 | Version value offset (`wVersion = vv + 99` if `hf` else `vv`) |
-| `mode` | 3 | Location mode (`iLocation`) |
+| `vv` | 2 | Version value offset (`item_version = vv + 99` if `hf` else `vv`, `wVersion`) |
+| `mode` | 3 | Location mode (`location`) |
 | Coordinates | Variable | Depending on `mode` (Ground vs Stored/Equipped) |
 | `type_name` | Huffman | 4 characters decoded via Huffman coding tree |
 
@@ -53,7 +53,7 @@ In version `0x69` (`version >= 0x69` or `version > 104`), quantity serialization
 if version >= 0x69:
     if bs.read_bits(1):
         self.quantity = bs.read_bits(9)
-elif bIsStacked:
+elif is_stacked:
     self.quantity = bs.read_bits(9)
 ```
 
