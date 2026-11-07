@@ -3,6 +3,8 @@ import struct
 import sys
 import unittest
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.ibitstream import IBitStream
@@ -116,9 +118,9 @@ class TestCStashTabHeader(unittest.TestCase):
         header += b"\x00" * (STASH_TAB_HEADER_SIZE - 4)
         bs = IBitStream(header)
         tab = StashTab()
-        with self.assertRaises(ValueError) as ctx:
+        with pytest.raises(ValueError, match="Invalid stash tab magic") as ctx:
             tab.deserialize(bs)
-        self.assertIn("Invalid stash tab magic", str(ctx.exception))
+        self.assertIn("Invalid stash tab magic", str(ctx.value))
 
     def test_stash_format_1_forces_normal_type(self):
         header = _build_stash_tab_header(

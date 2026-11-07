@@ -2,6 +2,8 @@ import os
 import sys
 import unittest
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.ibitstream import IBitStream
@@ -117,22 +119,22 @@ class TestIBitStream(unittest.TestCase):
 
     def test_not_enough_bits(self):
         stream = IBitStream(bytearray([0x76]))
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError, match="not enough bits remaining"):
             stream.read(9)
 
     def test_skip_not_enough_bits(self):
         stream = IBitStream(bytearray([0x76]))
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError, match="not enough bits remaining"):
             stream.skip(9)
 
     def test_peek_not_enough_bits(self):
         stream = IBitStream(bytearray([0x76]))
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError, match="not enough bits remaining"):
             stream.peek(9)
 
     def test_negative_bits(self):
         stream = IBitStream(bytearray([0x76]))
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError, match="num_bits must be >= 0"):
             stream.read(-1)
 
     def test_set_data(self):

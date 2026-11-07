@@ -2,6 +2,8 @@ import os
 import sys
 import unittest
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.huffman import HUFFMAN_TREE, HuffmanDecoder, get_huffman
@@ -188,7 +190,7 @@ class TestHuffmanEdgeCases(unittest.TestCase):
 
     def test_empty_stream_returns_w(self):
         in_bs = IBitStream(b"")
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError, match="not enough bits remaining"):
             self.huffman.read_char(in_bs)
 
     def test_space_character(self):
