@@ -2,6 +2,7 @@ import os
 from collections.abc import Buffer
 from dataclasses import dataclass, field
 from itertools import batched
+from typing import ClassVar
 
 type RawProperty = tuple[int, int, int]
 type ItemTypeId = Buffer | str
@@ -781,7 +782,7 @@ class PropertyList:
                 return params
         return [layer, display_value, 0, 0]
 
-    IMPLICIT_STATS = {88}
+    IMPLICIT_STATS: ClassVar[set[int]] = {88}
 
     def serialize(self, bs, version: int):
         self._use_stat_cost = _g_stat_cost is not None and is_d2r(version)
@@ -1199,7 +1200,7 @@ class TypeSpecificInfo:
 
 
 class ItemInfo:
-    STACKABLE_FOR_STASH = {
+    STACKABLE_FOR_STASH: ClassVar[set[bytes]] = {
         b"rvs ",
         b"rvl ",
         b"gcv ",

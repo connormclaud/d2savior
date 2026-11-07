@@ -1,8 +1,9 @@
 import os
+from typing import ClassVar
 
 
 class LanguageData:
-    SECTION_MARKERS = {
+    SECTION_MARKERS: ClassVar[dict[str, str]] = {
         "class_name": "角色名字",
         "property_name": "以下是属性名称(Property Name)",
         "monster_name": "以下是怪物名称(Monster Names)",

@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from typing import ClassVar
 
 
 def clean_d2_text(text: str) -> str:
@@ -14,7 +15,7 @@ def clean_d2_text(text: str) -> str:
 
 
 class LocalizedDataLoader:
-    LANG_KEYS = ["enUS", "zhCN"]
+    LANG_KEYS: ClassVar[list[str]] = ["enUS", "zhCN"]
 
     def __init__(self):
         self._raw: dict[str, list[dict]] = {}
@@ -204,7 +205,7 @@ class LocalizedDataLoader:
             return result2
         return ""
 
-    _SKILL_TAB_KEYS = {
+    _SKILL_TAB_KEYS: ClassVar[dict[tuple[int, int], str]] = {
         (0, 0): "SkillCategoryAm3",
         (0, 1): "SkillCategoryAm2",
         (0, 2): "SkillCategoryAm1",

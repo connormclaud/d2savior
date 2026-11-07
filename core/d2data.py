@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass, field
+from typing import ClassVar
 
 
 @dataclass(slots=True)
@@ -871,7 +872,7 @@ class D2DataLoader:
 
         return skills, aura_skill_ids
 
-    BODYLOC_MAP = {
+    BODYLOC_MAP: ClassVar[dict[str, int]] = {
         "head": 1,
         "neck": 2,
         "tors": 3,
