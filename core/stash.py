@@ -348,7 +348,7 @@ class StashTab:
         end_pos = start_pos + self._tab_size
         bs.bytes_pos = end_pos
 
-    def _read_chronicle(self, bs):
+    def _read_chronicle(self, bs) -> None:
         body_size = max(0, self._tab_size - STASH_TAB_HEADER_SIZE)
         self.chronicle = bytes(bs.read_byte() for _ in range(body_size))
 

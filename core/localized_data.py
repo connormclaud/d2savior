@@ -39,7 +39,7 @@ class LocalizedDataLoader:
             print(f"Error loading {filepath}: {e}")
             return False
 
-    def _build_index(self, file_key: str, lang_key: str):
+    def _build_index(self, file_key: str, lang_key: str) -> None:
         self._data[file_key] = {}
         raw = self._raw.get(file_key, [])
         fallback_lang = "zhTW" if lang_key == "zhCN" else ("zhCN" if lang_key == "zhTW" else None)
@@ -62,7 +62,7 @@ class LocalizedDataLoader:
                 if translated:
                     self._data[file_key][en_us] = translated
 
-    def _rebuild_all_indexes(self):
+    def _rebuild_all_indexes(self) -> None:
         for file_key in self._raw:
             self._build_index(file_key, self._current_lang)
 

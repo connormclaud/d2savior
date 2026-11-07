@@ -1,3 +1,5 @@
+from typing import Any
+
 HUFFMAN_TREE = [
     1,
     1,
@@ -158,10 +160,10 @@ class HuffmanDecoder:
         self._codes: dict[int, tuple[int, int]] = {}
         self._build_codes(self._root, 0, 0)
 
-    def _build_tree(self):
+    def _build_tree(self) -> dict[str, Any] | None:
         idx = [0]
 
-        def build():
+        def build() -> dict[str, Any] | None:
             if idx[0] >= len(HUFFMAN_TREE):
                 return None
             c = HUFFMAN_TREE[idx[0]]
@@ -175,7 +177,7 @@ class HuffmanDecoder:
 
         return build()
 
-    def _build_codes(self, node, bits, code):
+    def _build_codes(self, node, bits, code) -> None:
         if node is None:
             return
         if node["data"] != 0:

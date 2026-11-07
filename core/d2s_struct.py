@@ -399,7 +399,7 @@ class Demon:
         self._raw_data = bs.data[start_pos:end_pos]
         bs.bytes_pos = end_pos
 
-    def _read_demon_data(self, bs):
+    def _read_demon_data(self, bs) -> None:
         stat_data_size = bs.read_word()
         _demon_type = bs.read_word()
         _class_id = bs.read_word() - 1
@@ -495,7 +495,7 @@ class D2SStruct:
         return self._merc_experience if self.version >= 0x69 else getattr(self, "merc_exp", 0)
 
     @merc_experience.setter
-    def merc_experience(self, val: int):
+    def merc_experience(self, val: int) -> None:
         self._merc_experience = val
 
     def deserialize(self, bs):
@@ -510,7 +510,7 @@ class D2SStruct:
         else:
             self._read_data_common(bs)
 
-    def _read_data_v69(self, bs):
+    def _read_data_v69(self, bs) -> None:
         self.char_flags = CharStatus(bs.read_dword())
         self.char_type = self.char_flags
         self.char_title = (self.char_flags >> 8) & 0x1F
@@ -580,7 +580,7 @@ class D2SStruct:
 
         bs.align_byte()
 
-    def _read_data_common(self, bs):
+    def _read_data_common(self, bs) -> None:
         self.name = bs.data[bs.bytes_pos : bs.bytes_pos + 16]
         bs.bytes_pos += 16
 
@@ -753,7 +753,7 @@ class D2SStruct:
         else:
             self._serialize_common(bs)
 
-    def _serialize_v69(self, bs):
+    def _serialize_v69(self, bs) -> None:
         bs.write_dword(self.char_flags)
         bs.write_byte(self.char_class)
         bs.write_byte(self.num_stats)
@@ -802,7 +802,7 @@ class D2SStruct:
 
         bs.align_byte()
 
-    def _serialize_common(self, bs):
+    def _serialize_common(self, bs) -> None:
         bs.write_bytes(self.name)
         bs.write_byte(self.char_type)
         bs.write_byte(self.char_title)

@@ -38,7 +38,7 @@ class IBitStream:
         return self._offset // 8
 
     @bytes_pos.setter
-    def bytes_pos(self, value: int):
+    def bytes_pos(self, value: int) -> None:
         self._offset = value * 8 + self.bits_pos
 
     @property
@@ -46,7 +46,7 @@ class IBitStream:
         return self._offset % 8
 
     @bits_pos.setter
-    def bits_pos(self, value: int):
+    def bits_pos(self, value: int) -> None:
         self._offset = (self._offset // 8) * 8 + value
 
     def seek_back_bytes(self, num_bytes: int):

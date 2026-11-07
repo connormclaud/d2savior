@@ -497,7 +497,7 @@ def get_item_meta(type_id: ItemTypeId, version: int = 0) -> ItemMetaData | None:
     return _convert_item_type_to_meta(type_info, d2data)
 
 
-def _supplement_meta_from_d2data(meta: ItemMetaData, d2data):
+def _supplement_meta_from_d2data(meta: ItemMetaData, d2data) -> None:
     code = meta.type_id.decode("ascii", errors="replace").strip()
     type_info = d2data.get_item(code)
     if type_info is None or not type_info.item_type2:
@@ -1474,7 +1474,7 @@ class D2Item:
         return b"    "
 
     @type_name.setter
-    def type_name(self, value: bytes):
+    def type_name(self, value: bytes) -> None:
         if self.item_info:
             self.item_info.type_name = value
         if self._meta:
@@ -1528,7 +1528,7 @@ class D2Item:
         else:
             self._read_data_classic(bs, version, read_magic)
 
-    def _read_data_d2r(self, bs, version: int, read_magic: bool = True):
+    def _read_data_d2r(self, bs, version: int, read_magic: bool = True) -> None:
         if read_magic:
             bs.align_byte()
             self.magic = bs.read_word()
@@ -1606,7 +1606,7 @@ class D2Item:
 
     def _read_compact_d2r(
         self, bs, version: int, type_name: bytes, is_chronicle: bool, is_chronicle_compact: bool
-    ):
+    ) -> None:
         if self.is_ear:
             return
 
@@ -1635,7 +1635,7 @@ class D2Item:
 
     def _read_complete_d2r(
         self, bs, version: int, type_name: bytes, is_chronicle: bool, is_chronicle_compact: bool
-    ):
+    ) -> None:
         if self.is_ear:
             return
 
@@ -1694,7 +1694,7 @@ class D2Item:
 
         self._read_advanced_stash_size(bs, version, type_name)
 
-    def _read_advanced_stash_size(self, bs, version: int, type_name: bytes):
+    def _read_advanced_stash_size(self, bs, version: int, type_name: bytes) -> None:
         if version <= 99 or not self.item_info:
             return
         if version <= 101:
@@ -1706,7 +1706,7 @@ class D2Item:
                 self.item_info.stash_stack_size = bs.read_bits(8)
                 self.item_info.has_stash_stack_size = True
 
-    def _read_data_classic(self, bs, version: int, read_magic: bool = True):
+    def _read_data_classic(self, bs, version: int, read_magic: bool = True) -> None:
         if read_magic:
             bs.align_byte()
             self.magic = bs.read_word()
@@ -1781,7 +1781,7 @@ class D2Item:
         else:
             self._serialize_classic(bs, version, write_magic)
 
-    def _serialize_d2r(self, bs, version: int, write_magic: bool = True):
+    def _serialize_d2r(self, bs, version: int, write_magic: bool = True) -> None:
         if write_magic:
             bs.align_byte()
             bs.write_word(self.magic)
@@ -1825,7 +1825,7 @@ class D2Item:
         for gem_item in self.gem_items:
             gem_item.serialize(bs, self.version, True)
 
-    def _write_compact_d2r(self, bs, version: int):
+    def _write_compact_d2r(self, bs, version: int) -> None:
         if not self.item_info:
             return
 
@@ -1849,7 +1849,7 @@ class D2Item:
 
         self._write_advanced_stash_size(bs, version)
 
-    def _write_complete_d2r(self, bs, version: int):
+    def _write_complete_d2r(self, bs, version: int) -> None:
         if not self.item_info or not self.item_info.ext_info:
             return
 
@@ -1895,7 +1895,7 @@ class D2Item:
 
         self._write_advanced_stash_size(bs, version)
 
-    def _write_advanced_stash_size(self, bs, version: int):
+    def _write_advanced_stash_size(self, bs, version: int) -> None:
         if version <= 99 or not self.item_info:
             return
 
@@ -1910,7 +1910,7 @@ class D2Item:
             if has_stash_size:
                 bs.write_bits(8, self.item_info.stash_stack_size)
 
-    def _serialize_classic(self, bs, version: int, write_magic: bool = True):
+    def _serialize_classic(self, bs, version: int, write_magic: bool = True) -> None:
         if write_magic:
             bs.align_byte()
             bs.write_word(self.magic)

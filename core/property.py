@@ -138,7 +138,7 @@ def init_item_modifiers(filepath: str, lang_key: str = "enUS") -> bool:
     return True
 
 
-def _rebuild_item_modifiers():
+def _rebuild_item_modifiers() -> None:
     global _g_item_modifiers
     _g_item_modifiers = {}
     fallback_lang = (
@@ -160,7 +160,7 @@ def _rebuild_item_modifiers():
 init_item_modifiers.set_lang = lambda lang_key: _set_item_modifiers_lang(lang_key)
 
 
-def _set_item_modifiers_lang(lang_key: str):
+def _set_item_modifiers_lang(lang_key: str) -> None:
     global _g_item_modifiers_lang
     _g_item_modifiers_lang = lang_key
     _rebuild_item_modifiers()
