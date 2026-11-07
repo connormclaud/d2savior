@@ -910,7 +910,7 @@ class D2DataLoader:
         all_codes: set[str] = set()
         for line in lines[1:]:
             line = line.strip()
-            if not line or line.startswith("*") or line.startswith("Expansion"):
+            if not line or line.startswith(("*", "Expansion")):
                 continue
             parts = line.split("\t")
 

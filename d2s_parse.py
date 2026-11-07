@@ -149,7 +149,7 @@ def process_file(file_path, args):
         print(f"Error: File '{file_path}' does not exist")
         return
 
-    if not (file_path.endswith(".d2s") or file_path.endswith(".d2i")):
+    if not file_path.endswith((".d2s", ".d2i")):
         print(f"Error: File '{file_path}' is not a .d2s or .d2i file")
         return
 
