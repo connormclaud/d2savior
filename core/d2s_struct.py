@@ -163,20 +163,25 @@ class QuestInfo:
 class WaypointData:
     def __init__(self):
         self.unknown = 0
-        self.Waypoints = [0] * 5
+        self.waypoints = [0] * 5
         self.unknown2 = [0] * 17
     
+    @property
+    def Waypoints(self): return self.waypoints
+    @Waypoints.setter
+    def Waypoints(self, val): self.waypoints = val
+
     def deserialize(self, bs):
         self.unknown = bs.read_word()
         for i in range(5):
-            self.Waypoints[i] = bs.read_byte()
+            self.waypoints[i] = bs.read_byte()
         for i in range(17):
             self.unknown2[i] = bs.read_byte()
     
     def serialize(self, bs):
         bs.write_word(self.unknown)
         for i in range(5):
-            bs.write_byte(self.Waypoints[i])
+            bs.write_byte(self.waypoints[i])
         for i in range(17):
             bs.write_byte(self.unknown2[i])
 
