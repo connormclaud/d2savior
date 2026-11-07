@@ -151,7 +151,7 @@ class VersionData:
     type_descendants: dict[str, set[str]] = field(default_factory=dict)
     type_bodyloc: dict[str, tuple[int, int]] = field(default_factory=dict)
     type_beltable: set[str] = field(default_factory=set)
-    item_manager: object = None
+    item_manager: Any = None
     prop_meta: dict = field(default_factory=dict)
     stat_cost: dict = field(default_factory=dict)
 
@@ -208,13 +208,13 @@ class D2DataLoader:
         stats_by_name = {}
 
         if not os.path.exists(filepath):
-            return stats
+            return stats, stats_by_name
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
-            return stats
+            return stats, stats_by_name
 
         header = lines[0].strip().split("\t")
         col_map = {}
@@ -900,7 +900,7 @@ class D2DataLoader:
             lines = f.readlines()
 
         if len(lines) < 1:
-            return type_ancestors, type_descendants
+            return type_ancestors, type_descendants, type_bodyloc, beltable_codes
 
         header = lines[0].strip().split("\t")
         col_map = {}
@@ -1259,7 +1259,7 @@ class D2DataManager:
             return data.get_belt_rows(item_code)
         return 0
 
-    def get_item_meta(self, type_id: bytes, version: int = 0) -> object | None:
+    def get_item_meta(self, type_id: bytes, version: int = 0) -> Any | None:
         """获取指定版本的物品元数据"""
         ver = version if version in self.version_data else self.default_version
         data = self.get_version_data(ver)
@@ -1267,7 +1267,7 @@ class D2DataManager:
             return data.item_manager.get_item(type_id, version)
         return None
 
-    def get_property_meta(self, prop_id: int, version: int = 0) -> object | None:
+    def get_property_meta(self, prop_id: int, version: int = 0) -> Any | None:
         """获取指定版本的属性编码元数据"""
         ver = version if version in self.version_data else self.default_version
         data = self.get_version_data(ver)
@@ -1275,7 +1275,7 @@ class D2DataManager:
             return data.prop_meta[prop_id].find_data(version)
         return None
 
-    def get_stat_cost(self, stat_id: int, version: int | None = None) -> object | None:
+    def get_stat_cost(self, stat_id: int, version: int | None = None) -> Any | None:
         """获取指定版本的属性成本元数据"""
         ver = version if version in self.version_data else self.default_version
         data = self.get_version_data(ver)

@@ -58,6 +58,5 @@ python-version = "3.15"
 # Temporary ignores to be removed one rule per commit:
 "invalid-argument-type" = "ignore"
 "invalid-assignment" = "ignore"
-"invalid-return-type" = "ignore"
 "unresolved-attribute" = "ignore"
 
