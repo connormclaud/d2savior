@@ -1,3 +1,5 @@
+from typing import Any
+
 from core.obitstream import OBitStream
 
 STASH_TAB_MAGIC = 0xAA55AA55
@@ -309,7 +311,7 @@ class StashTab:
         self.chronicle = None
         self._tab_size = 0
 
-    def deserialize(self, bs, version=None):
+    def deserialize(self, bs, version=None) -> None:
         start_pos = bs.bytes_pos
 
         magic = bs.read_dword()
@@ -352,7 +354,7 @@ class StashTab:
         body_size = max(0, self._tab_size - STASH_TAB_HEADER_SIZE)
         self.chronicle = bytes(bs.read_byte() for _ in range(body_size))
 
-    def serialize(self, bs, version=None):
+    def serialize(self, bs, version=None) -> None:
         item_version = version if version else self.item_format
 
         bs.write_dword(STASH_TAB_MAGIC)
@@ -375,7 +377,7 @@ class SharedStash:
         self.tabs: list[StashTab] = []
         self.file_path = ""
 
-    def deserialize(self, bs, version=None):
+    def deserialize(self, bs, version=None) -> None:
         self.tabs = []
         while bs.remaining() >= STASH_TAB_HEADER_SIZE * 8:
             try:
@@ -390,7 +392,7 @@ class SharedStash:
                 logging.warning(f"Failed to parse stash tab #{len(self.tabs)}: {e}")
                 break
 
-    def serialize(self, bs, version=None):
+    def serialize(self, bs, version=None) -> None:
         import struct
 
         for tab in self.tabs:
@@ -401,20 +403,20 @@ class SharedStash:
             struct.pack_into("<H", tab_data, 16, tab_size)
             bs.write_bytes(tab_data)
 
-    def get_tab_count(self):
+    def get_tab_count(self) -> int:
         return len(self.tabs)
 
-    def get_tab(self, index):
+    def get_tab(self, index: int) -> StashTab | None:
         if 0 <= index < len(self.tabs):
             return self.tabs[index]
         return None
 
-    def get_tab_items(self, index):
+    def get_tab_items(self, index: int) -> list[Any]:
         tab = self.get_tab(index)
         if tab and tab.items:
             return tab.items.items
         return []
 
-    def get_tab_gold(self, index):
+    def get_tab_gold(self, index: int) -> int:
         tab = self.get_tab(index)
         return tab.gold if tab else 0

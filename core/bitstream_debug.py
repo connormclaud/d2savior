@@ -1,7 +1,9 @@
 """Bitstream inspection and pattern search utilities."""
 
+from typing import Any
 
-def debug_bitstream(bs, context_bits=64, label=""):
+
+def debug_bitstream(bs, context_bits=64, label="") -> None:
     offset = bs.get_offset()
     bits_str = bs.to_bit_string() if hasattr(bs, "to_bit_string") else str(bs)
 
@@ -21,7 +23,7 @@ def debug_bitstream(bs, context_bits=64, label=""):
     print("=" * 40)
 
 
-def search_bits(bs, pattern, context=16):
+def search_bits(bs, pattern, context=16) -> list[dict[str, Any]]:
     bits_str = bs.to_bit_string() if hasattr(bs, "to_bit_string") else str(bs)
     results = []
     start = 0
@@ -42,7 +44,7 @@ def search_bits(bs, pattern, context=16):
     return results
 
 
-def search_bytes(bs, byte_pattern, context=4):
+def search_bytes(bs, byte_pattern, context=4) -> list[dict[str, Any]]:
     data = bs.data
     results = []
     start = 0
@@ -54,7 +56,7 @@ def search_bytes(bs, byte_pattern, context=4):
     return results
 
 
-def run_bitstream_searches(bs, args):
+def run_bitstream_searches(bs, args) -> None:
     """Execute bit and byte pattern searches on the bitstream if requested via CLI args."""
     if not bs:
         return

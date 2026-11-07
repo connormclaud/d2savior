@@ -195,7 +195,7 @@ class HuffmanDecoder:
             node = node["right"] if bit else node["left"]
         return 0
 
-    def write_char(self, bs, ch: int):
+    def write_char(self, bs, ch: int) -> None:
         if ch in self._codes:
             code, bits = self._codes[ch]
             bs.write_bits(bits, code)

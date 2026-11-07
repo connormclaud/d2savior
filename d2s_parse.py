@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+from typing import Any
 
 from core.bitstream_debug import _run_bitstream_searches
 from core.d2s_struct import D2SStruct
@@ -17,7 +18,7 @@ from core.ibitstream import IBitStream
 from core.stash import SharedStash
 
 
-def parse_d2i_file(file_path, debug=False):
+def parse_d2i_file(file_path, debug=False) -> tuple[bool, Any, str | None, IBitStream | None]:
     try:
         with open(file_path, "rb") as f:
             data = f.read()
@@ -50,7 +51,7 @@ def parse_d2i_file(file_path, debug=False):
         return False, None, None, None
 
 
-def parse_d2s_file(file_path, debug=False):
+def parse_d2s_file(file_path, debug=False) -> tuple[bool, D2SStruct | None, IBitStream | None]:
     try:
         with open(file_path, "rb") as f:
             data = f.read()
@@ -75,16 +76,16 @@ def parse_d2s_file(file_path, debug=False):
         return False, None, None
 
 
-def parse_file(file_path: str, debug: bool = False):
+def parse_file(file_path: str, debug: bool = False) -> tuple[str | None, Any, IBitStream | None]:
     """Dispatch file parsing based on extension, returning (kind, data, bs) or (None, None, None)."""
     if file_path.endswith(".d2i"):
         res = parse_d2i_file(file_path, debug)
-        if res and res[0]:
+        if res[0]:
             _, data, kind, bs = res
             return kind, data, bs
     elif file_path.endswith(".d2s"):
         res = parse_d2s_file(file_path, debug)
-        if res and res[0]:
+        if res[0]:
             _, data, bs = res
             return "char", data, bs
     return None, None, None
@@ -100,7 +101,7 @@ FORMATTERS = {
 }
 
 
-def process_file(file_path, args):
+def process_file(file_path, args) -> None:
     ensure_data_loaded(lang_key=getattr(args, "lang", None) or "enUS")
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' does not exist")
@@ -121,7 +122,7 @@ def process_file(file_path, args):
         print(formatter(data))
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Diablo II Save and Shared Stash File Parser",
         formatter_class=argparse.RawDescriptionHelpFormatter,

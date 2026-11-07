@@ -35,7 +35,7 @@ type FormattedLines = list[str]
 
 def ensure_data_loaded(
     lang_key: str | None = None, data_dir: str | None = None, force: bool = False
-):
+) -> None:
     """Ensure game and localization data are loaded into core managers."""
     mgr = get_d2data_manager()
     loc = get_localized_data()
@@ -566,7 +566,7 @@ def _get_character_skills(
     return skills
 
 
-def format_char_info(char_data: D2SStruct, resolver=None):
+def format_char_info(char_data: D2SStruct, resolver=None) -> str:
     ensure_data_loaded()
     result = []
     result.append("=== Diablo II Character Info ===")

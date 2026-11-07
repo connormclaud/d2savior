@@ -28,7 +28,7 @@ class IBitStream:
         """Construct the ASCII bit string representation ('0' and '1')."""
         return "".join([f"{b:08b}"[::-1] for b in self._data])
 
-    def set_data(self, data: BitStreamData):
+    def set_data(self, data: BitStreamData) -> None:
         self.data = data
         self._data = bytes(data) if data is not None else b""
         self._offset = 0
@@ -49,7 +49,7 @@ class IBitStream:
     def bits_pos(self, value: int) -> None:
         self._offset = (self._offset // 8) * 8 + value
 
-    def seek_back_bytes(self, num_bytes: int):
+    def seek_back_bytes(self, num_bytes: int) -> None:
         self._offset -= num_bytes * 8
 
     def get_offset(self) -> int:
@@ -109,13 +109,13 @@ class IBitStream:
         val = int.from_bytes(chunk, "little") >> bit_shift
         return val & ((1 << num_bits) - 1)
 
-    def skip(self, num_bits: int):
+    def skip(self, num_bits: int) -> None:
         if num_bits < 0:
             raise ValueError("num_bits must be >= 0")
         if self._offset + num_bits > len(self._data) * 8:
             raise ValueError("not enough bits remaining")
         self._offset += num_bits
 
-    def align_byte(self):
+    def align_byte(self) -> None:
         if self.bits_pos > 0:
             self._offset = (self._offset // 8 + 1) * 8

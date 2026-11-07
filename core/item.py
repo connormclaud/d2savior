@@ -113,7 +113,7 @@ class PropertyMetaData:
     def __init__(self) -> None:
         self._data: list[PropertyMetaDataItem] = []
 
-    def add_item(self, item: PropertyMetaDataItem):
+    def add_item(self, item: PropertyMetaDataItem) -> None:
         self._data.append(item)
 
     def find_data(self, version: int) -> PropertyMetaDataItem | None:
@@ -170,7 +170,7 @@ class ItemMetaDataManager:
     def __init__(self) -> None:
         self._items: dict[bytes, list[ItemMetaData]] = {}
 
-    def add_item(self, item: ItemMetaData):
+    def add_item(self, item: ItemMetaData) -> None:
         if item.type_id not in self._items:
             self._items[item.type_id] = []
         self._items[item.type_id].append(item)
@@ -457,7 +457,7 @@ def init_item_data(
     itemdata_path: str | None = None,
     property_path: str | None = None,
     statcost_path: str | None = None,
-):
+) -> None:
     global _g_item_manager, _g_properties, _g_stat_cost
 
     if itemdata_path:
@@ -548,7 +548,7 @@ class Ear:
         self.ear_level = 1
         self.ear_name = name
 
-    def deserialize(self, bs, version: int):
+    def deserialize(self, bs, version: int) -> None:
         self.ear_class = bs.read_bits(3)
         self.ear_level = bs.read_bits(7)
         bits_per_char = 8 if is_ptr24_and_above(version) else 7
@@ -567,7 +567,7 @@ class Ear:
     def is_valid(self) -> bool:
         return self.ear_level > 0
 
-    def serialize(self, bs, version: int):
+    def serialize(self, bs, version: int) -> None:
         bs.write_bits(3, self.ear_class)
         bs.write_bits(7, self.ear_level)
         bits_per_char = 8 if is_ptr24_and_above(version) else 7
@@ -590,7 +590,7 @@ class LongName:
         self.pref_3: int | None = None
         self.suff_3: int | None = None
 
-    def deserialize(self, bs):
+    def deserialize(self, bs) -> None:
         self.name_1 = bs.read_bits(8)
         self.name_2 = bs.read_bits(8)
         if bs.read_bits(1):
@@ -606,7 +606,7 @@ class LongName:
         if bs.read_bits(1):
             self.suff_3 = bs.read_bits(11)
 
-    def serialize(self, bs):
+    def serialize(self, bs) -> None:
         bs.write_bits(8, self.name_1)
         bs.write_bits(8, self.name_2)
         bs.write_bits(1, 1 if self.pref_1 is not None else 0)
@@ -634,7 +634,7 @@ class GoldQuantity:
         self.is_not_gold = False
         self.quantity = 0
 
-    def deserialize(self, bs):
+    def deserialize(self, bs) -> None:
         self.is_not_gold = bs.read_bits(1) != 0
         self.quantity = bs.read_bits(12)
 
@@ -651,7 +651,7 @@ class PropertyList:
         self._version: int = 0
         self._use_stat_cost: bool = False
 
-    def deserialize(self, bs, version: int):
+    def deserialize(self, bs, version: int) -> None:
         self._version = version
         self.properties = []
         self._use_stat_cost = _g_stat_cost is not None and is_d2r(version)
@@ -788,7 +788,7 @@ class PropertyList:
 
     IMPLICIT_STATS: ClassVar[set[int]] = {88}
 
-    def serialize(self, bs, version: int):
+    def serialize(self, bs, version: int) -> None:
         self._use_stat_cost = _g_stat_cost is not None and is_d2r(version)
 
         all_paired_ids = set()
@@ -878,7 +878,7 @@ class ExtItemInfo:
         has_spell_id: bool,
         is_body_part: bool = False,
         is_scroll_or_book: bool = False,
-    ):
+    ) -> None:
         self.gems = bs.read_bits(3)
         self.guid = bs.read_bits(32)
         self.drop_level = bs.read_bits(7)
@@ -943,7 +943,7 @@ class ExtItemInfo:
         has_spell_id: bool,
         is_body_part: bool = False,
         is_scroll_or_book: bool = False,
-    ):
+    ) -> None:
         bs.write_bits(3, self.gems)
         bs.write_bits(32, self.guid)
         bs.write_bits(7, self.drop_level)
@@ -1044,7 +1044,7 @@ class TypeSpecificInfo:
         is_runeword: bool,
         use_stat_cost: bool = False,
         d2r_order: bool = False,
-    ):
+    ) -> None:
         if has_def:
             if use_stat_cost:
                 ac_stat = get_stat_cost(31)
@@ -1127,7 +1127,7 @@ class TypeSpecificInfo:
         is_runeword: bool,
         use_stat_cost: bool = False,
         d2r_order: bool = False,
-    ):
+    ) -> None:
         if has_def:
             if use_stat_cost:
                 ac_stat = get_stat_cost(31)
@@ -1522,7 +1522,7 @@ class D2Item:
     def has_property_list(self) -> bool:
         return self.item_info is not None and self.item_info.type_specific_info is not None
 
-    def deserialize(self, bs, version: int, read_magic: bool = True):
+    def deserialize(self, bs, version: int, read_magic: bool = True) -> None:
         if is_d2r(version):
             self._read_data_d2r(bs, version, read_magic)
         else:
@@ -1775,7 +1775,7 @@ class D2Item:
             item.deserialize(bs, self.version, True)
             self.gem_items.append(item)
 
-    def serialize(self, bs, version: int, write_magic: bool = True):
+    def serialize(self, bs, version: int, write_magic: bool = True) -> None:
         if is_d2r(version):
             self._serialize_d2r(bs, version, write_magic and version <= 96)
         else:
@@ -2002,7 +2002,7 @@ class ItemList:
     def __getitem__(self, index: int) -> D2Item:
         return self.items[index]
 
-    def deserialize(self, bs, version: int):
+    def deserialize(self, bs, version: int) -> None:
         self.magic = bs.read_word()
         self.count = bs.read_word()
         if self.magic != ITEM_LIST_MAGIC:
@@ -2035,7 +2035,7 @@ class ItemList:
             _self_mod._TRACE_PROPERTY = old_trace_prop
             self.items.append(item)
 
-    def serialize(self, bs, version: int):
+    def serialize(self, bs, version: int) -> None:
         bs.align_byte()
         bs.write_word(self.magic)
         bs.write_word(len(self.items))

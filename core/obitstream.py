@@ -42,7 +42,7 @@ class OBitStream:
     def to_hex_string(self) -> str:
         return " ".join(f"{b:02x}" for b in self.get_byte_list())
 
-    def write_bits(self, num_bits: int, value: int):
+    def write_bits(self, num_bits: int, value: int) -> None:
         if num_bits == 0:
             return
         if num_bits < 0 or num_bits > 32:
@@ -57,30 +57,30 @@ class OBitStream:
             self._buffer >>= 8
             self.bits_pos -= 8
 
-    def append(self, value: int, num_bits: int):
+    def append(self, value: int, num_bits: int) -> None:
         self.write_bits(num_bits, value)
 
-    def write_byte(self, value: int):
+    def write_byte(self, value: int) -> None:
         self.write_bits(8, value)
 
-    def write_word(self, value: int):
+    def write_word(self, value: int) -> None:
         self.write_bits(16, value)
 
-    def write_dword(self, value: int):
+    def write_dword(self, value: int) -> None:
         self.write_bits(32, value)
 
-    def write_bytes(self, data: ByteInput):
+    def write_bytes(self, data: ByteInput) -> None:
         for b in data:
             self.write_bits(8, b)
 
-    def write_string(self, str_value: str):
+    def write_string(self, str_value: str) -> None:
         for ch in str_value:
             self.write_bits(8, ord(ch))
 
-    def write_bytes_to(self, writer: Any):
+    def write_bytes_to(self, writer: Any) -> None:
         writer.write(bytearray(self.get_data()))
 
-    def align_byte(self):
+    def align_byte(self) -> None:
         if self.bits_pos > 0:
             self._bytes.append(self._buffer & 0xFF)
             self._buffer = 0

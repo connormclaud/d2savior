@@ -97,7 +97,7 @@ class LocalizedDataLoader:
 
         return results
 
-    def set_language(self, lang_key: str):
+    def set_language(self, lang_key: str) -> None:
         if lang_key == self._current_lang:
             return
         self._current_lang = lang_key
@@ -259,7 +259,7 @@ def init_localized_data(data_dir: str, lang_key: str = "enUS") -> dict[str, bool
     return _g_localized_data.load_all_localized_data(data_dir, lang_key)
 
 
-def set_language(lang_key: str):
+def set_language(lang_key: str) -> None:
     loader = get_localized_data()
     loader.set_language(lang_key)
 
