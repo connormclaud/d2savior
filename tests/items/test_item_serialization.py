@@ -82,7 +82,7 @@ class TestItemSerialization(unittest.TestCase):
             len(props1), len(props2), f"Property count mismatch: {len(props1)} vs {len(props2)}"
         )
 
-        for i, (p1, p2) in enumerate(zip(props1, props2)):
+        for i, (p1, p2) in enumerate(zip(props1, props2, strict=False)):
             self.assertEqual(p1[0], p2[0], f"Property {i}: ID mismatch")
             self.assertEqual(p1[1], p2[1], f"Property {i}: Layer mismatch")
             self.assertEqual(p1[2], p2[2], f"Property {i}: Value mismatch")
@@ -104,7 +104,7 @@ class TestItemSerialization(unittest.TestCase):
                 f"Runeword property count mismatch: {len(rw_props1)} vs {len(rw_props2)}",
             )
 
-            for i, (p1, p2) in enumerate(zip(rw_props1, rw_props2)):
+            for i, (p1, p2) in enumerate(zip(rw_props1, rw_props2, strict=False)):
                 self.assertEqual(p1[0], p2[0], f"Runeword property {i}: ID mismatch")
                 self.assertEqual(p1[1], p2[1], f"Runeword property {i}: Layer mismatch")
                 self.assertEqual(p1[2], p2[2], f"Runeword property {i}: Value mismatch")
@@ -116,7 +116,9 @@ class TestItemSerialization(unittest.TestCase):
                 "Set property list count mismatch",
             )
 
-            for i, (has1, has2) in enumerate(zip(tp1.has_set_prop_list, tp2.has_set_prop_list)):
+            for i, (has1, has2) in enumerate(
+                zip(tp1.has_set_prop_list, tp2.has_set_prop_list, strict=False)
+            ):
                 self.assertEqual(has1, has2, f"Set property {i} existence mismatch")
 
                 if has1 and has2:
@@ -129,7 +131,7 @@ class TestItemSerialization(unittest.TestCase):
                         f"Set property {i} count mismatch: {len(set_props1)} vs {len(set_props2)}",
                     )
 
-                    for j, (p1, p2) in enumerate(zip(set_props1, set_props2)):
+                    for j, (p1, p2) in enumerate(zip(set_props1, set_props2, strict=False)):
                         self.assertEqual(p1[0], p2[0], f"Set property {i}.{j}: ID mismatch")
                         self.assertEqual(p1[1], p2[1], f"Set property {i}.{j}: Layer mismatch")
                         self.assertEqual(p1[2], p2[2], f"Set property {i}.{j}: Value mismatch")

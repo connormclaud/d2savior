@@ -526,7 +526,7 @@ def _format_quests_lines(char_data: D2SStruct) -> FormattedLines:
             result.append(
                 f"{diff_name} ({total_completed}/27 completed{reward_str}) — Akara Reset: {reset_status}"
             )
-            for (act_name, quest_defs), words in zip(QUESTS_BY_ACT, act_words):
+            for (act_name, quest_defs), words in zip(QUESTS_BY_ACT, act_words, strict=False):
                 words_ordered = [words[idx] for _, idx in quest_defs]
                 if all(w & 1 for w in words_ordered):
                     result.append(f"  {act_name}: {' '.join('[x]' for _ in quest_defs)}")
@@ -534,7 +534,7 @@ def _format_quests_lines(char_data: D2SStruct) -> FormattedLines:
                     result.append(f"  {act_name}: {' '.join('[ ]' for _ in quest_defs)}")
                 else:
                     parts = []
-                    for (name, _idx), w in zip(quest_defs, words_ordered):
+                    for (name, _idx), w in zip(quest_defs, words_ordered, strict=False):
                         loc_qname = loc.get_quest_name(name) if loc else name
                         if w & 1:
                             parts.append("[x]")
