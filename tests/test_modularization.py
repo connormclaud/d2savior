@@ -1,6 +1,5 @@
 import argparse
 import io
-import unittest
 from unittest.mock import MagicMock, patch
 
 import core.bitstream_debug as bitstream_debug
@@ -13,14 +12,14 @@ from core.item import D2Item, ItemInfo, TypeSpecificInfo
 from core.stash import SharedStash
 
 
-class TestModularization(unittest.TestCase):
+class TestModularization:
     def test_constants_module(self):
-        self.assertIn("Act I", [act for act, _ in constants.WAYPOINTS_BY_ACT])
-        self.assertIn("Act I", [act for act, _ in constants.QUESTS_BY_ACT])
-        self.assertEqual(len(constants.CLASS_SKILL_BASES), 8)
-        self.assertEqual(constants.TAB_TYPE_NAMES[0], "Normal")
-        self.assertEqual(constants.TAB_TYPE_NAMES[1], "Advanced (Currency)")
-        self.assertEqual(constants.DIFFICULTY_NAMES, ["Normal", "Nightmare", "Hell"])
+        assert "Act I" in [act for act, _ in constants.WAYPOINTS_BY_ACT]
+        assert "Act I" in [act for act, _ in constants.QUESTS_BY_ACT]
+        assert len(constants.CLASS_SKILL_BASES) == 8
+        assert constants.TAB_TYPE_NAMES[0] == "Normal"
+        assert constants.TAB_TYPE_NAMES[1] == "Advanced (Currency)"
+        assert constants.DIFFICULTY_NAMES == ["Normal", "Nightmare", "Hell"]
 
     def test_bitstream_debug_module(self):
         data = b"\x4a\x4d\x00\x00\xff"
@@ -28,25 +27,25 @@ class TestModularization(unittest.TestCase):
 
         # search_bytes
         results = bitstream_debug.search_bytes(bs, b"\x4a\x4d")
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["offset"], 0)
-        self.assertIn("4a4d", results[0]["context"])
+        assert len(results) == 1
+        assert results[0]["offset"] == 0
+        assert "4a4d" in results[0]["context"]
 
         # search_bits
         # 'J' is 0x4A = 0b01001010
         results_bits = bitstream_debug.search_bits(bs, "01001010")
-        self.assertTrue(len(results_bits) >= 1)
+        assert len(results_bits) >= 1
 
         # debug_bitstream prints without crashing
         with patch("sys.stdout", new_callable=io.StringIO) as mock_out:
             bitstream_debug.debug_bitstream(bs, context_bits=16, label="Test")
-            self.assertIn("BitStream Debug Test", mock_out.getvalue())
+            assert "BitStream Debug Test" in mock_out.getvalue()
 
     def test_formatters_module(self):
-        self.assertEqual(formatters.format_timestamp(0), "N/A")
-        self.assertEqual(formatters.format_timestamp(0xFFFFFFFF), "N/A")
-        self.assertEqual(formatters.format_duration(0), "0s")
-        self.assertEqual(formatters.format_duration(3665), "1h 1m 5s")
+        assert formatters.format_timestamp(0) == "N/A"
+        assert formatters.format_timestamp(4294967295) == "N/A"
+        assert formatters.format_duration(0) == "0s"
+        assert formatters.format_duration(3665) == "1h 1m 5s"
 
     def test_unified_parse_file_and_dispatch(self):
         mock_char = D2SStruct()
@@ -57,47 +56,47 @@ class TestModularization(unittest.TestCase):
         # Test parse_file with .d2s
         with patch("d2s_parse.parse_d2s_file", return_value=(True, mock_char, mock_bs)):
             kind, data, bs = d2s_parse.parse_file("test.d2s")
-            self.assertEqual(kind, "char")
-            self.assertIs(data, mock_char)
-            self.assertIs(bs, mock_bs)
+            assert kind == "char"
+            assert data is mock_char
+            assert bs is mock_bs
 
         # Test parse_file with .d2i stash
         with patch("d2s_parse.parse_d2i_file", return_value=(True, mock_stash, "stash", mock_bs)):
             kind, data, bs = d2s_parse.parse_file("stash.d2i")
-            self.assertEqual(kind, "stash")
-            self.assertIs(data, mock_stash)
-            self.assertIs(bs, mock_bs)
+            assert kind == "stash"
+            assert data is mock_stash
+            assert bs is mock_bs
 
         # Test parse_file with .d2i item
         with patch("d2s_parse.parse_d2i_file", return_value=(True, mock_item, "item", mock_bs)):
             kind, data, bs = d2s_parse.parse_file("item.d2i")
-            self.assertEqual(kind, "item")
-            self.assertIs(data, mock_item)
-            self.assertIs(bs, mock_bs)
+            assert kind == "item"
+            assert data is mock_item
+            assert bs is mock_bs
 
         # Test parse_file with invalid file
         kind, data, bs = d2s_parse.parse_file("unknown.txt")
-        self.assertIsNone(kind)
-        self.assertIsNone(data)
-        self.assertIsNone(bs)
+        assert kind is None
+        assert data is None
+        assert bs is None
 
     def test_formatters_dispatch_table(self):
-        self.assertIn(("char", False), d2s_parse.FORMATTERS)
-        self.assertIn(("char", True), d2s_parse.FORMATTERS)
-        self.assertIn(("stash", False), d2s_parse.FORMATTERS)
-        self.assertIn(("stash", True), d2s_parse.FORMATTERS)
-        self.assertIn(("item", False), d2s_parse.FORMATTERS)
-        self.assertIn(("item", True), d2s_parse.FORMATTERS)
+        assert ("char", False) in d2s_parse.FORMATTERS
+        assert ("char", True) in d2s_parse.FORMATTERS
+        assert ("stash", False) in d2s_parse.FORMATTERS
+        assert ("stash", True) in d2s_parse.FORMATTERS
+        assert ("item", False) in d2s_parse.FORMATTERS
+        assert ("item", True) in d2s_parse.FORMATTERS
 
         mock_item = D2Item()
         mock_item.type_name = b"hp1 "
         item_summary = d2s_parse.FORMATTERS[("item", True)](mock_item)
-        self.assertIn("=== Item Summary ===", item_summary)
-        self.assertIn("Healing Potion", item_summary)
+        assert "=== Item Summary ===" in item_summary
+        assert "Healing Potion" in item_summary
 
         item_info = d2s_parse.FORMATTERS[("item", False)](mock_item)
-        self.assertIn("=== Item Info ===", item_info)
-        self.assertIn("Type: hp1", item_info)
+        assert "=== Item Info ===" in item_info
+        assert "Type: hp1" in item_info
 
     def test_property_formatter_dependency_injection(self):
         mock_prop_list = MagicMock()
@@ -115,9 +114,9 @@ class TestModularization(unittest.TestCase):
         res = formatters._format_parsed_properties(
             mock_prop_list, property_formatter=custom_formatter
         )
-        self.assertEqual(len(res), 2)
-        self.assertEqual(res[0], "CUSTOM_PROP_7:25")
-        self.assertEqual(res[1], "ID 999: raw=10, params=['val']")
+        assert len(res) == 2
+        assert res[0] == "CUSTOM_PROP_7:25"
+        assert res[1] == "ID 999: raw=10, params=['val']"
 
         # Also verify format_item_summary with injected property_formatter
         item = D2Item()
@@ -127,7 +126,7 @@ class TestModularization(unittest.TestCase):
         item.item_info.type_specific_info.property_list = mock_prop_list
 
         summary = formatters.format_item_summary(item, property_formatter=custom_formatter)
-        self.assertIn("CUSTOM_PROP_7:25", summary)
+        assert "CUSTOM_PROP_7:25" in summary
 
     def test_no_sys_modules_d2s_parse_hack(self):
         import inspect
@@ -135,10 +134,10 @@ class TestModularization(unittest.TestCase):
         formatters_source = inspect.getsource(formatters)
         bitstream_source = inspect.getsource(bitstream_debug)
 
-        self.assertNotIn("sys.modules.get('d2s_parse')", formatters_source)
-        self.assertNotIn("sys.modules", formatters_source)
-        self.assertNotIn("sys.modules.get('d2s_parse')", bitstream_source)
-        self.assertNotIn("sys.modules", bitstream_source)
+        assert "sys.modules.get('d2s_parse')" not in formatters_source
+        assert "sys.modules" not in formatters_source
+        assert "sys.modules.get('d2s_parse')" not in bitstream_source
+        assert "sys.modules" not in bitstream_source
 
     def test_run_bitstream_searches_delegation(self):
         mock_bs = MagicMock()
@@ -164,20 +163,16 @@ class TestModularization(unittest.TestCase):
         res_wp = formatters.format_waypoints_info(char)
         res_quests = formatters.format_quests_info(char)
 
-        self.assertIsInstance(res_wp, str)
-        self.assertIsInstance(res_quests, str)
+        assert isinstance(res_wp, str)
+        assert isinstance(res_quests, str)
 
         item = D2Item()
         item.item_info = ItemInfo()
         item.item_info.type_name = b"rin "
         res_item = formatters.format_item_info(item)
-        self.assertIsInstance(res_item, str)
+        assert isinstance(res_item, str)
 
         # Internal line helpers return lists
-        self.assertIsInstance(formatters._format_waypoints_lines(char), list)
-        self.assertIsInstance(formatters._format_quests_lines(char), list)
-        self.assertIsInstance(formatters._format_item_lines(item), list)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert isinstance(formatters._format_waypoints_lines(char), list)
+        assert isinstance(formatters._format_quests_lines(char), list)
+        assert isinstance(formatters._format_item_lines(item), list)

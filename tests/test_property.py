@@ -1,6 +1,7 @@
 import os
 import sys
-import unittest
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,8 +21,8 @@ from core.property import (
 )
 
 
-class TestLanguageData(unittest.TestCase):
-    def setUp(self):
+class TestLanguageData:
+    def setup_method(self):
         self.lang_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "Generate Data",
@@ -30,44 +31,44 @@ class TestLanguageData(unittest.TestCase):
 
     def test_language_data_creation(self):
         lang = LanguageData()
-        self.assertIsNotNone(lang)
+        assert lang is not None
 
     def test_language_data_load_not_exists(self):
         lang = LanguageData()
         result = lang.load("nonexistent_file.txt")
-        self.assertFalse(result)
+        assert not result
 
     def test_language_data_load_exists(self):
         if not os.path.exists(self.lang_path):
-            self.skipTest("language.txt not found")
+            pytest.skip("language.txt not found")
 
         lang = LanguageData()
         result = lang.load(self.lang_path, lang_index=2)
-        self.assertTrue(result)
+        assert result
 
     def test_language_data_get_string(self):
         if not os.path.exists(self.lang_path):
-            self.skipTest("language.txt not found")
+            pytest.skip("language.txt not found")
 
         lang = LanguageData()
         lang.load(self.lang_path, lang_index=2)
 
         text = lang.get_section_string("class_name", 0)
-        self.assertIsInstance(text, str)
+        assert isinstance(text, str)
 
     def test_language_data_sections(self):
         if not os.path.exists(self.lang_path):
-            self.skipTest("language.txt not found")
+            pytest.skip("language.txt not found")
 
         lang = LanguageData()
         lang.load(self.lang_path, lang_index=2)
 
         size = lang.get_section_size("class_name")
-        self.assertGreater(size, 0)
+        assert size > 0
 
 
-class TestInitLanguage(unittest.TestCase):
-    def setUp(self):
+class TestInitLanguage:
+    def setup_method(self):
         self.lang_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "Generate Data",
@@ -76,17 +77,17 @@ class TestInitLanguage(unittest.TestCase):
 
     def test_init_language(self):
         if not os.path.exists(self.lang_path):
-            self.skipTest("language.txt not found")
+            pytest.skip("language.txt not found")
 
         result = init_language(self.lang_path, lang_index=2)
-        self.assertTrue(result)
+        assert result
 
         lang = get_language()
-        self.assertIsNotNone(lang)
+        assert lang is not None
 
 
-class TestGetClassName(unittest.TestCase):
-    def setUp(self):
+class TestGetClassName:
+    def setup_method(self):
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
         local_dir = os.path.join(data_dir, "local")
         if os.path.exists(local_dir):
@@ -94,23 +95,23 @@ class TestGetClassName(unittest.TestCase):
 
     def test_get_class_name_amazon(self):
         name = get_class_name(0)
-        self.assertEqual(name, "Amazon")
+        assert name == "Amazon"
 
     def test_get_class_name_sorceress(self):
         name = get_class_name(1)
-        self.assertEqual(name, "Sorceress")
+        assert name == "Sorceress"
 
     def test_get_class_name_barbarian(self):
         name = get_class_name(4)
-        self.assertEqual(name, "Barbarian")
+        assert name == "Barbarian"
 
     def test_get_class_name_out_of_range(self):
         name = get_class_name(100)
-        self.assertIsInstance(name, str)
+        assert isinstance(name, str)
 
 
-class TestGetSkillName(unittest.TestCase):
-    def setUp(self):
+class TestGetSkillName:
+    def setup_method(self):
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
         if os.path.exists(data_dir):
             init_d2data(data_dir)
@@ -120,26 +121,26 @@ class TestGetSkillName(unittest.TestCase):
 
     def test_get_skill_name_class_skill(self):
         name, class_id = get_skill_name(6)
-        self.assertEqual(name, "Magic Arrow")
-        self.assertEqual(class_id, 0)
+        assert name == "Magic Arrow"
+        assert class_id == 0
 
     def test_get_skill_name_fire_bolt(self):
         name, class_id = get_skill_name(36)
-        self.assertEqual(name, "Fire Bolt")
-        self.assertEqual(class_id, 1)
+        assert name == "Fire Bolt"
+        assert class_id == 1
 
     def test_get_skill_name_normal_skill(self):
         name, _class_id = get_skill_name(217)
-        self.assertIsInstance(name, str)
-        self.assertNotEqual(name, "")
+        assert isinstance(name, str)
+        assert name != ""
 
     def test_get_skill_name_out_of_range(self):
         name, _class_id = get_skill_name(2000)
-        self.assertIsInstance(name, str)
+        assert isinstance(name, str)
 
 
-class TestGetMonsterName(unittest.TestCase):
-    def setUp(self):
+class TestGetMonsterName:
+    def setup_method(self):
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
         if os.path.exists(data_dir):
             init_d2data(data_dir)
@@ -149,48 +150,48 @@ class TestGetMonsterName(unittest.TestCase):
 
     def test_get_monster_name(self):
         name = get_monster_name(0)
-        self.assertIsInstance(name, str)
+        assert isinstance(name, str)
 
 
-class TestGetTimeName(unittest.TestCase):
+class TestGetTimeName:
     def test_get_time_name_daytime(self):
         name = get_time_name(0)
-        self.assertIsInstance(name, str)
+        assert isinstance(name, str)
 
     def test_get_time_name_dusk(self):
         name = get_time_name(1)
-        self.assertIsInstance(name, str)
+        assert isinstance(name, str)
 
 
-class TestGetPropertyName(unittest.TestCase):
-    def setUp(self):
+class TestGetPropertyName:
+    def setup_method(self):
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
         if os.path.exists(data_dir):
             init_d2data(data_dir)
 
     def test_get_property_name_strength(self):
         name = get_property_name(0)
-        self.assertIn("strength", name)
+        assert "strength" in name
 
     def test_get_property_name_energy(self):
         name = get_property_name(1)
-        self.assertIn("energy", name)
+        assert "energy" in name
 
     def test_get_property_name_dexterity(self):
         name = get_property_name(2)
-        self.assertIn("dexterity", name)
+        assert "dexterity" in name
 
     def test_get_property_name_vitality(self):
         name = get_property_name(3)
-        self.assertIn("vitality", name)
+        assert "vitality" in name
 
     def test_get_property_name_fire_resist(self):
         name = get_property_name(39)
-        self.assertIn("fireresist", name)
+        assert "fireresist" in name
 
 
-class TestFormatProperty(unittest.TestCase):
-    def setUp(self):
+class TestFormatProperty:
+    def setup_method(self):
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
         if os.path.exists(data_dir):
             init_d2data(data_dir)
@@ -200,95 +201,95 @@ class TestFormatProperty(unittest.TestCase):
 
     def test_format_property_strength(self):
         result = format_property(0, [10])
-        self.assertEqual(result, "+10 to Strength")
+        assert result == "+10 to Strength"
 
     def test_format_property_strength_negative(self):
         result = format_property(0, [-5])
-        self.assertEqual(result, "-5 to Strength")
+        assert result == "-5 to Strength"
 
     def test_format_property_dexterity(self):
         result = format_property(2, [15])
-        self.assertEqual(result, "+15 to Dexterity")
+        assert result == "+15 to Dexterity"
 
     def test_format_property_fire_resist(self):
         result = format_property(39, [30])
-        self.assertIn("Fire Resist", result)
+        assert "Fire Resist" in result
 
     def test_format_property_empty_params(self):
         result = format_property(0, [])
-        self.assertIn("Strength", result)
+        assert "Strength" in result
 
     def test_format_property_max_life(self):
         result = format_property(7, [50])
-        self.assertIn("Life", result)
+        assert "Life" in result
 
     def test_format_property_max_mana(self):
         result = format_property(9, [30])
-        self.assertIn("Mana", result)
+        assert "Mana" in result
 
     def test_format_property_enhanced_defense(self):
         result = format_property(16, [100])
-        self.assertIn("Defense", result)
+        assert "Defense" in result
 
     def test_format_property_attack_rating(self):
         result = format_property(19, [500])
-        self.assertIn("Attack Rating", result)
+        assert "Attack Rating" in result
 
     def test_format_property_fire_damage(self):
         result = format_property(48, [10, 20])
-        self.assertIn("Fire", result)
+        assert "Fire" in result
 
     def test_format_property_cold_damage(self):
         result = format_property(54, [10, 20, 100])
-        self.assertIn("Cold", result)
+        assert "Cold" in result
 
     def test_format_property_life_steal(self):
         result = format_property(60, [5])
-        self.assertIn("Life stolen", result)
+        assert "Life stolen" in result
 
     def test_format_property_mana_steal(self):
         result = format_property(62, [3])
-        self.assertIn("Mana stolen", result)
+        assert "Mana stolen" in result
 
     def test_format_property_faster_run_walk(self):
         result = format_property(96, [30])
-        self.assertIn("Faster Run", result)
+        assert "Faster Run" in result
 
     def test_format_property_faster_cast_rate(self):
         result = format_property(105, [20])
-        self.assertIn("Faster Cast", result)
+        assert "Faster Cast" in result
 
     def test_format_property_crushing_blow(self):
         result = format_property(136, [25])
-        self.assertIn("Crushing", result)
+        assert "Crushing" in result
 
     def test_format_property_deadly_strike(self):
         result = format_property(141, [50])
-        self.assertIn("Deadly", result)
+        assert "Deadly" in result
 
     def test_format_property_indestructible(self):
         result = format_property(152, [1])
-        self.assertIn("Indestructible", result)
+        assert "Indestructible" in result
 
     def test_format_property_cannot_be_frozen(self):
         result = format_property(153, [1])
-        self.assertIn("Frozen", result)
+        assert "Frozen" in result
 
     def test_format_property_extra_gold(self):
         result = format_property(79, [100])
-        self.assertIn("Gold", result)
+        assert "Gold" in result
 
     def test_format_property_magic_find(self):
         result = format_property(80, [50])
-        self.assertIn("Magic", result)
+        assert "Magic" in result
 
     def test_format_property_all_skills(self):
         result = format_property(127, [2])
-        self.assertIn("All Skills", result)
+        assert "All Skills" in result
 
 
-class TestFormatPropertySpecialCases(unittest.TestCase):
-    def setUp(self):
+class TestFormatPropertySpecialCases:
+    def setup_method(self):
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
         if os.path.exists(data_dir):
             init_d2data(data_dir)
@@ -298,24 +299,24 @@ class TestFormatPropertySpecialCases(unittest.TestCase):
 
     def test_format_property_class_skill(self):
         result = format_property(97, [6, 3])
-        self.assertIn("Magic Arrow", result)
+        assert "Magic Arrow" in result
 
     def test_format_property_skill_tab(self):
         result = format_property(188, [2, 0, 3])
-        self.assertIn("Javelin and Spear", result)
+        assert "Javelin and Spear" in result
 
     def test_format_property_aura_when_equipped(self):
         result = format_property(151, [5, 10])
-        self.assertIn("Aura", result)
+        assert "Aura" in result
 
     def test_format_property_float_g_format(self):
         result = format_property(214, [80])
-        self.assertIn("Defense", result)
-        self.assertIn("+", result)
+        assert "Defense" in result
+        assert "+" in result
 
     def test_format_property_float_g_negative(self):
         result = format_property(214, [-80])
-        self.assertIn("-", result)
+        assert "-" in result
 
     def test_format_property_class_skill_levels(self):
         # class_id: 0 Amazon, 1 Sorceress, 2 Necromancer, 3 Paladin, 4 Barbarian, 5 Druid, 6 Assassin, 7 Warlock
@@ -331,12 +332,10 @@ class TestFormatPropertySpecialCases(unittest.TestCase):
         ]
         for class_id, expected_name in expected:
             result = format_property(83, [class_id, 1])
-            self.assertIn(
-                expected_name, result, f"Class ID {class_id} should format to {expected_name}"
-            )
+            assert expected_name in result, f"Class ID {class_id} should format to {expected_name}"
 
 
-class TestFormatItemInfoSetProperties(unittest.TestCase):
+class TestFormatItemInfoSetProperties:
     def test_format_item_info_with_set_properties(self):
         from core.formatters import format_item_info
         from core.item import D2Item, ItemInfo, PropertyList, TypeSpecificInfo
@@ -354,12 +353,8 @@ class TestFormatItemInfoSetProperties(unittest.TestCase):
         item.item_info.type_specific_info.set_properties = [p2, p3, None, None, None]
 
         full_text = format_item_info(item)
-        self.assertIsInstance(full_text, str)
-        self.assertIn("Set Properties (2 Items):", full_text)
-        self.assertIn("Set Properties (3 Items):", full_text)
-        self.assertIn("Defense", full_text)
-        self.assertIn("Faster Cast Rate", full_text)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert isinstance(full_text, str)
+        assert "Set Properties (2 Items):" in full_text
+        assert "Set Properties (3 Items):" in full_text
+        assert "Defense" in full_text
+        assert "Faster Cast Rate" in full_text

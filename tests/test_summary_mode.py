@@ -1,6 +1,5 @@
 import os
 import sys
-import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -21,7 +20,7 @@ from core.stash import (
 from d2s_parse import main
 
 
-class TestSummaryMode(unittest.TestCase):
+class TestSummaryMode:
     def test_item_summary_gold(self):
         item = D2Item()
         item.item_info = ItemInfo()
@@ -29,13 +28,13 @@ class TestSummaryMode(unittest.TestCase):
         gold.quantity = 50000
         item.item_info.gold = gold
         summary = format_item_summary(item)
-        self.assertEqual(summary, "Gold: 50000")
+        assert summary == "Gold: 50000"
 
     def test_item_summary_simple(self):
         item = D2Item()
         item.type_name = b"hp1 "
         summary = format_item_summary(item)
-        self.assertIn("Healing Potion", summary)
+        assert "Healing Potion" in summary
 
     def test_item_summary_unique_with_defence(self):
         item = D2Item()
@@ -47,9 +46,9 @@ class TestSummaryMode(unittest.TestCase):
         item.item_info.type_specific_info.defence = 130
 
         summary = format_item_summary(item)
-        self.assertIn("Harlequin Crest", summary)
-        self.assertIn("Shako", summary)
-        self.assertIn("Def: 120", summary)
+        assert "Harlequin Crest" in summary
+        assert "Shako" in summary
+        assert "Def: 120" in summary
 
     def test_item_summary_unmapped_property_fallback(self):
         from unittest.mock import patch
@@ -76,8 +75,8 @@ class TestSummaryMode(unittest.TestCase):
 
         with patch("core.formatters.format_property", return_value=None):
             summary = format_item_summary(item)
-            self.assertIn("ID 999: raw=42, params=[1, 2]", summary)
-            self.assertIn("ID 998: 15", summary)
+            assert "ID 999: raw=42, params=[1, 2]" in summary
+            assert "ID 998: 15" in summary
 
     def test_item_summary_currency_stack(self):
         item = D2Item()
@@ -86,8 +85,8 @@ class TestSummaryMode(unittest.TestCase):
         item.item_info.stash_stack_size = 5
 
         summary = format_item_summary(item)
-        self.assertIn("Lem Rune", summary)
-        self.assertIn("x5", summary)
+        assert "Lem Rune" in summary
+        assert "x5" in summary
 
     def test_stash_summary_currency_and_normal(self):
         stash = SharedStash()
@@ -151,17 +150,17 @@ class TestSummaryMode(unittest.TestCase):
 
         output = format_stash_summary(stash)
 
-        self.assertIn("Total Tabs: 3", output)
-        self.assertIn("Tab 1: Normal", output)
-        self.assertIn("Tab 2: Advanced (Currency)", output)
-        self.assertIn("=== Tab 1 (Normal) ===", output)
-        self.assertIn("  - Harlequin Crest (Shako) [Def: 110]", output)
-        self.assertIn("=== Tab 2 (Advanced (Currency)) ===", output)
-        self.assertIn("Runes: Hel: 3, Pul: 2", output)
-        self.assertIn("Diamond: p 10, f 0, o 0", output)
-        self.assertNotIn("El: 0", output)
-        self.assertIn("=== Tab 3 (Normal) ===", output)
-        self.assertIn("  - 24x Jewels", output)
+        assert "Total Tabs: 3" in output
+        assert "Tab 1: Normal" in output
+        assert "Tab 2: Advanced (Currency)" in output
+        assert "=== Tab 1 (Normal) ===" in output
+        assert "  - Harlequin Crest (Shako) [Def: 110]" in output
+        assert "=== Tab 2 (Advanced (Currency)) ===" in output
+        assert "Runes: Hel: 3, Pul: 2" in output
+        assert "Diamond: p 10, f 0, o 0" in output
+        assert "El: 0" not in output
+        assert "=== Tab 3 (Normal) ===" in output
+        assert "  - 24x Jewels" in output
 
     def test_stash_summary_gem_compaction(self):
         stash = SharedStash()
@@ -193,7 +192,7 @@ class TestSummaryMode(unittest.TestCase):
         stash.tabs.append(tab)
 
         output = format_stash_summary(stash)
-        self.assertIn("Gems (p=perfect, f=flawless, o=other): Ruby: p 5, f 10, o 24", output)
+        assert "Gems (p=perfect, f=flawless, o=other): Ruby: p 5, f 10, o 24" in output
 
     def test_char_summary_formatting(self):
         char = D2SStruct()
@@ -260,27 +259,27 @@ class TestSummaryMode(unittest.TestCase):
 
         output = format_char_summary(char)
 
-        self.assertIn("=== Diablo II Character Summary ===", output)
-        self.assertIn("Name: Sork | Class: Sorceress | Level: 85", output)
-        self.assertIn("Status: Expansion | Hardcore", output)
-        self.assertIn("Attributes: Str: 156, Dex: 25, Vit: 300, Ene: 35", output)
-        self.assertIn("Life: 900/900 | Mana: 450/450", output)
-        self.assertIn("Gold: 12000 (Person), 2500000 (Stash)", output)
-        self.assertIn("Remaining Points: 10 Stat, 2 Skill", output)
+        assert "=== Diablo II Character Summary ===" in output
+        assert "Name: Sork | Class: Sorceress | Level: 85" in output
+        assert "Status: Expansion | Hardcore" in output
+        assert "Attributes: Str: 156, Dex: 25, Vit: 300, Ene: 35" in output
+        assert "Life: 900/900 | Mana: 450/450" in output
+        assert "Gold: 12000 (Person), 2500000 (Stash)" in output
+        assert "Remaining Points: 10 Stat, 2 Skill" in output
 
         # Skills
-        self.assertIn("Meteor: 20", output)
-        self.assertIn("Fire Mastery: 15", output)
-        self.assertIn("Frost Nova: 1", output)
+        assert "Meteor: 20" in output
+        assert "Fire Mastery: 15" in output
+        assert "Frost Nova: 1" in output
 
         # Equipped Gear
-        self.assertIn("=== Equipped Gear ===", output)
-        self.assertIn("- Helmet: Harlequin Crest (Shako) [Def: 131]", output)
+        assert "=== Equipped Gear ===" in output
+        assert "- Helmet: Harlequin Crest (Shako) [Def: 131]" in output
 
         # Stored items & grouped belt potions
-        self.assertIn("=== Inventory & Stash ===", output)
-        self.assertIn("- [Inventory] Grand Charm", output)
-        self.assertIn("- [Belt] Super Healing Potion (x2)", output)
+        assert "=== Inventory & Stash ===" in output
+        assert "- [Inventory] Grand Charm" in output
+        assert "- [Belt] Super Healing Potion (x2)" in output
 
     def test_cli_argument_parsing(self):
         import argparse
@@ -293,13 +292,13 @@ class TestSummaryMode(unittest.TestCase):
             parser.add_argument("file_path", nargs="+")
             parser.add_argument("--summary", action="store_true")
             args = parser.parse_args(["char.d2s"])
-            self.assertEqual(args.file_path, ["char.d2s"])
-            self.assertFalse(args.summary)
+            assert args.file_path == ["char.d2s"]
+            assert not args.summary
 
             # Test multiple files with --summary
             args_summary = parser.parse_args(["--summary", "char1.d2s", "char2.d2s", "stash.d2i"])
-            self.assertEqual(args_summary.file_path, ["char1.d2s", "char2.d2s", "stash.d2i"])
-            self.assertTrue(args_summary.summary)
+            assert args_summary.file_path == ["char1.d2s", "char2.d2s", "stash.d2i"]
+            assert args_summary.summary
 
     def test_process_file_dispatch(self):
         import argparse
@@ -366,7 +365,7 @@ class TestSummaryMode(unittest.TestCase):
             patch("builtins.print") as mock_print,
         ):
             main()
-            self.assertEqual(mock_proc.call_count, 2)
+            assert mock_proc.call_count == 2
             mock_print.assert_any_call("=== File: char1.d2s ===")
             mock_print.assert_any_call("=== File: char2.d2s ===")
 
@@ -375,11 +374,11 @@ class TestSummaryMode(unittest.TestCase):
 
         from core.formatters import _format_parsed_properties
 
-        self.assertEqual(_format_parsed_properties(None), [])
+        assert _format_parsed_properties(None) == []
 
         empty_list = MagicMock()
         empty_list.properties = None
-        self.assertEqual(_format_parsed_properties(empty_list), [])
+        assert _format_parsed_properties(empty_list) == []
 
         prop_list = MagicMock()
         prop_list.properties = [1]
@@ -394,16 +393,16 @@ class TestSummaryMode(unittest.TestCase):
             side_effect=lambda pid, params, ver: "+25 to Life" if pid == 7 else "",
         ):
             formatted = _format_parsed_properties(prop_list, version=0x63)
-            self.assertEqual(len(formatted), 3)
-            self.assertEqual(formatted[0], "+25 to Life")
-            self.assertEqual(formatted[1], "ID 999: raw=10, params=['param1']")
-            self.assertEqual(formatted[2], "ID 998: 5")
+            assert len(formatted) == 3
+            assert formatted[0] == "+25 to Life"
+            assert formatted[1] == "ID 999: raw=10, params=['param1']"
+            assert formatted[2] == "ID 998: 5"
 
     def test_get_character_skills_helper(self):
         from core.formatters import _get_character_skills
 
         char_data = D2SStruct()
-        self.assertEqual(_get_character_skills(char_data), [])
+        assert _get_character_skills(char_data) == []
 
         char_data.skills.magic = 0x6669
         char_data.char_class = 1  # Sorceress (base skill 36)
@@ -411,13 +410,13 @@ class TestSummaryMode(unittest.TestCase):
         char_data.skills.skill_levels[0] = 5  # 36 + 0 = 36 (Fire Bolt)
 
         skills = _get_character_skills(char_data)
-        self.assertEqual(len(skills), 2)
+        assert len(skills) == 2
         # Should be ordered by skill index
-        self.assertEqual(skills[0][0], 0)
-        self.assertEqual(skills[0][2], 5)
-        self.assertEqual(skills[1][0], 18)
-        self.assertEqual(skills[1][2], 20)
-        self.assertIn("Teleport", skills[1][1])
+        assert skills[0][0] == 0
+        assert skills[0][2] == 5
+        assert skills[1][0] == 18
+        assert skills[1][2] == 20
+        assert "Teleport" in skills[1][1]
 
     def test_run_bitstream_searches_helper(self):
         import argparse
@@ -452,22 +451,22 @@ class TestSummaryMode(unittest.TestCase):
 
         # Initial call ensures default language loaded
         ensure_data_loaded()
-        self.assertIsNotNone(get_d2data_manager())
-        self.assertEqual(get_localized_data().current_lang, "enUS")
+        assert get_d2data_manager() is not None
+        assert get_localized_data().current_lang == "enUS"
 
         # Second call with same language is a no-op
         prev_mgr = get_d2data_manager()
         ensure_data_loaded(lang_key="enUS")
-        self.assertIs(get_d2data_manager(), prev_mgr)
-        self.assertEqual(get_localized_data().current_lang, "enUS")
+        assert get_d2data_manager() is prev_mgr
+        assert get_localized_data().current_lang == "enUS"
 
         # Switching language updates localized data
         ensure_data_loaded(lang_key="zhCN")
-        self.assertEqual(get_localized_data().current_lang, "zhCN")
+        assert get_localized_data().current_lang == "zhCN"
 
         # Restore back to enUS
         ensure_data_loaded(lang_key="enUS")
-        self.assertEqual(get_localized_data().current_lang, "enUS")
+        assert get_localized_data().current_lang == "enUS"
 
     def test_ru_summary_mode(self):
         from core.d2s_struct import D2SStruct, ItemList
@@ -523,20 +522,16 @@ class TestSummaryMode(unittest.TestCase):
             s.tabs.append(t2)
 
             stash_out = format_stash_summary(s)
-            self.assertIn("наголовник", stash_out)
-            self.assertIn("Шутовской капюшон (шако)", stash_out)
-            self.assertIn("Рал: 10", stash_out)
-            self.assertIn("Рубин: p 5, f 0, o 0", stash_out)
+            assert "наголовник" in stash_out
+            assert "Шутовской капюшон (шако)" in stash_out
+            assert "Рал: 10" in stash_out
+            assert "Рубин: p 5, f 0, o 0" in stash_out
 
             # Test char summary in Russian
             char = D2SStruct()
             char.char_class = 1  # Sorceress
             char.char_level = 80
             char_out = format_char_summary(char)
-            self.assertIn("Волшебница", char_out)
+            assert "Волшебница" in char_out
         finally:
             ensure_data_loaded(lang_key="enUS", force=True)
-
-
-if __name__ == "__main__":
-    unittest.main()

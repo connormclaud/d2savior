@@ -44,14 +44,14 @@ class TestItemSerialization(unittest.TestCase):
         return bs.get_data()
 
     def _compare_items(self, item1: D2Item, item2: D2Item):
-        self.assertEqual(item1.type_name, item2.type_name)
-        self.assertEqual(item1.quality(), item2.quality())
-        self.assertEqual(item1.is_identified, item2.is_identified)
-        self.assertEqual(item1.is_simple, item2.is_simple)
-        self.assertEqual(item1.is_socketed, item2.is_socketed)
-        self.assertEqual(item1.is_runeword, item2.is_runeword)
-        self.assertEqual(item1.is_ethereal, item2.is_ethereal)
-        self.assertEqual(item1.is_personalized, item2.is_personalized)
+        assert item1.type_name == item2.type_name
+        assert item1.quality() == item2.quality()
+        assert item1.is_identified == item2.is_identified
+        assert item1.is_simple == item2.is_simple
+        assert item1.is_socketed == item2.is_socketed
+        assert item1.is_runeword == item2.is_runeword
+        assert item1.is_ethereal == item2.is_ethereal
+        assert item1.is_personalized == item2.is_personalized
 
         if (
             item1.item_info
@@ -61,9 +61,9 @@ class TestItemSerialization(unittest.TestCase):
         ):
             ext1 = item1.item_info.ext_info
             ext2 = item2.item_info.ext_info
-            self.assertEqual(ext1.quality, ext2.quality)
-            self.assertEqual(ext1.guid, ext2.guid)
-            self.assertEqual(ext1.gems, ext2.gems)
+            assert ext1.quality == ext2.quality
+            assert ext1.guid == ext2.guid
+            assert ext1.gems == ext2.gems
 
     def _compare_properties(self, item1: D2Item, item2: D2Item):
         if not item1.item_info or not item2.item_info:
@@ -78,88 +78,78 @@ class TestItemSerialization(unittest.TestCase):
         props1 = tp1.property_list.properties
         props2 = tp2.property_list.properties
 
-        self.assertEqual(
-            len(props1), len(props2), f"Property count mismatch: {len(props1)} vs {len(props2)}"
+        assert len(props1) == len(props2), (
+            f"Property count mismatch: {len(props1)} vs {len(props2)}"
         )
 
         for i, (p1, p2) in enumerate(zip(props1, props2, strict=False)):
-            self.assertEqual(p1[0], p2[0], f"Property {i}: ID mismatch")
-            self.assertEqual(p1[1], p2[1], f"Property {i}: Layer mismatch")
-            self.assertEqual(p1[2], p2[2], f"Property {i}: Value mismatch")
+            assert p1[0] == p2[0], f"Property {i}: ID mismatch"
+            assert p1[1] == p2[1], f"Property {i}: Layer mismatch"
+            assert p1[2] == p2[2], f"Property {i}: Value mismatch"
 
         if item1.is_runeword:
-            self.assertIsNotNone(
-                tp1.runeword_property_list, "Item1 should have runeword properties"
-            )
-            self.assertIsNotNone(
-                tp2.runeword_property_list, "Item2 should have runeword properties"
-            )
+            assert tp1.runeword_property_list is not None, "Item1 should have runeword properties"
+            assert tp2.runeword_property_list is not None, "Item2 should have runeword properties"
 
             rw_props1 = tp1.runeword_property_list.properties
             rw_props2 = tp2.runeword_property_list.properties
 
-            self.assertEqual(
-                len(rw_props1),
-                len(rw_props2),
-                f"Runeword property count mismatch: {len(rw_props1)} vs {len(rw_props2)}",
+            assert len(rw_props1) == len(rw_props2), (
+                f"Runeword property count mismatch: {len(rw_props1)} vs {len(rw_props2)}"
             )
 
             for i, (p1, p2) in enumerate(zip(rw_props1, rw_props2, strict=False)):
-                self.assertEqual(p1[0], p2[0], f"Runeword property {i}: ID mismatch")
-                self.assertEqual(p1[1], p2[1], f"Runeword property {i}: Layer mismatch")
-                self.assertEqual(p1[2], p2[2], f"Runeword property {i}: Value mismatch")
+                assert p1[0] == p2[0], f"Runeword property {i}: ID mismatch"
+                assert p1[1] == p2[1], f"Runeword property {i}: Layer mismatch"
+                assert p1[2] == p2[2], f"Runeword property {i}: Value mismatch"
 
         if item1.is_set():
-            self.assertEqual(
-                len(tp1.has_set_prop_list),
-                len(tp2.has_set_prop_list),
-                "Set property list count mismatch",
+            assert len(tp1.has_set_prop_list) == len(tp2.has_set_prop_list), (
+                "Set property list count mismatch"
             )
 
             for i, (has1, has2) in enumerate(
                 zip(tp1.has_set_prop_list, tp2.has_set_prop_list, strict=False)
             ):
-                self.assertEqual(has1, has2, f"Set property {i} existence mismatch")
+                assert has1 == has2, f"Set property {i} existence mismatch"
 
                 if has1 and has2:
                     set_props1 = tp1.set_properties[i].properties if tp1.set_properties[i] else []
                     set_props2 = tp2.set_properties[i].properties if tp2.set_properties[i] else []
 
-                    self.assertEqual(
-                        len(set_props1),
-                        len(set_props2),
-                        f"Set property {i} count mismatch: {len(set_props1)} vs {len(set_props2)}",
+                    assert len(set_props1) == len(set_props2), (
+                        f"Set property {i} count mismatch: {len(set_props1)} vs {len(set_props2)}"
                     )
 
                     for j, (p1, p2) in enumerate(zip(set_props1, set_props2, strict=False)):
-                        self.assertEqual(p1[0], p2[0], f"Set property {i}.{j}: ID mismatch")
-                        self.assertEqual(p1[1], p2[1], f"Set property {i}.{j}: Layer mismatch")
-                        self.assertEqual(p1[2], p2[2], f"Set property {i}.{j}: Value mismatch")
+                        assert p1[0] == p2[0], f"Set property {i}.{j}: ID mismatch"
+                        assert p1[1] == p2[1], f"Set property {i}.{j}: Layer mismatch"
+                        assert p1[2] == p2[2], f"Set property {i}.{j}: Value mismatch"
 
     def test_deserialize_unique_amulet_0x63(self):
         file_path = os.path.join(self.examples_dir, "Rixots Keen.d2i")
         item = self._deserialize_item(file_path)
 
-        self.assertEqual(item.type_name, b"amu ")
-        self.assertEqual(item.quality(), 7)
-        self.assertTrue(item.is_identified)
-        self.assertFalse(item.is_simple)
-        self.assertEqual(item.version, 0x63)
+        assert item.type_name == b"amu "
+        assert item.quality() == 7
+        assert item.is_identified
+        assert not item.is_simple
+        assert item.version == 99
 
     def test_deserialize_runeword_spirit_0x69(self):
         file_path = os.path.join(self.items_dir, "runeword", "Spirit-crystal_sword.d2i")
         item = self._deserialize_item(file_path, version=0x69)
 
-        self.assertEqual(item.type_name, b"crs ")
-        self.assertTrue(item.is_runeword)
-        self.assertTrue(item.is_socketed)
-        self.assertTrue(item.is_identified)
-        self.assertFalse(item.is_simple)
+        assert item.type_name == b"crs "
+        assert item.is_runeword
+        assert item.is_socketed
+        assert item.is_identified
+        assert not item.is_simple
 
         if item.item_info and item.item_info.ext_info:
             ext = item.item_info.ext_info
-            self.assertIsNotNone(ext.rune_id)
-            self.assertEqual(ext.rune_id, 20635)
+            assert ext.rune_id is not None
+            assert ext.rune_id == 20635
 
     def test_serialize_unique_amulet_0x63(self):
         file_path = os.path.join(self.examples_dir, "Rixots Keen.d2i")
@@ -196,7 +186,7 @@ class TestItemSerialization(unittest.TestCase):
 
         item = self._deserialize_item(file_path, version=0x69)
 
-        self.assertEqual(item.quality(), 4, "Item should be magic quality")
+        assert item.quality() == 4, "Item should be magic quality"
 
         serialized_data = self._serialize_item(item, 0x69)
 
@@ -212,7 +202,7 @@ class TestItemSerialization(unittest.TestCase):
 
         item = self._deserialize_item(file_path, version=0x69)
 
-        self.assertEqual(item.quality(), 6, "Item should be rare quality")
+        assert item.quality() == 6, "Item should be rare quality"
 
         serialized_data = self._serialize_item(item, 0x69)
 
@@ -228,7 +218,7 @@ class TestItemSerialization(unittest.TestCase):
 
         item = self._deserialize_item(file_path, version=0x69)
 
-        self.assertEqual(item.quality(), 5, "Item should be set quality")
+        assert item.quality() == 5, "Item should be set quality"
 
         serialized_data = self._serialize_item(item, 0x69)
 
@@ -244,7 +234,7 @@ class TestItemSerialization(unittest.TestCase):
 
         item = self._deserialize_item(file_path, version=0x69)
 
-        self.assertEqual(item.quality(), 2, "Item should be normal quality")
+        assert item.quality() == 2, "Item should be normal quality"
 
         serialized_data = self._serialize_item(item, 0x69)
 

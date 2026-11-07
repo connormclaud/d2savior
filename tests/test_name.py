@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-import unittest
 
 from core.d2s_struct import D2SStruct
 from core.ibitstream import IBitStream
 
 
-class TestCharacterNameEncoding(unittest.TestCase):
+class TestCharacterNameEncoding:
     """测试角色名称的编码和解码功能"""
 
     def _create_test_data(self, version, name_bytes, nameptr_bytes):
@@ -160,8 +159,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
         char_data.deserialize(bs)
 
         name = char_data.get_char_name()
-        self.assertEqual(name, "TestChar")
-        self.assertIsInstance(name, str)
+        assert name == "TestChar"
+        assert isinstance(name, str)
 
     def test_utf8_name_new_version(self):
         """测试新版本（>= 0x62）的UTF-8名称"""
@@ -176,8 +175,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
         char_data.deserialize(bs)
 
         name = char_data.get_char_name()
-        self.assertEqual(name, "测试角色")
-        self.assertIsInstance(name, str)
+        assert name == "测试角色"
+        assert isinstance(name, str)
 
     def test_empty_name(self):
         """测试空名称"""
@@ -188,8 +187,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
         char_data.deserialize(bs)
 
         name = char_data.get_char_name()
-        self.assertEqual(name, "")
-        self.assertIsInstance(name, str)
+        assert name == ""
+        assert isinstance(name, str)
 
     def test_name_with_null_bytes(self):
         """测试包含空字节的名称"""
@@ -202,8 +201,8 @@ class TestCharacterNameEncoding(unittest.TestCase):
         char_data.deserialize(bs)
 
         name = char_data.get_char_name()
-        self.assertEqual(name, "Test")
-        self.assertIsInstance(name, str)
+        assert name == "Test"
+        assert isinstance(name, str)
 
     def test_utf8_special_characters(self):
         """测试包含特殊UTF-8字符的名称"""
@@ -217,9 +216,5 @@ class TestCharacterNameEncoding(unittest.TestCase):
         char_data.deserialize(bs)
 
         name = char_data.get_char_name()
-        self.assertEqual(name, special_name)
-        self.assertIsInstance(name, str)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert name == special_name
+        assert isinstance(name, str)

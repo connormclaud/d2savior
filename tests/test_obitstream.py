@@ -1,6 +1,5 @@
 import os
 import sys
-import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -18,139 +17,135 @@ class MemWriter:
         return " ".join(map("{0:02x}".format, self.buf))
 
 
-class TestOBitStream(unittest.TestCase):
-    def setUp(self):
+class TestOBitStream:
+    def setup_method(self):
         self.stream = OBitStream()
 
     def test_append_empty(self):
-        self.assertEqual("", self.stream.to_bit_string())
-        self.assertEqual("<OBitStream len=0>", str(self.stream))
-        self.assertEqual("", self.stream.to_hex_string())
+        assert self.stream.to_bit_string() == ""
+        assert str(self.stream) == "<OBitStream len=0>"
+        assert self.stream.to_hex_string() == ""
 
     def test_append_zero_bit(self):
         self.stream.append(0xF, 0)
-        self.assertEqual("", self.stream.to_bit_string())
-        self.assertEqual("", self.stream.to_hex_string())
+        assert self.stream.to_bit_string() == ""
+        assert self.stream.to_hex_string() == ""
 
     def test_append_one_bit(self):
         self.stream.append(1, 1)
-        self.assertEqual("1", self.stream.to_bit_string())
-        self.assertEqual("<OBitStream len=1>", str(self.stream))
-        self.assertEqual("01", self.stream.to_hex_string())
+        assert self.stream.to_bit_string() == "1"
+        assert str(self.stream) == "<OBitStream len=1>"
+        assert self.stream.to_hex_string() == "01"
 
     def test_append_one_bit_extracted(self):
         self.stream.append(0xF, 1)
-        self.assertEqual("1", self.stream.to_bit_string())
-        self.assertEqual("01", self.stream.to_hex_string())
+        assert self.stream.to_bit_string() == "1"
+        assert self.stream.to_hex_string() == "01"
 
     def test_append_8_bits(self):
         self.stream.append(0x76, 8)
-        self.assertEqual("01110110"[::-1], self.stream.to_bit_string())
-        self.assertEqual("76", self.stream.to_hex_string())
+        assert "01110110"[::-1] == self.stream.to_bit_string()
+        assert self.stream.to_hex_string() == "76"
 
     def test_append_9_bits(self):
         self.stream.append(0x176, 9)
-        self.assertEqual("101110110"[::-1], self.stream.to_bit_string())
-        self.assertEqual("76 01", self.stream.to_hex_string())
+        assert "101110110"[::-1] == self.stream.to_bit_string()
+        assert self.stream.to_hex_string() == "76 01"
 
     def test_append_9_bits_extracted(self):
         self.stream.append(0x776, 9)
-        self.assertEqual("101110110"[::-1], self.stream.to_bit_string())
-        self.assertEqual("76 01", self.stream.to_hex_string())
+        assert "101110110"[::-1] == self.stream.to_bit_string()
+        assert self.stream.to_hex_string() == "76 01"
 
     def test_append_32bits(self):
         self.stream.append(0x1F1F2F4F8, 32)
-        self.assertEqual("11110001111100101111010011111000"[::-1], self.stream.to_bit_string())
-        self.assertEqual("f8 f4 f2 f1", self.stream.to_hex_string())
+        assert "11110001111100101111010011111000"[::-1] == self.stream.to_bit_string()
+        assert self.stream.to_hex_string() == "f8 f4 f2 f1"
 
     def test_append_3_2(self):
         self.stream.append(3, 3)
         self.stream.append(1, 2)
-        self.assertEqual("01011"[::-1], self.stream.to_bit_string())
-        self.assertEqual("0b", self.stream.to_hex_string())
+        assert "01011"[::-1] == self.stream.to_bit_string()
+        assert self.stream.to_hex_string() == "0b"
 
     def test_append_3_6_4(self):
         self.stream.append(int("001", 2), 3)
         self.stream.append(int("000011", 2), 6)
         self.stream.append(int("0111", 2), 4)
-        self.assertEqual("0111000011001"[::-1], self.stream.to_bit_string())
-        self.assertEqual("19 0e", self.stream.to_hex_string())
+        assert "0111000011001"[::-1] == self.stream.to_bit_string()
+        assert self.stream.to_hex_string() == "19 0e"
 
     def test_append_string(self):
         self.stream.write_string("012 ")
-        self.assertEqual("30 31 32 20", self.stream.to_hex_string())
+        assert self.stream.to_hex_string() == "30 31 32 20"
         w = MemWriter()
         self.stream.write_bytes_to(w)
-        self.assertEqual("30 31 32 20", str(w))
+        assert str(w) == "30 31 32 20"
 
     def test_write_bytes(self):
         self.stream.append(int("1110101", 2), 7)
-        self.assertEqual("75", self.stream.to_hex_string())
+        assert self.stream.to_hex_string() == "75"
         w = MemWriter()
         self.stream.write_bytes_to(w)
-        self.assertEqual("75", str(w))
+        assert str(w) == "75"
 
     def test_write_bytes_long(self):
         self.stream.append(int("10100001111", 2), 11)
-        self.assertEqual("0f 05", self.stream.to_hex_string())
+        assert self.stream.to_hex_string() == "0f 05"
         w = MemWriter()
         self.stream.write_bytes_to(w)
-        self.assertEqual("0f 05", str(w))
+        assert str(w) == "0f 05"
 
 
-class TestOBitStreamNewInterface(unittest.TestCase):
-    def setUp(self):
+class TestOBitStreamNewInterface:
+    def setup_method(self):
         self.stream = OBitStream()
 
     def test_bits_pos(self):
-        self.assertEqual(0, self.stream.bits_pos)
+        assert self.stream.bits_pos == 0
         self.stream.append(0x76, 8)
-        self.assertEqual(0, self.stream.bits_pos)
+        assert self.stream.bits_pos == 0
         self.stream.append(0x01, 3)
-        self.assertEqual(3, self.stream.bits_pos)
+        assert self.stream.bits_pos == 3
 
     def test_write_bits(self):
         self.stream.write_bits(8, 0x76)
-        self.assertEqual("76", self.stream.to_hex_string())
+        assert self.stream.to_hex_string() == "76"
 
     def test_write_byte(self):
         self.stream.write_byte(0x76)
-        self.assertEqual("76", self.stream.to_hex_string())
-        self.assertEqual(0, self.stream.bits_pos)
+        assert self.stream.to_hex_string() == "76"
+        assert self.stream.bits_pos == 0
 
     def test_write_word(self):
         self.stream.write_word(0x0176)
-        self.assertEqual("76 01", self.stream.to_hex_string())
+        assert self.stream.to_hex_string() == "76 01"
 
     def test_write_dword(self):
         self.stream.write_dword(0x03020176)
-        self.assertEqual("76 01 02 03", self.stream.to_hex_string())
+        assert self.stream.to_hex_string() == "76 01 02 03"
 
     def test_align_byte(self):
         self.stream.append(0x01, 3)
-        self.assertEqual(3, self.stream.bits_pos)
+        assert self.stream.bits_pos == 3
         self.stream.align_byte()
-        self.assertEqual(0, self.stream.bits_pos)
-        self.assertEqual("01", self.stream.to_hex_string())
+        assert self.stream.bits_pos == 0
+        assert self.stream.to_hex_string() == "01"
 
     def test_get_data(self):
         self.stream.append(0x76, 8)
         self.stream.append(0x01, 8)
         data = self.stream.get_data()
-        self.assertEqual(b"\x76\x01", data)
+        assert data == b"v\x01"
 
     def test_write_bits_multiple(self):
         self.stream.write_bits(3, 3)
         self.stream.write_bits(2, 1)
         self.stream.write_bits(5, 0x1F)
-        self.assertEqual("eb 03", self.stream.to_hex_string())
+        assert self.stream.to_hex_string() == "eb 03"
 
     def test_snake_case_aliases(self):
         self.stream.write_string("OK")
-        self.assertEqual("4f 4b", self.stream.to_hex_string())
-        self.assertEqual([0x4F, 0x4B], self.stream.get_byte_list())
-        self.assertEqual(b"\x4f\x4b", self.stream.get_data())
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert self.stream.to_hex_string() == "4f 4b"
+        assert self.stream.get_byte_list() == [79, 75]
+        assert self.stream.get_data() == b"OK"

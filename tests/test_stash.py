@@ -1,7 +1,6 @@
 import os
 import struct
 import sys
-import unittest
 
 import pytest
 
@@ -70,18 +69,18 @@ def _build_empty_item_list(version=99):
     return obs.get_data()
 
 
-class TestCStashTabHeader(unittest.TestCase):
+class TestCStashTabHeader:
     def test_default_values(self):
         tab = StashTab()
-        self.assertEqual(tab.stash_format, 0)
-        self.assertEqual(tab.item_format, 0)
-        self.assertEqual(tab.gold, 0)
-        self.assertEqual(tab.season, 0)
-        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_NORMAL)
-        self.assertEqual(tab.reserved, b"\x00" * 43)
-        self.assertIsNone(tab.items)
-        self.assertIsNone(tab.chronicle)
-        self.assertEqual(tab._tab_size, 0)
+        assert tab.stash_format == 0
+        assert tab.item_format == 0
+        assert tab.gold == 0
+        assert tab.season == 0
+        assert tab.tab_type == STASH_TAB_TYPE_NORMAL
+        assert tab.reserved == b"\x00" * 43
+        assert tab.items is None
+        assert tab.chronicle is None
+        assert tab._tab_size == 0
 
     def test_read_classic_header(self):
         header = _build_stash_tab_header(
@@ -90,10 +89,10 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=99)
-        self.assertEqual(tab.stash_format, 1)
-        self.assertEqual(tab.item_format, 99)
-        self.assertEqual(tab.gold, 12345)
-        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_NORMAL)
+        assert tab.stash_format == 1
+        assert tab.item_format == 99
+        assert tab.gold == 12345
+        assert tab.tab_type == STASH_TAB_TYPE_NORMAL
 
     def test_read_modern_header(self):
         header = _build_stash_tab_header(
@@ -107,11 +106,11 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.stash_format, 2)
-        self.assertEqual(tab.item_format, 105)
-        self.assertEqual(tab.gold, 50000)
-        self.assertEqual(tab.season, 3)
-        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_NORMAL)
+        assert tab.stash_format == 2
+        assert tab.item_format == 105
+        assert tab.gold == 50000
+        assert tab.season == 3
+        assert tab.tab_type == STASH_TAB_TYPE_NORMAL
 
     def test_invalid_magic_raises(self):
         header = struct.pack("<I", 0xDEADBEEF)
@@ -120,7 +119,7 @@ class TestCStashTabHeader(unittest.TestCase):
         tab = StashTab()
         with pytest.raises(ValueError, match="Invalid stash tab magic") as ctx:
             tab.deserialize(bs)
-        self.assertIn("Invalid stash tab magic", str(ctx.value))
+        assert "Invalid stash tab magic" in str(ctx.value)
 
     def test_stash_format_1_forces_normal_type(self):
         header = _build_stash_tab_header(
@@ -129,8 +128,8 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=99)
-        self.assertEqual(tab.stash_format, 1)
-        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_NORMAL)
+        assert tab.stash_format == 1
+        assert tab.tab_type == STASH_TAB_TYPE_NORMAL
 
     def test_stash_format_2_preserves_tab_type(self):
         header = _build_stash_tab_header(
@@ -139,8 +138,8 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.stash_format, 2)
-        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_ADVANCED)
+        assert tab.stash_format == 2
+        assert tab.tab_type == STASH_TAB_TYPE_ADVANCED
 
     def test_stash_format_2_chronicle_type(self):
         header = _build_stash_tab_header(
@@ -149,8 +148,8 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.stash_format, 2)
-        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_CHRONICLE)
+        assert tab.stash_format == 2
+        assert tab.tab_type == STASH_TAB_TYPE_CHRONICLE
 
     def test_reserved_bytes_read(self):
         custom_reserved = bytes([i % 256 for i in range(43)])
@@ -160,10 +159,10 @@ class TestCStashTabHeader(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=99)
-        self.assertEqual(tab.reserved, custom_reserved)
+        assert tab.reserved == custom_reserved
 
 
-class TestCStashTabChronicle(unittest.TestCase):
+class TestCStashTabChronicle:
     def test_read_chronicle_tab(self):
         chronicle_body = b"\xab\xcd\xef\x01\x23"
         total_size = STASH_TAB_HEADER_SIZE + len(chronicle_body)
@@ -178,9 +177,9 @@ class TestCStashTabChronicle(unittest.TestCase):
         bs = IBitStream(data)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_CHRONICLE)
-        self.assertIsNotNone(tab.chronicle)
-        self.assertEqual(tab.chronicle, chronicle_body)
+        assert tab.tab_type == STASH_TAB_TYPE_CHRONICLE
+        assert tab.chronicle is not None
+        assert tab.chronicle == chronicle_body
 
     def test_read_chronicle_tab_empty_body(self):
         header = _build_stash_tab_header(
@@ -193,9 +192,9 @@ class TestCStashTabChronicle(unittest.TestCase):
         bs = IBitStream(header)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.tab_type, STASH_TAB_TYPE_CHRONICLE)
-        self.assertIsNotNone(tab.chronicle)
-        self.assertEqual(len(tab.chronicle), 0)
+        assert tab.tab_type == STASH_TAB_TYPE_CHRONICLE
+        assert tab.chronicle is not None
+        assert len(tab.chronicle) == 0
 
     def test_read_chronicle_tab_large_body(self):
         chronicle_body = bytes(range(256)) * 4
@@ -211,10 +210,10 @@ class TestCStashTabChronicle(unittest.TestCase):
         bs = IBitStream(data)
         tab = StashTab()
         tab.deserialize(bs, version=105)
-        self.assertEqual(tab.chronicle, chronicle_body)
+        assert tab.chronicle == chronicle_body
 
 
-class TestCStashTabSerialize(unittest.TestCase):
+class TestCStashTabSerialize:
     def test_serialize_header_fields(self):
         tab = StashTab()
         tab.stash_format = 2
@@ -230,19 +229,19 @@ class TestCStashTabSerialize(unittest.TestCase):
 
         bs = IBitStream(data)
         magic = bs.read_dword()
-        self.assertEqual(magic, STASH_TAB_MAGIC)
+        assert magic == STASH_TAB_MAGIC
         stash_format = bs.read_dword()
-        self.assertEqual(stash_format, 2)
+        assert stash_format == 2
         item_format = bs.read_dword()
-        self.assertEqual(item_format, 105)
+        assert item_format == 105
         gold = bs.read_dword()
-        self.assertEqual(gold, 99999)
+        assert gold == 99999
         tab_size = bs.read_word()
-        self.assertEqual(tab_size, 0)
+        assert tab_size == 0
         season = bs.read_word()
-        self.assertEqual(season, 5)
+        assert season == 5
         tab_type = bs.read_byte()
-        self.assertEqual(tab_type, STASH_TAB_TYPE_NORMAL)
+        assert tab_type == STASH_TAB_TYPE_NORMAL
 
     def test_serialize_chronicle_tab(self):
         tab = StashTab()
@@ -256,31 +255,31 @@ class TestCStashTabSerialize(unittest.TestCase):
         tab.serialize(obs, version=105)
         data = obs.get_data()
 
-        self.assertGreater(len(data), STASH_TAB_HEADER_SIZE)
+        assert len(data) > STASH_TAB_HEADER_SIZE
         chronicle_in_data = data[STASH_TAB_HEADER_SIZE:]
-        self.assertEqual(chronicle_in_data, b"\x01\x02\x03\x04\x05")
+        assert chronicle_in_data == b"\x01\x02\x03\x04\x05"
 
 
-class TestCSharedStash(unittest.TestCase):
+class TestCSharedStash:
     def test_default_values(self):
         stash = SharedStash()
-        self.assertEqual(stash.tabs, [])
-        self.assertEqual(stash.file_path, "")
-        self.assertEqual(stash.get_tab_count(), 0)
+        assert stash.tabs == []
+        assert stash.file_path == ""
+        assert stash.get_tab_count() == 0
 
     def test_get_tab_out_of_range(self):
         stash = SharedStash()
-        self.assertIsNone(stash.get_tab(-1))
-        self.assertIsNone(stash.get_tab(0))
-        self.assertIsNone(stash.get_tab(99))
+        assert stash.get_tab(-1) is None
+        assert stash.get_tab(0) is None
+        assert stash.get_tab(99) is None
 
     def test_get_tab_gold_no_tabs(self):
         stash = SharedStash()
-        self.assertEqual(stash.get_tab_gold(0), 0)
+        assert stash.get_tab_gold(0) == 0
 
     def test_get_tab_items_no_tabs(self):
         stash = SharedStash()
-        self.assertEqual(stash.get_tab_items(0), [])
+        assert stash.get_tab_items(0) == []
 
     def test_read_single_classic_tab(self):
         header = _build_stash_tab_header(
@@ -289,9 +288,9 @@ class TestCSharedStash(unittest.TestCase):
         bs = IBitStream(header)
         stash = SharedStash()
         stash.deserialize(bs, version=99)
-        self.assertEqual(stash.get_tab_count(), 1)
-        self.assertEqual(stash.get_tab(0).stash_format, 1)
-        self.assertEqual(stash.get_tab_gold(0), 1000)
+        assert stash.get_tab_count() == 1
+        assert stash.get_tab(0).stash_format == 1
+        assert stash.get_tab_gold(0) == 1000
 
     def test_read_multiple_tabs(self):
         tab1 = _build_stash_tab_header(
@@ -322,13 +321,13 @@ class TestCSharedStash(unittest.TestCase):
         bs = IBitStream(data)
         stash = SharedStash()
         stash.deserialize(bs, version=105)
-        self.assertEqual(stash.get_tab_count(), 3)
-        self.assertEqual(stash.get_tab_gold(0), 1000)
-        self.assertEqual(stash.get_tab_gold(1), 2000)
-        self.assertEqual(stash.get_tab_gold(2), 3000)
-        self.assertEqual(stash.get_tab(0).season, 1)
-        self.assertEqual(stash.get_tab(1).season, 2)
-        self.assertEqual(stash.get_tab(2).season, 3)
+        assert stash.get_tab_count() == 3
+        assert stash.get_tab_gold(0) == 1000
+        assert stash.get_tab_gold(1) == 2000
+        assert stash.get_tab_gold(2) == 3000
+        assert stash.get_tab(0).season == 1
+        assert stash.get_tab(1).season == 2
+        assert stash.get_tab(2).season == 3
 
     def test_read_stops_on_invalid_magic(self):
         tab1 = _build_stash_tab_header(stash_format=1, item_format=99, gold=500, tab_size=64)
@@ -337,20 +336,20 @@ class TestCSharedStash(unittest.TestCase):
         bs = IBitStream(data)
         stash = SharedStash()
         stash.deserialize(bs, version=99)
-        self.assertEqual(stash.get_tab_count(), 1)
+        assert stash.get_tab_count() == 1
 
     def test_read_empty_data(self):
         bs = IBitStream(b"")
         stash = SharedStash()
         stash.deserialize(bs, version=99)
-        self.assertEqual(stash.get_tab_count(), 0)
+        assert stash.get_tab_count() == 0
 
     def test_read_insufficient_data(self):
         short_data = b"\x00" * 10
         bs = IBitStream(short_data)
         stash = SharedStash()
         stash.deserialize(bs, version=99)
-        self.assertEqual(stash.get_tab_count(), 0)
+        assert stash.get_tab_count() == 0
 
     def test_serialize_updates_tab_size(self):
         tab = StashTab()
@@ -370,7 +369,7 @@ class TestCSharedStash(unittest.TestCase):
 
         tab_size_in_data = struct.unpack_from("<H", data, 16)[0]
         expected_size = STASH_TAB_HEADER_SIZE + len(tab.chronicle)
-        self.assertEqual(tab_size_in_data, expected_size)
+        assert tab_size_in_data == expected_size
 
     def test_roundtrip_chronicle_tab(self):
         chronicle_body = bytes(range(100))
@@ -389,11 +388,11 @@ class TestCSharedStash(unittest.TestCase):
         stash = SharedStash()
         stash.deserialize(bs, version=105)
 
-        self.assertEqual(stash.get_tab_count(), 1)
+        assert stash.get_tab_count() == 1
         tab = stash.get_tab(0)
-        self.assertEqual(tab.chronicle, chronicle_body)
-        self.assertEqual(tab.gold, 55555)
-        self.assertEqual(tab.season, 7)
+        assert tab.chronicle == chronicle_body
+        assert tab.gold == 55555
+        assert tab.season == 7
 
         obs = OBitStream()
         stash.serialize(obs, version=105)
@@ -402,11 +401,11 @@ class TestCSharedStash(unittest.TestCase):
         bs2 = IBitStream(serialized)
         stash2 = SharedStash()
         stash2.deserialize(bs2, version=105)
-        self.assertEqual(stash2.get_tab_count(), 1)
+        assert stash2.get_tab_count() == 1
         tab2 = stash2.get_tab(0)
-        self.assertEqual(tab2.chronicle, chronicle_body)
-        self.assertEqual(tab2.gold, 55555)
-        self.assertEqual(tab2.season, 7)
+        assert tab2.chronicle == chronicle_body
+        assert tab2.gold == 55555
+        assert tab2.season == 7
 
     def test_roundtrip_multiple_tabs(self):
         tabs_data = b""
@@ -435,15 +434,15 @@ class TestCSharedStash(unittest.TestCase):
         stash2 = SharedStash()
         stash2.deserialize(bs2, version=105)
 
-        self.assertEqual(stash2.get_tab_count(), 3)
+        assert stash2.get_tab_count() == 3
         for i in range(3):
             tab = stash2.get_tab(i)
-            self.assertEqual(tab.gold, 1000 * (i + 1))
-            self.assertEqual(tab.season, i)
-            self.assertEqual(tab.chronicle, bytes([i] * 20))
+            assert tab.gold == 1000 * (i + 1)
+            assert tab.season == i
+            assert tab.chronicle == bytes([i] * 20)
 
 
-class TestClassifyAdvancedTab(unittest.TestCase):
+class TestClassifyAdvancedTab:
     def _make_item(self, type_name):
         class FakeItem:
             def __init__(self, tn):
@@ -452,80 +451,80 @@ class TestClassifyAdvancedTab(unittest.TestCase):
         return FakeItem(type_name)
 
     def test_empty_items(self):
-        self.assertEqual(classify_advanced_tab([]), ADVANCED_SUBTYPE_UNKNOWN)
+        assert classify_advanced_tab([]) == ADVANCED_SUBTYPE_UNKNOWN
 
     def test_none_items(self):
-        self.assertEqual(classify_advanced_tab(None), ADVANCED_SUBTYPE_UNKNOWN)
+        assert classify_advanced_tab(None) == ADVANCED_SUBTYPE_UNKNOWN
 
     def test_rune_only(self):
         items = [self._make_item(b"r01 "), self._make_item(b"r33 ")]
-        self.assertEqual(classify_advanced_tab(items), ADVANCED_SUBTYPE_RUNE)
+        assert classify_advanced_tab(items) == ADVANCED_SUBTYPE_RUNE
 
     def test_gem_only(self):
         items = [self._make_item(b"gcv "), self._make_item(b"skz ")]
-        self.assertEqual(classify_advanced_tab(items), ADVANCED_SUBTYPE_GEM)
+        assert classify_advanced_tab(items) == ADVANCED_SUBTYPE_GEM
 
     def test_material_only(self):
         items = [self._make_item(b"rvs "), self._make_item(b"ua5 ")]
-        self.assertEqual(classify_advanced_tab(items), ADVANCED_SUBTYPE_MATERIAL)
+        assert classify_advanced_tab(items) == ADVANCED_SUBTYPE_MATERIAL
 
     def test_unknown_items_only(self):
         items = [self._make_item(b"cap "), self._make_item(b"axf ")]
-        self.assertEqual(classify_advanced_tab(items), ADVANCED_SUBTYPE_UNKNOWN)
+        assert classify_advanced_tab(items) == ADVANCED_SUBTYPE_UNKNOWN
 
     def test_mixed_majority_rune(self):
         items = [self._make_item(b"r01 "), self._make_item(b"r02 "), self._make_item(b"gcv ")]
-        self.assertEqual(classify_advanced_tab(items), ADVANCED_SUBTYPE_RUNE)
+        assert classify_advanced_tab(items) == ADVANCED_SUBTYPE_RUNE
 
     def test_mixed_majority_gem(self):
         items = [self._make_item(b"gcv "), self._make_item(b"gfy "), self._make_item(b"r01 ")]
-        self.assertEqual(classify_advanced_tab(items), ADVANCED_SUBTYPE_GEM)
+        assert classify_advanced_tab(items) == ADVANCED_SUBTYPE_GEM
 
     def test_mixed_majority_material(self):
         items = [self._make_item(b"rvs "), self._make_item(b"dhn "), self._make_item(b"r01 ")]
-        self.assertEqual(classify_advanced_tab(items), ADVANCED_SUBTYPE_MATERIAL)
+        assert classify_advanced_tab(items) == ADVANCED_SUBTYPE_MATERIAL
 
 
-class TestGetAdvancedLayout(unittest.TestCase):
+class TestGetAdvancedLayout:
     def test_gem_layout(self):
-        self.assertEqual(get_advanced_layout(ADVANCED_SUBTYPE_GEM), GEM_LAYOUT)
-        self.assertEqual(GEM_LAYOUT, (7, 5))
+        assert get_advanced_layout(ADVANCED_SUBTYPE_GEM) == GEM_LAYOUT
+        assert GEM_LAYOUT == (7, 5)
 
     def test_rune_layout(self):
-        self.assertEqual(get_advanced_layout(ADVANCED_SUBTYPE_RUNE), RUNE_LAYOUT)
-        self.assertEqual(RUNE_LAYOUT, (9, 4))
+        assert get_advanced_layout(ADVANCED_SUBTYPE_RUNE) == RUNE_LAYOUT
+        assert RUNE_LAYOUT == (9, 4)
 
     def test_material_layout(self):
-        self.assertEqual(get_advanced_layout(ADVANCED_SUBTYPE_MATERIAL), MATERIAL_LAYOUT)
-        self.assertEqual(MATERIAL_LAYOUT, (10, 3))
+        assert get_advanced_layout(ADVANCED_SUBTYPE_MATERIAL) == MATERIAL_LAYOUT
+        assert MATERIAL_LAYOUT == (10, 3)
 
     def test_unknown_layout(self):
-        self.assertEqual(get_advanced_layout(ADVANCED_SUBTYPE_UNKNOWN), NORMAL_LAYOUT)
-        self.assertEqual(NORMAL_LAYOUT, (10, 10))
+        assert get_advanced_layout(ADVANCED_SUBTYPE_UNKNOWN) == NORMAL_LAYOUT
+        assert NORMAL_LAYOUT == (10, 10)
 
 
-class TestGetAdvancedSlotOrder(unittest.TestCase):
+class TestGetAdvancedSlotOrder:
     def test_gem_slot_order(self):
         result = get_advanced_slot_order(ADVANCED_SUBTYPE_GEM)
-        self.assertEqual(result, GEM_SLOT_ORDER)
-        self.assertEqual(len(GEM_SLOT_ORDER), 35)
+        assert result == GEM_SLOT_ORDER
+        assert len(GEM_SLOT_ORDER) == 35
 
     def test_rune_slot_order(self):
         result = get_advanced_slot_order(ADVANCED_SUBTYPE_RUNE)
-        self.assertEqual(result, RUNE_SLOT_ORDER)
-        self.assertEqual(len(RUNE_SLOT_ORDER), 33)
+        assert result == RUNE_SLOT_ORDER
+        assert len(RUNE_SLOT_ORDER) == 33
 
     def test_material_slot_order(self):
         result = get_advanced_slot_order(ADVANCED_SUBTYPE_MATERIAL)
-        self.assertEqual(result, MATERIAL_SLOT_ORDER)
-        self.assertEqual(len(MATERIAL_SLOT_ORDER), 23)
+        assert result == MATERIAL_SLOT_ORDER
+        assert len(MATERIAL_SLOT_ORDER) == 23
 
     def test_unknown_slot_order(self):
         result = get_advanced_slot_order(ADVANCED_SUBTYPE_UNKNOWN)
-        self.assertEqual(result, GEM_SLOT_ORDER + RUNE_SLOT_ORDER + MATERIAL_SLOT_ORDER)
+        assert result == GEM_SLOT_ORDER + RUNE_SLOT_ORDER + MATERIAL_SLOT_ORDER
 
 
-class TestComputeAdvancedGrid(unittest.TestCase):
+class TestComputeAdvancedGrid:
     def _make_item(self, type_name):
         class FakeItem:
             def __init__(self, tn):
@@ -535,60 +534,56 @@ class TestComputeAdvancedGrid(unittest.TestCase):
 
     def test_empty_items_gem(self):
         cols, rows, slots = compute_advanced_grid([], ADVANCED_SUBTYPE_GEM)
-        self.assertEqual(cols, GEM_LAYOUT[0])
-        self.assertEqual(rows, GEM_LAYOUT[1])
-        self.assertEqual(slots, GEM_SLOT_ORDER)
+        assert cols == GEM_LAYOUT[0]
+        assert rows == GEM_LAYOUT[1]
+        assert slots == GEM_SLOT_ORDER
 
     def test_empty_items_rune(self):
         cols, rows, _slots = compute_advanced_grid([], ADVANCED_SUBTYPE_RUNE)
-        self.assertEqual(cols, RUNE_LAYOUT[0])
-        self.assertEqual(rows, RUNE_LAYOUT[1])
+        assert cols == RUNE_LAYOUT[0]
+        assert rows == RUNE_LAYOUT[1]
 
     def test_empty_items_material(self):
         cols, rows, _slots = compute_advanced_grid([], ADVANCED_SUBTYPE_MATERIAL)
-        self.assertEqual(cols, MATERIAL_LAYOUT[0])
-        self.assertEqual(rows, MATERIAL_LAYOUT[1])
+        assert cols == MATERIAL_LAYOUT[0]
+        assert rows == MATERIAL_LAYOUT[1]
 
     def test_with_items_within_base_layout(self):
         items = [self._make_item(b"r01 "), self._make_item(b"r02 ")]
         cols, rows, _slots = compute_advanced_grid(items, ADVANCED_SUBTYPE_RUNE)
-        self.assertEqual(cols, RUNE_LAYOUT[0])
-        self.assertEqual(rows, RUNE_LAYOUT[1])
+        assert cols == RUNE_LAYOUT[0]
+        assert rows == RUNE_LAYOUT[1]
 
     def test_with_items_exceeding_base_rows(self):
         items = [self._make_item(f"r{i:02d} ".encode()) for i in range(1, 40)]
         cols, rows, _slots = compute_advanced_grid(items, ADVANCED_SUBTYPE_RUNE)
-        self.assertEqual(cols, RUNE_LAYOUT[0])
-        self.assertGreaterEqual(rows * cols, len(items))
+        assert cols == RUNE_LAYOUT[0]
+        assert rows * cols >= len(items)
 
 
-class TestCodeSets(unittest.TestCase):
+class TestCodeSets:
     def test_rune_codes_count(self):
-        self.assertEqual(len(RUNE_CODES), 33)
+        assert len(RUNE_CODES) == 33
 
     def test_gem_codes_count(self):
-        self.assertEqual(len(GEM_CODES), 35)
+        assert len(GEM_CODES) == 35
 
     def test_material_codes_count(self):
-        self.assertEqual(len(MATERIAL_CODES), 23)
+        assert len(MATERIAL_CODES) == 23
 
     def test_rune_slot_order_matches_codes(self):
         for code in RUNE_SLOT_ORDER:
-            self.assertIn(code, RUNE_CODES)
+            assert code in RUNE_CODES
 
     def test_gem_slot_order_matches_codes(self):
         for code in GEM_SLOT_ORDER:
-            self.assertIn(code, GEM_CODES)
+            assert code in GEM_CODES
 
     def test_material_slot_order_matches_codes(self):
         for code in MATERIAL_SLOT_ORDER:
-            self.assertIn(code, MATERIAL_CODES)
+            assert code in MATERIAL_CODES
 
     def test_no_overlap_between_code_sets(self):
-        self.assertEqual(RUNE_CODES & GEM_CODES, set())
-        self.assertEqual(RUNE_CODES & MATERIAL_CODES, set())
-        self.assertEqual(GEM_CODES & MATERIAL_CODES, set())
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert set() == RUNE_CODES & GEM_CODES
+        assert set() == RUNE_CODES & MATERIAL_CODES
+        assert set() == GEM_CODES & MATERIAL_CODES

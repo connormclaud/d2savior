@@ -1,6 +1,5 @@
 import os
 import sys
-import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -9,27 +8,27 @@ from core.ibitstream import IBitStream
 from core.obitstream import OBitStream
 
 
-class TestD2SStruct(unittest.TestCase):
+class TestD2SStruct:
     def test_char_class_name(self):
         char_data = D2SStruct()
         char_data.char_class = 0
-        self.assertEqual(char_data.get_char_class_name(), "Amazon")
+        assert char_data.get_char_class_name() == "Amazon"
         char_data.char_class = 1
-        self.assertEqual(char_data.get_char_class_name(), "Sorceress")
+        assert char_data.get_char_class_name() == "Sorceress"
         char_data.char_class = 2
-        self.assertEqual(char_data.get_char_class_name(), "Necromancer")
+        assert char_data.get_char_class_name() == "Necromancer"
         char_data.char_class = 3
-        self.assertEqual(char_data.get_char_class_name(), "Paladin")
+        assert char_data.get_char_class_name() == "Paladin"
         char_data.char_class = 4
-        self.assertEqual(char_data.get_char_class_name(), "Barbarian")
+        assert char_data.get_char_class_name() == "Barbarian"
         char_data.char_class = 5
-        self.assertEqual(char_data.get_char_class_name(), "Druid")
+        assert char_data.get_char_class_name() == "Druid"
         char_data.char_class = 6
-        self.assertEqual(char_data.get_char_class_name(), "Assassin")
+        assert char_data.get_char_class_name() == "Assassin"
         char_data.char_class = 7
-        self.assertEqual(char_data.get_char_class_name(), "Warlock")
+        assert char_data.get_char_class_name() == "Warlock"
         char_data.char_class = 8
-        self.assertEqual(char_data.get_char_class_name(), "Unknown")
+        assert char_data.get_char_class_name() == "Unknown"
 
     def test_char_name(self):
         char_data = D2SStruct()
@@ -37,39 +36,39 @@ class TestD2SStruct(unittest.TestCase):
         char_data.name = b"TestChar\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         char_data.name_ptr = b"\x00" * 64
         char_data.version = 0x60  # 1.10 版本
-        self.assertEqual(char_data.get_char_name(), "TestChar")
+        assert char_data.get_char_name() == "TestChar"
 
         # 测试 PTR2.4+ UTF-8 名称
         char_data.name = b"\x00" * 16
         char_data.name_ptr = b"TestCharUTF8\x00" + b"\x00" * 50
         char_data.version = 0x62  # PTR2.4 版本
-        self.assertEqual(char_data.get_char_name(), "TestCharUTF8")
+        assert char_data.get_char_name() == "TestCharUTF8"
 
     def test_flags(self):
         char_data = D2SStruct()
         # 测试 hardcore 标志
         char_data.char_flags = 0x4
-        self.assertTrue(char_data.is_hardcore())
+        assert char_data.is_hardcore()
         char_data.char_flags = 0x0
-        self.assertFalse(char_data.is_hardcore())
+        assert not char_data.is_hardcore()
 
         # 测试 ladder 标志
         char_data.char_flags = 0x40
-        self.assertTrue(char_data.is_ladder())
+        assert char_data.is_ladder()
         char_data.char_flags = 0x0
-        self.assertFalse(char_data.is_ladder())
+        assert not char_data.is_ladder()
 
         # 测试 expansion 标志
         char_data.char_flags = 0x20
-        self.assertTrue(char_data.is_expansion())
+        assert char_data.is_expansion()
         char_data.char_flags = 0x0
-        self.assertFalse(char_data.is_expansion())
+        assert not char_data.is_expansion()
 
         # 测试 died_before 标志
         char_data.char_flags = 0x8
-        self.assertTrue(char_data.is_died_before())
+        assert char_data.is_died_before()
         char_data.char_flags = 0x0
-        self.assertFalse(char_data.is_died_before())
+        assert not char_data.is_died_before()
 
     def test_has_mercenary_0x63(self):
         """测试 0x63 版本雇佣兵判断逻辑: merc_control != 0"""
@@ -77,13 +76,13 @@ class TestD2SStruct(unittest.TestCase):
         char_data.version = 0x63
 
         char_data.merc_control = 0
-        self.assertFalse(char_data.has_mercenary())
+        assert not char_data.has_mercenary()
 
         char_data.merc_control = 1
-        self.assertTrue(char_data.has_mercenary())
+        assert char_data.has_mercenary()
 
         char_data.merc_control = 0x12345678
-        self.assertTrue(char_data.has_mercenary())
+        assert char_data.has_mercenary()
 
     def test_has_mercenary_0x69(self):
         """测试 0x69 版本雇佣兵判断逻辑: merc_seed!=0 or merc_name_index!=0 or merc_experience!=0"""
@@ -93,27 +92,27 @@ class TestD2SStruct(unittest.TestCase):
         char_data.merc_seed = 0
         char_data.merc_name_index = 0
         char_data.merc_experience = 0
-        self.assertFalse(char_data.has_mercenary())
+        assert not char_data.has_mercenary()
 
         char_data.merc_seed = 1
         char_data.merc_name_index = 0
         char_data.merc_experience = 0
-        self.assertTrue(char_data.has_mercenary())
+        assert char_data.has_mercenary()
 
         char_data.merc_seed = 0
         char_data.merc_name_index = 1
         char_data.merc_experience = 0
-        self.assertTrue(char_data.has_mercenary())
+        assert char_data.has_mercenary()
 
         char_data.merc_seed = 0
         char_data.merc_name_index = 0
         char_data.merc_experience = 1
-        self.assertTrue(char_data.has_mercenary())
+        assert char_data.has_mercenary()
 
         char_data.merc_seed = 0x12345678
         char_data.merc_name_index = 0
         char_data.merc_experience = 0
-        self.assertTrue(char_data.has_mercenary())
+        assert char_data.has_mercenary()
 
     def test_has_mercenary_classic(self):
         """测试 Classic 版本雇佣兵判断逻辑: merc_name > 0"""
@@ -121,10 +120,10 @@ class TestD2SStruct(unittest.TestCase):
         char_data.version = 0x60
 
         char_data.merc_name = 0
-        self.assertFalse(char_data.has_mercenary())
+        assert not char_data.has_mercenary()
 
         char_data.merc_name = 1
-        self.assertTrue(char_data.has_mercenary())
+        assert char_data.has_mercenary()
 
     def test_is_expansion_0x63_charflags(self):
         """测试 0x63 版本资料片判断: char_flags & 0x20"""
@@ -133,13 +132,13 @@ class TestD2SStruct(unittest.TestCase):
         char_data.quests = None
 
         char_data.char_flags = 0x20
-        self.assertTrue(char_data.is_expansion())
+        assert char_data.is_expansion()
 
         char_data.char_flags = 0x00
-        self.assertFalse(char_data.is_expansion())
+        assert not char_data.is_expansion()
 
         char_data.char_flags = 0x24
-        self.assertTrue(char_data.is_expansion())
+        assert char_data.is_expansion()
 
     def test_is_expansion_0x63_acts(self):
         """测试 0x63 版本资料片判断回退: QuestInfo.dwActs >= 5"""
@@ -151,10 +150,10 @@ class TestD2SStruct(unittest.TestCase):
         char_data.quests = QuestInfo()
 
         char_data.quests.acts = 4
-        self.assertFalse(char_data.is_expansion())
+        assert not char_data.is_expansion()
 
         char_data.quests.acts = 5
-        self.assertTrue(char_data.is_expansion())
+        assert char_data.is_expansion()
 
     def test_is_expansion_0x69(self):
         """测试 0x69 版本资料片判断: game_version > 1"""
@@ -162,21 +161,21 @@ class TestD2SStruct(unittest.TestCase):
         char_data.version = 0x69
 
         char_data.game_version = 1
-        self.assertFalse(char_data.is_expansion())
+        assert not char_data.is_expansion()
 
         char_data.game_version = 2
-        self.assertTrue(char_data.is_expansion())
+        assert char_data.is_expansion()
 
         char_data.game_version = 3
-        self.assertTrue(char_data.is_expansion())
+        assert char_data.is_expansion()
 
     def test_player_stats_magic(self):
         """测试 PlayerStats 魔法数"""
         from core.d2s_struct import PlayerStats
 
         ps = PlayerStats()
-        self.assertEqual(ps.magic, 0)
-        self.assertEqual(len(ps.stat_values), 16)
+        assert ps.magic == 0
+        assert len(ps.stat_values) == 16
 
     def test_player_stats_read_data(self):
         """测试 PlayerStats 从 bitstream 解析"""
@@ -197,9 +196,9 @@ class TestD2SStruct(unittest.TestCase):
         ps = PlayerStats()
         ps.deserialize(bs)
 
-        self.assertEqual(ps.magic, 0x6667)
-        self.assertEqual(ps.stat_values[0], 50)
-        self.assertEqual(ps.stat_values[3], 25)
+        assert ps.magic == 26215
+        assert ps.stat_values[0] == 50
+        assert ps.stat_values[3] == 25
 
     def test_player_stats_invalid_magic(self):
         """测试 PlayerStats 无效魔法数时跳过解析"""
@@ -213,7 +212,7 @@ class TestD2SStruct(unittest.TestCase):
         ps = PlayerStats()
         ps.deserialize(bs)
 
-        self.assertNotEqual(ps.magic, 0x6667)
+        assert ps.magic != 26215
 
     def test_player_stats_all_stats(self):
         """测试 PlayerStats 解析所有16个属性"""
@@ -252,14 +251,12 @@ class TestD2SStruct(unittest.TestCase):
         ps = PlayerStats()
         ps.deserialize(bs)
 
-        self.assertEqual(ps.magic, 0x6667)
+        assert ps.magic == 26215
         for i in range(16):
             max_val = (1 << player_stats_bits_count[i]) - 1
             expected = min(test_values[i], max_val)
-            self.assertEqual(
-                ps.stat_values[i],
-                expected,
-                f"Stat index {i}: expected {expected}, got {ps.stat_values[i]}",
+            assert ps.stat_values[i] == expected, (
+                f"Stat index {i}: expected {expected}, got {ps.stat_values[i]}"
             )
 
     def test_demon_default(self):
@@ -267,8 +264,8 @@ class TestD2SStruct(unittest.TestCase):
         from core.d2s_struct import Demon
 
         demon = Demon()
-        self.assertFalse(demon.has_demon)
-        self.assertEqual(demon.magic, 0)
+        assert not demon.has_demon
+        assert demon.magic == 0
 
     def test_demon_read_data_no_demon(self):
         """测试 Demon 解析: 无 Demon 数据 (has_demon=False)"""
@@ -285,8 +282,8 @@ class TestD2SStruct(unittest.TestCase):
         demon = Demon()
         demon.deserialize(bs)
 
-        self.assertEqual(demon.magic, 0x666C)
-        self.assertFalse(demon.has_demon)
+        assert demon.magic == 26220
+        assert not demon.has_demon
 
     def test_demon_read_data_invalid_magic(self):
         """测试 Demon 解析: 无效魔法数时跳过"""
@@ -301,15 +298,15 @@ class TestD2SStruct(unittest.TestCase):
         demon = Demon()
         demon.deserialize(bs)
 
-        self.assertNotEqual(demon.magic, 0x666C)
-        self.assertFalse(demon.has_demon)
+        assert demon.magic != 26220
+        assert not demon.has_demon
 
     def test_char_name_0x69(self):
         """测试 0x69 版本角色名称从 name 字段读取"""
         char_data = D2SStruct()
         char_data.version = 0x69
         char_data.name = b"D2RChar\x00" + b"\x00" * 8
-        self.assertEqual(char_data.get_char_name(), "D2RChar")
+        assert char_data.get_char_name() == "D2RChar"
 
     def test_equip_slot_enum(self):
         from core.enums import EquipSlot
@@ -329,8 +326,8 @@ class TestD2SStruct(unittest.TestCase):
             12: "Shield II",
         }
         for pos, name in expected.items():
-            self.assertEqual(str(EquipSlot(pos)), name)
-            self.assertEqual(EquipSlot(pos).display_name, name)
+            assert str(EquipSlot(pos)) == name
+            assert EquipSlot(pos).display_name == name
 
     def test_format_item_info_equipped_position(self):
         from core.enums import ItemLocation
@@ -344,8 +341,8 @@ class TestD2SStruct(unittest.TestCase):
         item.position = 4
 
         full_text = format_item_info(item)
-        self.assertIsInstance(full_text, str)
-        self.assertIn("Location: EQUIPPED, Position: 4 (Weapon I)", full_text)
+        assert isinstance(full_text, str)
+        assert "Location: EQUIPPED, Position: 4 (Weapon I)" in full_text
 
         # Stored item should not have equip slot name
         item_stored = D2Item()
@@ -354,28 +351,28 @@ class TestD2SStruct(unittest.TestCase):
         item_stored.location = int(ItemLocation.STORED)
         item_stored.position = 0
         full_text_stored = format_item_info(item_stored)
-        self.assertIsInstance(full_text_stored, str)
-        self.assertIn("Location: STORED, Position: 0", full_text_stored)
-        self.assertNotIn("Weapon", full_text_stored)
+        assert isinstance(full_text_stored, str)
+        assert "Location: STORED, Position: 0" in full_text_stored
+        assert "Weapon" not in full_text_stored
 
     def test_format_timestamp(self):
         from core.formatters import format_timestamp
 
-        self.assertEqual(format_timestamp(0), "N/A")
-        self.assertEqual(format_timestamp(0xFFFFFFFF), "N/A")
-        self.assertEqual(format_timestamp(-1), "N/A")
-        self.assertEqual(format_timestamp(1793981148), "2026-11-06 16:05:48 UTC")
+        assert format_timestamp(0) == "N/A"
+        assert format_timestamp(4294967295) == "N/A"
+        assert format_timestamp(-1) == "N/A"
+        assert format_timestamp(1793981148) == "2026-11-06 16:05:48 UTC"
 
     def test_format_duration(self):
         from core.formatters import format_duration
 
-        self.assertEqual(format_duration(0xFFFFFFFF), "N/A")
-        self.assertEqual(format_duration(-5), "N/A")
-        self.assertEqual(format_duration(0), "0s")
-        self.assertEqual(format_duration(45), "45s")
-        self.assertEqual(format_duration(3600), "1h")
-        self.assertEqual(format_duration(3665), "1h 1m 5s")
-        self.assertEqual(format_duration(90061), "1d 1h 1m 1s")
+        assert format_duration(4294967295) == "N/A"
+        assert format_duration(-5) == "N/A"
+        assert format_duration(0) == "0s"
+        assert format_duration(45) == "45s"
+        assert format_duration(3600) == "1h"
+        assert format_duration(3665) == "1h 1m 5s"
+        assert format_duration(90061) == "1d 1h 1m 1s"
 
     def test_format_char_info_waypoints_and_quests(self):
         from core.formatters import format_char_info
@@ -426,34 +423,30 @@ class TestD2SStruct(unittest.TestCase):
         output = format_char_info(char)
 
         # Check waypoints
-        self.assertIn("Normal (39/39 unlocked): All unlocked", output)
-        self.assertIn("Nightmare (38/39 unlocked, 1 missing):", output)
-        self.assertIn("Act I (8/9): Missing Stony Field", output)
-        self.assertIn("Act II (9/9): All unlocked", output)
-        self.assertIn("Hell: Not started", output)
+        assert "Normal (39/39 unlocked): All unlocked" in output
+        assert "Nightmare (38/39 unlocked, 1 missing):" in output
+        assert "Act I (8/9): Missing Stony Field" in output
+        assert "Act II (9/9): All unlocked" in output
+        assert "Hell: Not started" in output
 
         # Check quests
-        self.assertIn("Normal (27/27 completed) — Akara Reset: Used", output)
-        self.assertIn("Act I: [x] [x] [x] [x] [x] [x]", output)
-        self.assertIn(
-            "Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available", output
-        )
-        self.assertIn(
-            "Act I: [x] [x] [x] [x] [!] Tools of the Trade (reward unclaimed) [x]", output
-        )
-        self.assertIn(
-            "Act V: [!] Siege on Harrogath (reward unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]",
-            output,
+        assert "Normal (27/27 completed) — Akara Reset: Used" in output
+        assert "Act I: [x] [x] [x] [x] [x] [x]" in output
+        assert "Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available" in output
+        assert "Act I: [x] [x] [x] [x] [!] Tools of the Trade (reward unclaimed) [x]" in output
+        assert (
+            "Act V: [!] Siege on Harrogath (reward unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]"
+            in output
         )
 
     def test_player_stats_properties(self):
         from core.d2s_struct import PLAYER_STATS_MAGIC, PlayerStats
 
         stats = PlayerStats()
-        self.assertFalse(stats.is_valid)
+        assert not stats.is_valid
 
         stats.magic = PLAYER_STATS_MAGIC
-        self.assertTrue(stats.is_valid)
+        assert stats.is_valid
 
         stats.stat_values[0] = 100  # str
         stats.stat_values[1] = 50  # ene
@@ -472,22 +465,22 @@ class TestD2SStruct(unittest.TestCase):
         stats.stat_values[0xE] = 10000  # gold
         stats.stat_values[0xF] = 2500000  # gold stash
 
-        self.assertEqual(stats.strength, 100)
-        self.assertEqual(stats.energy, 50)
-        self.assertEqual(stats.dexterity, 75)
-        self.assertEqual(stats.vitality, 120)
-        self.assertEqual(stats.stat_points_remaining, 5)
-        self.assertEqual(stats.skill_points_remaining, 2)
-        self.assertEqual(stats.current_life, 500)
-        self.assertEqual(stats.max_life, 600)
-        self.assertEqual(stats.current_mana, 200)
-        self.assertEqual(stats.max_mana, 250)
-        self.assertEqual(stats.current_stamina, 150)
-        self.assertEqual(stats.max_stamina, 180)
-        self.assertEqual(stats.level, 85)
-        self.assertEqual(stats.experience, 1234567)
-        self.assertEqual(stats.gold, 10000)
-        self.assertEqual(stats.gold_stash, 2500000)
+        assert stats.strength == 100
+        assert stats.energy == 50
+        assert stats.dexterity == 75
+        assert stats.vitality == 120
+        assert stats.stat_points_remaining == 5
+        assert stats.skill_points_remaining == 2
+        assert stats.current_life == 500
+        assert stats.max_life == 600
+        assert stats.current_mana == 200
+        assert stats.max_mana == 250
+        assert stats.current_stamina == 150
+        assert stats.max_stamina == 180
+        assert stats.level == 85
+        assert stats.experience == 1234567
+        assert stats.gold == 10000
+        assert stats.gold_stash == 2500000
 
     def test_mercenary_properties(self):
         # Version < 0x69
@@ -497,10 +490,10 @@ class TestD2SStruct(unittest.TestCase):
         char_v60.merc_type = 3
         char_v60.merc_exp = 99999
         char_v60.merc_dead = 1
-        self.assertEqual(char_v60.merc_name_id, 12)
-        self.assertEqual(char_v60.merc_type_id, 3)
-        self.assertEqual(char_v60.merc_experience, 99999)
-        self.assertTrue(char_v60.merc_is_dead)
+        assert char_v60.merc_name_id == 12
+        assert char_v60.merc_type_id == 3
+        assert char_v60.merc_experience == 99999
+        assert char_v60.merc_is_dead
 
         # Version >= 0x69
         char_v69 = D2SStruct()
@@ -508,30 +501,26 @@ class TestD2SStruct(unittest.TestCase):
         char_v69.merc_name_index = 42
         char_v69.merc_hireling_id = 7
         char_v69.merc_experience = 1500000
-        self.assertEqual(char_v69.merc_name_id, 42)
-        self.assertEqual(char_v69.merc_type_id, 7)
-        self.assertEqual(char_v69.merc_experience, 1500000)
-        self.assertFalse(char_v69.merc_is_dead)
+        assert char_v69.merc_name_id == 42
+        assert char_v69.merc_type_id == 7
+        assert char_v69.merc_experience == 1500000
+        assert not char_v69.merc_is_dead
 
     def test_quest_info_data_travel_properties(self):
         from core.d2s_struct import QuestInfoData
 
         qid = QuestInfoData()
-        self.assertEqual(qid.travel_1, 0)
-        self.assertEqual(qid.travel_2, 0)
-        self.assertEqual(qid.travel_3, 0)
-        self.assertEqual(qid.travel_4, 0)
+        assert qid.travel_1 == 0
+        assert qid.travel_2 == 0
+        assert qid.travel_3 == 0
+        assert qid.travel_4 == 0
 
         # Pythonic attributes
         qid.travel_1 = 1
         qid.travel_2 = 2
         qid.travel_3 = 3
         qid.travel_4 = 4
-        self.assertEqual(qid.travel_1, 1)
-        self.assertEqual(qid.travel_2, 2)
-        self.assertEqual(qid.travel_3, 3)
-        self.assertEqual(qid.travel_4, 4)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert qid.travel_1 == 1
+        assert qid.travel_2 == 2
+        assert qid.travel_3 == 3
+        assert qid.travel_4 == 4

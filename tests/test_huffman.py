@@ -1,6 +1,5 @@
 import os
 import sys
-import unittest
 
 import pytest
 
@@ -11,9 +10,9 @@ from core.ibitstream import IBitStream
 from core.obitstream import OBitStream
 
 
-class TestHuffmanTree(unittest.TestCase):
+class TestHuffmanTree:
     def test_huffman_tree_not_empty(self):
-        self.assertGreater(len(HUFFMAN_TREE), 0)
+        assert len(HUFFMAN_TREE) > 0
 
     def test_huffman_tree_contains_valid_chars(self):
         valid_chars = set()
@@ -22,45 +21,42 @@ class TestHuffmanTree(unittest.TestCase):
                 valid_chars.add(chr(c))
 
         expected_chars = set("0123456789abcdefghijklmnopqrstuvwxyz ")
-        self.assertEqual(valid_chars, expected_chars)
+        assert valid_chars == expected_chars
 
 
-class TestHuffmanDecoder(unittest.TestCase):
-    def setUp(self):
+class TestHuffmanDecoder:
+    def setup_method(self):
         self.huffman = HuffmanDecoder()
 
     def test_decoder_creation(self):
-        self.assertIsNotNone(self.huffman._root)
+        assert self.huffman._root is not None
 
     def test_codes_built(self):
         codes = self.huffman.get_all_codes()
-        self.assertGreater(len(codes), 0)
+        assert len(codes) > 0
 
     def test_all_chars_have_codes(self):
         expected_chars = set("0123456789abcdefghijklmnopqrstuvwxyz ")
 
         for ch in expected_chars:
             code = self.huffman.get_code(ord(ch))
-            self.assertIsNotNone(code, f"Character '{ch}' should have a code")
+            assert code is not None, f"Character '{ch}' should have a code"
 
     def test_single_char_roundtrip(self):
         test_chars = "abcdefghijklmnopqrstuvwxyz 0123456789"
 
         for ch in test_chars:
-            with self.subTest(char=ch):
-                out_bs = OBitStream()
-                self.huffman.write_char(out_bs, ord(ch))
-                out_bs.align_byte()
+            out_bs = OBitStream()
+            self.huffman.write_char(out_bs, ord(ch))
+            out_bs.align_byte()
 
-                data = out_bs.get_data()
-                in_bs = IBitStream(data)
-                decoded = self.huffman.read_char(in_bs)
+            data = out_bs.get_data()
+            in_bs = IBitStream(data)
+            decoded = self.huffman.read_char(in_bs)
 
-                self.assertEqual(
-                    decoded,
-                    ord(ch),
-                    f"Roundtrip failed for '{ch}': expected {ord(ch)}, got {decoded}",
-                )
+            assert decoded == ord(ch), (
+                f"Roundtrip failed for '{ch}': expected {ord(ch)}, got {decoded}"
+            )
 
     def test_multiple_chars_roundtrip(self):
         test_strings = [
@@ -76,30 +72,29 @@ class TestHuffmanDecoder(unittest.TestCase):
         ]
 
         for s in test_strings:
-            with self.subTest(string=s):
-                out_bs = OBitStream()
-                for ch in s:
-                    self.huffman.write_char(out_bs, ord(ch))
-                out_bs.align_byte()
+            out_bs = OBitStream()
+            for ch in s:
+                self.huffman.write_char(out_bs, ord(ch))
+            out_bs.align_byte()
 
-                data = out_bs.get_data()
-                in_bs = IBitStream(data)
+            data = out_bs.get_data()
+            in_bs = IBitStream(data)
 
-                decoded = ""
-                for _ in s:
-                    decoded += chr(self.huffman.read_char(in_bs))
+            decoded = ""
+            for _ in s:
+                decoded += chr(self.huffman.read_char(in_bs))
 
-                self.assertEqual(decoded, s)
+            assert decoded == s
 
     def test_code_bits_consistency(self):
         codes = self.huffman.get_all_codes()
 
         for ch, (code, bits) in codes.items():
-            self.assertGreater(bits, 0, f"Character '{chr(ch)}' should have positive bit count")
-            self.assertGreaterEqual(code, 0, f"Character '{chr(ch)}' should have non-negative code")
+            assert bits > 0, f"Character '{chr(ch)}' should have positive bit count"
+            assert code >= 0, f"Character '{chr(ch)}' should have non-negative code"
             max_code = (1 << bits) - 1
-            self.assertLessEqual(
-                code, max_code, f"Character '{chr(ch)}' code {code} exceeds max for {bits} bits"
+            assert code <= max_code, (
+                f"Character '{chr(ch)}' code {code} exceeds max for {bits} bits"
             )
 
     def test_unique_codes(self):
@@ -108,13 +103,13 @@ class TestHuffmanDecoder(unittest.TestCase):
 
         for _ch, (code, bits) in codes.items():
             key = (code, bits)
-            self.assertNotIn(key, seen, f"Duplicate code {code} with {bits} bits")
+            assert key not in seen, f"Duplicate code {code} with {bits} bits"
             seen.add(key)
 
     def test_get_huffman_singleton(self):
         h1 = get_huffman()
         h2 = get_huffman()
-        self.assertIs(h1, h2)
+        assert h1 is h2
 
     def test_decode_specific_pattern(self):
         out_bs = OBitStream()
@@ -125,7 +120,7 @@ class TestHuffmanDecoder(unittest.TestCase):
         in_bs = IBitStream(data)
         decoded = self.huffman.read_char(in_bs)
 
-        self.assertEqual(decoded, ord("w"))
+        assert decoded == ord("w")
 
     def test_write_then_read_consistency(self):
         test_chars = [ord("a"), ord("b"), ord("c"), ord(" "), ord("1")]
@@ -137,11 +132,11 @@ class TestHuffmanDecoder(unittest.TestCase):
         in_bs = IBitStream(out_bs.get_data())
         for expected_ch in test_chars:
             decoded = self.huffman.read_char(in_bs)
-            self.assertEqual(decoded, expected_ch)
+            assert decoded == expected_ch
 
 
-class TestHuffmanItemNames(unittest.TestCase):
-    def setUp(self):
+class TestHuffmanItemNames:
+    def setup_method(self):
         self.huffman = HuffmanDecoder()
 
     def test_item_name_cap(self):
@@ -155,7 +150,7 @@ class TestHuffmanItemNames(unittest.TestCase):
         for _ in name:
             decoded_name += chr(self.huffman.read_char(in_bs))
 
-        self.assertEqual(decoded_name, name)
+        assert decoded_name == name
 
     def test_item_name_gld(self):
         name = "gld "
@@ -168,7 +163,7 @@ class TestHuffmanItemNames(unittest.TestCase):
         for _ in name:
             decoded_name += chr(self.huffman.read_char(in_bs))
 
-        self.assertEqual(decoded_name, name)
+        assert decoded_name == name
 
     def test_item_name_elx(self):
         name = "elx "
@@ -181,11 +176,11 @@ class TestHuffmanItemNames(unittest.TestCase):
         for _ in name:
             decoded_name += chr(self.huffman.read_char(in_bs))
 
-        self.assertEqual(decoded_name, name)
+        assert decoded_name == name
 
 
-class TestHuffmanEdgeCases(unittest.TestCase):
-    def setUp(self):
+class TestHuffmanEdgeCases:
+    def setup_method(self):
         self.huffman = HuffmanDecoder()
 
     def test_empty_stream_returns_w(self):
@@ -200,22 +195,21 @@ class TestHuffmanEdgeCases(unittest.TestCase):
 
         in_bs = IBitStream(out_bs.get_data())
         decoded = self.huffman.read_char(in_bs)
-        self.assertEqual(decoded, ord(" "))
+        assert decoded == ord(" ")
 
     def test_digit_characters(self):
         for digit in "0123456789":
-            with self.subTest(digit=digit):
-                out_bs = OBitStream()
-                self.huffman.write_char(out_bs, ord(digit))
-                out_bs.align_byte()
+            out_bs = OBitStream()
+            self.huffman.write_char(out_bs, ord(digit))
+            out_bs.align_byte()
 
-                in_bs = IBitStream(out_bs.get_data())
-                decoded = self.huffman.read_char(in_bs)
-                self.assertEqual(decoded, ord(digit))
+            in_bs = IBitStream(out_bs.get_data())
+            decoded = self.huffman.read_char(in_bs)
+            assert decoded == ord(digit)
 
 
-class TestHuffmanCppComparison(unittest.TestCase):
-    def setUp(self):
+class TestHuffmanCppComparison:
+    def setup_method(self):
         self.huffman = HuffmanDecoder()
 
     def test_print_all_codes(self):
@@ -237,17 +231,13 @@ class TestHuffmanCppComparison(unittest.TestCase):
 
         for ch, (expected_code, expected_bits) in expected_codes.items():
             actual = codes.get(ch)
-            self.assertIsNotNone(actual, f"Character '{chr(ch)}' not found in codes")
+            assert actual is not None, f"Character '{chr(ch)}' not found in codes"
             actual_code, actual_bits = actual
-            self.assertEqual(
-                actual_code,
-                expected_code,
-                f"Character '{chr(ch)}': expected code {expected_code}, got {actual_code}",
+            assert actual_code == expected_code, (
+                f"Character '{chr(ch)}': expected code {expected_code}, got {actual_code}"
             )
-            self.assertEqual(
-                actual_bits,
-                expected_bits,
-                f"Character '{chr(ch)}': expected bits {expected_bits}, got {actual_bits}",
+            assert actual_bits == expected_bits, (
+                f"Character '{chr(ch)}': expected bits {expected_bits}, got {actual_bits}"
             )
 
     def test_code_binary_representation(self):
@@ -259,13 +249,13 @@ class TestHuffmanCppComparison(unittest.TestCase):
         for ch in test_chars:
             code, bits = codes[ord(ch)]
             # 确保编码不为空
-            self.assertGreater(bits, 0, f"Character '{ch}' has zero bits")
+            assert bits > 0, f"Character '{ch}' has zero bits"
             # 确保编码是整数
-            self.assertIsInstance(code, int, f"Character '{ch}' has non-integer code")
+            assert isinstance(code, int), f"Character '{ch}' has non-integer code"
 
 
-class TestHuffmanItemUsage(unittest.TestCase):
-    def setUp(self):
+class TestHuffmanItemUsage:
+    def setup_method(self):
         self.huffman = HuffmanDecoder()
 
     def test_read_item_name_d2r(self):
@@ -276,17 +266,13 @@ class TestHuffmanItemUsage(unittest.TestCase):
 
         for ch, (expected_code, expected_bits) in expected_codes.items():
             actual = codes.get(ch)
-            self.assertIsNotNone(actual, f"Character '{chr(ch)}' not found in codes")
+            assert actual is not None, f"Character '{chr(ch)}' not found in codes"
             actual_code, actual_bits = actual
-            self.assertEqual(
-                actual_code,
-                expected_code,
-                f"Character '{chr(ch)}': expected code {expected_code}, got {actual_code}",
+            assert actual_code == expected_code, (
+                f"Character '{chr(ch)}': expected code {expected_code}, got {actual_code}"
             )
-            self.assertEqual(
-                actual_bits,
-                expected_bits,
-                f"Character '{chr(ch)}': expected bits {expected_bits}, got {actual_bits}",
+            assert actual_bits == expected_bits, (
+                f"Character '{chr(ch)}': expected bits {expected_bits}, got {actual_bits}"
             )
 
     def test_item_name_roundtrip_cap(self):
@@ -300,7 +286,7 @@ class TestHuffmanItemUsage(unittest.TestCase):
         in_bs = IBitStream(data)
 
         decoded = bytes([self.huffman.read_char(in_bs) for _ in range(4)])
-        self.assertEqual(decoded, name.encode("ascii"))
+        assert decoded == name.encode("ascii")
 
     def test_item_name_roundtrip_gld(self):
         name = "gld "
@@ -313,7 +299,7 @@ class TestHuffmanItemUsage(unittest.TestCase):
         in_bs = IBitStream(data)
 
         decoded = bytes([self.huffman.read_char(in_bs) for _ in range(4)])
-        self.assertEqual(decoded, name.encode("ascii"))
+        assert decoded == name.encode("ascii")
 
     def test_item_name_roundtrip_elx(self):
         name = "elx "
@@ -326,27 +312,24 @@ class TestHuffmanItemUsage(unittest.TestCase):
         in_bs = IBitStream(data)
 
         decoded = bytes([self.huffman.read_char(in_bs) for _ in range(4)])
-        self.assertEqual(decoded, name.encode("ascii"))
+        assert decoded == name.encode("ascii")
 
     def test_item_name_bits_count(self):
         test_names = ["cap ", "gld ", "elx ", "box ", "ear "]
         codes = self.huffman.get_all_codes()
 
         for name in test_names:
-            with self.subTest(name=name):
-                total_bits = sum(codes[ord(ch)][1] for ch in name)
-                out_bs = OBitStream()
-                for ch in name:
-                    self.huffman.write_char(out_bs, ord(ch))
-                out_bs.align_byte()
+            total_bits = sum(codes[ord(ch)][1] for ch in name)
+            out_bs = OBitStream()
+            for ch in name:
+                self.huffman.write_char(out_bs, ord(ch))
+            out_bs.align_byte()
 
-                expected_bytes = (total_bits + 7) // 8
-                actual_bytes = len(out_bs.get_data())
-                self.assertEqual(
-                    actual_bytes,
-                    expected_bytes,
-                    f"Name '{name}': expected {expected_bytes} bytes, got {actual_bytes}",
-                )
+            expected_bytes = (total_bits + 7) // 8
+            actual_bytes = len(out_bs.get_data())
+            assert actual_bytes == expected_bytes, (
+                f"Name '{name}': expected {expected_bytes} bytes, got {actual_bytes}"
+            )
 
     def test_item_name_with_other_bits(self):
         out_bs = OBitStream()
@@ -361,11 +344,7 @@ class TestHuffmanItemUsage(unittest.TestCase):
         in_bs = IBitStream(data)
 
         prefix = in_bs.read_bits(3)
-        self.assertEqual(prefix, 0b101)
+        assert prefix == 5
 
         decoded = bytes([self.huffman.read_char(in_bs) for _ in range(4)])
-        self.assertEqual(decoded, name.encode("ascii"))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert decoded == name.encode("ascii")
