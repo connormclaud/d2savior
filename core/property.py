@@ -157,9 +157,6 @@ def _rebuild_item_modifiers() -> None:
             _g_item_modifiers[key] = text
 
 
-init_item_modifiers.set_lang = lambda lang_key: _set_item_modifiers_lang(lang_key)
-
-
 def _set_item_modifiers_lang(lang_key: str) -> None:
     global _g_item_modifiers_lang
     _g_item_modifiers_lang = lang_key
@@ -311,7 +308,7 @@ def get_monster_name(monster_id: int) -> str:
             for ver in (0x69, 0x63):
                 vd = mgr.get_version_data(ver)
                 if vd:
-                    mon = vd.monsters.get(monster_id) if hasattr(vd, "monsters") else None
+                    mon = getattr(vd, "monsters", {}).get(monster_id)
                     if mon and hasattr(mon, "name") and mon.name:
                         result = loc.get_monster_name(mon.name)
                         if result and result != mon.name:
@@ -440,10 +437,9 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
             if 1 <= a[0] <= 5:
                 time_name = get_time_name(4 + a[0])
             else:
+                lang = get_language()
                 time_name = (
-                    get_time_name(10)
-                    if get_language() and get_language().get_section_size("time_name") > 10
-                    else ""
+                    get_time_name(10) if lang and lang.get_section_size("time_name") > 10 else ""
                 )
             if time_name:
                 return time_name

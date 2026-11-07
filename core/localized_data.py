@@ -263,6 +263,6 @@ def set_language(lang_key: str) -> None:
     loader = get_localized_data()
     loader.set_language(lang_key)
 
-    from core.property import init_item_modifiers
+    from core.property import _set_item_modifiers_lang
 
-    init_item_modifiers.set_lang(lang_key)
+    _set_item_modifiers_lang(lang_key)

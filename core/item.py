@@ -494,7 +494,11 @@ def get_item_meta(type_id: ItemTypeId, version: int = 0) -> ItemMetaData | None:
     if d2data is None:
         return None
 
-    code = type_id.decode("ascii", errors="replace").strip()
+    code = (
+        type_id.strip()
+        if isinstance(type_id, str)
+        else bytes(type_id).decode("ascii", errors="replace").strip()
+    )
     type_info = d2data.get_item(code)
     return _convert_item_type_to_meta(type_info, d2data)
 

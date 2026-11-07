@@ -1,17 +1,31 @@
 import os
 
-from core.d2data import D2DataLoader, get_d2data, get_d2data_manager, init_d2data
+from core.d2data import (
+    D2DataLoader,
+    D2DataManager,
+    D2DataWrapper,
+    get_d2data,
+    get_d2data_manager,
+    init_d2data,
+)
 
 
 class TestD2DataManager:
     """测试多版本数据管理功能"""
 
+    manager: D2DataManager
+    wrapper: D2DataWrapper
+
     def setup_method(self):
         """设置测试环境"""
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
         init_d2data(self.data_dir)
-        self.manager = get_d2data_manager()
-        self.wrapper = get_d2data()
+        mgr = get_d2data_manager()
+        assert mgr is not None
+        self.manager = mgr
+        wrapper = get_d2data()
+        assert wrapper is not None
+        self.wrapper = wrapper
 
     def test_manager_initialization(self):
         """测试数据管理器初始化"""
@@ -39,6 +53,8 @@ class TestD2DataManager:
         """测试版本数据隔离：0x63和0x69的物品数量应该不同"""
         v63 = self.manager.get_version_data(0x63)
         v69 = self.manager.get_version_data(0x69)
+        assert v63 is not None
+        assert v69 is not None
         assert len(v63.items) != len(v69.items), "0x63和0x69的物品数量应该不同（0x69应该更多）"
         assert len(v69.items) > len(v63.items), "0x69版本应该有更多物品"
         assert len(v69.stats) > len(v63.stats), "0x69版本应该有更多属性"
@@ -46,6 +62,7 @@ class TestD2DataManager:
     def test_fallback_mechanism(self):
         """测试回退机制：0x63缺失的文件应从根目录加载"""
         v63 = self.manager.get_version_data(0x63)
+        assert v63 is not None
         # 0x63目录没有Properties.txt，应该从根目录回退加载
         assert len(v63.properties) > 0, "0x63属性数据应通过回退机制加载"
         assert len(v63.magic_prefixes) > 0, "0x63魔法前缀应通过回退机制加载"

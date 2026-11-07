@@ -558,7 +558,8 @@ class D2SStruct:
         name_bytes = self.preview_data[name_offset : name_offset + 96]
         self.name = name_bytes.split(b"\x00")[0]
 
-        self.quests.deserialize(bs)
+        if self.quests is not None:
+            self.quests.deserialize(bs)
 
         self.waypoints.deserialize(bs)
 
@@ -633,7 +634,8 @@ class D2SStruct:
 
         self.preview_suffix = bs.read_dword()
 
-        self.quests.deserialize(bs)
+        if self.quests is not None:
+            self.quests.deserialize(bs)
 
         # 读取传送点信息
         self.waypoints.deserialize(bs)
@@ -787,7 +789,8 @@ class D2SStruct:
 
         bs.write_bytes(self.preview_data)
 
-        self.quests.serialize(bs)
+        if self.quests is not None:
+            self.quests.serialize(bs)
         self.waypoints.serialize(bs)
         bs.write_bytes(self.npc)
         self.player_stats.serialize(bs)
@@ -841,7 +844,8 @@ class D2SStruct:
         bs.write_bytes(self.name_ptr)
         bs.write_dword(self.preview_suffix)
 
-        self.quests.serialize(bs)
+        if self.quests is not None:
+            self.quests.serialize(bs)
         self.waypoints.serialize(bs)
         bs.write_bytes(self.npc)
         self.player_stats.serialize(bs)

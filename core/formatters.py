@@ -468,7 +468,11 @@ def _format_waypoints_lines(char_data: D2SStruct) -> FormattedLines:
                 b != 0 for b in wp_data.waypoints[1:]
             )
             has_quest_progress = False
-            if char_data.quests.magic == 0x216F6F57 and diff_idx < len(char_data.quests.qi_data):
+            if (
+                char_data.quests
+                and char_data.quests.magic == 0x216F6F57
+                and diff_idx < len(char_data.quests.qi_data)
+            ):
                 qd = char_data.quests.qi_data[diff_idx]
                 has_quest_progress = any(
                     w != 0
@@ -508,7 +512,7 @@ def _format_quests_lines(char_data: D2SStruct) -> FormattedLines:
     loc = get_localized_data()
     result = []
     result.append("=== Quests ===")
-    if char_data.quests.magic == 0x216F6F57:
+    if char_data.quests and char_data.quests.magic == 0x216F6F57:
         for diff_idx, diff_name in enumerate(DIFFICULTY_NAMES):
             if diff_idx >= len(char_data.quests.qi_data):
                 break

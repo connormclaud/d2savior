@@ -114,8 +114,10 @@ class TestItemSerialization(unittest.TestCase):
                 assert has1 == has2, f"Set property {i} existence mismatch"
 
                 if has1 and has2:
-                    set_props1 = tp1.set_properties[i].properties if tp1.set_properties[i] else []
-                    set_props2 = tp2.set_properties[i].properties if tp2.set_properties[i] else []
+                    sp1 = tp1.set_properties[i]
+                    set_props1 = sp1.properties if sp1 is not None else []
+                    sp2 = tp2.set_properties[i]
+                    set_props2 = sp2.properties if sp2 is not None else []
 
                     assert len(set_props1) == len(set_props2), (
                         f"Set property {i} count mismatch: {len(set_props1)} vs {len(set_props2)}"

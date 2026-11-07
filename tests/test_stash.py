@@ -289,7 +289,9 @@ class TestCSharedStash:
         stash = SharedStash()
         stash.deserialize(bs, version=99)
         assert stash.get_tab_count() == 1
-        assert stash.get_tab(0).stash_format == 1
+        tab = stash.get_tab(0)
+        assert tab is not None
+        assert tab.stash_format == 1
         assert stash.get_tab_gold(0) == 1000
 
     def test_read_multiple_tabs(self):
@@ -325,9 +327,10 @@ class TestCSharedStash:
         assert stash.get_tab_gold(0) == 1000
         assert stash.get_tab_gold(1) == 2000
         assert stash.get_tab_gold(2) == 3000
-        assert stash.get_tab(0).season == 1
-        assert stash.get_tab(1).season == 2
-        assert stash.get_tab(2).season == 3
+        for idx, expected_season in enumerate([1, 2, 3]):
+            tab = stash.get_tab(idx)
+            assert tab is not None
+            assert tab.season == expected_season
 
     def test_read_stops_on_invalid_magic(self):
         tab1 = _build_stash_tab_header(stash_format=1, item_format=99, gold=500, tab_size=64)
@@ -390,6 +393,7 @@ class TestCSharedStash:
 
         assert stash.get_tab_count() == 1
         tab = stash.get_tab(0)
+        assert tab is not None
         assert tab.chronicle == chronicle_body
         assert tab.gold == 55555
         assert tab.season == 7
@@ -403,6 +407,7 @@ class TestCSharedStash:
         stash2.deserialize(bs2, version=105)
         assert stash2.get_tab_count() == 1
         tab2 = stash2.get_tab(0)
+        assert tab2 is not None
         assert tab2.chronicle == chronicle_body
         assert tab2.gold == 55555
         assert tab2.season == 7
@@ -437,6 +442,7 @@ class TestCSharedStash:
         assert stash2.get_tab_count() == 3
         for i in range(3):
             tab = stash2.get_tab(i)
+            assert tab is not None
             assert tab.gold == 1000 * (i + 1)
             assert tab.season == i
             assert tab.chronicle == bytes([i] * 20)
