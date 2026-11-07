@@ -71,6 +71,25 @@ sork       Sorceress     74  Softcore  2026-11-06 17:31:34 UTC
 hammerdin  Paladin       99  Hardcore  2026-11-05 10:15:00 UTC
 ```
 
+### Shared Stash
+
+Display shared stash contents or summary from your save directory:
+
+```bash
+# Show full stash contents in the configured save folder
+d2savior stash
+
+# Show compact stash summary
+d2savior stash --summary
+
+# Or specify a directory or stash file
+d2savior stash "/path/to/Saved Games/Diablo II Resurrected"
+d2savior stash --summary /path/to/SharedStashSoftCoreV2.d2i
+
+# Run without reading or writing config
+d2savior stash --no-config
+```
+
 ### Save Directory & Automatic Lookup
 
 When pointing `d2savior` to a character file or save folder, it automatically saves that folder to your user configuration (`~/.config/d2savior/config.toml` on Linux):

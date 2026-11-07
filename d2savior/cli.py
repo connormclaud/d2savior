@@ -32,30 +32,31 @@ def parse_d2i_file(
             data = f.read()
 
         bs = IBitStream(data)
-        if len(data) >= 4 and data[:4] == b"\x55\xaa\x55\xaa":
-            stash = SharedStash()
-            stash.deserialize(bs)
-            if debug:
-                print("\n=== BitStream Final State ===")
-                print(f"Total bits: {len(bs)}")
-                print(f"Final offset: {bs.get_offset()}")
-                print(f"Remaining: {bs.remaining()}")
-            return True, stash, "stash", bs
-        elif data.startswith(b"JM"):
+        if data.startswith(b"JM"):
             from d2savior.core.item import D2Item
 
             item = D2Item()
             item.deserialize(bs)
             return True, item, "item", bs
-        else:
-            stash = SharedStash()
-            stash.deserialize(bs)
-            return True, stash, "stash", bs
+
+        stash = SharedStash()
+        stash.deserialize(bs)
+        if not stash.tabs:
+            print(f"Error: '{file_path}' contains no parseable stash tabs", file=sys.stderr)
+            return False, None, None, None
+
+        if debug and len(data) >= 4 and data[:4] == b"\x55\xaa\x55\xaa":
+            print("\n=== BitStream Final State ===")
+            print(f"Total bits: {len(bs)}")
+            print(f"Final offset: {bs.get_offset()}")
+            print(f"Remaining: {bs.remaining()}")
+
+        return True, stash, "stash", bs
     except Exception as e:
-        print(f"Error parsing file: {e}")
+        print(f"Error parsing file: {e}", file=sys.stderr)
         import traceback
 
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stderr)
         return False, None, None, None
 
 
@@ -79,10 +80,10 @@ def parse_d2s_file(
         return True, char_data, bs
 
     except Exception as e:
-        print(f"Error parsing file: {e}")
+        print(f"Error parsing file: {e}", file=sys.stderr)
         import traceback
 
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stderr)
         return False, None, None
 
 
@@ -250,23 +251,30 @@ def list_characters(files: list[str], lang: str | None = None) -> list[dict[str,
     return records
 
 
+_common_parser = argparse.ArgumentParser(add_help=False)
+_common_parser.add_argument(
+    "file_path",
+    nargs="*",
+    help="Path to the .d2s save file(s), directory, or .d2i stash/item file(s)",
+)
+_common_parser.add_argument(
+    "--no-config",
+    action="store_true",
+    help="Do not read from or write to the configuration file",
+)
+_common_parser.add_argument(
+    "--lang",
+    metavar="LANG_KEY",
+    help="Set language (e.g. enUS, zhCN, zhTW)",
+)
+
+
 def cmd_list(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="d2savior list",
         description="List Diablo II characters in save directory",
+        parents=[_common_parser],
     )
-    parser.add_argument(
-        "file_path",
-        nargs="*",
-        help="Optional save directory or character files (defaults to configured directory)",
-    )
-    parser.add_argument(
-        "--no-config",
-        action="store_true",
-        help="Do not read from or write to the configuration file",
-    )
-    parser.add_argument("--lang", metavar="LANG_KEY", help="Set language (e.g. enUS, zhCN, zhTW)")
-
     args = parser.parse_args(argv)
     files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
 
@@ -290,26 +298,80 @@ def cmd_list(argv: list[str]) -> int:
     return 0
 
 
+def cmd_stash(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="d2savior stash",
+        description="Display Diablo II shared stash in save directory",
+        parents=[_common_parser],
+    )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Show compact summary instead of full dump",
+    )
+    parser.add_argument("-d", "--debug", action="store_true", help="Show debug info")
+
+    args = parser.parse_args(argv)
+    files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
+
+    if not args.no_config and dir_to_save:
+        update_save_dir(dir_to_save)
+
+    if not files_to_process:
+        return 1
+
+    stash_files = [f for f in files_to_process if f.lower().endswith(".d2i")]
+    if not stash_files:
+        print("Error: No .d2i stash files found", file=sys.stderr)
+        return 1
+
+    has_error = False
+    for idx, path in enumerate(stash_files):
+        if len(stash_files) > 1:
+            if idx > 0:
+                print()
+            print(f"=== File: {path} ===")
+        if not process_file(path, args):
+            has_error = True
+
+    return 1 if has_error else 0
+
+
+COMMANDS = {
+    "list": (
+        cmd_list,
+        "list [path]       List characters in save directory (sorted by last played)",
+    ),
+    "stash": (
+        cmd_stash,
+        "stash [path]      Display shared stash in save directory",
+    ),
+}
+
+
 def main(argv: list[str] | None = None) -> None:
     if argv is None:
         argv = sys.argv[1:]
 
-    if argv and argv[0] == "list":
-        code = cmd_list(argv[1:])
+    if argv and argv[0] in COMMANDS:
+        code = COMMANDS[argv[0]][0](argv[1:])
         if code != 0:
             sys.exit(code)
         return
 
+    commands_help = "Commands:\n" + "\n".join(f"  {help_str}" for _, help_str in COMMANDS.values())
+
     parser = argparse.ArgumentParser(
         description="Diablo II Save and Shared Stash File Parser",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Commands:
-  list [path]       List characters in save directory (sorted by last played)
+        epilog=f"""
+{commands_help}
 
 Examples:
   %(prog)s list
   %(prog)s list /path/to/saves
+  %(prog)s stash
+  %(prog)s stash --summary
   %(prog)s character.d2s
   %(prog)s --summary character.d2s
   %(prog)s ModernSharedStashSoftCoreV2.d2i
@@ -319,20 +381,10 @@ Examples:
   %(prog)s --search 10110011 character.d2s
   %(prog)s --search-bytes 4a4d character.d2s
         """,
-    )
-
-    parser.add_argument(
-        "file_path",
-        nargs="*",
-        help="Path to the .d2s save file(s), directory, or .d2i stash/item file(s)",
+        parents=[_common_parser],
     )
     parser.add_argument(
         "--summary", action="store_true", help="Show compact summary instead of full dump"
-    )
-    parser.add_argument(
-        "--no-config",
-        action="store_true",
-        help="Do not read from or write to the configuration file",
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Show debug info")
     parser.add_argument(
@@ -341,7 +393,6 @@ Examples:
     parser.add_argument(
         "-sb", "--search-bytes", metavar="HEX", help='Search byte pattern (e.g. "4a4d")'
     )
-    parser.add_argument("--lang", metavar="LANG_KEY", help="Set language (e.g. enUS, zhCN, zhTW)")
 
     args = parser.parse_args(argv)
     files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)

@@ -7,6 +7,7 @@ import d2savior.cli as _cli
 from d2savior.cli import (
     FORMATTERS,
     cmd_list,
+    cmd_stash,
     ensure_data_loaded,
     extract_char_row,
     find_saves_in_dir,
@@ -29,6 +30,7 @@ from d2savior.cli import (
 __all__ = [
     "FORMATTERS",
     "cmd_list",
+    "cmd_stash",
     "ensure_data_loaded",
     "extract_char_row",
     "find_saves_in_dir",
