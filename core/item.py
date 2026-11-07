@@ -4,11 +4,11 @@ from dataclasses import dataclass, field
 from itertools import batched
 from typing import ClassVar
 
-type RawProperty = tuple[int, int, int]
-type ItemTypeId = Buffer | str
-
 from core.enums import ITEM_LIST_MAGIC
 from core.huffman import HuffmanDecoder, get_huffman
+
+type RawProperty = tuple[int, int, int]
+type ItemTypeId = Buffer | str
 
 
 def is_d2r(version: int) -> bool:

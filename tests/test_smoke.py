@@ -1,17 +1,16 @@
-import os
-import sys
-
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if REPO_ROOT not in sys.path:
-    sys.path.insert(0, REPO_ROOT)
-
 import difflib
+import os
 import subprocess
+import sys
 
 import pytest
 
 from core.formatters import ensure_data_loaded
 from d2s_parse import FORMATTERS, parse_file
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 GOLDEN_DIR = os.path.join(FIXTURES_DIR, "golden")

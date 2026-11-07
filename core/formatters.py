@@ -3,9 +3,6 @@
 import datetime
 import os
 
-type SkillInfo = tuple[int, str, int]
-type FormattedLines = list[str]
-
 from core.constants import (
     CLASS_SKILL_BASES,
     COMBINED_SLOT_ORDER_STRIPPED,
@@ -36,6 +33,9 @@ from core.stash import (
     STASH_TAB_TYPE_NORMAL,
     SharedStash,
 )
+
+type SkillInfo = tuple[int, str, int]
+type FormattedLines = list[str]
 
 
 def ensure_data_loaded(
