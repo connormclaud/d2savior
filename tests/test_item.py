@@ -7,16 +7,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from d2savior.core.d2data import (
     D2DataLoader,
+    GameData,
     ItemMetaData,
     ItemMetaDataManager,
     PropertyField,
     PropertyMetaData,
     PropertyMetaDataItem,
-    get_game_data,
-    init_d2data,
 )
 from d2savior.core.ear import Ear, is_ptr24_and_above
-from d2savior.core.huffman import get_huffman
+from d2savior.core.huffman import DEFAULT_HUFFMAN
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import (
     D2Item,
@@ -98,7 +97,7 @@ class TestPropertyMetaData:
 
 class TestHuffmanDecoder:
     def test_huffman_decode(self):
-        huffman = get_huffman()
+        huffman = DEFAULT_HUFFMAN
         assert huffman is not None
 
         bs = IBitStream(b"\x00")
@@ -208,13 +207,10 @@ class TestCTypeSpecificInfo:
         type_info.defence = 110
         assert type_info.get_defence() == 100
 
-    def test_type_specific_info_deserialize_requires_data(self, monkeypatch):
-        import d2savior.core.item as item_mod
-
-        monkeypatch.setattr(item_mod, "get_game_data", lambda: None)
+    def test_type_specific_info_deserialize_requires_data(self):
         type_info = TypeSpecificInfo()
         bs = IBitStream(b"\x00" * 10)
-        with pytest.raises(ValueError, match="VersionData is required"):
+        with pytest.raises(ValueError, match="required"):
             type_info.deserialize(
                 bs,
                 version=0x63,
@@ -283,8 +279,7 @@ class TestCD2ItemVersionDifferences:
         data_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
-        init_d2data(data_dir)
-        self.game_data = get_game_data()
+        self.game_data = GameData.load(data_dir)
         self._has_data = True
 
     def _build_simple_item_d2r(self, version, type_name=b"elx "):
@@ -299,7 +294,7 @@ class TestCD2ItemVersionDifferences:
         obs.write_bits(4, 0)
         obs.write_bits(4, 0)
         obs.write_bits(3, 0)
-        huffman = get_huffman()
+        huffman = DEFAULT_HUFFMAN
         for c in type_name:
             huffman.write_char(obs, c)
         obs.align_byte()
@@ -421,7 +416,11 @@ class TestParsePropertyTxt:
 
 class TestPropertyParsing:
     def setup_method(self):
-        self._has_property_file = False
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
+        self.game_data = GameData.load(data_dir)
+        self._has_property_file = True
 
     def test_property_parse_single_field(self):
         fields = [PropertyField(bits=8, base=-32, min_val=0, max_val=255)]
@@ -501,9 +500,7 @@ class TestPropertyParsing:
         if not self._has_property_file:
             pytest.skip("property.txt not found")
 
-        from d2savior.core.d2data import get_game_data
-
-        gd = get_game_data()
+        gd = self.game_data
         prop_meta = gd.for_version(0x60).get_property_meta(0) if gd else None
         if prop_meta:
             params = prop_meta.parse(0)
@@ -517,9 +514,7 @@ class TestPropertyParsing:
         if not self._has_property_file:
             pytest.skip("property.txt not found")
 
-        from d2savior.core.d2data import get_game_data
-
-        gd = get_game_data()
+        gd = self.game_data
         prop_meta = gd.for_version(0x60).get_property_meta(0) if gd else None
         if prop_meta:
             assert prop_meta.bits_sum == 8
@@ -531,9 +526,7 @@ class TestPropertyParsing:
         if not self._has_property_file:
             pytest.skip("property.txt not found")
 
-        from d2savior.core.d2data import get_game_data
-
-        gd = get_game_data()
+        gd = self.game_data
         prop_meta = gd.for_version(0x60).get_property_meta(2) if gd else None
         if prop_meta:
             assert prop_meta.bits_sum == 7

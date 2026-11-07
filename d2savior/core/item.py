@@ -4,9 +4,9 @@ from typing import ClassVar
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 from d2savior.core.d2data import (
     GameData,
+    GameDataResolver,
     ItemMetaData,
     VersionData,
-    get_game_data,
 )
 from d2savior.core.ear import Ear, is_ptr24_and_above
 from d2savior.core.enums import ITEM_LIST_MAGIC
@@ -207,19 +207,20 @@ class TypeSpecificInfo:
         is_socketed: bool = False,
         is_set: bool = False,
         is_runeword: bool = False,
-        data: VersionData | GameData | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
     ) -> None:
-        if isinstance(data, GameData):
+        if isinstance(data, GameDataResolver):
+            d = data.game_data.for_version(version)
+        elif isinstance(data, GameData):
             d = data.for_version(version)
         elif data is not None:
             d = data
         else:
-            gd = get_game_data()
-            d = gd.for_version(version) if gd else None
+            d = None
 
         if d is None:
             raise ValueError(
-                f"VersionData is required to parse item properties for version {version:#x}"
+                f"VersionData or GameData is required to parse item properties for version {version:#x}"
             )
         self._data = d
 

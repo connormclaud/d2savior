@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from d2savior.core.d2data import get_game_data, init_d2data
+from d2savior.core.d2data import GameData
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import D2Item
 from d2savior.core.obitstream import OBitStream
@@ -17,8 +17,7 @@ class TestMergedDataCompatibility:
         data_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
-        init_d2data(data_dir)
-        self.manager = get_game_data()
+        self.manager = GameData.load(data_dir)
         self.v63 = self.manager.for_version(0x63) if self.manager else None
         self.v69 = self.manager.for_version(0x69) if self.manager else None
         self._has_merged_data = self.manager is not None and len(self.manager.version_data) > 0
@@ -138,8 +137,7 @@ class TestVersionCompatibility:
         data_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
-        init_d2data(data_dir)
-        self.manager = get_game_data()
+        self.manager = GameData.load(data_dir)
         self.v63 = self.manager.for_version(0x63) if self.manager else None
         self.v60 = self.manager.for_version(0x60) if self.manager else None
         self._has_merged_data = self.manager is not None and len(self.manager.version_data) > 0
@@ -285,8 +283,7 @@ class TestDataFileCoverage:
         data_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
-        init_d2data(data_dir)
-        self.manager = get_game_data()
+        self.manager = GameData.load(data_dir)
         self.v63 = self.manager.for_version(0x63) if self.manager else None
         self._has_merged_data = self.manager is not None and len(self.manager.version_data) > 0
 

@@ -1,10 +1,7 @@
 """Full and summary text formatting for Diablo II saves, stashes, and items."""
 
 import datetime
-import importlib.resources
 from collections.abc import Callable
-from importlib.resources.abc import Traversable
-from pathlib import Path
 from typing import Any
 
 from d2savior.core.constants import (
@@ -19,15 +16,10 @@ from d2savior.core.constants import (
     TAB_TYPE_NAMES,
     WAYPOINTS_BY_ACT,
 )
-from d2savior.core.d2data import GameDataResolver, get_game_data, init_d2data
+from d2savior.core.d2data import GameDataResolver
 from d2savior.core.d2s_struct import CharStatus, D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
 from d2savior.core.item import ITEM_FLAG_LABELS
-from d2savior.core.localized_data import get_localized_data, init_localized_data, set_language
-from d2savior.core.property import (
-    format_property,
-    init_item_modifiers,
-)
 from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     SharedStash,
@@ -35,48 +27,6 @@ from d2savior.core.stash import (
 
 type SkillInfo = tuple[int, str, int]
 type FormattedLines = list[str]
-
-
-def get_default_data_dir() -> Traversable:
-    """Return the Traversable reference to the bundled data directory."""
-    return importlib.resources.files("d2savior").joinpath("data")
-
-
-def ensure_data_loaded(
-    lang_key: str | None = None,
-    data_dir: str | Traversable | None = None,
-    force: bool = False,
-) -> None:
-    """Ensure game and localization data are loaded into core managers."""
-    mgr = get_game_data()
-    loc = get_localized_data()
-
-    if not force and mgr is not None:
-        if lang_key is not None and loc.current_lang != lang_key:
-            set_language(lang_key)
-        return
-
-    actual_lang = lang_key if lang_key else (loc.current_lang or "enUS")
-
-    if data_dir is None:
-        data_res = get_default_data_dir()
-    elif isinstance(data_dir, str):
-        data_res = Path(data_dir)
-    else:
-        data_res = data_dir
-
-    if data_res.is_dir():
-        init_d2data(data_res)
-
-        local_data_dir = data_res.joinpath("d2r", "local")
-        if not local_data_dir.is_dir():
-            local_data_dir = data_res.joinpath("local")
-        if local_data_dir.is_dir():
-            init_localized_data(local_data_dir, lang_key=actual_lang)
-
-        item_modifiers_file = local_data_dir.joinpath("item-modifiers.json")
-        if item_modifiers_file.is_file():
-            init_item_modifiers(item_modifiers_file, lang_key=actual_lang)
 
 
 def get_char_type_name(char_type: int) -> str:
@@ -131,15 +81,10 @@ def format_duration(seconds: int) -> str:
     return " ".join(parts)
 
 
-def get_item_display_name(
-    item: Any, version: int = 0x63, resolver: GameDataResolver | None = None
-) -> str:
+def get_item_display_name(item: Any, resolver: GameDataResolver, version: int = 0x63) -> str:
     type_name = (
         item.type_name.decode("ascii", errors="replace").strip() if item.type_name else "Unknown"
     )
-    if resolver is None:
-        ensure_data_loaded()
-        resolver = GameDataResolver(version)
 
     raw_name = type_info.name if (type_info := resolver.get_item(type_name)) else type_name
     base_item_name = resolver.get_localized_item_name(type_name, fallback=raw_name)
@@ -187,16 +132,16 @@ def get_item_display_name(
 
 def _format_parsed_properties(
     prop_list: Any,
+    resolver: GameDataResolver,
     version: int = 0x63,
     property_formatter: Callable[..., str | None] | None = None,
-    resolver: GameDataResolver | None = None,
 ) -> FormattedLines:
     """Format a property list into human-readable strings, falling back to raw IDs."""
     if not prop_list or not getattr(prop_list, "properties", None):
         return []
-    format_func = property_formatter or format_property
+    format_func = property_formatter or resolver.format_property
     result = []
-    data = resolver.data if resolver else None
+    data = resolver.data
     parsed_props = prop_list.get_parsed_properties(version, data=data)
 
     for prop_id, value, params in parsed_props:
@@ -212,19 +157,16 @@ def _format_parsed_properties(
 
 def format_item_summary(
     item: Any,
+    resolver: GameDataResolver,
     version: int = 0x63,
     include_properties: bool = True,
-    resolver: GameDataResolver | None = None,
     property_formatter: Callable[..., str | None] | None = None,
 ) -> str:
-    if resolver is None:
-        ensure_data_loaded()
-        resolver = GameDataResolver(version)
     info = getattr(item, "item_info", None)
     if info and info.gold:
         return f"Gold: {info.gold.quantity}"
 
-    title = get_item_display_name(item, version=version, resolver=resolver)
+    title = get_item_display_name(item, resolver=resolver, version=version)
 
     meta_tags = []
     tp = getattr(info, "type_specific_info", None)
@@ -259,17 +201,17 @@ def format_item_summary(
         props.extend(
             _format_parsed_properties(
                 getattr(tp, "property_list", None),
-                version,
-                property_formatter=property_formatter,
                 resolver=resolver,
+                version=version,
+                property_formatter=property_formatter,
             )
         )
         props.extend(
             _format_parsed_properties(
                 getattr(tp, "runeword_property_list", None),
-                version,
-                property_formatter=property_formatter,
                 resolver=resolver,
+                version=version,
+                property_formatter=property_formatter,
             )
         )
 
@@ -278,22 +220,20 @@ def format_item_summary(
 
 def _format_item_lines(
     item: Any,
+    resolver: GameDataResolver,
     indent: str = "  ",
     version: int | None = None,
-    resolver: GameDataResolver | None = None,
 ) -> FormattedLines:
     result = []
     type_name = item.type_name.decode("ascii", errors="replace") if item.type_name else "Unknown"
 
     if version is None:
         version = item.version if item.version else 0x63
-    if resolver is None:
-        ensure_data_loaded()
-        resolver = GameDataResolver(version)
+    item_resolver = resolver.for_version(version)
 
     item_full_name = ""
     req_level = 0
-    if type_info := resolver.get_item(type_name.strip()):
+    if type_info := item_resolver.get_item(type_name.strip()):
         item_full_name = type_info.name
         req_level = type_info.levelreq
 
@@ -415,14 +355,14 @@ def _format_item_lines(
                 result.append(f"{indent}Sockets: {sockets}")
 
             if props := _format_parsed_properties(
-                getattr(tp, "property_list", None), version, resolver=resolver
+                getattr(tp, "property_list", None), resolver=item_resolver, version=version
             ):
                 result.append(f"{indent}Properties:")
                 for p in props:
                     result.append(f"{indent}  - {p}")
 
             if rw_props := _format_parsed_properties(
-                getattr(tp, "runeword_property_list", None), version, resolver=resolver
+                getattr(tp, "runeword_property_list", None), resolver=item_resolver, version=version
             ):
                 result.append(f"{indent}Rune Word Properties:")
                 for p in rw_props:
@@ -431,7 +371,7 @@ def _format_item_lines(
             if getattr(tp, "set_properties", None):
                 for idx, set_prop_list in enumerate(tp.set_properties):
                     if set_props := _format_parsed_properties(
-                        set_prop_list, version, resolver=resolver
+                        set_prop_list, resolver=item_resolver, version=version
                     ):
                         piece_count = idx + 2
                         result.append(f"{indent}Set Properties ({piece_count} Items):")
@@ -447,7 +387,9 @@ def _format_item_lines(
         for j, gem in enumerate(item.gem_items):
             result.append(f"{indent}Socketed Item [{j}]:")
             result.extend(
-                _format_item_lines(gem, indent + "  ", version=version, resolver=resolver)
+                _format_item_lines(
+                    gem, resolver=item_resolver, indent=indent + "  ", version=version
+                )
             )
 
     return result
@@ -455,16 +397,15 @@ def _format_item_lines(
 
 def format_item_info(
     item: Any,
+    resolver: GameDataResolver,
     indent: str = "  ",
     version: int | None = None,
-    resolver: GameDataResolver | None = None,
 ) -> str:
-    return "\n".join(_format_item_lines(item, indent=indent, version=version, resolver=resolver))
+    return "\n".join(_format_item_lines(item, resolver=resolver, indent=indent, version=version))
 
 
-def _format_waypoints_lines(char_data: D2SStruct) -> FormattedLines:
-    ensure_data_loaded()
-    loc = get_localized_data()
+def _format_waypoints_lines(char_data: D2SStruct, resolver: GameDataResolver) -> FormattedLines:
+    loc = resolver.loc
     result = []
     result.append("=== Waypoints ===")
     if char_data.waypoints.magic == 0x5357:
@@ -529,13 +470,12 @@ def _format_waypoints_lines(char_data: D2SStruct) -> FormattedLines:
     return result
 
 
-def format_waypoints_info(char_data: D2SStruct) -> str:
-    return "\n".join(_format_waypoints_lines(char_data))
+def format_waypoints_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
+    return "\n".join(_format_waypoints_lines(char_data, resolver))
 
 
-def _format_quests_lines(char_data: D2SStruct) -> FormattedLines:
-    ensure_data_loaded()
-    loc = get_localized_data()
+def _format_quests_lines(char_data: D2SStruct, resolver: GameDataResolver) -> FormattedLines:
+    loc = resolver.loc
     result = []
     result.append("=== Quests ===")
     if char_data.quests and char_data.quests.magic == 0x216F6F57:
@@ -587,20 +527,14 @@ def _format_quests_lines(char_data: D2SStruct) -> FormattedLines:
     return result
 
 
-def format_quests_info(char_data: D2SStruct) -> str:
-    return "\n".join(_format_quests_lines(char_data))
+def format_quests_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
+    return "\n".join(_format_quests_lines(char_data, resolver))
 
 
-def _get_character_skills(
-    char_data: D2SStruct, resolver: GameDataResolver | None = None
-) -> list[SkillInfo]:
+def _get_character_skills(char_data: D2SStruct, resolver: GameDataResolver) -> list[SkillInfo]:
     """Return invested skills as a list of (skill_index, skill_name, level) tuples."""
     if not getattr(char_data, "skills", None) or char_data.skills.magic != 0x6669:
         return []
-    if resolver is None:
-        ensure_data_loaded()
-        version = char_data.version if char_data.version else 0x63
-        resolver = GameDataResolver(version)
     skills = []
     for i, level in enumerate(char_data.skills.skill_levels):
         if level > 0:
@@ -612,15 +546,13 @@ def _get_character_skills(
     return skills
 
 
-def format_char_info(char_data: D2SStruct, resolver: GameDataResolver | None = None) -> str:
-    ensure_data_loaded()
+def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     result = []
     result.append("=== Diablo II Character Info ===")
     char_name = char_data.get_char_name()
     result.append(f"Name: {char_name}")
-    if resolver is None:
-        resolver = GameDataResolver(char_data.version)
-    result.append(f"Class: {resolver.get_localized_class_name(char_data.char_class)}")
+    char_resolver = resolver.for_version(char_data.version)
+    result.append(f"Class: {char_resolver.get_localized_class_name(char_data.char_class)}")
     result.append(f"Level: {char_data.char_level}")
     result.append(f"Version: 0x{char_data.version:X}")
     result.append(f"Hardcore: {'Yes' if char_data.is_hardcore() else 'No'}")
@@ -676,8 +608,7 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver | None = N
         result.append(f"Gold in Stash: {stats.gold_stash}")
     result.append("")
     result.append("=== Skills ===")
-    resolver = GameDataResolver(char_data.version)
-    skills = _get_character_skills(char_data, resolver)
+    skills = _get_character_skills(char_data, char_resolver)
     if skills:
         result.append("Skill levels:")
         for i, skill_name, level in skills:
@@ -686,9 +617,9 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver | None = N
             else:
                 result.append(f"Skill {i}: {level}")
     result.append("")
-    result.extend(_format_waypoints_lines(char_data))
+    result.extend(_format_waypoints_lines(char_data, char_resolver))
     result.append("")
-    result.extend(_format_quests_lines(char_data))
+    result.extend(_format_quests_lines(char_data, char_resolver))
     result.append("")
     result.append("=== Items ===")
     item_list = getattr(char_data, "item_list", None)
@@ -697,7 +628,9 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver | None = N
         result.append(f"Total items: {len(items)}")
         for i, item in enumerate(items):
             result.append(f"--- Item {i} ---")
-            result.extend(_format_item_lines(item, version=char_data.version, resolver=resolver))
+            result.extend(
+                _format_item_lines(item, resolver=char_resolver, version=char_data.version)
+            )
     result.append("")
     result.append("=== Corpse ===")
     if char_data.corpse.has_corpse():
@@ -727,7 +660,7 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver | None = N
                 for i, item in enumerate(char_data.mercenary.items.items):
                     result.append(f"--- Mercenary Item {i} ---")
                     result.extend(
-                        _format_item_lines(item, version=char_data.version, resolver=resolver)
+                        _format_item_lines(item, resolver=char_resolver, version=char_data.version)
                     )
         else:
             result.append("No mercenary")
@@ -751,15 +684,13 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver | None = N
     return "\n".join(result)
 
 
-def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver | None = None) -> str:
-    ensure_data_loaded()
+def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     result = []
     result.append("=== Diablo II Character Summary ===")
     char_name = char_data.get_char_name()
     version = char_data.version if char_data.version else 0x63
-    if resolver is None:
-        resolver = GameDataResolver(version)
-    char_class = resolver.get_localized_class_name(char_data.char_class)
+    char_resolver = resolver.for_version(version)
+    char_class = char_resolver.get_localized_class_name(char_data.char_class)
     flags_str = get_char_type_name(char_data.char_flags)
     char_title = getattr(char_data, "char_title", 0)
     title_str = get_char_title_name(char_title, char_data.char_class)
@@ -795,7 +726,7 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver | None 
 
     result.append("")
     result.append("=== Skills ===")
-    skills = _get_character_skills(char_data, resolver)
+    skills = _get_character_skills(char_data, char_resolver)
     if skills:
         active_skills = [
             f"{skill_name if skill_name else f'Skill {i}'}: {level}"
@@ -806,9 +737,9 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver | None 
         result.append("None")
 
     result.append("")
-    result.extend(_format_waypoints_lines(char_data))
+    result.extend(_format_waypoints_lines(char_data, char_resolver))
     result.append("")
-    result.extend(_format_quests_lines(char_data))
+    result.extend(_format_quests_lines(char_data, char_resolver))
     result.append("")
 
     result.append("=== Equipped Gear ===")
@@ -846,7 +777,7 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver | None 
             has_equipped = True
             it = equipped_items[slot.value]
             result.append(
-                f"- {slot.display_name}: {format_item_summary(it, version, resolver=resolver)}"
+                f"- {slot.display_name}: {format_item_summary(it, resolver=char_resolver, version=version)}"
             )
     if not has_equipped:
         result.append("None")
@@ -865,7 +796,7 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver | None 
                 if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot:
                     slot_str = f"{EquipSlot(m_item.position).display_name}: "
                 result.append(
-                    f"  - {slot_str}{format_item_summary(m_item, version, resolver=resolver)}"
+                    f"  - {slot_str}{format_item_summary(m_item, resolver=char_resolver, version=version)}"
                 )
         else:
             result.append("Equipped: None")
@@ -876,22 +807,30 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver | None 
     result.append("=== Inventory & Stash ===")
     stored_lines = []
     for it in inventory_items:
-        stored_lines.append(f"- [Inventory] {format_item_summary(it, version, resolver=resolver)}")
+        stored_lines.append(
+            f"- [Inventory] {format_item_summary(it, resolver=char_resolver, version=version)}"
+        )
     for it in stash_items:
-        stored_lines.append(f"- [Stash] {format_item_summary(it, version, resolver=resolver)}")
+        stored_lines.append(
+            f"- [Stash] {format_item_summary(it, resolver=char_resolver, version=version)}"
+        )
     for it in cube_items:
-        stored_lines.append(f"- [Cube] {format_item_summary(it, version, resolver=resolver)}")
+        stored_lines.append(
+            f"- [Cube] {format_item_summary(it, resolver=char_resolver, version=version)}"
+        )
 
     if belt_items:
         belt_counts = {}
         for it in belt_items:
-            summary = format_item_summary(it, version, resolver=resolver)
+            summary = format_item_summary(it, resolver=char_resolver, version=version)
             belt_counts[summary] = belt_counts.get(summary, 0) + 1
         for summary, count in belt_counts.items():
             stored_lines.append(f"- [Belt] {summary}{f' (x{count})' if count > 1 else ''}")
 
     for it in cursor_items:
-        stored_lines.append(f"- [Cursor] {format_item_summary(it, version, resolver=resolver)}")
+        stored_lines.append(
+            f"- [Cursor] {format_item_summary(it, resolver=char_resolver, version=version)}"
+        )
 
     if stored_lines:
         result.extend(stored_lines)
@@ -933,8 +872,7 @@ def format_char_list(records: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def format_stash_info(stash: SharedStash, resolver: GameDataResolver | None = None) -> str:
-    ensure_data_loaded()
+def format_stash_info(stash: SharedStash, resolver: GameDataResolver) -> str:
     result = []
     result.append("=== Diablo II Shared Stash ===")
     result.append(f"Total Tabs: {stash.get_tab_count()}")
@@ -949,7 +887,7 @@ def format_stash_info(stash: SharedStash, resolver: GameDataResolver | None = No
 
         items = tab.items.items if tab.items else []
         version = tab.item_format if tab.item_format else 0x63
-        tab_resolver = resolver if resolver is not None else GameDataResolver(version)
+        tab_resolver = resolver.for_version(version)
         if tab.tab_type == STASH_TAB_TYPE_ADVANCED:
             active_items = [
                 item
@@ -959,19 +897,18 @@ def format_stash_info(stash: SharedStash, resolver: GameDataResolver | None = No
             result.append(f"Total items: {len(active_items)}")
             for item_idx, item in enumerate(active_items):
                 result.append(f"--- Item {item_idx} ---")
-                result.extend(_format_item_lines(item, version=version, resolver=tab_resolver))
+                result.extend(_format_item_lines(item, resolver=tab_resolver, version=version))
         else:
             result.append(f"Total items: {len(items)}")
             for item_idx, item in enumerate(items):
                 result.append(f"--- Item {item_idx} ---")
-                result.extend(_format_item_lines(item, version=version, resolver=tab_resolver))
+                result.extend(_format_item_lines(item, resolver=tab_resolver, version=version))
         result.append("")
 
     return "\n".join(result).rstrip()
 
 
-def format_stash_summary(stash: SharedStash, resolver: GameDataResolver | None = None) -> str:
-    ensure_data_loaded()
+def format_stash_summary(stash: SharedStash, resolver: GameDataResolver) -> str:
     result = []
     result.append("=== Diablo II Shared Stash Summary ===")
     tab_count = stash.get_tab_count()
@@ -995,7 +932,7 @@ def format_stash_summary(stash: SharedStash, resolver: GameDataResolver | None =
 
         items = tab.items.items if tab.items else []
         version = tab.item_format if tab.item_format else 0x63
-        cur_resolver = resolver if resolver is not None else GameDataResolver(version)
+        cur_resolver = resolver.for_version(version)
 
         if tab.tab_type == STASH_TAB_TYPE_ADVANCED:
             active_items = [
@@ -1069,7 +1006,7 @@ def format_stash_summary(stash: SharedStash, resolver: GameDataResolver | None =
                 item_order = []
                 for it in items:
                     summary = format_item_summary(
-                        it, version=version, include_properties=False, resolver=cur_resolver
+                        it, resolver=cur_resolver, version=version, include_properties=False
                     )
                     if summary not in item_counts:
                         item_counts[summary] = 0

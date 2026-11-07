@@ -5,8 +5,6 @@ from d2savior.core.d2data import (
     GameData,
     StatInfo,
     VersionData,
-    get_game_data,
-    init_d2data,
 )
 
 
@@ -19,11 +17,8 @@ class TestD2DataManager:
     def setup_method(self):
         """设置测试环境"""
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "d2savior", "data")
-        init_d2data(self.data_dir)
-        mgr = get_game_data()
-        assert mgr is not None
-        self.manager = mgr
-        default_data = mgr.for_version(0x63)
+        self.manager = GameData.load(self.data_dir)
+        default_data = self.manager.for_version(0x63)
         assert default_data is not None
         self.default_data = default_data
 
@@ -179,10 +174,10 @@ class TestD2DataManager:
 
         # Localized set names from item-names.json via GameDataResolver
         from d2savior.core.d2data import GameDataResolver
-        from d2savior.core.localized_data import init_localized_data
+        from d2savior.core.localized_data import LocalizedDataLoader
 
-        init_localized_data(os.path.join(self.data_dir, "d2r", "local"), lang_key="enUS")
-        resolver = GameDataResolver(0x69, self.manager)
+        loc = LocalizedDataLoader.load(os.path.join(self.data_dir, "d2r", "local"), lang_key="enUS")
+        resolver = GameDataResolver(game_data=self.manager, loc=loc, version=0x69)
         assert resolver.get_localized_set_name(76) == "Tal Rasha's Fine-Spun Cloth"
         assert resolver.get_localized_set_name(79) == "Tal Rasha's Guardianship"
         assert resolver.get_localized_set_name(68) == "Aldur's Rhythm"

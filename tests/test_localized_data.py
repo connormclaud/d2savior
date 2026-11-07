@@ -6,8 +6,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from d2savior.core.localized_data import (
     LocalizedDataLoader,
     clean_d2_text,
-    get_localized_data,
-    init_localized_data,
 )
 
 
@@ -110,7 +108,7 @@ class TestLocalizedDataLoader:
         assert self.loader.get_level_name("Rogue Encampment") == "Лагерь разбойниц"
 
 
-class TestGlobalLocalizedData:
+class TestLocalizedDataLoaderFactory:
     def setup_method(self):
         self.data_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -120,32 +118,16 @@ class TestGlobalLocalizedData:
             "local",
         )
 
-    def test_init_localized_data(self):
-        results = init_localized_data(self.data_dir, lang_key="enUS")
+    def test_load_factory(self):
+        loader = LocalizedDataLoader.load(self.data_dir, lang_key="enUS")
+        assert loader.current_lang == "enUS"
+        assert len(loader._raw) > 0
 
-        # 检查至少有一些文件成功加载
-        loaded_count = sum(1 for success in results.values() if success)
-        assert loaded_count > 0
-
-    def test_get_localized_data_singleton(self):
-        loader1 = get_localized_data()
-        loader2 = get_localized_data()
-
-        # 应该返回同一个实例
-        assert loader1 is loader2
-
-    def test_language_switching(self):
-        # 测试英文
-        init_localized_data(self.data_dir, lang_key="enUS")
-        loader = get_localized_data()
-        text_en = loader.get_item_modifier("ModitemAura")
-        assert "Aura" in text_en
-
-        # 测试简体中文
-        init_localized_data(self.data_dir, lang_key="zhCN")
-        loader = get_localized_data()
-        text_zhcn = loader.get_item_modifier("ModitemAura")
-        assert "光环" in text_zhcn
-
-    def teardown_method(self):
-        init_localized_data(self.data_dir, lang_key="enUS")
+    def test_language_instances_are_distinct(self):
+        loader_en = LocalizedDataLoader.load(self.data_dir, lang_key="enUS")
+        loader_zh = LocalizedDataLoader.load(self.data_dir, lang_key="zhCN")
+        assert loader_en is not loader_zh
+        assert loader_en.current_lang == "enUS"
+        assert loader_zh.current_lang == "zhCN"
+        assert "Aura" in loader_en.get_item_modifier("ModitemAura")
+        assert "光环" in loader_zh.get_item_modifier("ModitemAura")

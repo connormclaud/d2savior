@@ -5,15 +5,18 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from d2savior.core.d2data import get_game_data, init_d2data
+from d2savior.core.d2data import GameData
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.ibitstream import IBitStream
-from d2savior.core.localized_data import init_localized_data
 from d2savior.core.obitstream import OBitStream
 
 EXAMPLES_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "examples"
 )
+DATA_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+)
+_GAME_DATA = GameData.load(DATA_DIR)
 
 
 def _load_d2s(save_file):
@@ -21,17 +24,8 @@ def _load_d2s(save_file):
         data = f.read()
     bs = IBitStream(data)
     d2s = D2SStruct()
-    d2s.deserialize(bs, data=get_game_data())
+    d2s.deserialize(bs, data=_GAME_DATA)
     return d2s
-
-
-@pytest.fixture(scope="module", autouse=True)
-def init_data():
-    data_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
-    )
-    init_d2data(data_dir)
-    init_localized_data(os.path.join(data_dir, "d2r", "local"), lang_key="enUS")
 
 
 class Test0x69Warlock:
@@ -492,11 +486,10 @@ class Test0x69Roundtrip:
 
         bs = IBitStream(original_data)
         d2s = D2SStruct()
-        gd = get_game_data()
-        d2s.deserialize(bs, data=gd)
+        d2s.deserialize(bs, data=_GAME_DATA)
 
         obs = OBitStream()
-        d2s.serialize(obs, data=gd)
+        d2s.serialize(obs, data=_GAME_DATA)
         serialized_data = obs.get_data()
 
         assert len(original_data) == len(serialized_data), (

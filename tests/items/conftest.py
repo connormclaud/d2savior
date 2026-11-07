@@ -5,21 +5,14 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from d2savior.core.d2data import init_d2data
-from d2savior.core.localized_data import init_localized_data
-from d2savior.core.property import init_item_modifiers, init_language
+from d2savior.core.d2data import GameDataResolver
 
 
 @pytest.fixture(scope="session")
 def init_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     data_dir = os.path.join(base_dir, "d2savior", "data")
-    local_dir = os.path.join(data_dir, "d2r", "local")
-
-    init_d2data(data_dir)
-    init_localized_data(local_dir, lang_key="enUS")
-    init_item_modifiers(os.path.join(local_dir, "item-modifiers.json"), lang_key="enUS")
-    init_language(os.path.join(local_dir, "string.txt"), lang_index=1)
+    return GameDataResolver.load(data_dir, lang_key="enUS")
 
 
 @pytest.fixture

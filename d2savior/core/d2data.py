@@ -1,5 +1,6 @@
 import copy
 import importlib.resources
+import json
 from collections.abc import Buffer, Sequence
 from dataclasses import dataclass, field
 from importlib.resources.abc import Traversable
@@ -1685,47 +1686,121 @@ class GameData:
         return True
 
 
-_g_game_data: GameData | None = None
-
-
-def init_d2data(data_dir: str | Traversable | None = None) -> bool:
-    """Initialize versioned game data from data_dir or bundled package data."""
-    global _g_game_data
-    _g_game_data = GameData.load(data_dir)
-    return True
-
-
-def get_game_data() -> GameData | None:
-    return _g_game_data
-
-
 class GameDataResolver:
-    """Facade unifying versioned GameData lookups and localization."""
+    """Facade unifying multi-version GameData lookups, localization, and modifiers."""
 
     def __init__(
         self,
-        version: int | VersionData = 0x63,
+        game_data_or_version: GameData | VersionData | int | None = None,
         game_data: GameData | None = None,
+        loc: Any | None = None,
+        modifiers: dict[str, str] | None = None,
+        lang_key: str = "enUS",
+        version: int = 0x69,
     ) -> None:
-        if isinstance(version, VersionData):
-            self.data = version
-            self.version = version.version
-        else:
+        if game_data_or_version is None:
+            if game_data is None:
+                raise ValueError("game_data is required")
+            game_data_or_version = game_data
+
+        if isinstance(game_data_or_version, VersionData):
+            if game_data is None:
+                raise ValueError("game_data is required when constructing from a VersionData")
+            self.data = game_data_or_version
+            self.version = game_data_or_version.version
+            self.game_data = game_data
+        elif isinstance(game_data_or_version, int):
+            self.version = game_data_or_version
+            if game_data is None:
+                raise ValueError("GameData instance is required when passing version as int")
+            self.game_data = game_data
+            self.data = game_data.for_version(self.version)
+        elif isinstance(game_data_or_version, GameData):
+            self.game_data = game_data_or_version
             self.version = version
-            gd = game_data or get_game_data()
-            if gd is None:
-                raise RuntimeError("GameData is not initialized")
-            self.data = gd.for_version(self.version)
+            self.data = game_data_or_version.for_version(version)
+        else:
+            raise TypeError(f"Invalid game_data: {type(game_data_or_version)}")
+
+        # `loc` is a LocalizedDataLoader accessed duck-typed throughout the codebase
+        # (current_lang, get_item_name, get_skill_name_by_id, ...). Annotate as Any so
+        # attribute access type-checks without forcing callers to narrow a None union
+        # (load()/for_version() always populate it in practice).
+        self.loc: Any = loc
+        self.modifiers = modifiers or {}
+        self.lang_key = lang_key
+
+    @classmethod
+    def load(
+        cls,
+        data_dir: str | Traversable | None = None,
+        lang_key: str = "enUS",
+        version: int = 0x69,
+    ) -> GameDataResolver:
+        from d2savior.core.localized_data import LocalizedDataLoader
+
+        if data_dir is None:
+            data_res: Traversable = importlib.resources.files("d2savior").joinpath("data")
+        elif isinstance(data_dir, str):
+            data_res = Path(data_dir)
+        else:
+            data_res = data_dir
+
+        game_data = GameData.load(data_res)
+
+        local_dir = data_res.joinpath("d2r", "local")
+        if not local_dir.is_dir():
+            local_dir = data_res.joinpath("local")
+
+        loc = LocalizedDataLoader.load(local_dir, lang_key=lang_key)
+        modifiers = cls._load_item_modifiers(local_dir.joinpath("item-modifiers.json"), lang_key)
+
+        return cls(
+            game_data_or_version=game_data,
+            loc=loc,
+            modifiers=modifiers,
+            lang_key=lang_key,
+            version=version,
+        )
+
+    @staticmethod
+    def _load_item_modifiers(filepath: Traversable, lang_key: str = "enUS") -> dict[str, str]:
+        with open_resource(filepath, encoding="utf-8-sig") as f:
+            raw_data = json.load(f)
+        fallback_lang = "zhTW" if lang_key == "zhCN" else ("zhCN" if lang_key == "zhTW" else None)
+        modifiers: dict[str, str] = {}
+        for item in raw_data:
+            key = item.get("Key", "")
+            text = item.get(lang_key, "")
+            if not text and fallback_lang:
+                text = item.get(fallback_lang, "")
+            if not text:
+                text = item.get("enUS", "")
+            if key and text:
+                modifiers[key] = text
+        return modifiers
+
+    def for_version(self, version: int) -> GameDataResolver:
+        if self.version == version:
+            return self
+        if self.game_data is None:
+            return self
+        return GameDataResolver(
+            game_data_or_version=self.game_data,
+            loc=self.loc,
+            modifiers=self.modifiers,
+            lang_key=self.lang_key,
+            version=version,
+        )
 
     def get_item(self, code: str) -> ItemTypeInfo | None:
         return self.data.get_item(code)
 
     def get_skill_name(self, skill_id: int) -> str:
-        from d2savior.core.property import get_skill_name as prop_get_skill_name
-
-        loc_name, _ = prop_get_skill_name(skill_id)
-        if loc_name and loc_name != "Unknown Skill":
-            return loc_name
+        if self.loc:
+            loc_name = self.loc.get_skill_name_by_id(skill_id)
+            if loc_name and loc_name != "Unknown Skill":
+                return loc_name
         return self.data.get_skill_name(skill_id)
 
     def get_runeword(self, runeword_id: int) -> RuneWordInfo | None:
@@ -1766,30 +1841,51 @@ class GameDataResolver:
     def is_descendant(self, item_type_code: str, ancestor_code: str) -> bool:
         return self.data.is_descendant(item_type_code, ancestor_code)
 
-    def get_localized_item_name(self, code_or_name: str, fallback: str = "") -> str:
-        from d2savior.core.localized_data import get_localized_data
+    def get_item_modifier(self, key: str) -> str:
+        return self.modifiers.get(key, key)
 
-        loc = get_localized_data()
-        if not loc:
+    def format_property(self, prop_id: int, params: list[int], version: int | None = None) -> str:
+        from d2savior.core.property import format_property as _format_property
+
+        return _format_property(prop_id, params, resolver=self, version=version or self.version)
+
+    def get_localized_skill_tab_name(self, tab: int, class_id: int) -> str:
+        if self.loc:
+            name = self.loc.get_skill_tab_name(tab, class_id)
+            if name:
+                return name
+        return f"SkillTab{tab}"
+
+    def get_localized_monster_name(self, monster_id: int) -> str:
+        if self.loc:
+            mon = getattr(self.data, "monsters", {}).get(monster_id)
+            if mon and hasattr(mon, "name") and mon.name:
+                result = self.loc.get_monster_name(mon.name)
+                if result and result != mon.name:
+                    return result
+        return f"Monster{monster_id}"
+
+    def get_localized_item_name(self, code_or_name: str, fallback: str = "") -> str:
+        if not self.loc:
             return fallback or code_or_name
 
-        name = loc.get_item_name(code_or_name)
+        name = self.loc.get_item_name(code_or_name)
         if name and name != code_or_name:
             return name
 
-        name = loc.get_item_nameaffix(code_or_name)
+        name = self.loc.get_item_nameaffix(code_or_name)
         if name and name != code_or_name:
             return name
 
-        name = loc.get_rune_name(code_or_name)
+        name = self.loc.get_rune_name(code_or_name)
         if name and name != code_or_name:
             return name
 
         if fallback and fallback != code_or_name:
-            name = loc.get_item_name(fallback)
+            name = self.loc.get_item_name(fallback)
             if name and name != fallback:
                 return name
-            name = loc.get_item_nameaffix(fallback)
+            name = self.loc.get_item_nameaffix(fallback)
             if name and name != fallback:
                 return name
 
@@ -1799,11 +1895,8 @@ class GameDataResolver:
         u_info = self.get_unique_item(unique_id)
         if not u_info:
             return ""
-        from d2savior.core.localized_data import get_localized_data
-
-        loc = get_localized_data()
-        if loc:
-            name = loc.get_item_name(u_info.index)
+        if self.loc:
+            name = self.loc.get_item_name(u_info.index)
             if name and name != u_info.index:
                 return name
         return u_info.index
@@ -1812,11 +1905,8 @@ class GameDataResolver:
         s_info = self.get_set_item(set_id)
         if not s_info:
             return ""
-        from d2savior.core.localized_data import get_localized_data
-
-        loc = get_localized_data()
-        if loc:
-            name = loc.get_item_name(s_info.name)
+        if self.loc:
+            name = self.loc.get_item_name(s_info.name)
             if name and name != s_info.name:
                 return name
         return s_info.name
@@ -1825,14 +1915,11 @@ class GameDataResolver:
         rw_info = self.get_runeword(runeword_id)
         if not rw_info:
             return ""
-        from d2savior.core.localized_data import get_localized_data
-
-        loc = get_localized_data()
-        if loc:
-            name = loc.get_rune_name(rw_info.name)
+        if self.loc:
+            name = self.loc.get_rune_name(rw_info.name)
             if name and name != rw_info.name:
                 return name
-            name = loc.get_rune_name(f"Runeword{runeword_id}")
+            name = self.loc.get_rune_name(f"Runeword{runeword_id}")
             if name and name != f"Runeword{runeword_id}":
                 return name
         return rw_info.name
@@ -1841,11 +1928,8 @@ class GameDataResolver:
         p_info = self.get_magic_prefix(prefix_id)
         if not p_info:
             return ""
-        from d2savior.core.localized_data import get_localized_data
-
-        loc = get_localized_data()
-        if loc:
-            name = loc.get_item_nameaffix(p_info.name)
+        if self.loc:
+            name = self.loc.get_item_nameaffix(p_info.name)
             if name and name != p_info.name:
                 return name
         return p_info.name
@@ -1854,26 +1938,20 @@ class GameDataResolver:
         s_info = self.get_magic_suffix(suffix_id)
         if not s_info:
             return ""
-        from d2savior.core.localized_data import get_localized_data
-
-        loc = get_localized_data()
-        if loc:
-            name = loc.get_item_nameaffix(s_info.name)
+        if self.loc:
+            name = self.loc.get_item_nameaffix(s_info.name)
             if name and name != s_info.name:
                 return name
         return s_info.name
 
     def get_localized_quality_name(self, quality_name: str) -> str:
-        from d2savior.core.localized_data import get_localized_data
-
-        loc = get_localized_data()
-        if not loc or loc.current_lang == "enUS":
+        if not self.loc or self.loc.current_lang == "enUS":
             return quality_name
-        name = loc.get_item_nameaffix(quality_name)
+        name = self.loc.get_item_nameaffix(quality_name)
         if name and name != quality_name:
             return name
         ui_key = f"LootFilter{quality_name}Rarity"
-        name = loc.get_clean_string("ui.json", ui_key, default="")
+        name = self.loc.get_clean_string("ui.json", ui_key, default="")
         if name:
             return name
         quality_fallbacks = {
@@ -1881,35 +1959,29 @@ class GameDataResolver:
             "zhCN": {"Crafted": "手工艺", "Rare": "稀有"},
             "zhTW": {"Crafted": "手工艺", "Rare": "稀有"},
         }
-        fb = quality_fallbacks.get(loc.current_lang, {}).get(quality_name)
+        fb = quality_fallbacks.get(self.loc.current_lang, {}).get(quality_name)
         if fb:
             return fb
         return quality_name
 
     def get_localized_gem_type_name(self, gem_type: str) -> str:
-        from d2savior.core.localized_data import get_localized_data
-
-        loc = get_localized_data()
-        if not loc:
+        if not self.loc:
             return gem_type
-        name = loc.get_item_name(gem_type)
+        name = self.loc.get_item_name(gem_type)
         if name and name != gem_type:
             return name
-        name = loc.get_item_nameaffix(gem_type)
+        name = self.loc.get_item_nameaffix(gem_type)
         if name and name != gem_type:
             return name
         return gem_type
 
     def get_localized_rune_short_name(self, code_str: str) -> str:
-        from d2savior.core.localized_data import get_localized_data
-
-        loc = get_localized_data()
         type_info = self.get_item(code_str)
         eng_name = type_info.name if type_info else code_str
-        if not loc or loc.current_lang == "enUS":
+        if not self.loc or self.loc.current_lang == "enUS":
             return eng_name[:-5] if eng_name.endswith(" Rune") else eng_name
 
-        loc_name = loc.get_rune_name(code_str)
+        loc_name = self.loc.get_rune_name(code_str)
         if loc_name and loc_name != code_str:
             if loc_name.startswith("Руна "):
                 return loc_name[len("Руна ") :]
@@ -1932,11 +2004,8 @@ class GameDataResolver:
             "Warlock",
         ]
         default_name = class_keys[class_id] if 0 <= class_id < len(class_keys) else "Unknown"
-        from d2savior.core.localized_data import get_localized_data
-
-        loc = get_localized_data()
-        if loc:
-            name = loc.get_class_name(class_id)
+        if self.loc:
+            name = self.loc.get_class_name(class_id)
             if name:
                 return name
         return default_name

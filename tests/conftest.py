@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from d2savior.core.d2data import GameData, VersionData
+from d2savior.core.d2data import GameData, GameDataResolver, VersionData
 
 
 @pytest.fixture(autouse=True)
@@ -28,3 +28,8 @@ def version_data_63(game_data: GameData) -> VersionData:
 @pytest.fixture(scope="session")
 def version_data_69(game_data: GameData) -> VersionData:
     return game_data.for_version(0x69)
+
+
+@pytest.fixture(scope="session")
+def game_data_resolver() -> GameDataResolver:
+    return GameDataResolver.load(lang_key="enUS")

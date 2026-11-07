@@ -87,14 +87,13 @@ class BitIO(ABC):
 
     def huffman_char(self, ch: int = 0) -> int:
         """Read or write a single Huffman-coded ASCII character."""
-        from d2savior.core.huffman import get_huffman
+        from d2savior.core.huffman import DEFAULT_HUFFMAN
 
-        h = get_huffman()
         if self.is_writing:
-            h.write_char(self, ch)
+            DEFAULT_HUFFMAN.write_char(self, ch)
             return ch
         else:
-            return h.read_char(self)
+            return DEFAULT_HUFFMAN.read_char(self)
 
 
 class BitReader(BitIO):

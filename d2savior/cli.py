@@ -10,7 +10,6 @@ from d2savior.core.bitstream_debug import _run_bitstream_searches
 from d2savior.core.d2data import GameDataResolver
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.formatters import (
-    ensure_data_loaded,
     format_char_info,
     format_char_list,
     format_char_summary,
@@ -25,27 +24,24 @@ from d2savior.core.stash import SharedStash
 
 
 def parse_d2i_file(
-    file_path: str, debug: bool = False
+    file_path: str, resolver: GameDataResolver | None = None, debug: bool = False
 ) -> tuple[bool, Any, str | None, IBitStream | None]:
+    if resolver is None:
+        resolver = GameDataResolver.load()
     try:
         with open(file_path, "rb") as f:
             data = f.read()
-
-        ensure_data_loaded()
-        from d2savior.core.d2data import get_game_data
-
-        game_data = get_game_data()
 
         bs = IBitStream(data)
         if data.startswith(b"JM"):
             from d2savior.core.item import D2Item
 
             item = D2Item()
-            item.deserialize(bs, data=game_data)
+            item.deserialize(bs, data=resolver.game_data)
             return True, item, "item", bs
 
         stash = SharedStash()
-        stash.deserialize(bs, data=game_data)
+        stash.deserialize(bs, data=resolver)
         if not stash.tabs:
             print(f"Error: '{file_path}' contains no parseable stash tabs", file=sys.stderr)
             return False, None, None, None
@@ -66,20 +62,17 @@ def parse_d2i_file(
 
 
 def parse_d2s_file(
-    file_path: str, debug: bool = False
+    file_path: str, resolver: GameDataResolver | None = None, debug: bool = False
 ) -> tuple[bool, D2SStruct | None, IBitStream | None]:
+    if resolver is None:
+        resolver = GameDataResolver.load()
     try:
         with open(file_path, "rb") as f:
             data = f.read()
 
-        ensure_data_loaded()
-        from d2savior.core.d2data import get_game_data
-
-        game_data = get_game_data()
-
         bs = IBitStream(data)
         char_data = D2SStruct()
-        char_data.deserialize(bs, data=game_data)
+        char_data.deserialize(bs, data=resolver)
 
         if debug:
             print("\n=== BitStream Final State ===")
@@ -97,15 +90,19 @@ def parse_d2s_file(
         return False, None, None
 
 
-def parse_file(file_path: str, debug: bool = False) -> tuple[str | None, Any, IBitStream | None]:
+def parse_file(
+    file_path: str, resolver: GameDataResolver | None = None, debug: bool = False
+) -> tuple[str | None, Any, IBitStream | None]:
     """Dispatch file parsing based on extension, returning (kind, data, bs) or (None, None, None)."""
+    if resolver is None:
+        resolver = GameDataResolver.load()
     if file_path.endswith(".d2i"):
-        res = parse_d2i_file(file_path, debug)
+        res = parse_d2i_file(file_path, resolver=resolver, debug=debug)
         if res[0]:
             _, data, kind, bs = res
             return kind, data, bs
     elif file_path.endswith(".d2s"):
-        res = parse_d2s_file(file_path, debug)
+        res = parse_d2s_file(file_path, resolver=resolver, debug=debug)
         if res[0]:
             _, data, bs = res
             return "char", data, bs
@@ -113,17 +110,27 @@ def parse_file(file_path: str, debug: bool = False) -> tuple[str | None, Any, IB
 
 
 FORMATTERS = {
-    ("char", False): lambda d: format_char_info(d),
-    ("char", True): lambda d: format_char_summary(d),
-    ("stash", False): lambda d: format_stash_info(d),
-    ("stash", True): lambda d: format_stash_summary(d),
-    ("item", False): lambda it: "=== Item Info ===\n" + format_item_info(it),
-    ("item", True): lambda it: f"=== Item Summary ===\n- {format_item_summary(it)}",
+    ("char", False): lambda d, resolver: format_char_info(d, resolver=resolver),
+    ("char", True): lambda d, resolver: format_char_summary(d, resolver=resolver),
+    ("stash", False): lambda d, resolver: format_stash_info(d, resolver=resolver),
+    ("stash", True): lambda d, resolver: format_stash_summary(d, resolver=resolver),
+    ("item", False): lambda it, resolver: (
+        "=== Item Info ===\n" + format_item_info(it, resolver=resolver)
+    ),
+    ("item", True): lambda it, resolver: (
+        f"=== Item Summary ===\n- {format_item_summary(it, resolver=resolver)}"
+    ),
 }
 
 
-def process_file(file_path: str, args: Any) -> bool:
-    ensure_data_loaded(lang_key=getattr(args, "lang", None) or "enUS")
+def format_output(kind: str, data: Any, summary: bool, resolver: GameDataResolver) -> str | None:
+    formatter = FORMATTERS.get((kind, summary))
+    if formatter:
+        return formatter(data, resolver)
+    return None
+
+
+def process_file(file_path: str, args: Any, resolver: GameDataResolver) -> bool:
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' does not exist", file=sys.stderr)
         return False
@@ -132,15 +139,15 @@ def process_file(file_path: str, args: Any) -> bool:
         print(f"Error: File '{file_path}' is not a .d2s or .d2i file", file=sys.stderr)
         return False
 
-    kind, data, bs = parse_file(file_path, getattr(args, "debug", False))
+    kind, data, bs = parse_file(file_path, resolver=resolver, debug=getattr(args, "debug", False))
     if not kind or not data:
         return False
 
     _run_bitstream_searches(bs, args)
 
-    formatter = FORMATTERS.get((kind, getattr(args, "summary", False)))
-    if formatter:
-        print(formatter(data))
+    output = format_output(kind, data, getattr(args, "summary", False), resolver=resolver)
+    if output:
+        print(output)
     return True
 
 
@@ -220,14 +227,18 @@ def resolve_target_files(
     return resolved_files, dir_to_save
 
 
-def extract_char_row(file_path: str) -> dict[str, Any] | None:
-    ok, char_data, _ = parse_d2s_file(file_path, debug=False)
+def extract_char_row(
+    file_path: str, resolver: GameDataResolver | None = None
+) -> dict[str, Any] | None:
+    if resolver is None:
+        resolver = GameDataResolver.load()
+    ok, char_data, _ = parse_d2s_file(file_path, resolver=resolver, debug=False)
     if not ok or not char_data:
         return None
 
     name = char_data.get_char_name().strip() or Path(file_path).stem
-    resolver = GameDataResolver(char_data.version)
-    char_class = resolver.get_localized_class_name(char_data.char_class)
+    char_resolver = resolver.for_version(char_data.version)
+    char_class = char_resolver.get_localized_class_name(char_data.char_class)
     level = char_data.char_level
     mode = "Hardcore" if char_data.is_hardcore() else "Softcore"
 
@@ -250,11 +261,14 @@ def extract_char_row(file_path: str) -> dict[str, Any] | None:
     }
 
 
-def list_characters(files: list[str], lang: str | None = None) -> list[dict[str, Any]]:
-    ensure_data_loaded(lang_key=lang or "enUS")
+def list_characters(
+    files: list[str], lang: str | None = None, resolver: GameDataResolver | None = None
+) -> list[dict[str, Any]]:
+    if resolver is None:
+        resolver = GameDataResolver.load(lang_key=lang or "enUS")
     records: list[dict[str, Any]] = []
     for f in files:
-        row = extract_char_row(f)
+        row = extract_char_row(f, resolver=resolver)
         if row is not None:
             records.append(row)
     records.sort(key=lambda r: (-r["sort_ts"], r["name"].lower()))
@@ -335,13 +349,15 @@ def cmd_stash(argv: list[str]) -> int:
         print("Error: No .d2i stash files found", file=sys.stderr)
         return 1
 
+    resolver = GameDataResolver.load(lang_key=args.lang or "enUS")
+
     has_error = False
     for idx, path in enumerate(stash_files):
         if len(stash_files) > 1:
             if idx > 0:
                 print()
             print(f"=== File: {path} ===")
-        if not process_file(path, args):
+        if not process_file(path, args, resolver=resolver):
             has_error = True
 
     return 1 if has_error else 0
@@ -413,7 +429,7 @@ Examples:
     if not files_to_process:
         sys.exit(1)
 
-    ensure_data_loaded(lang_key=args.lang or "enUS")
+    resolver = GameDataResolver.load(lang_key=args.lang or "enUS")
 
     has_error = False
     for idx, path in enumerate(files_to_process):
@@ -421,7 +437,7 @@ Examples:
             if idx > 0:
                 print()
             print(f"=== File: {path} ===")
-        if process_file(path, args) is False:
+        if process_file(path, args, resolver=resolver) is False:
             has_error = True
 
     if has_error:

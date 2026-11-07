@@ -80,7 +80,7 @@ class TestModularization:
         assert data is None
         assert bs is None
 
-    def test_formatters_dispatch_table(self):
+    def test_formatters_dispatch_table(self, game_data_resolver):
         assert ("char", False) in d2s_parse.FORMATTERS
         assert ("char", True) in d2s_parse.FORMATTERS
         assert ("stash", False) in d2s_parse.FORMATTERS
@@ -90,11 +90,11 @@ class TestModularization:
 
         mock_item = D2Item()
         mock_item.type_name = b"hp1 "
-        item_summary = d2s_parse.FORMATTERS[("item", True)](mock_item)
+        item_summary = d2s_parse.FORMATTERS[("item", True)](mock_item, game_data_resolver)
         assert "=== Item Summary ===" in item_summary
         assert "Healing Potion" in item_summary
 
-        item_info = d2s_parse.FORMATTERS[("item", False)](mock_item)
+        item_info = d2s_parse.FORMATTERS[("item", False)](mock_item, game_data_resolver)
         assert "=== Item Info ===" in item_info
         assert "Type: hp1" in item_info
 
@@ -112,7 +112,7 @@ class TestModularization:
             return f"CUSTOM_PROP_{pid}:{params[0]}" if pid == 7 else None
 
         res = formatters._format_parsed_properties(
-            mock_prop_list, property_formatter=custom_formatter
+            mock_prop_list, resolver=MagicMock(), property_formatter=custom_formatter
         )
         assert len(res) == 2
         assert res[0] == "CUSTOM_PROP_7:25"
@@ -125,7 +125,9 @@ class TestModularization:
         item.item_info.type_specific_info = TypeSpecificInfo()
         item.item_info.type_specific_info.property_list = mock_prop_list
 
-        summary = formatters.format_item_summary(item, property_formatter=custom_formatter)
+        summary = formatters.format_item_summary(
+            item, resolver=MagicMock(), property_formatter=custom_formatter
+        )
         assert "CUSTOM_PROP_7:25" in summary
 
     def test_no_sys_modules_d2s_parse_hack(self):
@@ -159,10 +161,10 @@ class TestModularization:
         mock_sb.assert_called_once_with(mock_bs, "0101")
         mock_sbytes.assert_called_once_with(mock_bs, b"\xab\xcd")
 
-    def test_formatter_return_types_consistent_str(self):
+    def test_formatter_return_types_consistent_str(self, game_data_resolver):
         char = D2SStruct()
-        res_wp = formatters.format_waypoints_info(char)
-        res_quests = formatters.format_quests_info(char)
+        res_wp = formatters.format_waypoints_info(char, resolver=game_data_resolver)
+        res_quests = formatters.format_quests_info(char, resolver=game_data_resolver)
 
         assert isinstance(res_wp, str)
         assert isinstance(res_quests, str)
@@ -170,10 +172,10 @@ class TestModularization:
         item = D2Item()
         item.item_info = ItemInfo()
         item.item_info.type_name = b"rin "
-        res_item = formatters.format_item_info(item)
+        res_item = formatters.format_item_info(item, resolver=game_data_resolver)
         assert isinstance(res_item, str)
 
         # Internal line helpers return lists
-        assert isinstance(formatters._format_waypoints_lines(char), list)
-        assert isinstance(formatters._format_quests_lines(char), list)
-        assert isinstance(formatters._format_item_lines(item), list)
+        assert isinstance(formatters._format_waypoints_lines(char, game_data_resolver), list)
+        assert isinstance(formatters._format_quests_lines(char, game_data_resolver), list)
+        assert isinstance(formatters._format_item_lines(item, resolver=game_data_resolver), list)

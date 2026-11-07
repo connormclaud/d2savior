@@ -7,10 +7,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from d2savior.core.d2data import get_game_data, init_d2data
+from d2savior.core.d2data import GameData
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.ibitstream import IBitStream
-from d2savior.core.localized_data import init_localized_data
 from d2savior.core.obitstream import OBitStream
 
 
@@ -20,10 +19,7 @@ class TestCharSerialization:
         data_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
-
-        init_d2data(data_dir)
-        init_localized_data(os.path.join(data_dir, "d2r", "local"), lang_key="enUS")
-        cls.game_data = get_game_data()
+        cls.game_data = GameData.load(data_dir)
 
     def _test_char_roundtrip(self, save_file):
         with open(save_file, "rb") as f:

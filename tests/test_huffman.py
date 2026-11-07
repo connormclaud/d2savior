@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from d2savior.core.huffman import HUFFMAN_TREE, HuffmanDecoder, get_huffman
+from d2savior.core.huffman import DEFAULT_HUFFMAN, HUFFMAN_TREE, HuffmanDecoder
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.obitstream import OBitStream
 
@@ -106,10 +106,9 @@ class TestHuffmanDecoder:
             assert key not in seen, f"Duplicate code {code} with {bits} bits"
             seen.add(key)
 
-    def test_get_huffman_singleton(self):
-        h1 = get_huffman()
-        h2 = get_huffman()
-        assert h1 is h2
+    def test_default_huffman_instance(self):
+        assert DEFAULT_HUFFMAN is not None
+        assert isinstance(DEFAULT_HUFFMAN, HuffmanDecoder)
 
     def test_decode_specific_pattern(self):
         out_bs = OBitStream()

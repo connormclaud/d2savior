@@ -329,7 +329,7 @@ class TestD2SStruct:
             assert str(EquipSlot(pos)) == name
             assert EquipSlot(pos).display_name == name
 
-    def test_format_item_info_equipped_position(self):
+    def test_format_item_info_equipped_position(self, game_data_resolver):
         from d2savior.core.enums import ItemLocation
         from d2savior.core.formatters import format_item_info
         from d2savior.core.item import D2Item, ItemInfo
@@ -340,7 +340,7 @@ class TestD2SStruct:
         item.location = int(ItemLocation.EQUIPPED)
         item.position = 4
 
-        full_text = format_item_info(item)
+        full_text = format_item_info(item, resolver=game_data_resolver)
         assert isinstance(full_text, str)
         assert "Location: EQUIPPED, Position: 4 (Weapon I)" in full_text
 
@@ -350,7 +350,7 @@ class TestD2SStruct:
         item_stored.type_name = b"bsd "
         item_stored.location = int(ItemLocation.STORED)
         item_stored.position = 0
-        full_text_stored = format_item_info(item_stored)
+        full_text_stored = format_item_info(item_stored, resolver=game_data_resolver)
         assert isinstance(full_text_stored, str)
         assert "Location: STORED, Position: 0" in full_text_stored
         assert "Weapon" not in full_text_stored
@@ -374,7 +374,7 @@ class TestD2SStruct:
         assert format_duration(3665) == "1h 1m 5s"
         assert format_duration(90061) == "1d 1h 1m 1s"
 
-    def test_format_char_info_waypoints_and_quests(self):
+    def test_format_char_info_waypoints_and_quests(self, game_data_resolver):
         from d2savior.core.formatters import format_char_info
 
         char = D2SStruct()
@@ -421,7 +421,7 @@ class TestD2SStruct:
         char.quests.qi_data[2].act_4 = [0] * 3
         char.quests.qi_data[2].act_5 = [0] * 6
 
-        output = format_char_info(char)
+        output = format_char_info(char, resolver=game_data_resolver)
 
         # Check waypoints
         assert "Normal (39/39 unlocked): All unlocked" in output

@@ -249,31 +249,10 @@ class LocalizedDataLoader:
                 return result
         return ""
 
-
-_g_localized_data: LocalizedDataLoader | None = None
-
-
-def get_localized_data() -> LocalizedDataLoader:
-    global _g_localized_data
-    if _g_localized_data is None:
-        _g_localized_data = LocalizedDataLoader()
-    return _g_localized_data
-
-
-def init_localized_data(
-    data_dir: str | Traversable | None = None, lang_key: str = "enUS"
-) -> dict[str, bool]:
-    global _g_localized_data
-    if _g_localized_data is None:
-        _g_localized_data = LocalizedDataLoader()
-    _g_localized_data.set_language(lang_key)
-    return _g_localized_data.load_all_localized_data(data_dir, lang_key)
-
-
-def set_language(lang_key: str) -> None:
-    loader = get_localized_data()
-    loader.set_language(lang_key)
-
-    from d2savior.core.property import _set_item_modifiers_lang
-
-    _set_item_modifiers_lang(lang_key)
+    @classmethod
+    def load(
+        cls, data_dir: str | Traversable | None = None, lang_key: str = "enUS"
+    ) -> LocalizedDataLoader:
+        loader = cls()
+        loader.load_all_localized_data(data_dir, lang_key)
+        return loader

@@ -1,7 +1,7 @@
 from typing import Any
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
-from d2savior.core.d2data import GameData
+from d2savior.core.d2data import GameData, GameDataResolver
 from d2savior.core.obitstream import OBitStream
 
 STASH_TAB_MAGIC = 0xAA55AA55
@@ -333,7 +333,12 @@ class StashTab:
             self.tab_type = STASH_TAB_TYPE_NORMAL
 
         item_version = version if version else self.item_format
-        vd = data.for_version(item_version) if isinstance(data, GameData) else (data or self._data)
+        if isinstance(data, GameDataResolver):
+            vd = data.game_data.for_version(item_version)
+        elif isinstance(data, GameData):
+            vd = data.for_version(item_version)
+        else:
+            vd = data or self._data
         self._data = vd
 
         if self.tab_type == STASH_TAB_TYPE_CHRONICLE:

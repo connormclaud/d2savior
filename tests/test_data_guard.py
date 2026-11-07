@@ -1,14 +1,10 @@
 import os
+from pathlib import Path
 
 import pytest
 
-from d2savior.core.d2data import D2DataLoader, GameData, get_game_data, init_d2data
-from d2savior.core.localized_data import (
-    LocalizedDataLoader,
-    get_localized_data,
-    init_localized_data,
-)
-from d2savior.core.property import init_item_modifiers
+from d2savior.core.d2data import D2DataLoader, GameData, GameDataResolver
+from d2savior.core.localized_data import LocalizedDataLoader
 
 
 class TestDataGuard:
@@ -63,7 +59,7 @@ class TestDataGuard:
             loc_loader.load_json_file(bogus_path)
 
         with pytest.raises(FileNotFoundError):
-            init_item_modifiers(bogus_path)
+            GameDataResolver._load_item_modifiers(Path(bogus_path))
 
     def test_game_data_loaded_tables_non_empty(self):
         game_data = GameData.load(self.data_dir)
@@ -156,20 +152,11 @@ class TestDataGuard:
             assert vd is not None
             assert len(vd.items) > 0
 
-    def test_init_d2data_default(self):
-        assert init_d2data() is True
-        mgr = get_game_data()
-        assert mgr is not None
-        assert len(mgr.for_version(0x69).items) > 0
-
-    def test_init_localized_data_default(self):
-        results = init_localized_data()
-        assert len(results) == 17
-        for fname, ok in results.items():
-            assert ok is True, f"Failed to load localized file: {fname}"
-        loc = get_localized_data()
+    def test_localized_data_load_default(self):
+        loc = LocalizedDataLoader.load()
         assert loc is not None
         assert loc.current_lang == "enUS"
+        assert len(loc._data) > 0
 
     def test_traversable_zipfile_loading(self):
         import io

@@ -5,8 +5,13 @@ import sys
 
 import pytest
 
-from d2s_parse import FORMATTERS, parse_file
-from d2savior.core.formatters import ensure_data_loaded
+from d2s_parse import parse_file
+from d2savior.core.formatters import (
+    format_char_info,
+    format_char_summary,
+    format_stash_info,
+    format_stash_summary,
+)
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
@@ -48,40 +53,35 @@ def assert_matches_golden(actual: str, golden_path: str, name: str) -> None:
         pytest.fail(f"Mismatch against golden for {name}:\n\n{diff}", pytrace=False)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def load_game_data():
-    ensure_data_loaded(lang_key="enUS")
-
-
 class TestSmokeAPI:
     """Smoke tests validating parsing and formatting via direct API calls."""
 
-    def test_sork_summary(self):
-        kind, data, _ = parse_file(SORK_D2S)
+    def test_sork_summary(self, game_data_resolver):
+        kind, data, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
         assert kind == "char"
         assert data is not None
-        output = FORMATTERS[(kind, True)](data) + "\n"
+        output = format_char_summary(data, resolver=game_data_resolver) + "\n"
         assert_matches_golden(output, SORK_SUMMARY_GOLDEN, "sork_summary_api")
 
-    def test_sork_full(self):
-        kind, data, _ = parse_file(SORK_D2S)
+    def test_sork_full(self, game_data_resolver):
+        kind, data, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
         assert kind == "char"
         assert data is not None
-        output = FORMATTERS[(kind, False)](data) + "\n"
+        output = format_char_info(data, resolver=game_data_resolver) + "\n"
         assert_matches_golden(output, SORK_FULL_GOLDEN, "sork_full_api")
 
-    def test_stash_summary(self):
-        kind, data, _ = parse_file(STASH_D2I)
+    def test_stash_summary(self, game_data_resolver):
+        kind, data, _ = parse_file(STASH_D2I, resolver=game_data_resolver)
         assert kind == "stash"
         assert data is not None
-        output = FORMATTERS[(kind, True)](data) + "\n"
+        output = format_stash_summary(data, resolver=game_data_resolver) + "\n"
         assert_matches_golden(output, STASH_SUMMARY_GOLDEN, "stash_summary_api")
 
-    def test_stash_full(self):
-        kind, data, _ = parse_file(STASH_D2I)
+    def test_stash_full(self, game_data_resolver):
+        kind, data, _ = parse_file(STASH_D2I, resolver=game_data_resolver)
         assert kind == "stash"
         assert data is not None
-        output = FORMATTERS[(kind, False)](data) + "\n"
+        output = format_stash_info(data, resolver=game_data_resolver) + "\n"
         assert_matches_golden(output, STASH_FULL_GOLDEN, "stash_full_api")
 
 

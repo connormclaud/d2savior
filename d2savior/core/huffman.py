@@ -207,11 +207,4 @@ class HuffmanDecoder:
         return self._codes.copy()
 
 
-_g_huffman: HuffmanDecoder | None = None
-
-
-def get_huffman() -> HuffmanDecoder:
-    global _g_huffman
-    if _g_huffman is None:
-        _g_huffman = HuffmanDecoder()
-    return _g_huffman
+DEFAULT_HUFFMAN = HuffmanDecoder()

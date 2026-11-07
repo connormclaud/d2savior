@@ -4,9 +4,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from d2savior.core.d2data import GameData, get_game_data
+from d2savior.core.d2data import GameData
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.formatters import ensure_data_loaded
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
 from d2savior.core.obitstream import OBitStream
@@ -19,10 +18,8 @@ class TestItemSerialization(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        ensure_data_loaded()
-        gd = get_game_data()
-        assert gd is not None
-        cls.game_data = gd
+        data_dir = os.path.join(base_dir, "d2savior", "data")
+        cls.game_data = GameData.load(data_dir)
         cls.examples_dir = os.path.join(base_dir, "..", "examples")
         cls.items_dir = os.path.join(base_dir, "..", "items")
         cls.fixtures_dir = os.path.join(base_dir, "tests", "fixtures")

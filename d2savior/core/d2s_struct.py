@@ -2,7 +2,7 @@ from enum import FlagBoundary, IntFlag
 from typing import Any
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
-from d2savior.core.d2data import GameData
+from d2savior.core.d2data import GameData, GameDataResolver
 from d2savior.core.enums import (
     DEMON_MAGIC,
     GOLEM_MAGIC_1,
@@ -509,7 +509,12 @@ class D2SStruct:
         self.crc = io.dword(self.crc)
         self.weapon_set = io.dword(self.weapon_set)
 
-        vd = data.for_version(self.version) if isinstance(data, GameData) else (data or self._data)
+        if isinstance(data, GameDataResolver):
+            vd = data.game_data.for_version(self.version)
+        elif isinstance(data, GameData):
+            vd = data.for_version(self.version)
+        else:
+            vd = data or self._data
         self._data = vd
 
         if self.version >= 0x69:
