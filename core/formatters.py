@@ -143,29 +143,29 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
             s_name = resolver.get_localized_set_name(ext.set_id)
             if s_name:
                 return f"{s_name} ({base_item_name})"
-        quality = item.quality()
-        if quality == ItemQuality.MAGIC:
-            prefix_name = ""
-            suffix_name = ""
-            if ext.magic_prefix:
-                prefix_name = resolver.get_localized_magic_prefix(ext.magic_prefix)
-            if ext.magic_suffix:
-                suffix_name = resolver.get_localized_magic_suffix(ext.magic_suffix)
-            parts = [p for p in [prefix_name, base_item_name, suffix_name] if p]
-            if parts:
-                return " ".join(parts)
-        elif quality == ItemQuality.RARE:
-            rare_pfx = resolver.get_localized_quality_name("Rare")
-            return f"{rare_pfx} {base_item_name}"
-        elif quality == ItemQuality.CRAFTED:
-            crafted_pfx = resolver.get_localized_quality_name("Crafted")
-            return f"{crafted_pfx} {base_item_name}"
-        elif quality == ItemQuality.HIGH:
-            sup_pfx = resolver.get_localized_quality_name("Superior")
-            return f"{sup_pfx} {base_item_name}"
-        elif quality == ItemQuality.LOW:
-            low_pfx = resolver.get_localized_quality_name("Low Quality")
-            return f"{low_pfx} {base_item_name}"
+        match item.quality():
+            case ItemQuality.MAGIC:
+                prefix_name = ""
+                suffix_name = ""
+                if ext.magic_prefix:
+                    prefix_name = resolver.get_localized_magic_prefix(ext.magic_prefix)
+                if ext.magic_suffix:
+                    suffix_name = resolver.get_localized_magic_suffix(ext.magic_suffix)
+                parts = [p for p in [prefix_name, base_item_name, suffix_name] if p]
+                if parts:
+                    return " ".join(parts)
+            case ItemQuality.RARE:
+                rare_pfx = resolver.get_localized_quality_name("Rare")
+                return f"{rare_pfx} {base_item_name}"
+            case ItemQuality.CRAFTED:
+                crafted_pfx = resolver.get_localized_quality_name("Crafted")
+                return f"{crafted_pfx} {base_item_name}"
+            case ItemQuality.HIGH:
+                sup_pfx = resolver.get_localized_quality_name("Superior")
+                return f"{sup_pfx} {base_item_name}"
+            case ItemQuality.LOW:
+                low_pfx = resolver.get_localized_quality_name("Low Quality")
+                return f"{low_pfx} {base_item_name}"
 
     return base_item_name
 
@@ -698,21 +698,21 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
         items = getattr(item_list, 'items', [])
         for item in items:
             loc = ItemLocation(item.location)
-            if loc == ItemLocation.EQUIPPED:
-                equipped_items[item.position] = item
-            elif loc == ItemLocation.BELT:
-                belt_items.append(item)
-            elif loc == ItemLocation.STORED:
-                if item.stored_in == StoredIn.INVENTORY:
+            match (loc, item.stored_in):
+                case (ItemLocation.EQUIPPED, _):
+                    equipped_items[item.position] = item
+                case (ItemLocation.BELT, _):
+                    belt_items.append(item)
+                case (ItemLocation.STORED, StoredIn.INVENTORY):
                     inventory_items.append(item)
-                elif item.stored_in == StoredIn.STASH:
+                case (ItemLocation.STORED, StoredIn.STASH):
                     stash_items.append(item)
-                elif item.stored_in == StoredIn.CUBE:
+                case (ItemLocation.STORED, StoredIn.CUBE):
                     cube_items.append(item)
-                else:
+                case (ItemLocation.STORED, _):
                     inventory_items.append(item)
-            elif loc == ItemLocation.CURSOR:
-                cursor_items.append(item)
+                case (ItemLocation.CURSOR, _):
+                    cursor_items.append(item)
 
     has_equipped = False
     for slot in EquipSlot:

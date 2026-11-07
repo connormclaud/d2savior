@@ -860,30 +860,31 @@ class ExtItemInfo:
         if self.has_class:
             self.item_class = bs.read_bits(11)
 
-        if self.quality == 1:
-            self.low_quality_id = bs.read_bits(3)
-        elif self.quality == 2:
-            if is_charm:
-                self.charm_id = bs.read_bits(12)
-            elif is_body_part:
-                self.body_part_file_index = bs.read_bits(10)
-            elif is_scroll_or_book:
-                self.spell_type = bs.read_bits(5)
-        elif self.quality == 3:
-            self.high_quality_id = bs.read_bits(3)
-        elif self.quality == 4:
-            self.magic_prefix = bs.read_bits(11)
-            self.magic_suffix = bs.read_bits(11)
-        elif self.quality == 5:
-            self.set_id = bs.read_bits(12)
-        elif self.quality == 6:
-            self.rare_name = LongName()
-            self.rare_name.deserialize(bs)
-        elif self.quality == 7:
-            self.unique_id = bs.read_bits(12)
-        elif self.quality == 8:
-            self.craft_name = LongName()
-            self.craft_name.deserialize(bs)
+        match self.quality:
+            case 1:
+                self.low_quality_id = bs.read_bits(3)
+            case 2:
+                if is_charm:
+                    self.charm_id = bs.read_bits(12)
+                elif is_body_part:
+                    self.body_part_file_index = bs.read_bits(10)
+                elif is_scroll_or_book:
+                    self.spell_type = bs.read_bits(5)
+            case 3:
+                self.high_quality_id = bs.read_bits(3)
+            case 4:
+                self.magic_prefix = bs.read_bits(11)
+                self.magic_suffix = bs.read_bits(11)
+            case 5:
+                self.set_id = bs.read_bits(12)
+            case 6:
+                self.rare_name = LongName()
+                self.rare_name.deserialize(bs)
+            case 7:
+                self.unique_id = bs.read_bits(12)
+            case 8:
+                self.craft_name = LongName()
+                self.craft_name.deserialize(bs)
 
         if is_runeword:
             self.rune_id = bs.read_bits(16)
@@ -917,30 +918,31 @@ class ExtItemInfo:
         if self.has_class:
             bs.write_bits(11, self.item_class if self.item_class is not None else 0)
         
-        if self.quality == 1:
-            bs.write_bits(3, self.low_quality_id if self.low_quality_id is not None else 0)
-        elif self.quality == 2:
-            if is_charm:
-                bs.write_bits(12, self.charm_id if self.charm_id is not None else 0)
-            elif is_body_part:
-                bs.write_bits(10, self.body_part_file_index if self.body_part_file_index is not None else 0)
-            elif is_scroll_or_book:
-                bs.write_bits(5, self.spell_type if self.spell_type is not None else 0)
-        elif self.quality == 3:
-            bs.write_bits(3, self.high_quality_id if self.high_quality_id is not None else 0)
-        elif self.quality == 4:
-            bs.write_bits(11, self.magic_prefix if self.magic_prefix is not None else 0)
-            bs.write_bits(11, self.magic_suffix if self.magic_suffix is not None else 0)
-        elif self.quality == 5:
-            bs.write_bits(12, self.set_id if self.set_id is not None else 0)
-        elif self.quality == 6:
-            if self.rare_name:
-                self.rare_name.serialize(bs)
-        elif self.quality == 7:
-            bs.write_bits(12, self.unique_id if self.unique_id is not None else 0)
-        elif self.quality == 8:
-            if self.craft_name:
-                self.craft_name.serialize(bs)
+        match self.quality:
+            case 1:
+                bs.write_bits(3, self.low_quality_id if self.low_quality_id is not None else 0)
+            case 2:
+                if is_charm:
+                    bs.write_bits(12, self.charm_id if self.charm_id is not None else 0)
+                elif is_body_part:
+                    bs.write_bits(10, self.body_part_file_index if self.body_part_file_index is not None else 0)
+                elif is_scroll_or_book:
+                    bs.write_bits(5, self.spell_type if self.spell_type is not None else 0)
+            case 3:
+                bs.write_bits(3, self.high_quality_id if self.high_quality_id is not None else 0)
+            case 4:
+                bs.write_bits(11, self.magic_prefix if self.magic_prefix is not None else 0)
+                bs.write_bits(11, self.magic_suffix if self.magic_suffix is not None else 0)
+            case 5:
+                bs.write_bits(12, self.set_id if self.set_id is not None else 0)
+            case 6:
+                if self.rare_name:
+                    self.rare_name.serialize(bs)
+            case 7:
+                bs.write_bits(12, self.unique_id if self.unique_id is not None else 0)
+            case 8:
+                if self.craft_name:
+                    self.craft_name.serialize(bs)
         
         if is_runeword:
             bs.write_bits(16, self.rune_id if self.rune_id is not None else 0)

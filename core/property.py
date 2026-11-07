@@ -371,185 +371,189 @@ def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str
     
     prop_name = get_property_name(prop_id)
     
-    if prop_id == 54:
-        a[2] = a[2] // 25 if a[2] else 0
-    elif prop_id == 56:
-        frames = a[0] // 25 if a[0] else 0
-        return f'{frames} seconds cold duration'
-    elif prop_id == 59:
-        frames = a[0] // 25 if a[0] else 0
-        return f'{frames} seconds poison duration'
-    elif prop_id == 57:
-        a[0] = (a[0] * a[2] + 128) >> 8 if a[0] and a[2] else 0
-        a[1] = (a[1] * a[2] + 128) >> 8 if a[1] and a[2] else 0
-        a[2] = a[2] // 25 if a[2] else 0
-    elif prop_id == 83:
-        class_name = get_class_name(a[0])
-        tpl_key = _CLASS_SKILL_LEVEL_KEYS.get(a[0])
-        if tpl_key:
-            tpl = get_item_modifier(tpl_key)
-            if tpl and ('%+d' in tpl or '%d' in tpl):
-                return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1]))
-        return f'+{a[1]} to {class_name} Skill Levels'
-    elif prop_id == 97:
-        skill_name, class_id = get_skill_name(a[0])
-        stat = d2data.get_stat(prop_id) if d2data else None
-        if stat and stat.descstrpos:
-            tpl = get_item_modifier(stat.descstrpos)
-            if tpl and ('%+d' in tpl or '%d' in tpl or '%s' in tpl):
-                return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1])).replace('%s', skill_name)
-        return f'+{a[1]} to {skill_name}'
-    elif prop_id == 151:
-        skill_name, _ = get_skill_name(a[0])
-        tpl = get_item_modifier('ModitemAura')
-        if tpl and ('%d' in tpl or '%s' in tpl):
-            return tpl.replace('%d', str(a[1])).replace('%s', skill_name)
-        return f'Level {a[1]} {skill_name} Aura When Equipped'
-    elif prop_id == 98:
-        if 1 <= a[0] <= 5:
-            time_name = get_time_name(4 + a[0])
-        else:
-            time_name = get_time_name(10) if get_language() and get_language().get_section_size('time_name') > 10 else ''
-        if time_name:
-            return time_name
-        return prop_name
-    elif prop_id == 73:
-        stat = d2data.get_stat(prop_id) if d2data else None
-        if stat and stat.descstrpos:
-            tpl = get_item_modifier(stat.descstrpos)
-            if tpl and ('%+d' in tpl or '%d' in tpl):
-                return tpl.replace('%+d', f'{a[0]:+d}').replace('%d', str(a[0]))
-        return f'+{a[0]} to Maximum Durability'
-    elif prop_id == 88:
-        return 'Double Potion Duration'
-    elif prop_id == 92:
-        tpl = get_item_modifier('ItemStats1p')
-        if tpl and '%d' in tpl:
-            return tpl % a[0]
-        return f'Required Level: {a[0]}'
-    elif prop_id == 107:
-        skill_name, class_id = get_skill_name(a[0])
-        class_name = get_class_name(class_id) if class_id >= 0 else ''
-        stat = d2data.get_stat(prop_id) if d2data else None
-        if stat and stat.descstrpos:
-            tpl = get_item_modifier(stat.descstrpos)
-            if tpl and ('%+d' in tpl or '%d' in tpl or '%s' in tpl):
-                return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1])).replace('%s', skill_name)
-        if class_name:
-            return f'+{a[1]} to {skill_name} ({class_name} Only)'
-        return f'+{a[1]} to {skill_name}'
-    elif prop_id == 112:
-        a[0] = a[0] * 100 // 127 if a[0] else 0
-    elif prop_id == 126:
-        a[0], a[1] = a[1], a[0]
-    elif prop_id == 155:
-        monster_name = get_monster_name(a[0])
-        tpl = get_item_modifier('Moditemreanimas')
-        if tpl and ('%0' in tpl or '%1' in tpl):
-            return tpl.replace('%0%%', f'{a[1]}%%').replace('%1', monster_name).replace('%0', str(a[1]))
-        return f'{a[1]}% Reanimate as: {monster_name}'
-    elif prop_id == 159:
-        stat = d2data.get_stat(prop_id) if d2data else None
-        if stat and stat.descstrpos:
-            tpl = get_item_modifier(stat.descstrpos)
-            if tpl and ('%+d' in tpl or '%d' in tpl):
-                return tpl.replace('%+d', f'{a[0]:+d}').replace('%d', str(a[0]))
-        return f'+{a[0]} to Minimum Throw Damage'
-    elif prop_id == 160:
-        stat = d2data.get_stat(prop_id) if d2data else None
-        if stat and stat.descstrpos:
-            tpl = get_item_modifier(stat.descstrpos)
-            if tpl and ('%+d' in tpl or '%d' in tpl):
-                return tpl.replace('%+d', f'{a[0]:+d}').replace('%d', str(a[0]))
-        return f'+{a[0]} to Maximum Throw Damage'
-    elif prop_id in (179, 180):
-        monster_name = get_monster_name(a[0])
-        stat = d2data.get_stat(prop_id) if d2data else None
-        if stat and stat.descstrpos:
-            tpl = get_item_modifier(stat.descstrpos)
-            if tpl and ('%+d' in tpl or '%d' in tpl or '%s' in tpl):
-                return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1])).replace('%s', monster_name)
-        if prop_id == 179:
-            return f'+{a[1]}% to Attack Rating versus {monster_name}'
-        return f'+{a[1]}% to Damage versus {monster_name}'
-    elif prop_id == 188:
-        skill_tab_name = get_skill_tab_name(a[0], a[1])
-        class_name = get_class_name(a[1])
-        if skill_tab_name:
-            return f'+{a[2]} to {skill_tab_name}'
-    elif prop_id in (195, 196, 197, 198, 199, 201):
-        level = a[0]
-        skill_name, _ = get_skill_name(a[1])
-        chance = a[2]
-        tpl_key = _CHANCE_CAST_KEYS.get(prop_id)
-        if tpl_key:
-            tpl = get_item_modifier(tpl_key)
-            if tpl and ('%d' in tpl or '%s' in tpl):
-                result = tpl
-                if '%0' in result:
-                    result = result.replace('%0%%', f'{chance}%%').replace('%0', str(chance))
-                    result = result.replace('%1', str(level)).replace('%2', skill_name)
-                else:
-                    result = result.replace('%d%%', f'{chance}%').replace('%d', str(level))
-                    result = result.replace('%s', skill_name)
-                return result
-        if prop_id == 195:
-            return f'{chance}% Chance to cast level {level} {skill_name} on attack'
-        elif prop_id == 196:
-            return f'{chance}% Chance to cast level {level} {skill_name} when you Kill an Enemy'
-        elif prop_id == 197:
-            return f'{chance}% Chance to cast level {level} {skill_name} when you Die'
-        elif prop_id == 198:
-            return f'{chance}% Chance to cast level {level} {skill_name} on striking'
-        elif prop_id == 199:
-            return f'{chance}% Chance to cast level {level} {skill_name} when you Level-Up'
-        elif prop_id == 201:
-            return f'{chance}% Chance to cast level {level} {skill_name} when struck'
-    elif prop_id == 204:
-        level = a[0]
-        skill_name, _ = get_skill_name(a[1])
-        stat = d2data.get_stat(prop_id) if d2data else None
-        if stat and stat.descstrpos:
-            tpl = get_item_modifier(stat.descstrpos)
-            if tpl and ('%d' in tpl or '%s' in tpl):
-                result = tpl
-                if '%0' in result:
-                    result = result.replace('%0', str(level)).replace('%1', skill_name)
-                    result = result.replace('%2', str(a[2])).replace('%3', str(a[3]))
-                else:
-                    result = result.replace('%d', str(level), 1)
-                    result = result.replace('%s', skill_name, 1)
-                    remaining = result
-                    for val in [a[2], a[3]]:
-                        if '%d' in remaining:
-                            remaining = remaining.replace('%d', str(val), 1)
-                    result = remaining
-                return result
-        return f'Level {level} {skill_name} ({a[2]}/{a[3]} Charges)'
-    elif prop_id in range(214, 251):
-        from core.item import get_stat_cost
-        sc = get_stat_cost(prop_id)
-        if sc and sc.op_param > 0:
-            a[0] = round(a[0] / sc.op_param, 2)
-        elif sc and sc.val_shift > 0:
-            a[0] = a[0] / (1 << sc.val_shift)
-        if prop_id == 237:
+    match prop_id:
+        case 54:
+            a[2] = a[2] // 25 if a[2] else 0
+        case 56:
+            frames = a[0] // 25 if a[0] else 0
+            return f'{frames} seconds cold duration'
+        case 59:
+            frames = a[0] // 25 if a[0] else 0
+            return f'{frames} seconds poison duration'
+        case 57:
+            a[0] = (a[0] * a[2] + 128) >> 8 if a[0] and a[2] else 0
+            a[1] = (a[1] * a[2] + 128) >> 8 if a[1] and a[2] else 0
+            a[2] = a[2] // 25 if a[2] else 0
+        case 83:
+            class_name = get_class_name(a[0])
+            tpl_key = _CLASS_SKILL_LEVEL_KEYS.get(a[0])
+            if tpl_key:
+                tpl = get_item_modifier(tpl_key)
+                if tpl and ('%+d' in tpl or '%d' in tpl):
+                    return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1]))
+            return f'+{a[1]} to {class_name} Skill Levels'
+        case 97:
+            skill_name, class_id = get_skill_name(a[0])
             stat = d2data.get_stat(prop_id) if d2data else None
             if stat and stat.descstrpos:
                 tpl = get_item_modifier(stat.descstrpos)
-                if tpl and ('%+d' in tpl or '%d' in tpl or '%g' in tpl or '%+g' in tpl):
-                    val = a[0]
-                    return tpl.replace('%+g', f'{val:+g}').replace('%g', f'{val:g}').replace('%+d', f'{val:+g}').replace('%d', f'{val:g}')
-            return f'+{a[0]:g} Poison Absorb (Based on Character Level)'
-    elif prop_id in (252, 253):
-        a[0] = 100 // a[0] if a[0] else 0
-    elif prop_id in range(268, 304):
-        time_name = get_time_name(a[0])
-        if time_name:
-            return f'{time_name} +{a[1]} to {prop_name}'
-        return prop_name
-    elif prop_id in (305, 306, 307, 308, 333, 334, 335, 336):
-        a[0] = -a[0]
+                if tpl and ('%+d' in tpl or '%d' in tpl or '%s' in tpl):
+                    return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1])).replace('%s', skill_name)
+            return f'+{a[1]} to {skill_name}'
+        case 151:
+            skill_name, _ = get_skill_name(a[0])
+            tpl = get_item_modifier('ModitemAura')
+            if tpl and ('%d' in tpl or '%s' in tpl):
+                return tpl.replace('%d', str(a[1])).replace('%s', skill_name)
+            return f'Level {a[1]} {skill_name} Aura When Equipped'
+        case 98:
+            if 1 <= a[0] <= 5:
+                time_name = get_time_name(4 + a[0])
+            else:
+                time_name = get_time_name(10) if get_language() and get_language().get_section_size('time_name') > 10 else ''
+            if time_name:
+                return time_name
+            return prop_name
+        case 73:
+            stat = d2data.get_stat(prop_id) if d2data else None
+            if stat and stat.descstrpos:
+                tpl = get_item_modifier(stat.descstrpos)
+                if tpl and ('%+d' in tpl or '%d' in tpl):
+                    return tpl.replace('%+d', f'{a[0]:+d}').replace('%d', str(a[0]))
+            return f'+{a[0]} to Maximum Durability'
+        case 88:
+            return 'Double Potion Duration'
+        case 92:
+            tpl = get_item_modifier('ItemStats1p')
+            if tpl and '%d' in tpl:
+                return tpl % a[0]
+            return f'Required Level: {a[0]}'
+        case 107:
+            skill_name, class_id = get_skill_name(a[0])
+            class_name = get_class_name(class_id) if class_id >= 0 else ''
+            stat = d2data.get_stat(prop_id) if d2data else None
+            if stat and stat.descstrpos:
+                tpl = get_item_modifier(stat.descstrpos)
+                if tpl and ('%+d' in tpl or '%d' in tpl or '%s' in tpl):
+                    return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1])).replace('%s', skill_name)
+            if class_name:
+                return f'+{a[1]} to {skill_name} ({class_name} Only)'
+            return f'+{a[1]} to {skill_name}'
+        case 112:
+            a[0] = a[0] * 100 // 127 if a[0] else 0
+        case 126:
+            a[0], a[1] = a[1], a[0]
+        case 155:
+            monster_name = get_monster_name(a[0])
+            tpl = get_item_modifier('Moditemreanimas')
+            if tpl and ('%0' in tpl or '%1' in tpl):
+                return tpl.replace('%0%%', f'{a[1]}%%').replace('%1', monster_name).replace('%0', str(a[1]))
+            return f'{a[1]}% Reanimate as: {monster_name}'
+        case 159:
+            stat = d2data.get_stat(prop_id) if d2data else None
+            if stat and stat.descstrpos:
+                tpl = get_item_modifier(stat.descstrpos)
+                if tpl and ('%+d' in tpl or '%d' in tpl):
+                    return tpl.replace('%+d', f'{a[0]:+d}').replace('%d', str(a[0]))
+            return f'+{a[0]} to Minimum Throw Damage'
+        case 160:
+            stat = d2data.get_stat(prop_id) if d2data else None
+            if stat and stat.descstrpos:
+                tpl = get_item_modifier(stat.descstrpos)
+                if tpl and ('%+d' in tpl or '%d' in tpl):
+                    return tpl.replace('%+d', f'{a[0]:+d}').replace('%d', str(a[0]))
+            return f'+{a[0]} to Maximum Throw Damage'
+        case 179 | 180:
+            monster_name = get_monster_name(a[0])
+            stat = d2data.get_stat(prop_id) if d2data else None
+            if stat and stat.descstrpos:
+                tpl = get_item_modifier(stat.descstrpos)
+                if tpl and ('%+d' in tpl or '%d' in tpl or '%s' in tpl):
+                    return tpl.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1])).replace('%s', monster_name)
+            if prop_id == 179:
+                return f'+{a[1]}% to Attack Rating versus {monster_name}'
+            return f'+{a[1]}% to Damage versus {monster_name}'
+        case 188:
+            skill_tab_name = get_skill_tab_name(a[0], a[1])
+            class_name = get_class_name(a[1])
+            if skill_tab_name:
+                return f'+{a[2]} to {skill_tab_name}'
+        case 195 | 196 | 197 | 198 | 199 | 201:
+            level = a[0]
+            skill_name, _ = get_skill_name(a[1])
+            chance = a[2]
+            tpl_key = _CHANCE_CAST_KEYS.get(prop_id)
+            if tpl_key:
+                tpl = get_item_modifier(tpl_key)
+                if tpl and ('%d' in tpl or '%s' in tpl):
+                    result = tpl
+                    if '%0' in result:
+                        result = result.replace('%0%%', f'{chance}%%').replace('%0', str(chance))
+                        result = result.replace('%1', str(level)).replace('%2', skill_name)
+                    else:
+                        result = result.replace('%d%%', f'{chance}%').replace('%d', str(level))
+                        result = result.replace('%s', skill_name)
+                    return result
+            match prop_id:
+                case 195:
+                    return f'{chance}% Chance to cast level {level} {skill_name} on attack'
+                case 196:
+                    return f'{chance}% Chance to cast level {level} {skill_name} when you Kill an Enemy'
+                case 197:
+                    return f'{chance}% Chance to cast level {level} {skill_name} when you Die'
+                case 198:
+                    return f'{chance}% Chance to cast level {level} {skill_name} on striking'
+                case 199:
+                    return f'{chance}% Chance to cast level {level} {skill_name} when you Level-Up'
+                case 201:
+                    return f'{chance}% Chance to cast level {level} {skill_name} when struck'
+        case 204:
+            level = a[0]
+            skill_name, _ = get_skill_name(a[1])
+            stat = d2data.get_stat(prop_id) if d2data else None
+            if stat and stat.descstrpos:
+                tpl = get_item_modifier(stat.descstrpos)
+                if tpl and ('%d' in tpl or '%s' in tpl):
+                    result = tpl
+                    if '%0' in result:
+                        result = result.replace('%0', str(level)).replace('%1', skill_name)
+                        result = result.replace('%2', str(a[2])).replace('%3', str(a[3]))
+                    else:
+                        result = result.replace('%d', str(level), 1)
+                        result = result.replace('%s', skill_name, 1)
+                        remaining = result
+                        for val in [a[2], a[3]]:
+                            if '%d' in remaining:
+                                remaining = remaining.replace('%d', str(val), 1)
+                        result = remaining
+                    return result
+            return f'Level {level} {skill_name} ({a[2]}/{a[3]} Charges)'
+        case _ if prop_id in range(214, 251):
+            from core.item import get_stat_cost
+            sc = get_stat_cost(prop_id)
+            if sc and sc.op_param > 0:
+                a[0] = round(a[0] / sc.op_param, 2)
+            elif sc and sc.val_shift > 0:
+                a[0] = a[0] / (1 << sc.val_shift)
+            if prop_id == 237:
+                stat = d2data.get_stat(prop_id) if d2data else None
+                if stat and stat.descstrpos:
+                    tpl = get_item_modifier(stat.descstrpos)
+                    if tpl and ('%+d' in tpl or '%d' in tpl or '%g' in tpl or '%+g' in tpl):
+                        val = a[0]
+                        return tpl.replace('%+g', f'{val:+g}').replace('%g', f'{val:g}').replace('%+d', f'{val:+g}').replace('%d', f'{val:g}')
+                return f'+{a[0]:g} Poison Absorb (Based on Character Level)'
+        case 252 | 253:
+            a[0] = 100 // a[0] if a[0] else 0
+        case _ if prop_id in range(268, 304):
+            time_name = get_time_name(a[0])
+            if time_name:
+                return f'{time_name} +{a[1]} to {prop_name}'
+            return prop_name
+        case 305 | 306 | 307 | 308 | 333 | 334 | 335 | 336:
+            a[0] = -a[0]
+        case _:
+            pass
     
     stat = d2data.get_stat(prop_id) if d2data else None
     if stat and stat.descstrpos:
@@ -560,63 +564,22 @@ def format_property(prop_id: int, params: List[int], version: int = 0x60) -> str
             descval = stat.descval
             value = a[0]
             
-            if descfunc == 1:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 2:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 3:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 4:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 5:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 6:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 7:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 8:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 9:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 10:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 11:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 12:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 13:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 14:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 15:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 16:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 17:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 18:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 19:
-                if isinstance(value, float):
-                    result = template.replace('%+d', f'{value:+g}').replace('%d', f'{value:g}')
-                else:
+            match descfunc:
+                case 1 | 3 | 7 | 9 | 12 | 13 | 14 | 15 | 17 | 18 | 21 | 23 | 24:
                     result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-                if stat.descstr2:
-                    extra = get_item_modifier(stat.descstr2)
-                    if extra:
-                        result = result + ' ' + extra
-            elif descfunc == 20:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 21:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 22:
-                result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
-            elif descfunc == 23:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            elif descfunc == 24:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
-            else:
-                result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
+                case 2 | 4 | 5 | 6 | 8 | 10 | 11 | 16 | 20 | 22:
+                    result = template.replace('%+d', f'{value:+d}%').replace('%d', f'{value}%')
+                case 19:
+                    if isinstance(value, float):
+                        result = template.replace('%+d', f'{value:+g}').replace('%d', f'{value:g}')
+                    else:
+                        result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
+                    if stat.descstr2:
+                        extra = get_item_modifier(stat.descstr2)
+                        if extra:
+                            result = result + ' ' + extra
+                case _:
+                    result = template.replace('%+d', f'{value:+d}').replace('%d', str(value))
             
             if '%d' in result or '%+d' in result:
                 result = result.replace('%+d', f'{a[1]:+d}').replace('%d', str(a[1]))
