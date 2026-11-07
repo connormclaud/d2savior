@@ -243,9 +243,7 @@ def format_item_summary(
         props.extend(_format_parsed_properties(getattr(tp, 'property_list', None), version, property_formatter=property_formatter))
         props.extend(_format_parsed_properties(getattr(tp, 'runeword_property_list', None), version, property_formatter=property_formatter))
 
-    meta_str = f" [{', '.join(meta_tags)}]" if meta_tags else ""
-    props_str = f" ({', '.join(props)})" if props else ""
-    return f"{title}{meta_str}{props_str}"
+    return f"{title}{f" [{', '.join(meta_tags)}]" if meta_tags else ""}{f" ({', '.join(props)})" if props else ""}"
 
 
 def _format_item_lines(item, indent="  ", version=None, resolver=None) -> FormattedLines:
@@ -265,10 +263,7 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
         item_full_name = type_info.name
         req_level = type_info.levelreq
 
-    if item_full_name:
-        result.append(f"{indent}Type: {type_name} ({item_full_name})")
-    else:
-        result.append(f"{indent}Type: {type_name}")
+    result.append(f"{indent}Type: {type_name}{f" ({item_full_name})" if item_full_name else ""}")
 
     if req_level > 0:
         result.append(f"{indent}Required Level: {req_level}")
@@ -300,28 +295,23 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> Format
             if ext.magic_prefix:
                 prefix_id = ext.magic_prefix
                 prefix_info = resolver.get_magic_prefix(prefix_id)
-                prefix_name = f" ({prefix_info.name})" if prefix_info else ""
-                result.append(f"{indent}Prefix: {prefix_id}{prefix_name}")
+                result.append(f"{indent}Prefix: {prefix_id}{f" ({prefix_info.name})" if prefix_info else ""}")
             if ext.magic_suffix:
                 suffix_id = ext.magic_suffix
                 suffix_info = resolver.get_magic_suffix(suffix_id)
-                suffix_name = f" ({suffix_info.name})" if suffix_info else ""
-                result.append(f"{indent}Suffix: {suffix_id}{suffix_name}")
+                result.append(f"{indent}Suffix: {suffix_id}{f" ({suffix_info.name})" if suffix_info else ""}")
             if ext.set_id is not None:
                 set_id = ext.set_id
                 set_info = resolver.get_set_item(set_id)
-                set_name = f" ({set_info.name})" if set_info else ""
-                result.append(f"{indent}Set ID: {set_id}{set_name}")
+                result.append(f"{indent}Set ID: {set_id}{f" ({set_info.name})" if set_info else ""}")
             if ext.unique_id is not None:
                 unique_id = ext.unique_id
                 unique_info = resolver.get_unique_item(unique_id)
-                unique_name = f" ({unique_info.index})" if unique_info else ""
-                result.append(f"{indent}Unique ID: {unique_id}{unique_name}")
+                result.append(f"{indent}Unique ID: {unique_id}{f" ({unique_info.index})" if unique_info else ""}")
             if ext.rune_id is not None:
                 runeword_id = ext.rune_word_id()
                 runeword_info = resolver.get_runeword(runeword_id)
-                runeword_name = f" ({runeword_info.name})" if runeword_info else ""
-                result.append(f"{indent}Rune Word ID: {runeword_id}{runeword_name}")
+                result.append(f"{indent}Rune Word ID: {runeword_id}{f" ({runeword_info.name})" if runeword_info else ""}")
                 if item.gem_items:
                     rune_names = []
                     for gem in item.gem_items:
@@ -743,8 +733,7 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     result.append("")
     result.append("=== Mercenary ===")
     if char_data.is_expansion() and char_data.has_mercenary():
-        dead_str = " (Dead)" if char_data.merc_is_dead else ""
-        result.append(f"Mercenary: Name Index {char_data.merc_name_id}, Type {char_data.merc_type_id}{dead_str}")
+        result.append(f"Mercenary: Name Index {char_data.merc_name_id}, Type {char_data.merc_type_id}{" (Dead)" if char_data.merc_is_dead else ""}")
         if char_data.mercenary.items and char_data.mercenary.items.items:
             result.append("Equipped:")
             for m_item in char_data.mercenary.items.items:
@@ -774,8 +763,7 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
             summary = format_item_summary(it, version, resolver=resolver)
             belt_counts[summary] = belt_counts.get(summary, 0) + 1
         for summary, count in belt_counts.items():
-            count_str = f" (x{count})" if count > 1 else ""
-            stored_lines.append(f"- [Belt] {summary}{count_str}")
+            stored_lines.append(f"- [Belt] {summary}{f" (x{count})" if count > 1 else ""}")
 
     for it in cursor_items:
         stored_lines.append(f"- [Cursor] {format_item_summary(it, version, resolver=resolver)}")
@@ -796,8 +784,7 @@ def format_stash_info(stash: SharedStash, resolver=None) -> str:
     result.append("")
 
     for tab_idx, tab in enumerate(stash.tabs):
-        tab_type_name = TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")
-        result.append(f"=== Tab {tab_idx + 1} ({tab_type_name}) ===")
+        result.append(f"=== Tab {tab_idx + 1} ({TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")}) ===")
         if tab.gold:
             result.append(f"Gold: {tab.gold}")
 
@@ -830,18 +817,17 @@ def format_stash_summary(stash: SharedStash, resolver=None) -> str:
     tab_count = stash.get_tab_count()
     result.append(f"Total Tabs: {tab_count}")
 
-    tab_summaries = []
-    for tab_idx, tab in enumerate(stash.tabs):
-        tname = TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")
-        tab_summaries.append(f"Tab {tab_idx + 1}: {tname}")
+    tab_summaries = [
+        f"Tab {tab_idx + 1}: {TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")}"
+        for tab_idx, tab in enumerate(stash.tabs)
+    ]
     result.append(f"Tabs: {', '.join(tab_summaries)}")
     result.append("")
 
     slot_order_map = {code: idx for idx, code in enumerate(COMBINED_SLOT_ORDER_STRIPPED)}
 
     for tab_idx, tab in enumerate(stash.tabs):
-        tname = TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")
-        result.append(f"=== Tab {tab_idx + 1} ({tname}) ===")
+        result.append(f"=== Tab {tab_idx + 1} ({TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")}) ===")
         if tab.gold:
             result.append(f"Gold: {tab.gold}")
 
