@@ -28,7 +28,8 @@ class D2IntEnum(IntEnum):
 
     @classmethod
     def _missing_(cls, value: object) -> Self:
-        obj = int.__new__(cls, value)
+        val = int(value) if isinstance(value, int | str) else 0
+        obj = int.__new__(cls, val)
         obj._name_ = f"Unknown({value})"
         obj._value_ = value
         return obj

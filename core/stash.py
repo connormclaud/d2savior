@@ -220,7 +220,7 @@ MATERIAL_CODES = {
 }
 
 
-def classify_advanced_tab(items: list[Any]) -> int:
+def classify_advanced_tab(items: list[Any] | None) -> int:
     if not items:
         return ADVANCED_SUBTYPE_UNKNOWN
     rune_count = 0

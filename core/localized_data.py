@@ -4,7 +4,7 @@ import re
 from typing import ClassVar
 
 
-def clean_d2_text(text: str) -> str:
+def clean_d2_text(text: str | None) -> str:
     """Clean Diablo II localized text by extracting the first grammatical form from tags like [ms]..."""
     if not text:
         return ""

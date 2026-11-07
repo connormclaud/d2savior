@@ -1259,7 +1259,7 @@ class D2DataManager:
             return data.get_belt_rows(item_code)
         return 0
 
-    def get_item_meta(self, type_id: bytes, version: int = 0) -> Any | None:
+    def get_item_meta(self, type_id: Any, version: int = 0) -> Any | None:
         """获取指定版本的物品元数据"""
         ver = version if version in self.version_data else self.default_version
         data = self.get_version_data(ver)
