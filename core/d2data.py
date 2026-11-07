@@ -1155,7 +1155,7 @@ class D2DataManager:
 # 全局数据管理器实例
 _g_d2data_manager: Optional[D2DataManager] = None
 # 向后兼容的全局数据加载器（包装器）
-_g_d2data_wrapper: Optional['D2DataWrapper'] = None
+_g_d2data_wrapper: Optional[D2DataWrapper] = None
 
 
 class D2DataWrapper:

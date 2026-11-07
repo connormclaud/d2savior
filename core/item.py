@@ -10,7 +10,7 @@ def is_d2r(version: int) -> bool:
     return version >= 0x61
 
 
-def _convert_item_type_to_meta(type_info, d2data=None) -> Optional['ItemMetaData']:
+def _convert_item_type_to_meta(type_info, d2data=None) -> Optional[ItemMetaData]:
     if type_info is None:
         return None
     
@@ -359,7 +359,7 @@ def parse_itemdata_txt(filepath: str) -> ItemMetaDataManager:
 
 _g_item_manager: Optional[ItemMetaDataManager] = None
 _g_properties: Optional[Dict[int, PropertyMetaData]] = None
-_g_stat_cost: Optional[Dict[int, 'StatCostItem']] = None
+_g_stat_cost: Optional[Dict[int, StatCostItem]] = None
 
 
 PAIRED_STATS = {
