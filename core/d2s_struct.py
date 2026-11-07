@@ -6,80 +6,135 @@ from core.enums import (
 
 class QuestInfoData:
     def __init__(self):
-        self.wIntroduced1 = 0
-        self.wActI = [0] * 6
+        self.introduced_1 = 0
+        self.act_1 = [0] * 6
         self.travel_1 = 0
-        self.wIntroduced2 = 0
-        self.wActII = [0] * 6
+        self.introduced_2 = 0
+        self.act_2 = [0] * 6
         self.travel_2 = 0
-        self.wIntroduced3 = 0
-        self.wActIII = [0] * 6
+        self.introduced_3 = 0
+        self.act_3 = [0] * 6
         self.travel_3 = 0
-        self.wIntroduced4 = 0
-        self.wActIV = [0] * 3
+        self.introduced_4 = 0
+        self.act_4 = [0] * 3
         self.travel_4 = 0
         self.unknown1 = [0] * 3
-        self.wIntroduced5 = 0
+        self.introduced_5 = 0
         self.unknown2 = [0] * 2
-        self.wActV = [0] * 6
-        self.bResetStats = 0
+        self.act_5 = [0] * 6
+        self.reset_stats = 0
         self.unknown3 = 0
         self.unknown4 = [0] * 6
     
+    @property
+    def wIntroduced1(self): return self.introduced_1
+    @wIntroduced1.setter
+    def wIntroduced1(self, val): self.introduced_1 = val
+
+    @property
+    def wActI(self): return self.act_1
+    @wActI.setter
+    def wActI(self, val): self.act_1 = val
+
+    @property
+    def wIntroduced2(self): return self.introduced_2
+    @wIntroduced2.setter
+    def wIntroduced2(self, val): self.introduced_2 = val
+
+    @property
+    def wActII(self): return self.act_2
+    @wActII.setter
+    def wActII(self, val): self.act_2 = val
+
+    @property
+    def wIntroduced3(self): return self.introduced_3
+    @wIntroduced3.setter
+    def wIntroduced3(self, val): self.introduced_3 = val
+
+    @property
+    def wActIII(self): return self.act_3
+    @wActIII.setter
+    def wActIII(self, val): self.act_3 = val
+
+    @property
+    def wIntroduced4(self): return self.introduced_4
+    @wIntroduced4.setter
+    def wIntroduced4(self, val): self.introduced_4 = val
+
+    @property
+    def wActIV(self): return self.act_4
+    @wActIV.setter
+    def wActIV(self, val): self.act_4 = val
+
+    @property
+    def wIntroduced5(self): return self.introduced_5
+    @wIntroduced5.setter
+    def wIntroduced5(self, val): self.introduced_5 = val
+
+    @property
+    def wActV(self): return self.act_5
+    @wActV.setter
+    def wActV(self, val): self.act_5 = val
+
+    @property
+    def bResetStats(self): return self.reset_stats
+    @bResetStats.setter
+    def bResetStats(self, val): self.reset_stats = val
+
     def deserialize(self, bs):
-        self.wIntroduced1 = bs.read_word()
+        self.introduced_1 = bs.read_word()
         for i in range(6):
-            self.wActI[i] = bs.read_word()
+            self.act_1[i] = bs.read_word()
         self.travel_1 = bs.read_word()
-        self.wIntroduced2 = bs.read_word()
+        self.introduced_2 = bs.read_word()
         for i in range(6):
-            self.wActII[i] = bs.read_word()
+            self.act_2[i] = bs.read_word()
         self.travel_2 = bs.read_word()
-        self.wIntroduced3 = bs.read_word()
+        self.introduced_3 = bs.read_word()
         for i in range(6):
-            self.wActIII[i] = bs.read_word()
+            self.act_3[i] = bs.read_word()
         self.travel_3 = bs.read_word()
-        self.wIntroduced4 = bs.read_word()
+        self.introduced_4 = bs.read_word()
         for i in range(3):
-            self.wActIV[i] = bs.read_word()
+            self.act_4[i] = bs.read_word()
         self.travel_4 = bs.read_word()
         for i in range(3):
             self.unknown1[i] = bs.read_word()
-        self.wIntroduced5 = bs.read_word()
+        self.introduced_5 = bs.read_word()
         for i in range(2):
             self.unknown2[i] = bs.read_word()
         for i in range(6):
-            self.wActV[i] = bs.read_word()
-        self.bResetStats = bs.read_byte()
+            self.act_5[i] = bs.read_word()
+        self.reset_stats = bs.read_byte()
         self.unknown3 = bs.read_byte()
         for i in range(6):
             self.unknown4[i] = bs.read_word()
     
     def serialize(self, bs):
-        bs.write_word(self.wIntroduced1)
+        bs.write_word(self.introduced_1)
         for i in range(6):
-            bs.write_word(self.wActI[i])
+            bs.write_word(self.act_1[i])
         bs.write_word(self.travel_1)
-        bs.write_word(self.wIntroduced2)
+        bs.write_word(self.introduced_2)
         for i in range(6):
-            bs.write_word(self.wActII[i])
+            bs.write_word(self.act_2[i])
         bs.write_word(self.travel_2)
-        bs.write_word(self.wIntroduced3)
+        bs.write_word(self.introduced_3)
         for i in range(6):
-            bs.write_word(self.wActIII[i])
+            bs.write_word(self.act_3[i])
         bs.write_word(self.travel_3)
-        bs.write_word(self.wIntroduced4)
+        bs.write_word(self.introduced_4)
         for i in range(3):
-            bs.write_word(self.wActIV[i])
+            bs.write_word(self.act_4[i])
         bs.write_word(self.travel_4)
         for i in range(3):
             bs.write_word(self.unknown1[i])
-        bs.write_word(self.wIntroduced5)
+        bs.write_word(self.introduced_5)
         for i in range(2):
             bs.write_word(self.unknown2[i])
         for i in range(6):
-            bs.write_word(self.wActV[i])
-        bs.write_byte(self.bResetStats)
+            bs.write_word(self.act_5[i])
+        bs.write_byte(self.reset_stats)
         bs.write_byte(self.unknown3)
         for i in range(6):
             bs.write_word(self.unknown4[i])
@@ -150,7 +205,12 @@ class PlayerStats:
     def __init__(self):
         self.magic = 0
         self.stat_values = [0] * 0x10
-        self.iEnd = 0
+        self.end_flag = 0
+
+    @property
+    def iEnd(self): return self.end_flag
+    @iEnd.setter
+    def iEnd(self, val): self.end_flag = val
     
     def deserialize(self, bs):
         self.magic = bs.read_word()
@@ -159,10 +219,10 @@ class PlayerStats:
         self.stat_values = [0] * 0x10
         while True:
             try:
-                self.iEnd = bs.read_bits(9)
-                if self.iEnd >= 0x10:
+                self.end_flag = bs.read_bits(9)
+                if self.end_flag >= 0x10:
                     break
-                self.stat_values[self.iEnd] = bs.read_bits(PLAYER_STATS_BITS_COUNT[self.iEnd])
+                self.stat_values[self.end_flag] = bs.read_bits(PLAYER_STATS_BITS_COUNT[self.end_flag])
             except ValueError:
                 break
         bs.align_byte()
@@ -248,123 +308,198 @@ class PlayerStats:
 
 class CharSkills:
     def __init__(self):
-        self.wMagic = 0
-        self.bSkillLevel = [0] * 30
+        self.magic = 0
+        self.skill_levels = [0] * 30
+
+    @property
+    def wMagic(self): return self.magic
+    @wMagic.setter
+    def wMagic(self, val): self.magic = val
+
+    @property
+    def bSkillLevel(self): return self.skill_levels
+    @bSkillLevel.setter
+    def bSkillLevel(self, val): self.skill_levels = val
     
     def deserialize(self, bs):
-        self.wMagic = bs.read_word()
+        self.magic = bs.read_word()
         for i in range(30):
-            self.bSkillLevel[i] = bs.read_byte()
+            self.skill_levels[i] = bs.read_byte()
     
     def serialize(self, bs):
-        bs.write_word(self.wMagic)
+        bs.write_word(self.magic)
         for i in range(30):
-            bs.write_byte(self.bSkillLevel[i])
+            bs.write_byte(self.skill_levels[i])
 
 class CorpseData:
     def __init__(self):
         self.unknown = b''
-        self.stItems = None
+        self.items = None
+
+    @property
+    def stItems(self): return self.items
+    @stItems.setter
+    def stItems(self, val): self.items = val
     
     def deserialize(self, bs, version):
         self.unknown = bs.data[bs.bytes_pos:bs.bytes_pos+12]
         bs.bytes_pos += 12
-        self.stItems = ItemList()
-        self.stItems.deserialize(bs, version)
+        self.items = ItemList()
+        self.items.deserialize(bs, version)
     
     def serialize(self, bs, version):
         bs.write_bytes(self.unknown)
-        if self.stItems:
-            self.stItems.serialize(bs, version)
+        if self.items:
+            self.items.serialize(bs, version)
 
 class Corpse:
     def __init__(self):
-        self.wMagic = 0
-        self.wCount = 0
-        self.pCorpseData = None
+        self.magic = 0
+        self.count = 0
+        self.corpse_data = None
+
+    @property
+    def wMagic(self): return self.magic
+    @wMagic.setter
+    def wMagic(self, val): self.magic = val
+
+    @property
+    def wCount(self): return self.count
+    @wCount.setter
+    def wCount(self, val): self.count = val
+
+    @property
+    def pCorpseData(self): return self.corpse_data
+    @pCorpseData.setter
+    def pCorpseData(self, val): self.corpse_data = val
     
     def deserialize(self, bs, version):
-        self.wMagic = bs.read_word()
-        self.wCount = bs.read_word()
-        if self.wMagic != ITEM_LIST_MAGIC:
+        self.magic = bs.read_word()
+        self.count = bs.read_word()
+        if self.magic != ITEM_LIST_MAGIC:
             # 不是CCorpse，回退并返回
             bs.seek_back_bytes(4)
             return
-        if self.wCount > 0:
-            self.pCorpseData = CorpseData()
-            self.pCorpseData.deserialize(bs, version)
+        if self.count > 0:
+            self.corpse_data = CorpseData()
+            self.corpse_data.deserialize(bs, version)
     
     def has_corpse(self):
-        return self.wCount > 0 and self.pCorpseData is not None
+        return self.count > 0 and self.corpse_data is not None
     
     def serialize(self, bs, version):
-        bs.write_word(self.wMagic)
-        bs.write_word(self.wCount)
-        if self.pCorpseData:
-            self.pCorpseData.serialize(bs, version)
+        bs.write_word(self.magic)
+        bs.write_word(self.count)
+        if self.corpse_data:
+            self.corpse_data.serialize(bs, version)
 
 class Mercenary:
     def __init__(self):
-        self.wMagic = 0
-        self.stItems = None
+        self.magic = 0
+        self.items = None
+
+    @property
+    def wMagic(self): return self.magic
+    @wMagic.setter
+    def wMagic(self, val): self.magic = val
+
+    @property
+    def stItems(self): return self.items
+    @stItems.setter
+    def stItems(self, val): self.items = val
     
     def deserialize(self, bs, has_mercenary, version):
-        self.wMagic = bs.read_word()
-        if self.wMagic != MERCENARY_MAGIC:
+        self.magic = bs.read_word()
+        if self.magic != MERCENARY_MAGIC:
             # 不是CMercenary，回退并返回
             bs.seek_back_bytes(2)
             return
         if has_mercenary:
-            self.stItems = ItemList()
-            self.stItems.deserialize(bs, version)
+            self.items = ItemList()
+            self.items.deserialize(bs, version)
     
     def serialize(self, bs, has_mercenary, version):
-        bs.write_word(self.wMagic)
-        if has_mercenary and self.stItems:
-            self.stItems.serialize(bs, version)
+        bs.write_word(self.magic)
+        if has_mercenary and self.items:
+            self.items.serialize(bs, version)
 
 class Golem:
     def __init__(self):
-        self.wMagic = 0
-        self.bHasGolem = 0
-        self.pItem = None
+        self.magic = 0
+        self.has_golem = 0
+        self.item = None
+
+    @property
+    def wMagic(self): return self.magic
+    @wMagic.setter
+    def wMagic(self, val): self.magic = val
+
+    @property
+    def bHasGolem(self): return self.has_golem
+    @bHasGolem.setter
+    def bHasGolem(self, val): self.has_golem = val
+
+    @property
+    def pItem(self): return self.item
+    @pItem.setter
+    def pItem(self, val): self.item = val
     
     def deserialize(self, bs, version):
-        self.wMagic = bs.read_word()
-        self.bHasGolem = bs.read_byte()
-        if self.wMagic not in [GOLEM_MAGIC_1, GOLEM_MAGIC_2]:
+        self.magic = bs.read_word()
+        self.has_golem = bs.read_byte()
+        if self.magic not in [GOLEM_MAGIC_1, GOLEM_MAGIC_2]:
             bs.seek_back_bytes(3)
             return
-        if self.bHasGolem:
-            self.pItem = D2Item()
-            self.pItem.deserialize(bs, version)
+        if self.has_golem:
+            self.item = D2Item()
+            self.item.deserialize(bs, version)
     
     def serialize(self, bs, version):
-        bs.write_word(self.wMagic)
-        bs.write_byte(self.bHasGolem)
-        if self.bHasGolem and self.pItem:
-            self.pItem.serialize(bs, version, False)
+        bs.write_word(self.magic)
+        bs.write_byte(self.has_golem)
+        if self.has_golem and self.item:
+            self.item.serialize(bs, version, False)
 
 class Demon:
     def __init__(self):
-        self.sectionVersion = 0
-        self.wMagic = 0
-        self.hasDemon = False
+        self.section_version = 0
+        self.magic = 0
+        self.has_demon = False
         self.padding = 0
-        self.demonData = None
+        self.demon_data = None
         self._raw_data = b''
+
+    @property
+    def sectionVersion(self): return self.section_version
+    @sectionVersion.setter
+    def sectionVersion(self, val): self.section_version = val
+
+    @property
+    def wMagic(self): return self.magic
+    @wMagic.setter
+    def wMagic(self, val): self.magic = val
+
+    @property
+    def hasDemon(self): return self.has_demon
+    @hasDemon.setter
+    def hasDemon(self, val): self.has_demon = val
+
+    @property
+    def demonData(self): return self.demon_data
+    @demonData.setter
+    def demonData(self, val): self.demon_data = val
     
     def deserialize(self, bs):
         start_pos = bs.bytes_pos
-        self.sectionVersion = bs.read_word()
-        self.wMagic = bs.read_word()
-        if self.wMagic != DEMON_MAGIC:
+        self.section_version = bs.read_word()
+        self.magic = bs.read_word()
+        if self.magic != DEMON_MAGIC:
             bs.seek_back_bytes(4)
             return
         has_demon_byte = bs.read_byte()
-        self.hasDemon = has_demon_byte != 0
+        self.has_demon = has_demon_byte != 0
         self.padding = bs.read_byte()
-        if self.hasDemon:
+        if self.has_demon:
             self._read_demon_data(bs)
         
         end_pos = bs.bytes_pos
@@ -407,43 +542,52 @@ class D2SStruct:
     def __init__(self):
         self.magic = 0
         self.version = 0
-        self.dwSize = 0
-        self.dwCRC = 0
-        self.dwWeaponSet = 0
-        self.Name = b''
-        self.charFlags = 0
-        self.charClass = 0
-        self.numStats = 16
-        self.numSkills = 30
-        self.charLevel = 0
-        self.createTime = 0
-        self.lastSaveTime = 0
-        self.playTime = 0
-        self.dwSkillKey = [0] * 16
-        self.dwLeftSkill1 = 0
-        self.dwRightSkill1 = 0
-        self.dwLeftSkill2 = 0
-        self.dwRightSkill2 = 0
+        self.size = 0
+        self.crc = 0
+        self.weapon_set = 0
+        self.name = b''
+        self.char_flags = 0
+        self.char_class = 0
+        self.num_stats = 16
+        self.num_skills = 30
+        self.char_level = 0
+        self.create_time = 0
+        self.last_save_time = 0
+        self.play_time = 0
+        self.dw_time = 0
+        self.skill_keys = [0] * 16
+        self.left_skill_1 = 0
+        self.right_skill_1 = 0
+        self.left_skill_2 = 0
+        self.right_skill_2 = 0
         self.outfit = b''
         self.colors = b''
-        self.Town = b''
-        self.dwMapSeed = 0
-        self.mercFlags = 0
-        self.mercSeed = 0
-        self.mercNameIndex = 0
-        self.mercHirelingId = 0
-        self.mercExperience = 0
-        self.previewData = b''
-        self.charType = 0
-        self.charTitle = 0
-        self.dwMercControl = 0
-        self.wMercName = 0
-        self.wMercType = 0
-        self.dwMercExp = 0
+        self.town = b''
+        self.map_seed = 0
+        self.merc_flags = 0
+        self.merc_seed = 0
+        self.merc_name_index = 0
+        self.merc_hireling_id = 0
+        self._merc_experience = 0
+        self.preview_data = b''
+        self.char_type = 0
+        self.char_title = 0
+        self.merc_control = 0
+        self.merc_name = 0
+        self.merc_type = 0
+        self.merc_exp = 0
+        self.merc_dead = 0
+        self.merc_flags_low = 0
+        self.merc_flags_high = 0
+        self.preview_prefix = b''
+        self.name_ptr = b''
+        self.preview_suffix = 0
+        self.num_stats_num_skills = 0
+        self.padding1 = 0
         
         self.quests = QuestInfo()
         self.waypoints = Waypoints()
-        self.NPC = b''
+        self.npc = b''
         self.player_stats = PlayerStats()
         self.skills = CharSkills()
         self.item_list = ItemList()
@@ -451,15 +595,213 @@ class D2SStruct:
         self.mercenary = Mercenary()
         self.golem = Golem()
         self.demon = Demon()
-        self.gameVersion = 0
+        self.game_version = 0
 
+    # Backward compatibility properties
+    @property
+    def dwSize(self): return self.size
+    @dwSize.setter
+    def dwSize(self, val): self.size = val
+
+    @property
+    def dwCRC(self): return self.crc
+    @dwCRC.setter
+    def dwCRC(self, val): self.crc = val
+
+    @property
+    def dwWeaponSet(self): return self.weapon_set
+    @dwWeaponSet.setter
+    def dwWeaponSet(self, val): self.weapon_set = val
+
+    @property
+    def Name(self): return self.name
+    @Name.setter
+    def Name(self, val): self.name = val
+
+    @property
+    def charFlags(self): return self.char_flags
+    @charFlags.setter
+    def charFlags(self, val): self.char_flags = val
+
+    @property
+    def charClass(self): return self.char_class
+    @charClass.setter
+    def charClass(self, val): self.char_class = val
+
+    @property
+    def numStats(self): return self.num_stats
+    @numStats.setter
+    def numStats(self, val): self.num_stats = val
+
+    @property
+    def numSkills(self): return self.num_skills
+    @numSkills.setter
+    def numSkills(self, val): self.num_skills = val
+
+    @property
+    def charLevel(self): return self.char_level
+    @charLevel.setter
+    def charLevel(self, val): self.char_level = val
+
+    @property
+    def createTime(self): return self.create_time
+    @createTime.setter
+    def createTime(self, val): self.create_time = val
+
+    @property
+    def lastSaveTime(self): return self.last_save_time
+    @lastSaveTime.setter
+    def lastSaveTime(self, val): self.last_save_time = val
+
+    @property
+    def playTime(self): return self.play_time
+    @playTime.setter
+    def playTime(self, val): self.play_time = val
+
+    @property
+    def dwTime(self): return self.dw_time
+    @dwTime.setter
+    def dwTime(self, val): self.dw_time = val
+
+    @property
+    def dwSkillKey(self): return self.skill_keys
+    @dwSkillKey.setter
+    def dwSkillKey(self, val): self.skill_keys = val
+
+    @property
+    def dwLeftSkill1(self): return self.left_skill_1
+    @dwLeftSkill1.setter
+    def dwLeftSkill1(self, val): self.left_skill_1 = val
+
+    @property
+    def dwRightSkill1(self): return self.right_skill_1
+    @dwRightSkill1.setter
+    def dwRightSkill1(self, val): self.right_skill_1 = val
+
+    @property
+    def dwLeftSkill2(self): return self.left_skill_2
+    @dwLeftSkill2.setter
+    def dwLeftSkill2(self, val): self.left_skill_2 = val
+
+    @property
+    def dwRightSkill2(self): return self.right_skill_2
+    @dwRightSkill2.setter
+    def dwRightSkill2(self, val): self.right_skill_2 = val
+
+    @property
+    def Town(self): return self.town
+    @Town.setter
+    def Town(self, val): self.town = val
+
+    @property
+    def dwMapSeed(self): return self.map_seed
+    @dwMapSeed.setter
+    def dwMapSeed(self, val): self.map_seed = val
+
+    @property
+    def mercFlags(self): return self.merc_flags
+    @mercFlags.setter
+    def mercFlags(self, val): self.merc_flags = val
+
+    @property
+    def mercSeed(self): return self.merc_seed
+    @mercSeed.setter
+    def mercSeed(self, val): self.merc_seed = val
+
+    @property
+    def mercNameIndex(self): return self.merc_name_index
+    @mercNameIndex.setter
+    def mercNameIndex(self, val): self.merc_name_index = val
+
+    @property
+    def mercHirelingId(self): return self.merc_hireling_id
+    @mercHirelingId.setter
+    def mercHirelingId(self, val): self.merc_hireling_id = val
+
+    @property
+    def merc_experience(self) -> int:
+        return self._merc_experience if self.version >= 0x69 else getattr(self, 'merc_exp', 0)
+
+    @merc_experience.setter
+    def merc_experience(self, val: int):
+        self._merc_experience = val
+
+    @property
+    def mercExperience(self): return self.merc_experience
+    @mercExperience.setter
+    def mercExperience(self, val): self.merc_experience = val
+
+    @property
+    def previewData(self): return self.preview_data
+    @previewData.setter
+    def previewData(self, val): self.preview_data = val
+
+    @property
+    def charType(self): return self.char_type
+    @charType.setter
+    def charType(self, val): self.char_type = val
+
+    @property
+    def charTitle(self): return self.char_title
+    @charTitle.setter
+    def charTitle(self, val): self.char_title = val
+
+    @property
+    def dwMercControl(self): return self.merc_control
+    @dwMercControl.setter
+    def dwMercControl(self, val): self.merc_control = val
+
+    @property
+    def wMercName(self): return self.merc_name
+    @wMercName.setter
+    def wMercName(self, val): self.merc_name = val
+
+    @property
+    def wMercType(self): return self.merc_type
+    @wMercType.setter
+    def wMercType(self, val): self.merc_type = val
+
+    @property
+    def dwMercExp(self): return self.merc_exp
+    @dwMercExp.setter
+    def dwMercExp(self, val): self.merc_exp = val
+
+    @property
+    def bMercDead(self): return self.merc_dead
+    @bMercDead.setter
+    def bMercDead(self, val): self.merc_dead = val
+
+    @property
+    def NPC(self): return self.npc
+    @NPC.setter
+    def NPC(self, val): self.npc = val
+
+    @property
+    def previewPrefix(self): return self.preview_prefix
+    @previewPrefix.setter
+    def previewPrefix(self, val): self.preview_prefix = val
+
+    @property
+    def NamePTR(self): return self.name_ptr
+    @NamePTR.setter
+    def NamePTR(self, val): self.name_ptr = val
+
+    @property
+    def previewSuffix(self): return self.preview_suffix
+    @previewSuffix.setter
+    def previewSuffix(self, val): self.preview_suffix = val
+
+    @property
+    def gameVersion(self): return self.game_version
+    @gameVersion.setter
+    def gameVersion(self, val): self.game_version = val
     
     def deserialize(self, bs):
         self.magic = bs.read_dword()
         self.version = bs.read_dword()
-        self.dwSize = bs.read_dword()
-        self.dwCRC = bs.read_dword()
-        self.dwWeaponSet = bs.read_dword()
+        self.size = bs.read_dword()
+        self.crc = bs.read_dword()
+        self.weapon_set = bs.read_dword()
         
         if self.version >= 0x69:
             self._read_data_v69(bs)
@@ -467,56 +809,56 @@ class D2SStruct:
             self._read_data_common(bs)
     
     def _read_data_v69(self, bs):
-        self.charFlags = bs.read_dword()
-        self.charType = self.charFlags
-        self.charTitle = (self.charFlags >> 8) & 0x1F
-        self.charClass = bs.read_byte()
-        self.numStats = bs.read_byte()
-        self.numSkills = bs.read_byte()
-        self.charLevel = bs.read_byte()
-        self.createTime = bs.read_dword()
-        self.lastSaveTime = bs.read_dword()
-        self.playTime = bs.read_dword()
+        self.char_flags = bs.read_dword()
+        self.char_type = self.char_flags
+        self.char_title = (self.char_flags >> 8) & 0x1F
+        self.char_class = bs.read_byte()
+        self.num_stats = bs.read_byte()
+        self.num_skills = bs.read_byte()
+        self.char_level = bs.read_byte()
+        self.create_time = bs.read_dword()
+        self.last_save_time = bs.read_dword()
+        self.play_time = bs.read_dword()
         
         for i in range(16):
-            self.dwSkillKey[i] = bs.read_dword()
+            self.skill_keys[i] = bs.read_dword()
         
-        self.dwLeftSkill1 = bs.read_dword()
-        self.dwRightSkill1 = bs.read_dword()
-        self.dwLeftSkill2 = bs.read_dword()
-        self.dwRightSkill2 = bs.read_dword()
+        self.left_skill_1 = bs.read_dword()
+        self.right_skill_1 = bs.read_dword()
+        self.left_skill_2 = bs.read_dword()
+        self.right_skill_2 = bs.read_dword()
         
         self.outfit = bs.data[bs.bytes_pos:bs.bytes_pos+16]
         bs.bytes_pos += 16
         self.colors = bs.data[bs.bytes_pos:bs.bytes_pos+16]
         bs.bytes_pos += 16
         
-        self.Town = bs.data[bs.bytes_pos:bs.bytes_pos+3]
+        self.town = bs.data[bs.bytes_pos:bs.bytes_pos+3]
         bs.bytes_pos += 3
         
-        self.dwMapSeed = bs.read_dword()
+        self.map_seed = bs.read_dword()
         
-        self.mercFlags = bs.read_dword()
-        self.mercSeed = bs.read_dword()
-        self.mercNameIndex = bs.read_word()
-        self.mercHirelingId = bs.read_word()
-        self.mercExperience = bs.read_dword()
+        self.merc_flags = bs.read_dword()
+        self.merc_seed = bs.read_dword()
+        self.merc_name_index = bs.read_word()
+        self.merc_hireling_id = bs.read_word()
+        self._merc_experience = bs.read_dword()
         
         preview_size = 228
-        self.previewData = bs.data[bs.bytes_pos:bs.bytes_pos+preview_size]
+        self.preview_data = bs.data[bs.bytes_pos:bs.bytes_pos+preview_size]
         bs.bytes_pos += preview_size
         
-        self.gameVersion = self.previewData[73]
+        self.game_version = self.preview_data[73]
         
         name_offset = 0x7C
-        name_bytes = self.previewData[name_offset:name_offset+96]
-        self.Name = name_bytes.split(b'\x00')[0]
+        name_bytes = self.preview_data[name_offset:name_offset+96]
+        self.name = name_bytes.split(b'\x00')[0]
         
         self.quests.deserialize(bs)
         
         self.waypoints.deserialize(bs)
         
-        self.NPC = bs.data[bs.bytes_pos:bs.bytes_pos+0x34]
+        self.npc = bs.data[bs.bytes_pos:bs.bytes_pos+0x34]
         bs.bytes_pos += 0x34
         
         self.player_stats.deserialize(bs)
@@ -531,34 +873,34 @@ class D2SStruct:
             self.mercenary.deserialize(bs, self.has_mercenary(), self.version)
             self.golem.deserialize(bs, self.version)
         
-        if self.version >= 0x69 and self.gameVersion >= 3:
+        if self.version >= 0x69 and self.game_version >= 3:
             self.demon.deserialize(bs)
         
         bs.align_byte()
     
     def _read_data_common(self, bs):
-        self.Name = bs.data[bs.bytes_pos:bs.bytes_pos+16]
+        self.name = bs.data[bs.bytes_pos:bs.bytes_pos+16]
         bs.bytes_pos += 16
         
-        charType = bs.read_byte()
-        self.charFlags = charType
-        self.charType = charType
-        self.charTitle = bs.read_byte()
-        self.numStatsNumSkills = bs.read_word()
-        self.charClass = bs.read_byte()
+        char_type = bs.read_byte()
+        self.char_flags = char_type
+        self.char_type = char_type
+        self.char_title = bs.read_byte()
+        self.num_stats_num_skills = bs.read_word()
+        self.char_class = bs.read_byte()
         self.padding1 = bs.read_word()
-        self.charLevel = bs.read_byte()
-        self.createTime = bs.read_dword()
-        self.dwTime = bs.read_dword()
-        self.playTime = bs.read_dword()
+        self.char_level = bs.read_byte()
+        self.create_time = bs.read_dword()
+        self.dw_time = bs.read_dword()
+        self.play_time = bs.read_dword()
         
         for i in range(16):
-            self.dwSkillKey[i] = bs.read_dword()
+            self.skill_keys[i] = bs.read_dword()
         
-        self.dwLeftSkill1 = bs.read_dword()
-        self.dwRightSkill1 = bs.read_dword()
-        self.dwLeftSkill2 = bs.read_dword()
-        self.dwRightSkill2 = bs.read_dword()
+        self.left_skill_1 = bs.read_dword()
+        self.right_skill_1 = bs.read_dword()
+        self.left_skill_2 = bs.read_dword()
+        self.right_skill_2 = bs.read_dword()
         
         # 读取outfit和colors
         self.outfit = bs.data[bs.bytes_pos:bs.bytes_pos+16]
@@ -567,25 +909,25 @@ class D2SStruct:
         bs.bytes_pos += 16
         
         # 读取Town
-        self.Town = bs.data[bs.bytes_pos:bs.bytes_pos+3]
+        self.town = bs.data[bs.bytes_pos:bs.bytes_pos+3]
         bs.bytes_pos += 3
         
-        self.dwMapSeed = bs.read_dword()
-        self.mercFlagsLow = bs.read_word()
-        self.bMercDead = bs.read_byte()
-        self.mercFlagsHigh = bs.read_byte()
-        self.dwMercControl = bs.read_dword()
-        self.wMercName = bs.read_word()
-        self.wMercType = bs.read_word()
-        self.dwMercExp = bs.read_dword()
+        self.map_seed = bs.read_dword()
+        self.merc_flags_low = bs.read_word()
+        self.merc_dead = bs.read_byte()
+        self.merc_flags_high = bs.read_byte()
+        self.merc_control = bs.read_dword()
+        self.merc_name = bs.read_word()
+        self.merc_type = bs.read_word()
+        self.merc_exp = bs.read_dword()
         
-        self.previewPrefix = bs.data[bs.bytes_pos:bs.bytes_pos+0x4C]
+        self.preview_prefix = bs.data[bs.bytes_pos:bs.bytes_pos+0x4C]
         bs.bytes_pos += 0x4C
         
-        self.NamePTR = bs.data[bs.bytes_pos:bs.bytes_pos+0x40]
+        self.name_ptr = bs.data[bs.bytes_pos:bs.bytes_pos+0x40]
         bs.bytes_pos += 0x40
         
-        self.previewSuffix = bs.read_dword()
+        self.preview_suffix = bs.read_dword()
         
         self.quests.deserialize(bs)
         
@@ -593,7 +935,7 @@ class D2SStruct:
         self.waypoints.deserialize(bs)
         
         # 读取NPC信息
-        self.NPC = bs.data[bs.bytes_pos:bs.bytes_pos+0x34]
+        self.npc = bs.data[bs.bytes_pos:bs.bytes_pos+0x34]
         bs.bytes_pos += 0x34
         
         # 读取人物属性
@@ -617,48 +959,44 @@ class D2SStruct:
     
     def has_mercenary(self):
         if self.version >= 0x69:
-            return self.mercSeed != 0 or self.mercNameIndex != 0 or self.mercExperience != 0
+            return self.merc_seed != 0 or self.merc_name_index != 0 or self.merc_experience != 0
         elif self.version >= 0x61:
-            return self.dwMercControl != 0
+            return self.merc_control != 0
         else:
-            return self.wMercName > 0
+            return self.merc_name > 0
 
     @property
     def merc_name_id(self) -> int:
-        return self.mercNameIndex if self.version >= 0x69 else getattr(self, 'wMercName', 0)
+        return self.merc_name_index if self.version >= 0x69 else getattr(self, 'merc_name', 0)
 
     @property
     def merc_type_id(self) -> int:
-        return self.mercHirelingId if self.version >= 0x69 else getattr(self, 'wMercType', 0)
-
-    @property
-    def merc_experience(self) -> int:
-        return self.mercExperience if self.version >= 0x69 else getattr(self, 'dwMercExp', 0)
+        return self.merc_hireling_id if self.version >= 0x69 else getattr(self, 'merc_type', 0)
 
     @property
     def merc_is_dead(self) -> bool:
-        return bool(getattr(self, 'bMercDead', 0))
+        return bool(getattr(self, 'merc_dead', 0))
     
     def is_ladder(self):
-        return (self.charFlags & 0x40) != 0
+        return (self.char_flags & 0x40) != 0
     
     def is_expansion(self):
         if self.version >= 0x69:
-            return self.gameVersion > 1
-        if (self.charFlags & 0x20) != 0:
+            return self.game_version > 1
+        if (self.char_flags & 0x20) != 0:
             return True
         if self.quests and self.quests.acts >= 5:
             return True
         return False
     
     def is_warlock_expansion(self):
-        return (self.charFlags & 0x20) != 0
+        return (self.char_flags & 0x20) != 0
     
     def is_died_before(self):
-        return (self.charFlags & 0x08) != 0
+        return (self.char_flags & 0x08) != 0
     
     def is_hardcore(self):
-        return (self.charFlags & 0x04) != 0
+        return (self.char_flags & 0x04) != 0
     
     def get_char_class_name(self):
         class_names = [
@@ -671,17 +1009,17 @@ class D2SStruct:
             "Assassin",
             "Warlock",
         ]
-        if 0 <= self.charClass < len(class_names):
-            return class_names[self.charClass]
+        if 0 <= self.char_class < len(class_names):
+            return class_names[self.char_class]
         return "Unknown"
     
     def get_char_name(self):
         if self.version >= 0x69:
-            name_data = self.Name
+            name_data = self.name
         elif self.version >= 0x62:
-            name_data = self.NamePTR
+            name_data = self.name_ptr
         else:
-            name_data = self.Name
+            name_data = self.name
         null_pos = name_data.find(b'\x00')
         if null_pos != -1:
             name_bytes = name_data[:null_pos]
@@ -694,8 +1032,7 @@ class D2SStruct:
         return name
     
     def get_char_title(self):
-
-        return self.charTitle
+        return self.char_title
     
     def get_char_title_name(self):
         title = self.get_char_title()
@@ -710,9 +1047,9 @@ class D2SStruct:
     def serialize(self, bs):
         bs.write_dword(self.magic)
         bs.write_dword(self.version)
-        bs.write_dword(self.dwSize)
-        bs.write_dword(self.dwCRC)
-        bs.write_dword(self.dwWeaponSet)
+        bs.write_dword(self.size)
+        bs.write_dword(self.crc)
+        bs.write_dword(self.weapon_set)
         
         if self.version >= 0x69:
             self._serialize_v69(bs)
@@ -720,40 +1057,40 @@ class D2SStruct:
             self._serialize_common(bs)
     
     def _serialize_v69(self, bs):
-        bs.write_dword(self.charFlags)
-        bs.write_byte(self.charClass)
-        bs.write_byte(self.numStats)
-        bs.write_byte(self.numSkills)
-        bs.write_byte(self.charLevel)
-        bs.write_dword(self.createTime)
-        bs.write_dword(self.lastSaveTime)
-        bs.write_dword(self.playTime)
+        bs.write_dword(self.char_flags)
+        bs.write_byte(self.char_class)
+        bs.write_byte(self.num_stats)
+        bs.write_byte(self.num_skills)
+        bs.write_byte(self.char_level)
+        bs.write_dword(self.create_time)
+        bs.write_dword(self.last_save_time)
+        bs.write_dword(self.play_time)
         
         for i in range(16):
-            bs.write_dword(self.dwSkillKey[i])
+            bs.write_dword(self.skill_keys[i])
         
-        bs.write_dword(self.dwLeftSkill1)
-        bs.write_dword(self.dwRightSkill1)
-        bs.write_dword(self.dwLeftSkill2)
-        bs.write_dword(self.dwRightSkill2)
+        bs.write_dword(self.left_skill_1)
+        bs.write_dword(self.right_skill_1)
+        bs.write_dword(self.left_skill_2)
+        bs.write_dword(self.right_skill_2)
         
         bs.write_bytes(self.outfit)
         bs.write_bytes(self.colors)
-        bs.write_bytes(self.Town)
+        bs.write_bytes(self.town)
         
-        bs.write_dword(self.dwMapSeed)
+        bs.write_dword(self.map_seed)
         
-        bs.write_dword(self.mercFlags)
-        bs.write_dword(self.mercSeed)
-        bs.write_word(self.mercNameIndex)
-        bs.write_word(self.mercHirelingId)
-        bs.write_dword(self.mercExperience)
+        bs.write_dword(self.merc_flags)
+        bs.write_dword(self.merc_seed)
+        bs.write_word(self.merc_name_index)
+        bs.write_word(self.merc_hireling_id)
+        bs.write_dword(self._merc_experience)
         
-        bs.write_bytes(self.previewData)
+        bs.write_bytes(self.preview_data)
         
         self.quests.serialize(bs)
         self.waypoints.serialize(bs)
-        bs.write_bytes(self.NPC)
+        bs.write_bytes(self.npc)
         self.player_stats.serialize(bs)
         self.skills.serialize(bs)
         self.item_list.serialize(bs, self.version)
@@ -763,51 +1100,51 @@ class D2SStruct:
             self.mercenary.serialize(bs, self.has_mercenary(), self.version)
             self.golem.serialize(bs, self.version)
         
-        if self.version >= 0x69 and self.gameVersion >= 3:
+        if self.version >= 0x69 and self.game_version >= 3:
             self.demon.serialize(bs)
         
         bs.align_byte()
     
     def _serialize_common(self, bs):
-        bs.write_bytes(self.Name)
-        bs.write_byte(self.charType)
-        bs.write_byte(self.charTitle)
-        bs.write_word(self.numStatsNumSkills)
-        bs.write_byte(self.charClass)
+        bs.write_bytes(self.name)
+        bs.write_byte(self.char_type)
+        bs.write_byte(self.char_title)
+        bs.write_word(self.num_stats_num_skills)
+        bs.write_byte(self.char_class)
         bs.write_word(self.padding1)
-        bs.write_byte(self.charLevel)
-        bs.write_dword(self.createTime)
-        bs.write_dword(self.dwTime)
-        bs.write_dword(self.playTime)
+        bs.write_byte(self.char_level)
+        bs.write_dword(self.create_time)
+        bs.write_dword(self.dw_time)
+        bs.write_dword(self.play_time)
         
         for i in range(16):
-            bs.write_dword(self.dwSkillKey[i])
+            bs.write_dword(self.skill_keys[i])
         
-        bs.write_dword(self.dwLeftSkill1)
-        bs.write_dword(self.dwRightSkill1)
-        bs.write_dword(self.dwLeftSkill2)
-        bs.write_dword(self.dwRightSkill2)
+        bs.write_dword(self.left_skill_1)
+        bs.write_dword(self.right_skill_1)
+        bs.write_dword(self.left_skill_2)
+        bs.write_dword(self.right_skill_2)
         
         bs.write_bytes(self.outfit)
         bs.write_bytes(self.colors)
-        bs.write_bytes(self.Town)
+        bs.write_bytes(self.town)
         
-        bs.write_dword(self.dwMapSeed)
-        bs.write_word(self.mercFlagsLow)
-        bs.write_byte(self.bMercDead)
-        bs.write_byte(self.mercFlagsHigh)
-        bs.write_dword(self.dwMercControl)
-        bs.write_word(self.wMercName)
-        bs.write_word(self.wMercType)
-        bs.write_dword(self.dwMercExp)
+        bs.write_dword(self.map_seed)
+        bs.write_word(self.merc_flags_low)
+        bs.write_byte(self.merc_dead)
+        bs.write_byte(self.merc_flags_high)
+        bs.write_dword(self.merc_control)
+        bs.write_word(self.merc_name)
+        bs.write_word(self.merc_type)
+        bs.write_dword(self.merc_exp)
         
-        bs.write_bytes(self.previewPrefix)
-        bs.write_bytes(self.NamePTR)
-        bs.write_dword(self.previewSuffix)
+        bs.write_bytes(self.preview_prefix)
+        bs.write_bytes(self.name_ptr)
+        bs.write_dword(self.preview_suffix)
         
         self.quests.serialize(bs)
         self.waypoints.serialize(bs)
-        bs.write_bytes(self.NPC)
+        bs.write_bytes(self.npc)
         self.player_stats.serialize(bs)
         self.skills.serialize(bs)
         self.item_list.serialize(bs, self.version)
