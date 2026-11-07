@@ -7,7 +7,7 @@ from typing import Optional, List, Tuple
 type SkillInfo = Tuple[int, str, int]
 type FormattedLines = List[str]
 
-from core.d2s_struct import D2SStruct
+from core.d2s_struct import D2SStruct, CharStatus
 from core.ibitstream import IBitStream
 from core.property import (
     format_property,
@@ -68,15 +68,8 @@ def ensure_data_loaded(lang_key: Optional[str] = None, data_dir: Optional[str] =
 
 
 def get_char_type_name(char_type: int) -> str:
-    flags = []
-    if char_type & 0x40:
-        flags.append("Ladder")
-    if char_type & 0x20:
-        flags.append("Expansion")
-    if char_type & 0x8:
-        flags.append("Died")
-    if char_type & 0x4:
-        flags.append("Hardcore")
+    status = CharStatus(char_type)
+    flags = [f.name.capitalize() for f in status]
     return " | ".join(flags) if flags else "Normal"
 
 

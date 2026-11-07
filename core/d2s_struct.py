@@ -1,8 +1,16 @@
+from enum import IntFlag, FlagBoundary
 from core.item import D2Item, ItemList, init_item_data
 from core.enums import (
     PLAYER_STATS_MAGIC, ITEM_LIST_MAGIC, MERCENARY_MAGIC,
     GOLEM_MAGIC_1, GOLEM_MAGIC_2, DEMON_MAGIC, PLAYER_STATS_BITS_COUNT
 )
+
+
+class CharStatus(IntFlag, boundary=FlagBoundary.KEEP):
+    LADDER = 0x40
+    EXPANSION = 0x20
+    DIED = 0x08
+    HARDCORE = 0x04
 
 class QuestInfoData:
     def __init__(self):
@@ -411,7 +419,7 @@ class D2SStruct:
         self.crc = 0
         self.weapon_set = 0
         self.name = b''
-        self.char_flags = 0
+        self.char_flags: CharStatus = CharStatus(0)
         self.char_class = 0
         self.num_stats = 16
         self.num_skills = 30
@@ -483,7 +491,7 @@ class D2SStruct:
             self._read_data_common(bs)
     
     def _read_data_v69(self, bs):
-        self.char_flags = bs.read_dword()
+        self.char_flags = CharStatus(bs.read_dword())
         self.char_type = self.char_flags
         self.char_title = (self.char_flags >> 8) & 0x1F
         self.char_class = bs.read_byte()
@@ -557,7 +565,7 @@ class D2SStruct:
         bs.bytes_pos += 16
         
         char_type = bs.read_byte()
-        self.char_flags = char_type
+        self.char_flags = CharStatus(char_type)
         self.char_type = char_type
         self.char_title = bs.read_byte()
         self.num_stats_num_skills = bs.read_word()
@@ -652,25 +660,25 @@ class D2SStruct:
         return bool(getattr(self, 'merc_dead', 0))
     
     def is_ladder(self):
-        return (self.char_flags & 0x40) != 0
+        return bool(self.char_flags & CharStatus.LADDER)
     
     def is_expansion(self):
         if self.version >= 0x69:
             return self.game_version > 1
-        if (self.char_flags & 0x20) != 0:
+        if self.char_flags & CharStatus.EXPANSION:
             return True
         if self.quests and self.quests.acts >= 5:
             return True
         return False
     
     def is_warlock_expansion(self):
-        return (self.char_flags & 0x20) != 0
+        return bool(self.char_flags & CharStatus.EXPANSION)
     
     def is_died_before(self):
-        return (self.char_flags & 0x08) != 0
+        return bool(self.char_flags & CharStatus.DIED)
     
     def is_hardcore(self):
-        return (self.char_flags & 0x04) != 0
+        return bool(self.char_flags & CharStatus.HARDCORE)
     
     def get_char_class_name(self):
         class_names = [
