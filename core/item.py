@@ -241,7 +241,7 @@ def parse_property_txt(filepath: str) -> dict[int, PropertyMetaData]:
         fields: list[PropertyField] = []
         bits_sum = 0
 
-        for chunk in batched(parts[3:], 4):
+        for chunk in batched(parts[3:], 4, strict=False):
             bits_str = chunk[0]
             if not bits_str:
                 break
