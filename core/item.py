@@ -1,4 +1,5 @@
 import os
+from itertools import batched
 from collections.abc import Buffer
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
@@ -241,17 +242,16 @@ def parse_property_txt(filepath: str) -> Dict[int, PropertyMetaData]:
         fields: List[PropertyField] = []
         bits_sum = 0
         
-        field_col_idx = 3
-        while field_col_idx < len(parts):
-            bits_str = parts[field_col_idx] if field_col_idx < len(parts) else ''
+        for chunk in batched(parts[3:], 4):
+            bits_str = chunk[0]
             if not bits_str:
                 break
             
             try:
                 bits = int(bits_str)
-                base_str = parts[field_col_idx + 1] if field_col_idx + 1 < len(parts) else ''
-                min_str = parts[field_col_idx + 2] if field_col_idx + 2 < len(parts) else ''
-                max_str = parts[field_col_idx + 3] if field_col_idx + 3 < len(parts) else ''
+                base_str = chunk[1] if len(chunk) > 1 else ''
+                min_str = chunk[2] if len(chunk) > 2 else ''
+                max_str = chunk[3] if len(chunk) > 3 else ''
                 
                 base = int(base_str) if base_str else 0
                 min_val = int(min_str) if min_str else 0
@@ -261,8 +261,6 @@ def parse_property_txt(filepath: str) -> Dict[int, PropertyMetaData]:
                 bits_sum += bits
             except ValueError:
                 break
-            
-            field_col_idx += 4
         
         while len(fields) < 4:
             fields.append(PropertyField())
