@@ -415,9 +415,9 @@ def parse_itemstatcost_txt(filepath: str) -> dict[int, StatCostItem]:
                 col_idx[h.strip().lower()] = i
             continue
 
-        def get_col(name: str, default: str = "") -> str:
+        def get_col(name: str, default: str = "", _parts=parts) -> str:
             idx = col_idx.get(name.strip().lower(), -1)
-            return parts[idx].strip() if 0 <= idx < len(parts) else default
+            return _parts[idx].strip() if 0 <= idx < len(_parts) else default
 
         try:
             stat_id = int(get_col("*id", "-1"))

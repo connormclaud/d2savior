@@ -228,9 +228,9 @@ class D2DataLoader:
 
             parts = line.split("\t")
 
-            def get_col(col_name: str, default: str = "") -> str:
-                if col_name in col_map and col_map[col_name] < len(parts):
-                    return parts[col_map[col_name]]
+            def get_col(col_name: str, default: str = "", _parts=parts) -> str:
+                if col_name in col_map and col_map[col_name] < len(_parts):
+                    return _parts[col_map[col_name]]
                 return default
 
             def get_int(col_name: str, default: int = 0) -> int:
@@ -303,9 +303,9 @@ class D2DataLoader:
 
             parts = line.split("\t")
 
-            def get_col(col_name: str, default: str = "") -> str:
-                if col_name in col_map and col_map[col_name] < len(parts):
-                    return parts[col_map[col_name]]
+            def get_col(col_name: str, default: str = "", _parts=parts) -> str:
+                if col_name in col_map and col_map[col_name] < len(_parts):
+                    return _parts[col_map[col_name]]
                 return default
 
             def get_int(col_name: str, default: int = 0) -> int:
@@ -393,9 +393,9 @@ class D2DataLoader:
 
             parts = line.split("\t")
 
-            def get_col(col_name: str, default: str = "") -> str:
-                if col_name in col_map and col_map[col_name] < len(parts):
-                    return parts[col_map[col_name]]
+            def get_col(col_name: str, default: str = "", _parts=parts) -> str:
+                if col_name in col_map and col_map[col_name] < len(_parts):
+                    return _parts[col_map[col_name]]
                 return default
 
             def get_int(col_name: str, default: int = 0) -> int:
@@ -502,9 +502,9 @@ class D2DataLoader:
 
             parts = line.split("\t")
 
-            def get_col(col_name: str, default: str = "") -> str:
-                if col_name in col_map and col_map[col_name] < len(parts):
-                    return parts[col_map[col_name]]
+            def get_col(col_name: str, default: str = "", _parts=parts) -> str:
+                if col_name in col_map and col_map[col_name] < len(_parts):
+                    return _parts[col_map[col_name]]
                 return default
 
             def get_int(col_name: str, default: int = 0) -> int:
@@ -554,9 +554,9 @@ class D2DataLoader:
 
             parts = line.split("\t")
 
-            def get_col(col_name: str, default: str = "") -> str:
-                if col_name in col_map and col_map[col_name] < len(parts):
-                    return parts[col_map[col_name]]
+            def get_col(col_name: str, default: str = "", _parts=parts) -> str:
+                if col_name in col_map and col_map[col_name] < len(_parts):
+                    return _parts[col_map[col_name]]
                 return default
 
             def get_int(col_name: str, default: int = 0) -> int:
@@ -846,9 +846,9 @@ class D2DataLoader:
 
             parts = line.split("\t")
 
-            def get_col(col_name: str, default: str = "") -> str:
-                if col_name in col_map and col_map[col_name] < len(parts):
-                    return parts[col_map[col_name]]
+            def get_col(col_name: str, default: str = "", _parts=parts) -> str:
+                if col_name in col_map and col_map[col_name] < len(_parts):
+                    return _parts[col_map[col_name]]
                 return default
 
             def get_int(col_name: str, default: int = 0) -> int:
@@ -915,9 +915,9 @@ class D2DataLoader:
                 continue
             parts = line.split("\t")
 
-            def get_col(name: str, default: str = "") -> str:
+            def get_col(name: str, default: str = "", _parts=parts) -> str:
                 idx = col_map.get(name.strip().lower(), -1)
-                return parts[idx].strip() if 0 <= idx < len(parts) else default
+                return _parts[idx].strip() if 0 <= idx < len(_parts) else default
 
             type_name = get_col("itemtype")
             code = get_col("code")
