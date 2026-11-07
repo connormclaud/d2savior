@@ -64,7 +64,7 @@ def is_valid_version(version: int) -> bool:
     return version in VALID_VERSIONS
 
 
-@dataclass
+@dataclass(slots=True)
 class PropertyField:
     bits: int = 0
     base: int = 0
@@ -72,7 +72,7 @@ class PropertyField:
     max_val: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class PropertyMetaDataItem:
     ver_min: int = 0
     fields: list[PropertyField] = field(default_factory=list)
@@ -127,7 +127,7 @@ class PropertyMetaData:
         return best_match
 
 
-@dataclass
+@dataclass(slots=True)
 class ItemMetaData:
     type_id: bytes = b'    '
     ver_min: int = 0
@@ -373,7 +373,7 @@ PAIRED_STATS = {
 }
 
 
-@dataclass
+@dataclass(slots=True)
 class StatCostItem:
     stat_id: int = 0
     stat_name: str = ''

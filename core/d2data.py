@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass, field
 
 
-@dataclass
+@dataclass(slots=True)
 class StatInfo:
     stat_id: int = 0
     stat_name: str = ''
@@ -25,7 +25,7 @@ class StatInfo:
     descstr2: str = ''
 
 
-@dataclass
+@dataclass(slots=True)
 class PropertyInfo:
     prop_id: int = 0
     code: str = ''
@@ -59,7 +59,7 @@ class PropertyInfo:
     val7: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class MagicAffixInfo:
     name: str = ''
     affix_id: int = 0
@@ -67,20 +67,20 @@ class MagicAffixInfo:
     levelreq: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class UniqueItemInfo:
     index: str = ''
     unique_id: int = 0
     code: str = ''
 
 
-@dataclass
+@dataclass(slots=True)
 class SetItemInfo:
     name: str = ''
     set_id: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class RuneWordInfo:
     name: str = ''
     runeword_id: int = 0
@@ -88,7 +88,7 @@ class RuneWordInfo:
     key: str = ''
 
 
-@dataclass
+@dataclass(slots=True)
 class ItemTypeInfo:
     code: str = ''
     name: str = ''
@@ -130,7 +130,7 @@ class ItemTypeInfo:
     belt_rows: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class VersionData:
     """存储单个版本的所有数据"""
     stats: dict[int, StatInfo] = field(default_factory=dict)
