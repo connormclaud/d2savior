@@ -723,10 +723,7 @@ class D2SStruct:
         else:
             name_data = self.name
         null_pos = name_data.find(b"\x00")
-        if null_pos != -1:
-            name_bytes = name_data[:null_pos]
-        else:
-            name_bytes = name_data
+        name_bytes = name_data[:null_pos] if null_pos != -1 else name_data
         if self.version >= 0x62:
             name = name_bytes.decode("utf-8", errors="replace")
         else:
