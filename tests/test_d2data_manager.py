@@ -84,6 +84,8 @@ class TestD2DataManager:
 
     def test_resolve_path_fallback(self):
         """测试_resolve_path覆盖链回退逻辑"""
+        from importlib.resources.abc import Traversable
+
         loader = D2DataLoader()
 
         v63_dir = os.path.join(self.data_dir, "0x63")
@@ -92,12 +94,14 @@ class TestD2DataManager:
 
         # 0x63目录中存在的文件优先
         path = loader._resolve_path("Armor.txt", search_dirs)
-        assert path.startswith(v63_dir), "应优先从0x63目录加载"
+        assert isinstance(path, Traversable)
+        assert str(path).startswith(v63_dir), "应优先从0x63目录加载"
 
         # 0x63中不存在但在d2r中存在的文件
         path = loader._resolve_path("Properties.txt", search_dirs)
-        assert path.startswith(d2r_dir), "缺失文件应从d2r基础目录回退加载"
-        assert "0x63" not in path
+        assert isinstance(path, Traversable)
+        assert str(path).startswith(d2r_dir), "缺失文件应从d2r基础目录回退加载"
+        assert "0x63" not in str(path)
 
         # 都不存在的文件抛出FileNotFoundError
         import pytest

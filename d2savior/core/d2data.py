@@ -1,11 +1,26 @@
 import copy
-import os
-from collections.abc import Buffer
+import importlib.resources
+from collections.abc import Buffer, Sequence
 from dataclasses import dataclass, field
+from importlib.resources.abc import Traversable
 from itertools import batched
-from typing import Any, ClassVar
+from pathlib import Path
+from typing import IO, Any, ClassVar
 
 type ItemTypeId = Buffer | str
+
+
+def _open_resource(
+    filepath: str | Traversable,
+    encoding: str = "utf-8",
+    errors: str | None = None,
+) -> IO[str]:
+    p = Path(filepath) if isinstance(filepath, str) else filepath
+    if not p.is_file():
+        raise FileNotFoundError(f"Required data file not found: {filepath}")
+    if errors is not None:
+        return p.open("r", encoding=encoding, errors=errors)
+    return p.open("r", encoding=encoding)
 
 
 @dataclass(slots=True)
@@ -471,14 +486,13 @@ class D2DataLoader:
     def __init__(self) -> None:
         pass
 
-    def load_itemstatcost(self, filepath: str) -> tuple[dict[int, StatInfo], dict[str, StatInfo]]:
+    def load_itemstatcost(
+        self, filepath: str | Traversable
+    ) -> tuple[dict[int, StatInfo], dict[str, StatInfo]]:
         stats = {}
         stats_by_name = {}
 
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
-
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
@@ -545,15 +559,12 @@ class D2DataLoader:
         return stats, stats_by_name
 
     def load_properties(
-        self, filepath: str
+        self, filepath: str | Traversable
     ) -> tuple[dict[int, PropertyInfo], dict[str, PropertyInfo]]:
         properties = {}
         properties_by_code = {}
 
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
-
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
@@ -637,13 +648,12 @@ class D2DataLoader:
 
         return properties, properties_by_code
 
-    def load_items_txt(self, filepath: str, item_category: str) -> dict[str, ItemTypeInfo]:
+    def load_items_txt(
+        self, filepath: str | Traversable, item_category: str
+    ) -> dict[str, ItemTypeInfo]:
         items = {}
 
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
-
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
@@ -746,13 +756,12 @@ class D2DataLoader:
 
         return items
 
-    def load_magic_affix(self, filepath: str, is_prefix: bool) -> dict[int, MagicAffixInfo]:
+    def load_magic_affix(
+        self, filepath: str | Traversable, is_prefix: bool
+    ) -> dict[int, MagicAffixInfo]:
         affix_dict = {}
 
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
-
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
@@ -798,13 +807,10 @@ class D2DataLoader:
 
         return affix_dict
 
-    def load_unique_items(self, filepath: str) -> dict[int, UniqueItemInfo]:
+    def load_unique_items(self, filepath: str | Traversable) -> dict[int, UniqueItemInfo]:
         unique_items = {}
 
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
-
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
@@ -850,14 +856,15 @@ class D2DataLoader:
         return unique_items
 
     def load_runewords(
-        self, runes_path: str, json_path: str | None = None
+        self, runes_path: str | Traversable, json_path: str | Traversable | None = None
     ) -> dict[int, RuneWordInfo]:
         """Load runewords from game table (runes.txt) with localized names from item-runes.json."""
         import json
 
-        if json_path is None and runes_path.endswith(".json"):
-            json_file = runes_path
-            runes_file = None
+        name_str = runes_path if isinstance(runes_path, str) else runes_path.name
+        if json_path is None and name_str.endswith(".json"):
+            json_file: str | Traversable | None = runes_path
+            runes_file: str | Traversable | None = None
         elif json_path is None:
             json_file = None
             runes_file = runes_path
@@ -867,9 +874,7 @@ class D2DataLoader:
 
         json_by_key: dict[str, dict] = {}
         if json_file:
-            if not os.path.exists(json_file):
-                raise FileNotFoundError(f"Required data file not found: {json_file}")
-            with open(json_file, encoding="utf-8-sig") as f:
+            with _open_resource(json_file, encoding="utf-8-sig") as f:
                 data = json.load(f)
             for item in data:
                 key = item.get("Key", "")
@@ -879,9 +884,7 @@ class D2DataLoader:
         runewords: dict[int, RuneWordInfo] = {}
 
         if runes_file:
-            if not os.path.exists(runes_file):
-                raise FileNotFoundError(f"Required data file not found: {runes_file}")
-            with open(runes_file, encoding="utf-8-sig") as f:
+            with _open_resource(runes_file, encoding="utf-8-sig") as f:
                 lines = f.readlines()
             if lines:
                 header = lines[0].strip().split("\t")
@@ -941,24 +944,20 @@ class D2DataLoader:
 
         return runewords
 
-    def load_runes_txt(self, filepath: str, runewords: dict[int, RuneWordInfo]) -> None:
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
-
+    def load_runes_txt(
+        self, filepath: str | Traversable, runewords: dict[int, RuneWordInfo]
+    ) -> None:
         extra = self.load_runewords(filepath)
         for rw_id, rw in extra.items():
             if rw_id in runewords and rw.rune_codes and not runewords[rw_id].rune_codes:
                 runewords[rw_id].rune_codes = rw.rune_codes
 
-    def load_set_items(self, filepath: str) -> dict[int, SetItemInfo]:
+    def load_set_items(self, filepath: str | Traversable) -> dict[int, SetItemInfo]:
         set_items = {}
-
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         import json
 
-        with open(filepath, encoding="utf-8-sig") as f:
+        with _open_resource(filepath, encoding="utf-8-sig") as f:
             data = json.load(f)
 
         name_to_id = {}
@@ -1118,14 +1117,11 @@ class D2DataLoader:
 
         return set_items
 
-    def load_skills(self, filepath: str) -> tuple[dict[int, str], set[int]]:
+    def load_skills(self, filepath: str | Traversable) -> tuple[dict[int, str], set[int]]:
         skills = {}
         aura_skill_ids = set()
 
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
-
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
@@ -1183,17 +1179,14 @@ class D2DataLoader:
     }
 
     def load_itemtypes(
-        self, filepath: str
+        self, filepath: str | Traversable
     ) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, tuple[int, int]], set[str]]:
         type_ancestors = {}
         type_descendants = {}
         type_bodyloc = {}
         beltable_codes = set()
 
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
-
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
@@ -1278,34 +1271,44 @@ class D2DataLoader:
         return ancestors
 
     def _resolve_path(
-        self, filename: str, search_dirs: list[str] | str, fallback_dir: str | None = None
-    ) -> str:
+        self,
+        filename: str,
+        search_dirs: Sequence[str | Traversable] | str | Traversable,
+        fallback_dir: str | Traversable | None = None,
+    ) -> Traversable:
         """Resolve a file path across overlay search directories in priority order."""
-        if isinstance(search_dirs, str):
-            dirs = [search_dirs]
+        if isinstance(search_dirs, (str, Traversable)):
+            dirs: list[Traversable] = [
+                Path(search_dirs) if isinstance(search_dirs, str) else search_dirs
+            ]
             if fallback_dir:
-                dirs.append(fallback_dir)
+                dirs.append(Path(fallback_dir) if isinstance(fallback_dir, str) else fallback_dir)
         else:
-            dirs = search_dirs
+            dirs = [Path(d) if isinstance(d, str) else d for d in search_dirs]
 
+        parts = filename.replace("\\", "/").split("/")
         for d in dirs:
-            p = os.path.join(d, filename)
-            if os.path.exists(p):
+            p = d.joinpath(*parts)
+            if p.is_file():
                 return p
         raise FileNotFoundError(
-            f"Required data file '{filename}' not found in search paths: {dirs}"
+            f"Required data file '{filename}' not found in search paths: {[str(d) for d in dirs]}"
         )
 
     def load_version_data(
-        self, search_dirs: list[str] | str, fallback_dir: str | None = None
+        self,
+        search_dirs: Sequence[str | Traversable] | str | Traversable,
+        fallback_dir: str | Traversable | None = None,
     ) -> VersionData:
         """Load game data across the overlay directory chain."""
-        if isinstance(search_dirs, str):
-            dirs = [search_dirs]
+        if isinstance(search_dirs, (str, Traversable)):
+            dirs: list[Traversable] = [
+                Path(search_dirs) if isinstance(search_dirs, str) else search_dirs
+            ]
             if fallback_dir:
-                dirs.append(fallback_dir)
+                dirs.append(Path(fallback_dir) if isinstance(fallback_dir, str) else fallback_dir)
         else:
-            dirs = search_dirs
+            dirs = [Path(d) if isinstance(d, str) else d for d in search_dirs]
 
         version_data = VersionData()
 
@@ -1356,12 +1359,12 @@ class D2DataLoader:
         version_data.unique_items = self.load_unique_items(uniqueitems_path)
 
         # 加载set items
-        setitems_path = self._resolve_path(os.path.join("local", "item-names.json"), dirs)
+        setitems_path = self._resolve_path("local/item-names.json", dirs)
         version_data.set_items = self.load_set_items(setitems_path)
 
         # 加载runewords: parse runes.txt table, resolve translations from item-runes.json
         runes_txt_path = self._resolve_path("runes.txt", dirs)
-        runewords_path = self._resolve_path(os.path.join("local", "item-runes.json"), dirs)
+        runewords_path = self._resolve_path("local/item-runes.json", dirs)
         version_data.runewords = self.load_runewords(runes_txt_path, runewords_path)
 
         # 加载skills.txt
@@ -1378,12 +1381,10 @@ class D2DataLoader:
 
         return version_data
 
-    def load_property_meta(self, filepath: str) -> dict[int, PropertyMetaData]:
+    def load_property_meta(self, filepath: str | Traversable) -> dict[int, PropertyMetaData]:
         properties: dict[int, PropertyMetaData] = {}
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         for line in lines:
@@ -1454,12 +1455,10 @@ class D2DataLoader:
 
         return properties
 
-    def load_itemdata(self, filepath: str) -> ItemMetaDataManager:
+    def load_itemdata(self, filepath: str | Traversable) -> ItemMetaDataManager:
         manager = ItemMetaDataManager()
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         has_version_min = False
@@ -1558,7 +1557,7 @@ class GameData:
         self.default_version: int = 0x63
 
     @classmethod
-    def load(cls, base_data_dir: str) -> GameData:
+    def load(cls, base_data_dir: str | Traversable | None = None) -> GameData:
         mgr = cls()
         mgr.load_all_versions(base_data_dir)
         return mgr
@@ -1582,18 +1581,32 @@ class GameData:
     DEFAULT_OVERLAYS: ClassVar[list[str]] = ["d2r"]
 
     def load_version(
-        self, version: int, base_data_dir: str, fallback_dir: str | None = None
+        self,
+        version: int,
+        base_data_dir: str | Traversable | None = None,
+        fallback_dir: str | Traversable | None = None,
     ) -> bool:
-        # If base_data_dir is already a specific overlay dir (e.g. data/0x63), use it directly with fallback
-        if os.path.basename(base_data_dir) in ("0x63", "d2r", "0x69"):
-            search_dirs = [base_data_dir]
-            if fallback_dir:
-                search_dirs.append(fallback_dir)
+        if base_data_dir is None:
+            base_dir: Traversable = importlib.resources.files("d2savior").joinpath("data")
+        elif isinstance(base_data_dir, str):
+            base_dir = Path(base_data_dir)
+        else:
+            base_dir = base_data_dir
+
+        fb: Traversable | None = (
+            Path(fallback_dir) if isinstance(fallback_dir, str) else fallback_dir
+        )
+
+        # If base_dir is already a specific overlay dir (e.g. data/0x63), use it directly with fallback
+        if base_dir.name in ("0x63", "d2r", "0x69"):
+            search_dirs: list[Traversable] = [base_dir]
+            if fb:
+                search_dirs.append(fb)
         else:
             overlays = self.OVERLAY_CHAIN.get(version, self.DEFAULT_OVERLAYS)
-            search_dirs = [os.path.join(base_data_dir, d) for d in overlays]
-            if fallback_dir and fallback_dir not in search_dirs:
-                search_dirs.append(fallback_dir)
+            search_dirs = [base_dir.joinpath(d) for d in overlays]
+            if fb and fb not in search_dirs:
+                search_dirs.append(fb)
 
         loader = D2DataLoader()
         version_data = loader.load_version_data(search_dirs)
@@ -1601,12 +1614,19 @@ class GameData:
         self.version_data[version] = version_data
         return True
 
-    def load_all_versions(self, base_data_dir: str) -> bool:
-        if not os.path.exists(base_data_dir):
-            raise FileNotFoundError(f"Base data directory not found: {base_data_dir}")
+    def load_all_versions(self, base_data_dir: str | Traversable | None = None) -> bool:
+        if base_data_dir is None:
+            base_dir: Traversable = importlib.resources.files("d2savior").joinpath("data")
+        elif isinstance(base_data_dir, str):
+            base_dir = Path(base_data_dir)
+        else:
+            base_dir = base_data_dir
+
+        if not base_dir.is_dir():
+            raise FileNotFoundError(f"Base data directory not found: {base_dir}")
 
         for version in self.OVERLAY_CHAIN:
-            self.load_version(version, base_data_dir)
+            self.load_version(version, base_dir)
 
         return True
 
@@ -1614,8 +1634,8 @@ class GameData:
 _g_game_data: GameData | None = None
 
 
-def init_d2data(data_dir: str) -> bool:
-    """Initialize versioned game data from data_dir."""
+def init_d2data(data_dir: str | Traversable | None = None) -> bool:
+    """Initialize versioned game data from data_dir or bundled package data."""
     global _g_game_data
     _g_game_data = GameData.load(data_dir)
     return True

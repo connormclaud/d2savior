@@ -1,3 +1,5 @@
+export UV_OFFLINE ?= 1
+
 .PHONY: format
 format:
 	uv run ruff format .
@@ -10,7 +12,7 @@ lint:
 
 .PHONY: typecheck
 typecheck:
-	uv run ty check
+	uv run ty check d2savior tests
 
 .PHONY: check
 check: lint typecheck tests

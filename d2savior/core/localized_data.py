@@ -1,6 +1,8 @@
+import importlib.resources
 import json
-import os
 import re
+from importlib.resources.abc import Traversable
+from pathlib import Path
 from typing import ClassVar
 
 
@@ -21,16 +23,17 @@ class LocalizedDataLoader:
         self._raw: dict[str, list[dict]] = {}
         self._data: dict[str, dict[str, str]] = {}
         self._current_lang: str = "enUS"
-        self._data_dir: str = ""
+        self._data_dir: str | Traversable = ""
 
-    def load_json_file(self, filepath: str, lang_key: str = "enUS") -> bool:
-        if not os.path.exists(filepath):
+    def load_json_file(self, filepath: str | Traversable, lang_key: str = "enUS") -> bool:
+        p = Path(filepath) if isinstance(filepath, str) else filepath
+        if not p.is_file():
             raise FileNotFoundError(f"Required localized JSON file not found: {filepath}")
 
-        with open(filepath, encoding="utf-8-sig") as f:
+        with p.open("r", encoding="utf-8-sig") as f:
             raw_data = json.load(f)
 
-        file_key = os.path.basename(filepath)
+        file_key = p.name
         self._raw[file_key] = raw_data
         self._build_index(file_key, lang_key)
         return True
@@ -62,8 +65,19 @@ class LocalizedDataLoader:
         for file_key in self._raw:
             self._build_index(file_key, self._current_lang)
 
-    def load_all_localized_data(self, data_dir: str, lang_key: str = "enUS") -> dict[str, bool]:
-        self._data_dir = data_dir
+    def load_all_localized_data(
+        self, data_dir: str | Traversable | None = None, lang_key: str = "enUS"
+    ) -> dict[str, bool]:
+        if data_dir is None:
+            dir_res: Traversable = importlib.resources.files("d2savior").joinpath(
+                "data", "d2r", "local"
+            )
+        elif isinstance(data_dir, str):
+            dir_res = Path(data_dir)
+        else:
+            dir_res = data_dir
+
+        self._data_dir = dir_res
         self._current_lang = lang_key
         results = {}
 
@@ -88,7 +102,7 @@ class LocalizedDataLoader:
         ]
 
         for json_file in json_files:
-            filepath = os.path.join(data_dir, json_file)
+            filepath = dir_res.joinpath(json_file)
             results[json_file] = self.load_json_file(filepath, lang_key)
 
         return results
@@ -247,7 +261,9 @@ def get_localized_data() -> LocalizedDataLoader:
     return _g_localized_data
 
 
-def init_localized_data(data_dir: str, lang_key: str = "enUS") -> dict[str, bool]:
+def init_localized_data(
+    data_dir: str | Traversable | None = None, lang_key: str = "enUS"
+) -> dict[str, bool]:
     global _g_localized_data
     if _g_localized_data is None:
         _g_localized_data = LocalizedDataLoader()

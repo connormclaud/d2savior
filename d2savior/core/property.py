@@ -1,4 +1,5 @@
-import os
+from importlib.resources.abc import Traversable
+from pathlib import Path
 from typing import Any, ClassVar
 
 
@@ -19,13 +20,14 @@ class LanguageData:
         self._section_strings: dict[str, dict[int, str]] = {}
         self._lang_index: int = 1
 
-    def load(self, filepath: str, lang_index: int = 1) -> bool:
-        if not os.path.exists(filepath):
+    def load(self, filepath: str | Traversable, lang_index: int = 1) -> bool:
+        p = Path(filepath) if isinstance(filepath, str) else filepath
+        if not p.is_file():
             return False
 
         self._lang_index = lang_index
 
-        with open(filepath, encoding="utf-8", errors="replace") as f:
+        with p.open("r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         self._strings = []
@@ -121,14 +123,15 @@ def init_language(filepath: str | None = None, lang_index: int = 1) -> bool:
     return True
 
 
-def init_item_modifiers(filepath: str, lang_key: str = "enUS") -> bool:
+def init_item_modifiers(filepath: str | Traversable, lang_key: str = "enUS") -> bool:
     global _g_item_modifiers, _g_item_modifiers_raw, _g_item_modifiers_lang
     import json
 
-    if not os.path.exists(filepath):
+    p = Path(filepath) if isinstance(filepath, str) else filepath
+    if not p.is_file():
         raise FileNotFoundError(f"Required item modifiers file not found: {filepath}")
 
-    with open(filepath, encoding="utf-8-sig") as f:
+    with p.open("r", encoding="utf-8-sig") as f:
         data = json.load(f)
 
     _g_item_modifiers_raw = data

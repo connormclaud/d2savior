@@ -2,8 +2,9 @@
 
 import datetime
 import importlib.resources
-import os
 from collections.abc import Callable
+from importlib.resources.abc import Traversable
+from pathlib import Path
 from typing import Any
 
 from d2savior.core.constants import (
@@ -36,14 +37,15 @@ type SkillInfo = tuple[int, str, int]
 type FormattedLines = list[str]
 
 
-def get_default_data_dir() -> str:
-    """Return the filesystem path to the bundled data directory."""
-    ref = importlib.resources.files("d2savior").joinpath("data")
-    return str(ref)
+def get_default_data_dir() -> Traversable:
+    """Return the Traversable reference to the bundled data directory."""
+    return importlib.resources.files("d2savior").joinpath("data")
 
 
 def ensure_data_loaded(
-    lang_key: str | None = None, data_dir: str | None = None, force: bool = False
+    lang_key: str | None = None,
+    data_dir: str | Traversable | None = None,
+    force: bool = False,
 ) -> None:
     """Ensure game and localization data are loaded into core managers."""
     mgr = get_game_data()
@@ -57,19 +59,23 @@ def ensure_data_loaded(
     actual_lang = lang_key if lang_key else (loc.current_lang or "enUS")
 
     if data_dir is None:
-        data_dir = get_default_data_dir()
+        data_res = get_default_data_dir()
+    elif isinstance(data_dir, str):
+        data_res = Path(data_dir)
+    else:
+        data_res = data_dir
 
-    if os.path.exists(data_dir):
-        init_d2data(data_dir)
+    if data_res.is_dir():
+        init_d2data(data_res)
 
-        local_data_dir = os.path.join(data_dir, "d2r", "local")
-        if not os.path.exists(local_data_dir):
-            local_data_dir = os.path.join(data_dir, "local")
-        if os.path.exists(local_data_dir):
+        local_data_dir = data_res.joinpath("d2r", "local")
+        if not local_data_dir.is_dir():
+            local_data_dir = data_res.joinpath("local")
+        if local_data_dir.is_dir():
             init_localized_data(local_data_dir, lang_key=actual_lang)
 
-        item_modifiers_file = os.path.join(local_data_dir, "item-modifiers.json")
-        if os.path.exists(item_modifiers_file):
+        item_modifiers_file = local_data_dir.joinpath("item-modifiers.json")
+        if item_modifiers_file.is_file():
             init_item_modifiers(item_modifiers_file, lang_key=actual_lang)
 
 

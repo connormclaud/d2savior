@@ -2,8 +2,12 @@ import os
 
 import pytest
 
-from d2savior.core.d2data import D2DataLoader, GameData
-from d2savior.core.localized_data import LocalizedDataLoader
+from d2savior.core.d2data import D2DataLoader, GameData, get_game_data, init_d2data
+from d2savior.core.localized_data import (
+    LocalizedDataLoader,
+    get_localized_data,
+    init_localized_data,
+)
 from d2savior.core.property import init_item_modifiers
 
 
@@ -143,3 +147,56 @@ class TestDataGuard:
         )
         missing = active_loader_files - actual_files
         assert not missing, f"Missing required loader files: {missing}"
+
+    def test_game_data_load_default_package_data(self):
+        game_data = GameData.load()
+        for version in (0x63, 0x69):
+            vd = game_data.for_version(version)
+            assert vd is not None
+            assert len(vd.items) > 0
+
+    def test_init_d2data_default(self):
+        assert init_d2data() is True
+        mgr = get_game_data()
+        assert mgr is not None
+        assert len(mgr.for_version(0x69).items) > 0
+
+    def test_init_localized_data_default(self):
+        results = init_localized_data()
+        assert len(results) == 17
+        for fname, ok in results.items():
+            assert ok is True, f"Failed to load localized file: {fname}"
+        loc = get_localized_data()
+        assert loc is not None
+        assert loc.current_lang == "enUS"
+
+    def test_traversable_zipfile_loading(self):
+        import io
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            # Minimal d2r base structure
+            zf.writestr(
+                "d2r/itemtypes.txt",
+                "ItemType\tCode\tEquiv1\tEquiv2\tbodyloc1\tbodyloc2\tbeltable\n",
+            )
+            zf.writestr("d2r/ItemStatCost.txt", "Stat\t*ID\n")
+            zf.writestr("d2r/Properties.txt", "code\t*ID\n")
+            zf.writestr("d2r/Armor.txt", "name\tcode\n")
+            zf.writestr("d2r/Weapons.txt", "name\tcode\n")
+            zf.writestr("d2r/Misc.txt", "name\tcode\n")
+            zf.writestr("d2r/magicprefix.txt", "Name\n")
+            zf.writestr("d2r/magicsuffix.txt", "Name\n")
+            zf.writestr("d2r/uniqueitems.txt", "index\t*ID\n")
+            zf.writestr("d2r/skills.txt", "skill\t*Id\n")
+            zf.writestr("d2r/itemdata.txt", "*ID\tVersionMin\n")
+            zf.writestr("d2r/property.txt", "*ID\n")
+            zf.writestr("d2r/runes.txt", "Name\t*Rune Name\n")
+            zf.writestr("d2r/local/item-names.json", "[]")
+            zf.writestr("d2r/local/item-runes.json", "[]")
+
+        zp = zipfile.Path(buf)
+        loader = D2DataLoader()
+        vd = loader.load_version_data([zp.joinpath("d2r")])
+        assert vd is not None
