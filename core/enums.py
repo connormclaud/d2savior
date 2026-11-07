@@ -1,4 +1,4 @@
-from enum import Enum, IntEnum
+from enum import IntEnum
 
 
 PLAYER_STATS_MAGIC = 0x6667
@@ -11,45 +11,48 @@ DEMON_MAGIC = 0x666C
 PLAYER_STATS_BITS_COUNT = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
 
 
-class StoredIn(IntEnum):
+class D2IntEnum(IntEnum):
+    """Base integer enum for Diablo II constants with display name support and fallback for unknown values."""
+
+    @property
+    def display_name(self) -> str:
+        names = self._display_names()
+        return names.get(self.value, self.name) if names else self.name
+
+    @classmethod
+    def _display_names(cls) -> dict[int, str]:
+        return {}
+
+    def __str__(self) -> str:
+        return self.display_name
+
+    @classmethod
+    def _missing_(cls, value):
+        obj = int.__new__(cls, value)
+        obj._name_ = f"Unknown({value})"
+        obj._value_ = value
+        return obj
+
+
+class StoredIn(D2IntEnum):
     INVENTORY = 0
     EQUIP = 1
     TRADE = 2
     CUBE = 3
     STASH = 4
     BELT = 5
-    
-    def __str__(self) -> str:
-        return self.name
-    
-    @classmethod
-    def _missing_(cls, value):
-        obj = int.__new__(cls, value)
-        obj._name_ = f"Unknown({value})"
-        obj._value_ = value
-        return obj
 
 
-class ItemLocation(IntEnum):
+class ItemLocation(D2IntEnum):
     STORED = 0
     EQUIPPED = 1
     BELT = 2
     CURSOR = 3
     ITEM = 4
     SOCKET = 6
-    
-    def __str__(self) -> str:
-        return self.name
-    
-    @classmethod
-    def _missing_(cls, value):
-        obj = int.__new__(cls, value)
-        obj._name_ = f"Unknown({value})"
-        obj._value_ = value
-        return obj
 
 
-class ItemQuality(IntEnum):
+class ItemQuality(D2IntEnum):
     LOW = 1
     NORMAL = 2
     HIGH = 3
@@ -58,19 +61,9 @@ class ItemQuality(IntEnum):
     RARE = 6
     UNIQUE = 7
     CRAFTED = 8
-    
-    def __str__(self) -> str:
-        return self.name
-    
-    @classmethod
-    def _missing_(cls, value):
-        obj = int.__new__(cls, value)
-        obj._name_ = f"Unknown({value})"
-        obj._value_ = value
-        return obj
 
 
-class EquipSlot(IntEnum):
+class EquipSlot(D2IntEnum):
     HELMET = 1
     AMULET = 2
     ARMOR = 3
@@ -84,9 +77,9 @@ class EquipSlot(IntEnum):
     WEAPON_II = 11
     SHIELD_II = 12
 
-    @property
-    def display_name(self) -> str:
-        names = {
+    @classmethod
+    def _display_names(cls) -> dict[int, str]:
+        return {
             1: "Helmet",
             2: "Amulet",
             3: "Armor",
@@ -100,14 +93,3 @@ class EquipSlot(IntEnum):
             11: "Weapon II",
             12: "Shield II",
         }
-        return names.get(self.value, f"Unknown({self.value})")
-
-    def __str__(self) -> str:
-        return self.display_name
-
-    @classmethod
-    def _missing_(cls, value):
-        obj = int.__new__(cls, value)
-        obj._name_ = f"Unknown({value})"
-        obj._value_ = value
-        return obj
