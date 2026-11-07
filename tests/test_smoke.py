@@ -5,6 +5,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+import difflib
 import subprocess
 import pytest
 
@@ -22,13 +23,27 @@ SORK_FULL_GOLDEN = os.path.join(GOLDEN_DIR, "sork_full.golden.txt")
 STASH_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_summary.golden.txt")
 STASH_FULL_GOLDEN = os.path.join(GOLDEN_DIR, "stash_full.golden.txt")
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI_SCRIPT = os.path.join(REPO_ROOT, "d2s_parse.py")
 
 
 def _read_golden(file_path: str) -> str:
     with open(file_path, "r", encoding="utf-8") as f:
         return f.read()
+
+
+def assert_matches_golden(actual: str, golden_path: str, name: str) -> None:
+    expected = _read_golden(golden_path)
+    if actual != expected:
+        diff = "".join(difflib.unified_diff(
+            expected.splitlines(keepends=True),
+            actual.splitlines(keepends=True),
+            fromfile=f"golden/{os.path.basename(golden_path)}",
+            tofile=f"actual/{name}",
+            n=3,
+        ))
+        if not diff:
+            diff = f"(No line diff; length or whitespace differs: expected={len(expected)}, actual={len(actual)})"
+        pytest.fail(f"Mismatch against golden for {name}:\n\n{diff}", pytrace=False)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -44,28 +59,28 @@ class TestSmokeAPI:
         assert kind == "char"
         assert data is not None
         output = FORMATTERS[(kind, True)](data) + "\n"
-        assert output == _read_golden(SORK_SUMMARY_GOLDEN)
+        assert_matches_golden(output, SORK_SUMMARY_GOLDEN, "sork_summary_api")
 
     def test_sork_full(self):
         kind, data, _ = parse_file(SORK_D2S)
         assert kind == "char"
         assert data is not None
         output = FORMATTERS[(kind, False)](data) + "\n"
-        assert output == _read_golden(SORK_FULL_GOLDEN)
+        assert_matches_golden(output, SORK_FULL_GOLDEN, "sork_full_api")
 
     def test_stash_summary(self):
         kind, data, _ = parse_file(STASH_D2I)
         assert kind == "stash"
         assert data is not None
         output = FORMATTERS[(kind, True)](data) + "\n"
-        assert output == _read_golden(STASH_SUMMARY_GOLDEN)
+        assert_matches_golden(output, STASH_SUMMARY_GOLDEN, "stash_summary_api")
 
     def test_stash_full(self):
         kind, data, _ = parse_file(STASH_D2I)
         assert kind == "stash"
         assert data is not None
         output = FORMATTERS[(kind, False)](data) + "\n"
-        assert output == _read_golden(STASH_FULL_GOLDEN)
+        assert_matches_golden(output, STASH_FULL_GOLDEN, "stash_full_api")
 
 
 class TestSmokeCLI:
@@ -79,7 +94,7 @@ class TestSmokeCLI:
             check=True,
             cwd=REPO_ROOT,
         )
-        assert res.stdout == _read_golden(SORK_SUMMARY_GOLDEN)
+        assert_matches_golden(res.stdout, SORK_SUMMARY_GOLDEN, "cli_sork_summary")
 
     def test_cli_sork_full(self):
         res = subprocess.run(
@@ -89,7 +104,7 @@ class TestSmokeCLI:
             check=True,
             cwd=REPO_ROOT,
         )
-        assert res.stdout == _read_golden(SORK_FULL_GOLDEN)
+        assert_matches_golden(res.stdout, SORK_FULL_GOLDEN, "cli_sork_full")
 
     def test_cli_stash_summary(self):
         res = subprocess.run(
@@ -99,7 +114,7 @@ class TestSmokeCLI:
             check=True,
             cwd=REPO_ROOT,
         )
-        assert res.stdout == _read_golden(STASH_SUMMARY_GOLDEN)
+        assert_matches_golden(res.stdout, STASH_SUMMARY_GOLDEN, "cli_stash_summary")
 
     def test_cli_stash_full(self):
         res = subprocess.run(
@@ -109,7 +124,7 @@ class TestSmokeCLI:
             check=True,
             cwd=REPO_ROOT,
         )
-        assert res.stdout == _read_golden(STASH_FULL_GOLDEN)
+        assert_matches_golden(res.stdout, STASH_FULL_GOLDEN, "cli_stash_full")
 
     def test_cli_multi_file_summary(self):
         res = subprocess.run(
