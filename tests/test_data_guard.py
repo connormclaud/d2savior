@@ -43,7 +43,7 @@ class TestDataGuard:
         with pytest.raises(FileNotFoundError):
             loader.load_runewords(bogus_path)
 
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(FileNotFoundError), pytest.deprecated_call():
             loader.load_runes_txt(bogus_path, {})  # ty: ignore[deprecated]
 
         with pytest.raises(FileNotFoundError):
@@ -110,6 +110,7 @@ class TestDataGuard:
             "d2r/magicsuffix.txt",
             "d2r/property.txt",
             "d2r/runes.txt",
+            "d2r/setitems.txt",
             "d2r/skills.txt",
             "d2r/uniqueitems.txt",
             # Localized files
@@ -193,6 +194,7 @@ class TestDataGuard:
             zf.writestr("d2r/itemdata.txt", "*ID\tVersionMin\n")
             zf.writestr("d2r/property.txt", "*ID\n")
             zf.writestr("d2r/runes.txt", "Name\t*Rune Name\n")
+            zf.writestr("d2r/setitems.txt", "index\t*ID\n")
             zf.writestr("d2r/local/item-names.json", "[]")
             zf.writestr("d2r/local/item-runes.json", "[]")
 

@@ -621,7 +621,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xE9A6F3F0
   Drop Level: 74
-  Set ID: 76 (Tal Rasha's Fine-Spun Cloth)
+  Set ID: 76 (Tal Rasha's Fire-Spun Cloth)
   Defence: 36
   Durability: 10/16
   Properties:

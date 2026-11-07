@@ -155,8 +155,10 @@ class TestD2DataManager:
     def test_warlock_set_items_0x69(self):
         """测试0x69版本术士套装物品数据"""
         expected = {
-            127: ("Warlord's Lust", 27388),
-            128: ("Warlord's Conquest", 27389),
+            76: ("Tal Rasha's Fire-Spun Cloth", 21816),
+            79: ("Tal Rasha's Howling Wind", 21818),
+            127: ("Warlord's Conquest", 27389),
+            128: ("Warlord's Lust", 27388),
             132: ("Bane's Oathmaker", 27641),
             135: ("Horazon's Countenance", 27644),
             136: ("Horazon's Dominion", 27645),
@@ -174,6 +176,17 @@ class TestD2DataManager:
             info_by_id = self.manager.for_version(0x69).get_set_item(item_id)
             assert info_by_id is not None, f"Missing set item by D2R id {item_id}"
             assert info_by_id.name == name
+
+        # Localized set names from item-names.json via GameDataResolver
+        from d2savior.core.d2data import GameDataResolver
+        from d2savior.core.localized_data import init_localized_data
+
+        init_localized_data(os.path.join(self.data_dir, "d2r", "local"), lang_key="enUS")
+        resolver = GameDataResolver(0x69, self.manager)
+        assert resolver.get_localized_set_name(76) == "Tal Rasha's Fine-Spun Cloth"
+        assert resolver.get_localized_set_name(79) == "Tal Rasha's Guardianship"
+        assert resolver.get_localized_set_name(68) == "Aldur's Rhythm"
+        assert resolver.get_localized_set_name(126) == "Sander's Superstition"
 
     def test_runeword_resolution_by_d2r_and_classic_id(self):
         """测试通过D2R字符串ID (20635) 和经典runes.txt索引 (130) 解析符文之语Spirit"""

@@ -1100,28 +1100,67 @@ class D2DataLoader:
         "Horazon's Secrets",
     )
 
-    def load_set_items(self, filepath: str | Traversable) -> dict[int, SetItemInfo]:
-        set_items = {}
-
+    def load_set_items(
+        self,
+        setitems_path: str | Traversable,
+        json_path: str | Traversable | None = None,
+    ) -> dict[int, SetItemInfo]:
+        """Load set items from game table (setitems.txt) with localized names from item-names.json."""
         import json
 
-        with _open_resource(filepath, encoding="utf-8-sig") as f:
-            data = json.load(f)
+        name_str = setitems_path if isinstance(setitems_path, str) else setitems_path.name
+        if json_path is None and name_str.endswith(".json"):
+            json_file: str | Traversable | None = setitems_path
+            table_file: str | Traversable | None = None
+        elif json_path is None:
+            json_file = None
+            table_file = setitems_path
+        else:
+            table_file = setitems_path
+            json_file = json_path
 
-        name_to_id = {}
-        for item in data:
-            if isinstance(item, dict):
-                key = item.get("Key", "")
-                item_id = item.get("id", 0)
-                if key and item_id:
-                    name_to_id[key] = item_id
+        json_by_key: dict[str, dict] = {}
+        if json_file:
+            with open_resource(json_file, encoding="utf-8-sig") as f:
+                data = json.load(f)
+            for item in data:
+                if isinstance(item, dict):
+                    key = item.get("Key", "")
+                    if key:
+                        json_by_key[key] = item
 
-        for idx, name in enumerate(self.SET_ITEM_NAMES):
-            item_id = name_to_id.get(name, 0)
-            set_info = SetItemInfo(name=name, set_id=item_id)
-            set_items[idx] = set_info
-            if item_id > 0 and item_id not in set_items:
-                set_items[item_id] = set_info
+        set_items: dict[int, SetItemInfo] = {}
+
+        if table_file:
+            with open_resource(table_file, encoding="utf-8-sig", errors="replace") as f:
+                lines = f.readlines()
+
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith("*"):
+                    continue
+                parts = line.split("\t")
+                if len(parts) < 2 or not parts[1].isdigit():
+                    continue
+
+                key = parts[0].strip()
+                row_id = int(parts[1])
+
+                json_entry = json_by_key.get(key, {})
+                d2r_id = json_entry.get("id", 0)
+
+                set_info = SetItemInfo(name=key, set_id=d2r_id)
+                set_items[row_id] = set_info
+                if d2r_id > 0 and d2r_id not in set_items:
+                    set_items[d2r_id] = set_info
+        else:
+            for idx, name in enumerate(self.SET_ITEM_NAMES):
+                json_entry = json_by_key.get(name, {})
+                item_id = json_entry.get("id", 0)
+                set_info = SetItemInfo(name=name, set_id=item_id)
+                set_items[idx] = set_info
+                if item_id > 0 and item_id not in set_items:
+                    set_items[item_id] = set_info
 
         return set_items
 
@@ -1372,9 +1411,10 @@ class D2DataLoader:
         uniqueitems_path = self._resolve_path("uniqueitems.txt", dirs)
         version_data.unique_items = self.load_unique_items(uniqueitems_path)
 
-        # 加载set items
-        setitems_path = self._resolve_path("local/item-names.json", dirs)
-        version_data.set_items = self.load_set_items(setitems_path)
+        # 加载set items: parse setitems.txt table, resolve translations from item-names.json
+        setitems_txt_path = self._resolve_path("setitems.txt", dirs)
+        setnames_path = self._resolve_path("local/item-names.json", dirs)
+        version_data.set_items = self.load_set_items(setitems_txt_path, setnames_path)
 
         # 加载runewords: parse runes.txt table, resolve translations from item-runes.json
         runes_txt_path = self._resolve_path("runes.txt", dirs)

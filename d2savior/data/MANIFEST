@@ -13,6 +13,7 @@ Raw TSV tables extracted from Blizzard CASC game storage:
 - itemtypes.txt (item type taxonomy, inheritance hierarchy, body locations, beltability)
 - magicprefix.txt, magicsuffix.txt (magical affix definitions and stat ranges)
 - uniqueitems.txt (unique item definitions and property assignments)
+- setitems.txt (set item definitions, item indices, and stat ranges)
 - runes.txt (runeword compositions, sockets, and rune requirements)
 - skills.txt (character and monster skill definitions, aura identifiers)
 
