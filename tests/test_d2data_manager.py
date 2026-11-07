@@ -83,22 +83,27 @@ class TestD2DataManager:
         assert len(v63.skills) > 0, "0x63技能数据应通过回退机制加载"
 
     def test_resolve_path_fallback(self):
-        """测试_resolve_path回退逻辑"""
+        """测试_resolve_path覆盖链回退逻辑"""
         loader = D2DataLoader()
 
-        # 版本目录中存在的文件
         v63_dir = os.path.join(self.data_dir, "0x63")
-        path = loader._resolve_path("Armor.txt", v63_dir, self.data_dir)
-        assert path.startswith(v63_dir), "应优先从版本目录加载"
+        d2r_dir = os.path.join(self.data_dir, "d2r")
+        search_dirs = [v63_dir, d2r_dir]
 
-        # 版本目录中不存在但根目录存在的文件
-        path = loader._resolve_path("Properties.txt", v63_dir, self.data_dir)
-        assert path.startswith(self.data_dir), "缺失文件应从根目录回退加载"
-        assert "0x63" not in path, "缺失文件应从根目录回退加载"
+        # 0x63目录中存在的文件优先
+        path = loader._resolve_path("Armor.txt", search_dirs)
+        assert path.startswith(v63_dir), "应优先从0x63目录加载"
 
-        # 两个目录都不存在的文件
-        path = loader._resolve_path("nonexistent.txt", v63_dir, self.data_dir)
-        assert "0x63" in path, "都不存在时应返回版本目录路径"
+        # 0x63中不存在但在d2r中存在的文件
+        path = loader._resolve_path("Properties.txt", search_dirs)
+        assert path.startswith(d2r_dir), "缺失文件应从d2r基础目录回退加载"
+        assert "0x63" not in path
+
+        # 都不存在的文件抛出FileNotFoundError
+        import pytest
+
+        with pytest.raises(FileNotFoundError):
+            loader._resolve_path("nonexistent.txt", search_dirs)
 
     def test_backward_compatibility(self):
         """测试向后兼容性"""

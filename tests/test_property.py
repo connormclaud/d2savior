@@ -91,7 +91,7 @@ class TestGetClassName:
         data_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
-        local_dir = os.path.join(data_dir, "local")
+        local_dir = os.path.join(data_dir, "d2r", "local")
         if os.path.exists(local_dir):
             init_localized_data(local_dir, lang_key="enUS")
 
@@ -119,7 +119,7 @@ class TestGetSkillName:
         )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
-            local_dir = os.path.join(data_dir, "local")
+            local_dir = os.path.join(data_dir, "d2r", "local")
             if os.path.exists(local_dir):
                 init_localized_data(local_dir, lang_key="enUS")
 
@@ -150,7 +150,7 @@ class TestGetMonsterName:
         )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
-            local_dir = os.path.join(data_dir, "local")
+            local_dir = os.path.join(data_dir, "d2r", "local")
             if os.path.exists(local_dir):
                 init_localized_data(local_dir, lang_key="enUS")
 
@@ -205,7 +205,7 @@ class TestFormatProperty:
         )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
-            item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
+            item_modifiers_file = os.path.join(data_dir, "d2r", "local", "item-modifiers.json")
             if os.path.exists(item_modifiers_file):
                 init_item_modifiers(item_modifiers_file, lang_key="enUS")
 
@@ -305,7 +305,7 @@ class TestFormatPropertySpecialCases:
         )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
-            item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
+            item_modifiers_file = os.path.join(data_dir, "d2r", "local", "item-modifiers.json")
             if os.path.exists(item_modifiers_file):
                 init_item_modifiers(item_modifiers_file, lang_key="enUS")
 

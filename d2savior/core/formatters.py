@@ -62,11 +62,13 @@ def ensure_data_loaded(
     if os.path.exists(data_dir):
         init_d2data(data_dir)
 
-        local_data_dir = os.path.join(data_dir, "local")
+        local_data_dir = os.path.join(data_dir, "d2r", "local")
+        if not os.path.exists(local_data_dir):
+            local_data_dir = os.path.join(data_dir, "local")
         if os.path.exists(local_data_dir):
             init_localized_data(local_data_dir, lang_key=actual_lang)
 
-        item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
+        item_modifiers_file = os.path.join(local_data_dir, "item-modifiers.json")
         if os.path.exists(item_modifiers_file):
             init_item_modifiers(item_modifiers_file, lang_key=actual_lang)
 

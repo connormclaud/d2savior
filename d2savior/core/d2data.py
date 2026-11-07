@@ -1239,28 +1239,40 @@ class D2DataLoader:
                     ancestors.update(self._build_ancestors(equiv, type_equivs, visited))
         return ancestors
 
-    def _resolve_path(self, filename: str, data_dir: str, fallback_dir: str | None = None) -> str:
-        """解析文件路径，优先从版本目录加载，缺失时回退到根目录"""
-        path = os.path.join(data_dir, filename)
-        if os.path.exists(path):
-            return path
-        if fallback_dir:
-            fallback_path = os.path.join(fallback_dir, filename)
-            if os.path.exists(fallback_path):
-                return fallback_path
-        return path
+    def _resolve_path(
+        self, filename: str, search_dirs: list[str] | str, fallback_dir: str | None = None
+    ) -> str:
+        """Resolve a file path across overlay search directories in priority order."""
+        if isinstance(search_dirs, str):
+            dirs = [search_dirs]
+            if fallback_dir:
+                dirs.append(fallback_dir)
+        else:
+            dirs = search_dirs
 
-    def load_version_data(self, data_dir: str, fallback_dir: str | None = None) -> VersionData:
-        """加载单个版本的所有数据
+        for d in dirs:
+            p = os.path.join(d, filename)
+            if os.path.exists(p):
+                return p
+        raise FileNotFoundError(
+            f"Required data file '{filename}' not found in search paths: {dirs}"
+        )
 
-        Args:
-            data_dir: 版本数据目录（如 data/0x63/）
-            fallback_dir: 回退目录，当版本目录中缺失文件时从此目录加载（如 data/）
-        """
+    def load_version_data(
+        self, search_dirs: list[str] | str, fallback_dir: str | None = None
+    ) -> VersionData:
+        """Load game data across the overlay directory chain."""
+        if isinstance(search_dirs, str):
+            dirs = [search_dirs]
+            if fallback_dir:
+                dirs.append(fallback_dir)
+        else:
+            dirs = search_dirs
+
         version_data = VersionData()
 
         # 加载itemtypes.txt（需要先加载，因为其他数据可能依赖它）
-        itemtypes_path = self._resolve_path("itemtypes.txt", data_dir, fallback_dir)
+        itemtypes_path = self._resolve_path("itemtypes.txt", dirs)
         (
             version_data.type_ancestors,
             version_data.type_descendants,
@@ -1269,68 +1281,64 @@ class D2DataLoader:
         ) = self.load_itemtypes(itemtypes_path)
 
         # 加载ItemStatCost.txt
-        itemstatcost_path = self._resolve_path("ItemStatCost.txt", data_dir, fallback_dir)
+        itemstatcost_path = self._resolve_path("ItemStatCost.txt", dirs)
         version_data.stats, version_data.stats_by_name = self.load_itemstatcost(itemstatcost_path)
 
         # 加载Properties.txt
-        properties_path = self._resolve_path("Properties.txt", data_dir, fallback_dir)
+        properties_path = self._resolve_path("Properties.txt", dirs)
         version_data.properties, version_data.properties_by_code = self.load_properties(
             properties_path
         )
 
         # 加载Armor.txt
-        armor_path = self._resolve_path("Armor.txt", data_dir, fallback_dir)
+        armor_path = self._resolve_path("Armor.txt", dirs)
         armor_items = self.load_items_txt(armor_path, "armor")
         version_data.items.update(armor_items)
 
         # 加载Weapons.txt
-        weapons_path = self._resolve_path("Weapons.txt", data_dir, fallback_dir)
+        weapons_path = self._resolve_path("Weapons.txt", dirs)
         weapons_items = self.load_items_txt(weapons_path, "weapon")
         version_data.items.update(weapons_items)
 
         # 加载Misc.txt
-        misc_path = self._resolve_path("Misc.txt", data_dir, fallback_dir)
+        misc_path = self._resolve_path("Misc.txt", dirs)
         misc_items = self.load_items_txt(misc_path, "misc")
         version_data.items.update(misc_items)
 
         # 加载magicprefix.txt
-        magicprefix_path = self._resolve_path("magicprefix.txt", data_dir, fallback_dir)
+        magicprefix_path = self._resolve_path("magicprefix.txt", dirs)
         version_data.magic_prefixes = self.load_magic_affix(magicprefix_path, is_prefix=True)
 
         # 加载magicsuffix.txt
-        magicsuffix_path = self._resolve_path("magicsuffix.txt", data_dir, fallback_dir)
+        magicsuffix_path = self._resolve_path("magicsuffix.txt", dirs)
         version_data.magic_suffixes = self.load_magic_affix(magicsuffix_path, is_prefix=False)
 
         # 加载uniqueitems.txt
-        uniqueitems_path = self._resolve_path("uniqueitems.txt", data_dir, fallback_dir)
+        uniqueitems_path = self._resolve_path("uniqueitems.txt", dirs)
         version_data.unique_items = self.load_unique_items(uniqueitems_path)
 
         # 加载set items
-        setitems_path = self._resolve_path(
-            os.path.join("local", "item-names.json"), data_dir, fallback_dir
-        )
+        setitems_path = self._resolve_path(os.path.join("local", "item-names.json"), dirs)
         version_data.set_items = self.load_set_items(setitems_path)
 
         # 加载runewords
-        runewords_path = self._resolve_path(
-            os.path.join("local", "item-runes.json"), data_dir, fallback_dir
-        )
+        runewords_path = self._resolve_path(os.path.join("local", "item-runes.json"), dirs)
         version_data.runewords = self.load_runewords(runewords_path)
 
         # 加载runes.txt补充符文列表
-        runes_txt_path = self._resolve_path("runes.txt", data_dir, fallback_dir)
+        runes_txt_path = self._resolve_path("runes.txt", dirs)
         self.load_runes_txt(runes_txt_path, version_data.runewords)
 
         # 加载skills.txt
-        skills_path = self._resolve_path("skills.txt", data_dir, fallback_dir)
+        skills_path = self._resolve_path("skills.txt", dirs)
         version_data.skills, version_data.aura_skill_ids = self.load_skills(skills_path)
 
         # Load itemdata.txt
-        itemdata_path = self._resolve_path("itemdata.txt", data_dir, fallback_dir)
+        itemdata_path = self._resolve_path("itemdata.txt", dirs)
         version_data.item_manager = self.load_itemdata(itemdata_path)
 
         # Load property.txt
-        property_path = self._resolve_path("property.txt", data_dir, fallback_dir)
+        property_path = self._resolve_path("property.txt", dirs)
         version_data.prop_meta = self.load_property_meta(property_path)
 
         return version_data
@@ -1532,12 +1540,28 @@ class GameData:
             return next(iter(self.version_data.values()))
         raise KeyError(f"No game data loaded for version {version:#x}")
 
-    def load_version(self, version: int, data_dir: str, fallback_dir: str | None = None) -> bool:
-        if not os.path.exists(data_dir):
-            raise FileNotFoundError(f"Version data directory not found: {data_dir}")
+    OVERLAY_CHAIN: ClassVar[dict[int, list[str]]] = {
+        0x63: ["0x63", "d2r"],
+        0x69: ["d2r"],
+    }
+    DEFAULT_OVERLAYS: ClassVar[list[str]] = ["d2r"]
+
+    def load_version(
+        self, version: int, base_data_dir: str, fallback_dir: str | None = None
+    ) -> bool:
+        # If base_data_dir is already a specific overlay dir (e.g. data/0x63), use it directly with fallback
+        if os.path.basename(base_data_dir) in ("0x63", "d2r", "0x69"):
+            search_dirs = [base_data_dir]
+            if fallback_dir:
+                search_dirs.append(fallback_dir)
+        else:
+            overlays = self.OVERLAY_CHAIN.get(version, self.DEFAULT_OVERLAYS)
+            search_dirs = [os.path.join(base_data_dir, d) for d in overlays]
+            if fallback_dir and fallback_dir not in search_dirs:
+                search_dirs.append(fallback_dir)
 
         loader = D2DataLoader()
-        version_data = loader.load_version_data(data_dir, fallback_dir)
+        version_data = loader.load_version_data(search_dirs)
         version_data.version = version
         self.version_data[version] = version_data
         return True
@@ -1546,21 +1570,10 @@ class GameData:
         if not os.path.exists(base_data_dir):
             raise FileNotFoundError(f"Base data directory not found: {base_data_dir}")
 
-        success = True
+        for version in self.OVERLAY_CHAIN:
+            self.load_version(version, base_data_dir)
 
-        v63_dir = os.path.join(base_data_dir, "0x63")
-        if os.path.exists(v63_dir):
-            if not self.load_version(0x63, v63_dir, base_data_dir):
-                success = False
-        else:
-            if not self.load_version(0x63, base_data_dir):
-                success = False
-
-        v69_dir = os.path.join(base_data_dir, "0x69")
-        if os.path.exists(v69_dir) and not self.load_version(0x69, v69_dir, base_data_dir):
-            success = False
-
-        return success
+        return True
 
 
 _g_game_data: GameData | None = None

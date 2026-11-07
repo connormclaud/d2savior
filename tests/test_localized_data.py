@@ -14,7 +14,11 @@ from d2savior.core.localized_data import (
 class TestLocalizedDataLoader:
     def setup_method(self):
         self.data_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data", "local"
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "d2savior",
+            "data",
+            "d2r",
+            "local",
         )
         self.loader = LocalizedDataLoader()
 
@@ -109,7 +113,11 @@ class TestLocalizedDataLoader:
 class TestGlobalLocalizedData:
     def setup_method(self):
         self.data_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data", "local"
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "d2savior",
+            "data",
+            "d2r",
+            "local",
         )
 
     def test_init_localized_data(self):

@@ -31,7 +31,7 @@ def init_data():
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
     )
     init_d2data(data_dir)
-    init_localized_data(os.path.join(data_dir, "local"), lang_key="enUS")
+    init_localized_data(os.path.join(data_dir, "d2r", "local"), lang_key="enUS")
 
 
 class Test0x69Warlock:

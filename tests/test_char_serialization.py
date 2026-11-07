@@ -22,7 +22,7 @@ class TestCharSerialization:
         )
 
         init_d2data(data_dir)
-        init_localized_data(os.path.join(data_dir, "local"), lang_key="enUS")
+        init_localized_data(os.path.join(data_dir, "d2r", "local"), lang_key="enUS")
         cls.game_data = get_game_data()
 
     def _test_char_roundtrip(self, save_file):

@@ -14,7 +14,7 @@ from d2savior.core.property import init_item_modifiers, init_language
 def init_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     data_dir = os.path.join(base_dir, "d2savior", "data")
-    local_dir = os.path.join(data_dir, "local")
+    local_dir = os.path.join(data_dir, "d2r", "local")
 
     init_d2data(data_dir)
     init_localized_data(local_dir, lang_key="enUS")
