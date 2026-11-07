@@ -14,12 +14,12 @@ from d2savior.core.formatters import (
 from d2savior.core.item import (
     D2Item,
     ExtItemInfo,
-    GoldQuantity,
     ItemInfo,
     ItemList,
-    PropertyList,
     TypeSpecificInfo,
 )
+from d2savior.core.item_name import GoldQuantity
+from d2savior.core.property_list import PropertyList
 from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     STASH_TAB_TYPE_NORMAL,

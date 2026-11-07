@@ -15,22 +15,19 @@ from d2savior.core.d2data import (
     get_game_data,
     init_d2data,
 )
+from d2savior.core.ear import Ear, is_ptr24_and_above
 from d2savior.core.huffman import get_huffman
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import (
     D2Item,
-    Ear,
     ExtItemInfo,
-    GoldQuantity,
     ItemInfo,
-    LongName,
-    PropertyList,
     TypeSpecificInfo,
-    is_d2r,
-    is_ptr24_and_above,
     is_valid_version,
 )
+from d2savior.core.item_name import GoldQuantity, LongName
 from d2savior.core.obitstream import OBitStream
+from d2savior.core.property_list import PropertyList, is_d2r
 
 
 class TestItemMetaData:
@@ -221,12 +218,6 @@ class TestCTypeSpecificInfo:
             type_info.deserialize(
                 bs,
                 version=0x63,
-                has_def=False,
-                has_dur=False,
-                is_socketed=False,
-                is_stacked=False,
-                is_set=False,
-                is_runeword=False,
                 data=None,
             )
 

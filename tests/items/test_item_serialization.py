@@ -8,7 +8,7 @@ from d2savior.core.d2data import GameData, get_game_data
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.formatters import ensure_data_loaded
 from d2savior.core.ibitstream import IBitStream
-from d2savior.core.item import D2Item
+from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
 from d2savior.core.obitstream import OBitStream
 from d2savior.core.stash import SharedStash
 
@@ -394,6 +394,207 @@ class TestItemSerialization(unittest.TestCase):
         assert new_item.version == char.version
         assert new_item._data is not None
         assert new_item._data.version == char.version
+
+    def test_roundtrip_gold_item_d2r(self):
+        vd = self.game_data.for_version(0x69)
+        meta = vd.get_item_meta(b"gld ")
+        assert meta is not None
+
+        item = D2Item()
+        item.version = 0x69
+        item.is_simple = False
+        item._meta = meta
+        item.item_info = ItemInfo(meta)
+        item.item_info.type_name = b"gld "
+        item.item_info.ext_info = ExtItemInfo(meta)
+        item.item_info.type_specific_info = TypeSpecificInfo(meta)
+
+        from d2savior.core.item_name import GoldQuantity
+
+        gold = GoldQuantity()
+        gold.quantity = 1234
+        gold.is_not_gold = False
+        item.item_info.gold = gold
+
+        obs = OBitStream()
+        item.serialize(obs, 0x69, write_magic=True, data=self.game_data)
+        data = obs.get_data()
+
+        item2 = D2Item()
+        item2.deserialize(IBitStream(data), data=self.game_data)
+
+        assert item2.item_info is not None
+        assert item2.item_info.is_gold()
+        assert item2.item_info.gold is not None
+        assert item2.item_info.gold.quantity == 1234
+        assert not item2.item_info.gold.is_not_gold
+
+        obs2 = OBitStream()
+        item2.serialize(obs2, 0x69, write_magic=True, data=self.game_data)
+        assert data == obs2.get_data()
+
+    def test_roundtrip_chronicle_compact_d2r(self):
+        vd = self.game_data.for_version(0x69)
+        meta = vd.get_item_meta(b"rin ")
+        assert meta is not None
+
+        item = D2Item()
+        item.version = 0x69
+        item.is_simple = False
+        item._meta = meta
+        item.item_info = ItemInfo(meta)
+        item.item_info.type_name = b"rin "
+        item.item_info.ext_info = ExtItemInfo(meta)
+        item.item_info.type_specific_info = TypeSpecificInfo(meta)
+        item._is_chronicle = True
+        item._is_chronicle_compact = True
+        item.chronicle_id = 42
+        item.chronicle_compact_data = 0x123456789ABCDEF0
+
+        obs = OBitStream()
+        item.serialize(obs, 0x69, write_magic=True, data=self.game_data)
+        data = obs.get_data()
+
+        item2 = D2Item()
+        item2.deserialize(IBitStream(data), data=self.game_data)
+
+        assert item2._is_chronicle
+        assert item2._is_chronicle_compact
+        assert item2.chronicle_id == 42
+        assert item2.chronicle_compact_data == 0x123456789ABCDEF0
+
+        obs2 = OBitStream()
+        item2.serialize(obs2, 0x69, write_magic=True, data=self.game_data)
+        assert data == obs2.get_data()
+
+    def test_roundtrip_chronicle_multi_entry_d2r(self):
+        vd = self.game_data.for_version(0x69)
+        meta = vd.get_item_meta(b"amu ")
+        assert meta is not None
+
+        item = D2Item()
+        item.version = 0x69
+        item.is_simple = False
+        item._meta = meta
+        item.item_info = ItemInfo(meta)
+        item.item_info.type_name = b"amu "
+        item.item_info.ext_info = ExtItemInfo(meta)
+        item.item_info.type_specific_info = TypeSpecificInfo(meta)
+        item._is_chronicle = True
+        item._is_chronicle_compact = False
+        item.chronicle_id = 99
+        item.chronicle_data_header = 0xAABBCCDD
+        item.chronicle_entries = [0x1111222233334444, 0x5555666677778888]
+
+        obs = OBitStream()
+        item.serialize(obs, 0x69, write_magic=True, data=self.game_data)
+        data = obs.get_data()
+
+        item2 = D2Item()
+        item2.deserialize(IBitStream(data), data=self.game_data)
+
+        assert item2._is_chronicle
+        assert not item2._is_chronicle_compact
+        assert item2.chronicle_id == 99
+        assert item2.chronicle_data_header == 0xAABBCCDD
+        assert item2.chronicle_entries == [0x1111222233334444, 0x5555666677778888]
+
+        obs2 = OBitStream()
+        item2.serialize(obs2, 0x69, write_magic=True, data=self.game_data)
+        assert data == obs2.get_data()
+
+    def test_roundtrip_ear_item(self):
+        from d2savior.core.ear import Ear
+
+        item = D2Item()
+        item.version = 0x69
+        item.is_ear = True
+        ear = Ear("HeroKiller")
+        ear.ear_class = 3
+        ear.ear_level = 85
+        item.ear = ear
+
+        obs = OBitStream()
+        item.serialize(obs, 0x69, write_magic=True, data=self.game_data)
+        data = obs.get_data()
+
+        item2 = D2Item()
+        item2.deserialize(IBitStream(data), data=self.game_data)
+
+        assert item2.is_ear
+        assert item2.ear is not None
+        assert item2.ear.ear_name == "HeroKiller"
+        assert item2.ear.ear_class == 3
+        assert item2.ear.ear_level == 85
+
+        obs2 = OBitStream()
+        item2.serialize(obs2, 0x69, write_magic=True, data=self.game_data)
+        assert data == obs2.get_data()
+
+    def test_flag_mutation_on_loaded_item(self):
+        sork_path = os.path.join(self.fixtures_dir, "sork.d2s")
+        if not os.path.exists(sork_path):
+            self.skipTest(f"Test file not found: {sork_path}")
+        with open(sork_path, "rb") as f:
+            d2s_data = f.read()
+        char = D2SStruct()
+        char.deserialize(IBitStream(d2s_data), data=self.game_data)
+        item = char.item_list.items[0]
+        assert item.is_identified is True
+
+        item.is_identified = False
+        obs = OBitStream()
+        item.serialize(obs, char.version, write_magic=True, data=self.game_data)
+
+        item2 = D2Item()
+        item2.deserialize(IBitStream(obs.get_data()), data=self.game_data)
+        assert item2.is_identified is False
+
+    def test_d2item_serialize_default_version(self):
+        item = D2Item()
+        assert item.version == 0
+        obs = OBitStream()
+        item.serialize(obs, 0x69, write_magic=True, data=self.game_data)
+
+        item2 = D2Item()
+        item2.deserialize(IBitStream(obs.get_data()), data=self.game_data)
+        assert item2.version == 0x69
+
+    def test_roundtrip_classic_ear(self):
+        from d2savior.core.ear import Ear
+
+        ear = Ear("ClassicHero")
+        ear.ear_class = 2
+        ear.ear_level = 42
+
+        obs = OBitStream()
+        ear.serialize(obs, 0x60)
+        data = obs.get_data()
+
+        ear2 = Ear()
+        ear2.deserialize(IBitStream(data), 0x60)
+        assert ear2.ear_name == "ClassicHero"
+        assert ear2.ear_class == 2
+        assert ear2.ear_level == 42
+
+        item = D2Item()
+        item.version = 0x60
+        item.is_ear = True
+        item.ear = Ear("PVPVictim")
+        item.ear.ear_class = 1
+        item.ear.ear_level = 70
+
+        obs_item = OBitStream()
+        item.serialize(obs_item, 0x60, write_magic=True)
+        item_data = obs_item.get_data()
+
+        item2 = D2Item()
+        item2.deserialize(IBitStream(item_data), 0x60, read_magic=True)
+        assert item2.is_ear
+        assert item2.ear is not None
+        assert item2.ear.ear_name == "PVPVictim"
+        assert item2.ear.ear_class == 1
+        assert item2.ear.ear_level == 70
 
 
 if __name__ == "__main__":

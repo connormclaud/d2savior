@@ -350,7 +350,8 @@ class TestFormatPropertySpecialCases:
 class TestFormatItemInfoSetProperties:
     def test_format_item_info_with_set_properties(self):
         from d2savior.core.formatters import format_item_info
-        from d2savior.core.item import D2Item, ItemInfo, PropertyList, TypeSpecificInfo
+        from d2savior.core.item import D2Item, ItemInfo, TypeSpecificInfo
+        from d2savior.core.property_list import PropertyList
 
         item = D2Item()
         item.item_info = ItemInfo()

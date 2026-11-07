@@ -1,27 +1,19 @@
 from collections.abc import Iterator
 from typing import ClassVar
 
+from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 from d2savior.core.d2data import (
     GameData,
     ItemMetaData,
     VersionData,
     get_game_data,
 )
+from d2savior.core.ear import Ear, is_ptr24_and_above
 from d2savior.core.enums import ITEM_LIST_MAGIC
-from d2savior.core.huffman import get_huffman
 from d2savior.core.ibitstream import IBitStream
+from d2savior.core.item_name import GoldQuantity, LongName
 from d2savior.core.obitstream import OBitStream
-
-type RawProperty = tuple[int, int, int]
-
-
-def is_d2r(version: int) -> bool:
-    return version >= 0x61
-
-
-def is_ptr24_and_above(version: int) -> bool:
-    return version >= 0x62
-
+from d2savior.core.property_list import PropertyList, is_d2r
 
 VALID_VERSIONS = [0x69, 0x63, 0x62, 0x61, 0x60, 0x5C, 0x59, 0x57, 0x47]
 
@@ -30,318 +22,9 @@ def is_valid_version(version: int) -> bool:
     return version in VALID_VERSIONS
 
 
-PAIRED_STATS = {
-    17: [18],
-    48: [49],
-    50: [51],
-    52: [53],
-    54: [55, 56],
-    57: [58, 59],
-}
-
-
-class Ear:
-    def __init__(self, name: str = "") -> None:
-        self.ear_class = 0
-        self.ear_level = 1
-        self.ear_name = name
-
-    def deserialize(self, bs: IBitStream, version: int) -> None:
-        self.ear_class = bs.read_bits(3)
-        self.ear_level = bs.read_bits(7)
-        bits_per_char = 8 if is_ptr24_and_above(version) else 7
-        max_len = 15 if not is_ptr24_and_above(version) else 60
-        name_bytes = []
-        for _ in range(max_len):
-            c = bs.read_bits(bits_per_char)
-            if c == 0:
-                break
-            name_bytes.append(c)
-        try:
-            self.ear_name = bytes(name_bytes).decode("utf-8")
-        except UnicodeDecodeError:
-            self.ear_name = bytes(name_bytes).decode("latin-1", errors="replace")
-
-    def is_valid(self) -> bool:
-        return self.ear_level > 0
-
-    def serialize(self, bs: OBitStream, version: int) -> None:
-        bs.write_bits(3, self.ear_class)
-        bs.write_bits(7, self.ear_level)
-        bits_per_char = 8 if is_ptr24_and_above(version) else 7
-        name_bytes = (
-            self.ear_name.encode("utf-8") if isinstance(self.ear_name, str) else self.ear_name
-        )
-        for c in name_bytes:
-            bs.write_bits(bits_per_char, c)
-        bs.write_bits(bits_per_char, 0)
-
-
-class LongName:
-    def __init__(self) -> None:
-        self.name_1: int = 0
-        self.name_2: int = 0
-        self.pref_1: int | None = None
-        self.suff_1: int | None = None
-        self.pref_2: int | None = None
-        self.suff_2: int | None = None
-        self.pref_3: int | None = None
-        self.suff_3: int | None = None
-
-    def deserialize(self, bs: IBitStream) -> None:
-        self.name_1 = bs.read_bits(8)
-        self.name_2 = bs.read_bits(8)
-        if bs.read_bits(1):
-            self.pref_1 = bs.read_bits(11)
-        if bs.read_bits(1):
-            self.suff_1 = bs.read_bits(11)
-        if bs.read_bits(1):
-            self.pref_2 = bs.read_bits(11)
-        if bs.read_bits(1):
-            self.suff_2 = bs.read_bits(11)
-        if bs.read_bits(1):
-            self.pref_3 = bs.read_bits(11)
-        if bs.read_bits(1):
-            self.suff_3 = bs.read_bits(11)
-
-    def serialize(self, bs: OBitStream) -> None:
-        bs.write_bits(8, self.name_1)
-        bs.write_bits(8, self.name_2)
-        bs.write_bits(1, 1 if self.pref_1 is not None else 0)
-        if self.pref_1 is not None:
-            bs.write_bits(11, self.pref_1)
-        bs.write_bits(1, 1 if self.suff_1 is not None else 0)
-        if self.suff_1 is not None:
-            bs.write_bits(11, self.suff_1)
-        bs.write_bits(1, 1 if self.pref_2 is not None else 0)
-        if self.pref_2 is not None:
-            bs.write_bits(11, self.pref_2)
-        bs.write_bits(1, 1 if self.suff_2 is not None else 0)
-        if self.suff_2 is not None:
-            bs.write_bits(11, self.suff_2)
-        bs.write_bits(1, 1 if self.pref_3 is not None else 0)
-        if self.pref_3 is not None:
-            bs.write_bits(11, self.pref_3)
-        bs.write_bits(1, 1 if self.suff_3 is not None else 0)
-        if self.suff_3 is not None:
-            bs.write_bits(11, self.suff_3)
-
-
-class GoldQuantity:
-    def __init__(self) -> None:
-        self.is_not_gold = False
-        self.quantity = 0
-
-    def deserialize(self, bs: IBitStream) -> None:
-        self.is_not_gold = bs.read_bits(1) != 0
-        self.quantity = bs.read_bits(12)
-
-
 _TRACE_PROPERTY = False
 _TRACE_ITEM = False
 _TRACE_ITEM_IDX = -1
-
-
-class PropertyList:
-    def __init__(self) -> None:
-        self.properties: list[RawProperty] = []
-        self.end_flag = 0
-        self._version: int = 0
-        self._use_stat_cost: bool = False
-        self._data: VersionData | None = None
-
-    def deserialize(self, bs: IBitStream, version: int, data: VersionData) -> None:
-        self._version = version
-        self._data = data
-        self.properties = []
-        self._use_stat_cost = is_d2r(version)
-
-        while True:
-            bit_pos = bs.get_offset() if _TRACE_PROPERTY else 0
-            self.end_flag = bs.read_bits(9)
-            if self.end_flag >= 0x1FF:
-                break
-
-            if self._use_stat_cost:
-                stat_cost = data.get_stat(self.end_flag)
-                if stat_cost is None or stat_cost.save_bits == 0:
-                    continue
-
-                layer = 0
-                if stat_cost.save_param_bits > 0:
-                    layer = bs.read_bits(stat_cost.save_param_bits)
-
-                raw_value = bs.read_bits(stat_cost.save_bits)
-                value = (raw_value - stat_cost.save_add) << stat_cost.val_shift
-                self.properties.append((self.end_flag, layer, value))
-
-                if _TRACE_PROPERTY:
-                    print(
-                        f"  stat {self.end_flag}: bit_pos={bit_pos}, layer={layer}, raw_value={raw_value}, value={value}, save_bits={stat_cost.save_bits}, save_param_bits={stat_cost.save_param_bits}"
-                    )
-
-                for paired_id in PAIRED_STATS.get(self.end_flag, []):
-                    paired_cost = data.get_stat(paired_id)
-                    if paired_cost and paired_cost.save_bits > 0:
-                        paired_raw = bs.read_bits(paired_cost.save_bits)
-                        paired_value = (paired_raw - paired_cost.save_add) << paired_cost.val_shift
-                        self.properties.append((paired_id, 0, paired_value))
-                        if _TRACE_PROPERTY:
-                            print(
-                                f"    paired stat {paired_id}: raw={paired_raw}, value={paired_value}"
-                            )
-
-                if self.end_flag == 57:
-                    self.properties.append((88, 0, 1))
-            else:
-                prop_meta = data.get_property_meta(self.end_flag)
-                if prop_meta and prop_meta.bits_sum > 0:
-                    value = bs.read_bits(prop_meta.bits_sum)
-                    self.properties.append((self.end_flag, 0, value))
-
-    def ext_sockets(self) -> int:
-        r = 0
-        for prop_id, _layer, value in self.properties:
-            if prop_id == 194:
-                r += value
-        return r
-
-    def is_indestructible(self) -> bool:
-        return any(prop_id == 152 and value != 0 for prop_id, layer, value in self.properties)
-
-    def get_parsed_properties(
-        self, version: int | None = None, data: VersionData | None = None
-    ) -> list[tuple[int, int, list[int]]]:
-        ver = version if version is not None else self._version
-        d = data or self._data
-        result = []
-        for prop_id, layer, value in self.properties:
-            if self._use_stat_cost and d:
-                params = self._isc_to_params(prop_id, layer, value, ver, d)
-                result.append((prop_id, value, params))
-            else:
-                prop_meta = d.get_property_meta(prop_id) if d else None
-                if prop_meta:
-                    params = prop_meta.parse(value)
-                    result.append((prop_id, value, params))
-                else:
-                    result.append((prop_id, value, []))
-        return result
-
-    def _isc_to_params(
-        self, prop_id: int, layer: int, value: int, version: int, data: VersionData
-    ) -> list[int]:
-        prop_meta = data.get_property_meta(prop_id)
-        stat_cost = data.get_stat(prop_id)
-        display_value = (
-            value >> stat_cost.val_shift if stat_cost and stat_cost.val_shift > 0 else value
-        )
-
-        if not prop_meta or prop_meta.bits_sum == 0:
-            if stat_cost and stat_cost.save_param_bits > 0:
-                return self._isc_layer_to_params(prop_id, layer, display_value, version, data)
-            return [display_value, 0, 0, 0]
-
-        fields = prop_meta.fields
-        active_fields = [f for f in fields if f.bits > 0]
-
-        isc_bits = stat_cost.save_bits + stat_cost.save_param_bits if stat_cost else 0
-        if (
-            len(active_fields) <= 1
-            and stat_cost
-            and stat_cost.save_param_bits > 0
-            and isc_bits > prop_meta.bits_sum
-        ):
-            return self._isc_layer_to_params(prop_id, layer, display_value, version, data)
-
-        if len(active_fields) <= 1:
-            return [display_value, 0, 0, 0]
-
-        if prop_meta.bits_sum > isc_bits and isc_bits > 0:
-            return [display_value, 0, 0, 0]
-
-        param_fields = active_fields[:-1]
-
-        params = [0, 0, 0, 0]
-        remaining_layer = layer
-        for i, f in enumerate(param_fields):
-            mask = (1 << f.bits) - 1
-            params[i] = remaining_layer & mask
-            remaining_layer >>= f.bits
-
-        params[len(param_fields)] = display_value
-
-        return params
-
-    def _isc_layer_to_params(
-        self, prop_id: int, layer: int, display_value: int, version: int, data: VersionData
-    ) -> list[int]:
-        # Layer packing follows the base (0x63) multi-field layout, not D2R's single-field rows.
-        base_meta = data.get_property_meta(prop_id, 0x63)
-        if base_meta:
-            active_fields = [f for f in base_meta.fields if f.bits > 0]
-            if len(active_fields) > 1:
-                param_fields = active_fields[:-1]
-                params = [0, 0, 0, 0]
-                remaining_layer = layer
-                for i, f in enumerate(param_fields):
-                    mask = (1 << f.bits) - 1
-                    params[i] = remaining_layer & mask
-                    remaining_layer >>= f.bits
-                params[len(param_fields)] = display_value
-                return params
-        return [layer, display_value, 0, 0]
-
-    IMPLICIT_STATS: ClassVar[set[int]] = {88}
-
-    def serialize(self, bs: OBitStream, version: int, data: VersionData | None = None) -> None:
-        d = data or self._data
-        if d is None:
-            raise ValueError("VersionData required for PropertyList serialization")
-        self._use_stat_cost = is_d2r(version)
-
-        all_paired_ids = set()
-        for paired_list in PAIRED_STATS.values():
-            all_paired_ids.update(paired_list)
-
-        for prop_id, layer, value in self.properties:
-            if prop_id in all_paired_ids:
-                continue
-
-            if prop_id in PropertyList.IMPLICIT_STATS:
-                continue
-
-            bs.write_bits(9, prop_id)
-
-            if self._use_stat_cost:
-                stat_cost = d.get_stat(prop_id)
-                if stat_cost is None or stat_cost.save_bits == 0:
-                    continue
-
-                if stat_cost.save_param_bits > 0:
-                    bs.write_bits(stat_cost.save_param_bits, layer)
-
-                raw_value = (value >> stat_cost.val_shift) + stat_cost.save_add
-                bs.write_bits(stat_cost.save_bits, raw_value)
-
-                for paired_id in PAIRED_STATS.get(prop_id, []):
-                    paired_cost = d.get_stat(paired_id)
-                    if paired_cost and paired_cost.save_bits > 0:
-                        paired_found = False
-                        for pid, _pl, pv in self.properties:
-                            if pid == paired_id:
-                                paired_raw = (pv >> paired_cost.val_shift) + paired_cost.save_add
-                                bs.write_bits(paired_cost.save_bits, paired_raw)
-                                paired_found = True
-                                break
-                        if not paired_found:
-                            bs.write_bits(paired_cost.save_bits, 0)
-            else:
-                prop_meta = d.get_property_meta(prop_id)
-                if prop_meta and prop_meta.bits_sum > 0:
-                    bs.write_bits(prop_meta.bits_sum, value)
-
-        bs.write_bits(9, 0x1FF)
 
 
 class ExtItemInfo:
@@ -369,6 +52,7 @@ class ExtItemInfo:
         self.spell_id: int | None = None
         self.body_part_file_index: int | None = None
         self.spell_type: int | None = None
+        self._meta = meta
 
     def is_set(self) -> bool:
         return self.quality == 5
@@ -376,138 +60,110 @@ class ExtItemInfo:
     def rune_word_id(self) -> int:
         return self.rune_id if self.rune_id is not None else 0
 
+    def codec(
+        self,
+        io: BitIO,
+        version: int,
+        is_runeword: bool = False,
+        is_personalized: bool = False,
+    ) -> None:
+        meta = self._meta
+        charm_flag = meta.is_charm if meta else False
+        monster_flag = meta.has_monster_id if meta else False
+        spell_flag = (meta.spell_id > 0) if meta else False
+        body_part_flag = (meta.is_body_part and not meta.is_player_body_part) if meta else False
+        scroll_flag = meta.is_scroll_or_book if meta else False
+
+        self.gems = io.bits(3, self.gems)
+        self.guid = io.bits(32, self.guid)
+        self.drop_level = io.bits(7, self.drop_level)
+        self.quality = io.bits(4, self.quality)
+
+        self.var_gfx = io.opt_bits(3, self.var_gfx if self.has_var_gfx else None)
+        self.has_var_gfx = self.var_gfx is not None
+
+        self.item_class = io.opt_bits(11, self.item_class if self.has_class else None)
+        self.has_class = self.item_class is not None
+
+        match self.quality:
+            case 1:
+                self.low_quality_id = io.bits(3, self.low_quality_id or 0)
+            case 2:
+                if charm_flag:
+                    self.charm_id = io.bits(12, self.charm_id or 0)
+                elif body_part_flag:
+                    self.body_part_file_index = io.bits(10, self.body_part_file_index or 0)
+                elif scroll_flag:
+                    self.spell_type = io.bits(5, self.spell_type or 0)
+            case 3:
+                self.high_quality_id = io.bits(3, self.high_quality_id or 0)
+            case 4:
+                self.magic_prefix = io.bits(11, self.magic_prefix or 0)
+                self.magic_suffix = io.bits(11, self.magic_suffix or 0)
+            case 5:
+                self.set_id = io.bits(12, self.set_id or 0)
+            case 6:
+                if io.is_reading:
+                    self.rare_name = LongName()
+                if self.rare_name:
+                    self.rare_name.codec(io)
+            case 7:
+                self.unique_id = io.bits(12, self.unique_id or 0)
+            case 8:
+                if io.is_reading:
+                    self.craft_name = LongName()
+                if self.craft_name:
+                    self.craft_name.codec(io)
+
+        if is_runeword:
+            self.rune_id = io.bits(16, self.rune_id or 0)
+
+        if is_personalized:
+            bits_per_char = 8 if is_ptr24_and_above(version) else 7
+            if io.is_writing:
+                for c in self.person_name:
+                    io.bits(bits_per_char, c)
+                io.bits(bits_per_char, 0)
+            else:
+                self.person_name = []
+                for _ in range(16):
+                    c = io.bits(bits_per_char)
+                    if c == 0:
+                        break
+                    self.person_name.append(c)
+
+        if monster_flag:
+            self.monster_id = io.bits(10, self.monster_id or 0)
+        elif spell_flag:
+            self.spell_id = io.bits(5, self.spell_id or 0)
+
     def deserialize(
         self,
         bs: IBitStream,
         version: int,
-        is_charm: bool,
-        is_runeword: bool,
-        is_personalized: bool,
-        has_monster_id: bool,
-        has_spell_id: bool,
-        is_body_part: bool = False,
-        is_scroll_or_book: bool = False,
+        is_runeword: bool = False,
+        is_personalized: bool = False,
     ) -> None:
-        self.gems = bs.read_bits(3)
-        self.guid = bs.read_bits(32)
-        self.drop_level = bs.read_bits(7)
-        self.quality = bs.read_bits(4)
-        self.has_var_gfx = bs.read_bits(1) != 0
-        if self.has_var_gfx:
-            self.var_gfx = bs.read_bits(3)
-        self.has_class = bs.read_bits(1) != 0
-        if self.has_class:
-            self.item_class = bs.read_bits(11)
-
-        match self.quality:
-            case 1:
-                self.low_quality_id = bs.read_bits(3)
-            case 2:
-                if is_charm:
-                    self.charm_id = bs.read_bits(12)
-                elif is_body_part:
-                    self.body_part_file_index = bs.read_bits(10)
-                elif is_scroll_or_book:
-                    self.spell_type = bs.read_bits(5)
-            case 3:
-                self.high_quality_id = bs.read_bits(3)
-            case 4:
-                self.magic_prefix = bs.read_bits(11)
-                self.magic_suffix = bs.read_bits(11)
-            case 5:
-                self.set_id = bs.read_bits(12)
-            case 6:
-                self.rare_name = LongName()
-                self.rare_name.deserialize(bs)
-            case 7:
-                self.unique_id = bs.read_bits(12)
-            case 8:
-                self.craft_name = LongName()
-                self.craft_name.deserialize(bs)
-
-        if is_runeword:
-            self.rune_id = bs.read_bits(16)
-
-        if is_personalized:
-            bits_per_char = 8 if is_ptr24_and_above(version) else 7
-            for _ in range(16):
-                c = bs.read_bits(bits_per_char)
-                if c == 0:
-                    break
-                self.person_name.append(c)
-
-        if has_monster_id:
-            self.monster_id = bs.read_bits(10)
-        elif has_spell_id:
-            self.spell_id = bs.read_bits(5)
+        self.codec(
+            BitReader(bs),
+            version,
+            is_runeword=is_runeword,
+            is_personalized=is_personalized,
+        )
 
     def serialize(
         self,
         bs: OBitStream,
         version: int,
-        is_charm: bool,
-        is_runeword: bool,
-        is_personalized: bool,
-        has_monster_id: bool,
-        has_spell_id: bool,
-        is_body_part: bool = False,
-        is_scroll_or_book: bool = False,
+        is_runeword: bool = False,
+        is_personalized: bool = False,
     ) -> None:
-        bs.write_bits(3, self.gems)
-        bs.write_bits(32, self.guid)
-        bs.write_bits(7, self.drop_level)
-        bs.write_bits(4, self.quality)
-
-        bs.write_bits(1, 1 if self.has_var_gfx else 0)
-        if self.has_var_gfx:
-            bs.write_bits(3, self.var_gfx if self.var_gfx is not None else 0)
-
-        bs.write_bits(1, 1 if self.has_class else 0)
-        if self.has_class:
-            bs.write_bits(11, self.item_class if self.item_class is not None else 0)
-
-        match self.quality:
-            case 1:
-                bs.write_bits(3, self.low_quality_id if self.low_quality_id is not None else 0)
-            case 2:
-                if is_charm:
-                    bs.write_bits(12, self.charm_id if self.charm_id is not None else 0)
-                elif is_body_part:
-                    bs.write_bits(
-                        10,
-                        self.body_part_file_index if self.body_part_file_index is not None else 0,
-                    )
-                elif is_scroll_or_book:
-                    bs.write_bits(5, self.spell_type if self.spell_type is not None else 0)
-            case 3:
-                bs.write_bits(3, self.high_quality_id if self.high_quality_id is not None else 0)
-            case 4:
-                bs.write_bits(11, self.magic_prefix if self.magic_prefix is not None else 0)
-                bs.write_bits(11, self.magic_suffix if self.magic_suffix is not None else 0)
-            case 5:
-                bs.write_bits(12, self.set_id if self.set_id is not None else 0)
-            case 6:
-                if self.rare_name:
-                    self.rare_name.serialize(bs)
-            case 7:
-                bs.write_bits(12, self.unique_id if self.unique_id is not None else 0)
-            case 8:
-                if self.craft_name:
-                    self.craft_name.serialize(bs)
-
-        if is_runeword:
-            bs.write_bits(16, self.rune_id if self.rune_id is not None else 0)
-
-        if is_personalized:
-            bits_per_char = 8 if is_ptr24_and_above(version) else 7
-            for c in self.person_name:
-                bs.write_bits(bits_per_char, c)
-            bs.write_bits(bits_per_char, 0)
-
-        if has_monster_id:
-            bs.write_bits(10, self.monster_id if self.monster_id is not None else 0)
-        elif has_spell_id:
-            bs.write_bits(5, self.spell_id if self.spell_id is not None else 0)
+        self.codec(
+            BitWriter(bs),
+            version,
+            is_runeword=is_runeword,
+            is_personalized=is_personalized,
+        )
 
 
 class TypeSpecificInfo:
@@ -521,6 +177,7 @@ class TypeSpecificInfo:
         self.property_list: PropertyList = PropertyList()
         self.set_properties: list[PropertyList | None] = []
         self.runeword_property_list: PropertyList | None = None
+        self._meta = meta
         self._data: VersionData | None = None
 
     def sockets(self) -> tuple[int, int]:
@@ -543,18 +200,13 @@ class TypeSpecificInfo:
     def is_indestructible(self) -> bool:
         return self.max_durability == 0 or self.property_list.is_indestructible()
 
-    def deserialize(
+    def codec(
         self,
-        bs: IBitStream,
+        io: BitIO,
         version: int,
-        has_def: bool,
-        has_dur: bool,
-        is_socketed: bool,
-        is_stacked: bool,
-        is_set: bool,
-        is_runeword: bool,
-        use_stat_cost: bool = False,
-        d2r_order: bool = False,
+        is_socketed: bool = False,
+        is_set: bool = False,
+        is_runeword: bool = False,
         data: VersionData | GameData | None = None,
     ) -> None:
         if isinstance(data, GameData):
@@ -570,13 +222,22 @@ class TypeSpecificInfo:
                 f"VersionData is required to parse item properties for version {version:#x}"
             )
         self._data = d
+
+        meta = self._meta
+        has_def = meta.has_def if meta else False
+        has_dur = meta.has_dur if meta else False
+        is_stacked = meta.is_stacked if meta else False
+        use_stat_cost = is_d2r(version)
+        d2r_order = is_d2r(version)
+
         if has_def:
             if use_stat_cost:
                 ac_stat = d.get_stat(31)
                 def_bits = ac_stat.save_bits if ac_stat else 11
             else:
                 def_bits = 11
-            self.defence = bs.read_bits(def_bits)
+            self.defence = io.bits(def_bits, self.defence or 0)
+
         if has_dur:
             if use_stat_cost:
                 max_dur_stat = d.get_stat(73)
@@ -586,148 +247,104 @@ class TypeSpecificInfo:
             else:
                 max_dur_bits = 8
                 dur_bits = 9
-            self.max_durability = bs.read_bits(max_dur_bits)
-            if self.max_durability > 0:
-                self.current_durability = bs.read_bits(dur_bits)
+            self.max_durability = io.bits(max_dur_bits, self.max_durability or 0)
+            if self.max_durability and self.max_durability > 0:
+                self.current_durability = io.bits(dur_bits, self.current_durability or 0)
+
+        def _rw_quantity() -> None:
+            if version >= 0x69:
+                self.quantity = io.opt_bits(9, self.quantity)
+            elif is_stacked:
+                self.quantity = io.bits(9, self.quantity or 0)
+
+        def _rw_sockets() -> None:
+            if is_socketed:
+                if use_stat_cost:
+                    sock_stat = d.get_stat(194)
+                    sock_bits = sock_stat.save_bits if sock_stat else 3
+                else:
+                    sock_bits = 4
+                self.sockets_count = io.bits(
+                    sock_bits,
+                    self.sockets_count if self.sockets_count is not None else 1,
+                )
+                if io.is_reading and self.sockets_count < 1:
+                    self.sockets_count = 1
+
         if d2r_order:
-            if version >= 0x69:
-                if bs.read_bits(1):
-                    self.quantity = bs.read_bits(9)
-            elif is_stacked:
-                self.quantity = bs.read_bits(9)
-            if is_socketed:
-                if use_stat_cost:
-                    sock_stat = d.get_stat(194)
-                    sock_bits = sock_stat.save_bits if sock_stat else 3
-                else:
-                    sock_bits = 4
-                self.sockets_count = bs.read_bits(sock_bits)
-                if self.sockets_count < 1:
-                    self.sockets_count = 1
+            _rw_quantity()
+            _rw_sockets()
         else:
-            if is_socketed:
-                if use_stat_cost:
-                    sock_stat = d.get_stat(194)
-                    sock_bits = sock_stat.save_bits if sock_stat else 3
-                else:
-                    sock_bits = 4
-                self.sockets_count = bs.read_bits(sock_bits)
-                if self.sockets_count < 1:
-                    self.sockets_count = 1
-            if version >= 0x69:
-                if bs.read_bits(1):
-                    self.quantity = bs.read_bits(9)
-            elif is_stacked:
-                self.quantity = bs.read_bits(9)
+            _rw_sockets()
+            _rw_quantity()
+
         if is_set:
-            self.has_set_prop_list = [bs.read_bits(1) != 0 for _ in range(5)]
+            if io.is_reading:
+                self.has_set_prop_list = [io.bit() for _ in range(5)]
+            else:
+                for has_prop in self.has_set_prop_list:
+                    io.bit(has_prop)
         else:
             self.has_set_prop_list = [False] * 5
 
-        self.property_list.deserialize(bs, version, d)
+        self.property_list.codec(io, version, d)
 
-        self.set_properties = []
         if is_set:
-            for i in range(5):
-                if self.has_set_prop_list[i]:
-                    prop_list = PropertyList()
-                    prop_list.deserialize(bs, version, d)
-                    self.set_properties.append(prop_list)
-                else:
-                    self.set_properties.append(None)
+            if io.is_reading:
+                self.set_properties = []
+                for i in range(5):
+                    if self.has_set_prop_list[i]:
+                        prop_list = PropertyList()
+                        prop_list.codec(io, version, d)
+                        self.set_properties.append(prop_list)
+                    else:
+                        self.set_properties.append(None)
+            else:
+                for i, prop_list in enumerate(self.set_properties):
+                    if i < len(self.has_set_prop_list) and self.has_set_prop_list[i] and prop_list:
+                        prop_list.codec(io, version, d)
 
         if is_runeword:
-            self.runeword_property_list = PropertyList()
-            self.runeword_property_list.deserialize(bs, version, d)
+            if io.is_reading:
+                self.runeword_property_list = PropertyList()
+            if self.runeword_property_list:
+                self.runeword_property_list.codec(io, version, d)
+
+    def deserialize(
+        self,
+        bs: IBitStream,
+        version: int,
+        is_socketed: bool = False,
+        is_set: bool = False,
+        is_runeword: bool = False,
+        data: VersionData | GameData | None = None,
+    ) -> None:
+        self.codec(
+            BitReader(bs),
+            version,
+            is_socketed=is_socketed,
+            is_set=is_set,
+            is_runeword=is_runeword,
+            data=data,
+        )
 
     def serialize(
         self,
         bs: OBitStream,
         version: int,
-        has_def: bool,
-        has_dur: bool,
-        is_socketed: bool,
-        is_stacked: bool,
-        is_set: bool,
-        is_runeword: bool,
-        use_stat_cost: bool = False,
-        d2r_order: bool = False,
-        data: VersionData | None = None,
+        is_socketed: bool = False,
+        is_set: bool = False,
+        is_runeword: bool = False,
+        data: VersionData | GameData | None = None,
     ) -> None:
-        d = data or self._data
-        if has_def:
-            if use_stat_cost and d:
-                ac_stat = d.get_stat(31)
-                def_bits = ac_stat.save_bits if ac_stat else 11
-            else:
-                def_bits = 11
-            bs.write_bits(def_bits, self.defence if self.defence is not None else 0)
-
-        if has_dur:
-            if use_stat_cost and d:
-                max_dur_stat = d.get_stat(73)
-                max_dur_bits = max_dur_stat.save_bits if max_dur_stat else 8
-                dur_stat = d.get_stat(72)
-                dur_bits = dur_stat.save_bits if dur_stat else 9
-            else:
-                max_dur_bits = 8
-                dur_bits = 9
-            bs.write_bits(
-                max_dur_bits, self.max_durability if self.max_durability is not None else 0
-            )
-            if self.max_durability is not None and self.max_durability > 0:
-                bs.write_bits(
-                    dur_bits, self.current_durability if self.current_durability is not None else 0
-                )
-
-        if d2r_order:
-            if version >= 0x69:
-                has_quantity = self.quantity is not None
-                bs.write_bits(1, 1 if has_quantity else 0)
-                if has_quantity:
-                    bs.write_bits(9, self.quantity)
-            elif is_stacked:
-                bs.write_bits(9, self.quantity if self.quantity is not None else 0)
-            if is_socketed:
-                if use_stat_cost and d:
-                    sock_stat = d.get_stat(194)
-                    sock_bits = sock_stat.save_bits if sock_stat else 3
-                else:
-                    sock_bits = 4
-                bs.write_bits(
-                    sock_bits, self.sockets_count if self.sockets_count is not None else 1
-                )
-        else:
-            if is_socketed:
-                if use_stat_cost and d:
-                    sock_stat = d.get_stat(194)
-                    sock_bits = sock_stat.save_bits if sock_stat else 3
-                else:
-                    sock_bits = 4
-                bs.write_bits(
-                    sock_bits, self.sockets_count if self.sockets_count is not None else 1
-                )
-            if version >= 0x69:
-                has_quantity = self.quantity is not None
-                bs.write_bits(1, 1 if has_quantity else 0)
-                if has_quantity:
-                    bs.write_bits(9, self.quantity)
-            elif is_stacked:
-                bs.write_bits(9, self.quantity if self.quantity is not None else 0)
-
-        if is_set:
-            for has_prop in self.has_set_prop_list:
-                bs.write_bits(1, 1 if has_prop else 0)
-
-        self.property_list.serialize(bs, version, data=d)
-
-        if is_set:
-            for i, prop_list in enumerate(self.set_properties):
-                if i < len(self.has_set_prop_list) and self.has_set_prop_list[i] and prop_list:
-                    prop_list.serialize(bs, version, data=d)
-
-        if is_runeword and self.runeword_property_list:
-            self.runeword_property_list.serialize(bs, version, data=d)
+        self.codec(
+            BitWriter(bs),
+            version,
+            is_socketed=is_socketed,
+            is_set=is_set,
+            is_runeword=is_runeword,
+            data=data,
+        )
 
 
 class ItemInfo:
@@ -853,6 +470,99 @@ class ItemInfo:
     def _is_stackable_for_stash(self) -> bool:
         return self.type_name in self.STACKABLE_FOR_STASH
 
+    def codec(
+        self,
+        io: BitIO,
+        version: int,
+        is_simple: bool,
+        is_runeword: bool,
+        is_personalized: bool,
+        is_socketed: bool,
+        data: VersionData | None = None,
+    ) -> ItemMetaData | None:
+        self._data = data
+        is_d2r_ = is_d2r(version)
+
+        if is_d2r_:
+            if io.is_reading:
+                self.type_name = bytes(io.huffman_char() for _ in range(4))
+            else:
+                for c in self.type_name:
+                    io.huffman_char(c)
+        else:
+            if io.is_reading:
+                self.type_name = bytes([io.byte() for _ in range(4)])
+            else:
+                for b in self.type_name:
+                    io.byte(b)
+
+        meta = data.get_item_meta(self.type_name) if data else None
+        if meta is None:
+            meta = self._meta
+        self._meta = meta
+
+        if not is_simple and meta:
+            if io.is_reading:
+                self.ext_info = ExtItemInfo(meta)
+            if self.ext_info:
+                self.ext_info.codec(
+                    io,
+                    version,
+                    is_runeword=is_runeword,
+                    is_personalized=is_personalized,
+                )
+
+        if self.is_gold():
+            if io.is_reading or self.gold is None:
+                self.gold = GoldQuantity()
+            self.gold.codec(io)
+
+        has_rand = io.bit(self.has_rand or bool(self.realm_data) or bool(self.timestamp_flag))
+        self.has_rand = has_rand
+        if has_rand:
+            if is_d2r_ and version > 86:
+                realm_count = 4 if version > 96 else (3 if version > 93 else 2)
+                if io.is_reading:
+                    self.realm_data = [io.bits(32) for _ in range(realm_count)]
+                else:
+                    for i in range(realm_count):
+                        val = self.realm_data[i] if i < len(self.realm_data) else 0
+                        io.bits(32, val)
+            elif not is_simple:
+                if io.is_reading:
+                    self.timestamp_flag = [io.bits(32) for _ in range(4)]
+                else:
+                    for ts in self.timestamp_flag:
+                        io.bits(32, ts)
+
+        if is_d2r_ and version > 99:
+            if version <= 101:
+                if self._is_stackable_for_stash():
+                    self.stash_stack_size = io.bits(8, self.stash_stack_size)
+                    self.has_stash_stack_size = True
+            else:
+                has_stash = io.bit(self.has_stash_stack_size)
+                self.has_stash_stack_size = has_stash
+                if has_stash:
+                    self.stash_stack_size = io.bits(8, self.stash_stack_size)
+
+        if not is_simple and meta:
+            if io.is_reading:
+                self.type_specific_info = TypeSpecificInfo(meta)
+            if self.type_specific_info:
+                self.type_specific_info.codec(
+                    io,
+                    version,
+                    is_socketed=is_socketed,
+                    is_set=self.is_set(),
+                    is_runeword=is_runeword,
+                    data=data,
+                )
+        elif is_d2r_ and version >= 0x69 and meta and meta.ipad_bits > 0:
+            self.pad = io.bits(meta.ipad_bits, self.pad)
+
+        return meta
+
     def deserialize(
         self,
         bs: IBitStream,
@@ -863,71 +573,35 @@ class ItemInfo:
         is_socketed: bool,
         data: VersionData | None = None,
     ) -> ItemMetaData | None:
-        self._data = data
-        is_d2r_ = is_d2r(version)
-        huffman = get_huffman()
+        return self.codec(
+            BitReader(bs),
+            version,
+            is_simple,
+            is_runeword,
+            is_personalized,
+            is_socketed,
+            data=data,
+        )
 
-        if is_d2r_:
-            self.type_name = bytes([huffman.read_char(bs) for _ in range(4)])
-        else:
-            # 读取4个字节，注意小端序
-            self.type_name = bytes([bs.read_byte() for _ in range(4)])
-
-        meta = data.get_item_meta(self.type_name) if data else None
-        if meta is None:
-            meta = self._meta
-
-        if not is_simple and meta:
-            self.ext_info = ExtItemInfo(meta)
-            self.ext_info.deserialize(
-                bs,
-                version,
-                meta.is_charm if meta else False,
-                is_runeword,
-                is_personalized,
-                meta.has_monster_id if meta else False,
-                (meta.spell_id > 0) if meta else False,
-            )
-
-        if self.is_gold():
-            self.gold = GoldQuantity()
-            self.gold.deserialize(bs)
-
-        self.has_rand = bs.read_bits(1) != 0
-        if self.has_rand:
-            if is_d2r_ and version > 86:
-                realm_count = 4 if version > 96 else (3 if version > 93 else 2)
-                self.realm_data = [bs.read_bits(32) for _ in range(realm_count)]
-            elif not is_simple:
-                self.timestamp_flag = [bs.read_bits(32) for _ in range(4)]
-
-        if is_d2r_ and version > 99:
-            if version <= 101:
-                if self._is_stackable_for_stash():
-                    self.stash_stack_size = bs.read_bits(8)
-                    self.has_stash_stack_size = True
-            else:
-                if bs.read_bits(1):
-                    self.stash_stack_size = bs.read_bits(8)
-                    self.has_stash_stack_size = True
-
-        if not is_simple and meta:
-            self.type_specific_info = TypeSpecificInfo(meta)
-            self.type_specific_info.deserialize(
-                bs,
-                version,
-                meta.has_def if meta else False,
-                meta.has_dur if meta else False,
-                is_socketed,
-                meta.is_stacked if meta else False,
-                self.is_set(),
-                is_runeword,
-                data=data,
-            )
-        elif is_d2r_ and version >= 0x69 and meta and meta.ipad_bits > 0:
-            self.pad = bs.read_bits(meta.ipad_bits)
-
-        return meta
+    def serialize(
+        self,
+        bs: OBitStream,
+        version: int,
+        is_simple: bool,
+        is_runeword: bool,
+        is_personalized: bool,
+        is_socketed: bool,
+        data: VersionData | None = None,
+    ) -> None:
+        self.codec(
+            BitWriter(bs),
+            version,
+            is_simple,
+            is_runeword,
+            is_personalized,
+            is_socketed,
+            data=data,
+        )
 
 
 ITEM_FLAG_LABELS = [
@@ -985,6 +659,11 @@ class D2Item:
         self._has_quantity = False
         self._is_chronicle = False
         self._is_chronicle_compact = False
+
+        self.chronicle_id: int | None = None
+        self.chronicle_compact_data: int | None = None
+        self.chronicle_data_header: int | None = None
+        self.chronicle_entries: list[int] = []
 
         self.ear: Ear | None = None
         self.item_info: ItemInfo | None = None
@@ -1054,6 +733,22 @@ class D2Item:
     def has_property_list(self) -> bool:
         return self.item_info is not None and self.item_info.type_specific_info is not None
 
+    def codec(
+        self,
+        io: BitIO,
+        version: int = 0x63,
+        magic_flag: bool = True,
+        data: VersionData | GameData | None = None,
+    ) -> None:
+        if io.is_writing and not is_valid_version(self.version):
+            self.version = version
+        vd = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
+        self._data = vd
+        if is_d2r(version):
+            self._codec_d2r(io, version, magic_flag, data=data)
+        else:
+            self._codec_classic(io, version, magic_flag, data=data)
+
     def deserialize(
         self,
         bs: IBitStream,
@@ -1061,290 +756,7 @@ class D2Item:
         read_magic: bool = True,
         data: VersionData | GameData | None = None,
     ) -> None:
-        vd = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
-        self._data = vd
-        if is_d2r(version):
-            self._read_data_d2r(bs, version, read_magic, data=data)
-        else:
-            self._read_data_classic(bs, version, read_magic, data=data)
-
-    def _read_data_d2r(
-        self,
-        bs: IBitStream,
-        version: int,
-        read_magic: bool = True,
-        data: VersionData | GameData | None = None,
-    ) -> None:
-        if read_magic:
-            bs.align_byte()
-            self.magic = bs.read_word()
-            if self.magic != ITEM_LIST_MAGIC:
-                bs.seek_back_bytes(2)
-                self.magic = ITEM_LIST_MAGIC
-            self.version = bs.read_dword()
-            if not is_valid_version(self.version):
-                bs.seek_back_bytes(4)
-                self.version = version
-        else:
-            self.magic = ITEM_LIST_MAGIC
-            self.version = version
-
-        d = data.for_version(self.version) if isinstance(data, GameData) else (data or self._data)
-        self._data = d
-
-        flags = bs.read_bits(32)
-        self._flags = flags
-        self.is_identified = bool(flags & 0x00000010)
-        self._has_quantity = bool(flags & 0x00000020)
-        self.is_socketed = bool(flags & 0x00000800)
-        self.is_ear = bool(flags & 0x00010000)
-        self.is_newbie = bool(flags & 0x00020000)
-        self.is_simple = bool(flags & 0x00200000)
-        self.is_ethereal = bool(flags & 0x00400000)
-        self.is_personalized = bool(flags & 0x01000000)
-        self.is_runeword = bool(flags & 0x04000000)
-        self._is_chronicle = bool(flags & 0x10000000)
-        self._is_chronicle_compact = bool(flags & 0x20000000)
-
-        hf = bs.read_bits(1)
-        vv = bs.read_bits(2)
-        self.item_version = (vv + 99) if hf else vv
-
-        mode = bs.read_bits(3)
-        self.location = mode
-        if mode == 3 or mode == 5:
-            self.position = 0
-            self.column = bs.read_bits(16)
-            self.row = bs.read_bits(16)
-            self.stored_in = 0
-        else:
-            self.position = bs.read_bits(4)
-            self.column = bs.read_bits(4)
-            self.row = bs.read_bits(4)
-            self.stored_in = bs.read_bits(3) - 1
-
-        huffman = get_huffman()
-        if self.is_ear:
-            self.ear = Ear()
-            self.ear.deserialize(bs, self.version)
-            self._meta = d.get_item_meta(b"ear ") if d else None
-            type_name = b"ear "
-        else:
-            type_name = bytes([huffman.read_char(bs) for _ in range(4)])
-            self._meta = d.get_item_meta(type_name) if d else None
-            self.item_info = ItemInfo(self._meta)
-            self.item_info.type_name = type_name
-
-        if self.is_simple:
-            self._read_compact_d2r(
-                bs, self.version, type_name, self._is_chronicle, self._is_chronicle_compact, data=d
-            )
-        else:
-            self._read_complete_d2r(
-                bs, self.version, type_name, self._is_chronicle, self._is_chronicle_compact, data=d
-            )
-
-        bs.align_byte()
-
-        gem_count = self.gems()
-        self.gem_items = []
-        for _ in range(gem_count):
-            item = D2Item()
-            item.deserialize(bs, self.version, self.version <= 96, data=d)
-            self.gem_items.append(item)
-
-    def _read_compact_d2r(
-        self,
-        bs: IBitStream,
-        version: int,
-        type_name: bytes,
-        is_chronicle: bool,
-        is_chronicle_compact: bool,
-        data: VersionData | None = None,
-    ) -> None:
-        if self.is_ear:
-            return
-
-        d = data or self._data
-        if version > 92 and d:
-            code = type_name.decode("ascii", errors="replace").strip()
-            type_info = d.get_item(code)
-            if type_info and type_info.quest > 0 and type_info.questdiffcheck:
-                quest_diff_stat = d.get_stat(356)
-                if quest_diff_stat and quest_diff_stat.save_bits > 0:
-                    raw = bs.read_bits(quest_diff_stat.save_bits)
-                    if self.item_info:
-                        self.item_info.quest_difficulty = (
-                            raw - quest_diff_stat.save_add
-                        ) << quest_diff_stat.val_shift
-
-        realm_flag = bs.read_bits(1)
-        if realm_flag:
-            realm_count = 4 if version > 96 else (3 if version > 93 else 2)
-            if self.item_info:
-                self.item_info.realm_data = [bs.read_bits(32) for _ in range(realm_count)]
-
-        self._read_advanced_stash_size(bs, version, type_name)
-
-    def _read_complete_d2r(
-        self,
-        bs: IBitStream,
-        version: int,
-        type_name: bytes,
-        is_chronicle: bool,
-        is_chronicle_compact: bool,
-        data: VersionData | None = None,
-    ) -> None:
-        if self.is_ear:
-            return
-
-        d = data or self._data
-        meta = self._meta
-
-        ext = ExtItemInfo(meta)
-        ext.deserialize(
-            bs,
-            version,
-            meta.is_charm if meta else False,
-            self.is_runeword,
-            self.is_personalized,
-            False,
-            False,
-            (meta.is_body_part and not meta.is_player_body_part) if meta else False,
-            meta.is_scroll_or_book if meta else False,
-        )
-        if self.item_info:
-            self.item_info.ext_info = ext
-
-        realm_flag = bs.read_bits(1)
-        if realm_flag:
-            realm_count = 4 if version > 96 else (3 if version > 93 else 2)
-            if self.item_info:
-                self.item_info.realm_data = [bs.read_bits(32) for _ in range(realm_count)]
-
-        if self.item_info and self.item_info.is_gold():
-            self.item_info.gold = GoldQuantity()
-            self.item_info.gold.deserialize(bs)
-
-        tp = TypeSpecificInfo(meta)
-        tp.deserialize(
-            bs,
-            version,
-            meta.has_def if meta else False,
-            meta.has_dur if meta else False,
-            self.is_socketed,
-            meta.is_stacked if meta else False,
-            self.is_set(),
-            self.is_runeword,
-            use_stat_cost=True,
-            d2r_order=True,
-            data=d,
-        )
-        if self.item_info:
-            self.item_info.type_specific_info = tp
-
-        if is_chronicle:
-            _chronicle_id = bs.read_bits(16)
-            if is_chronicle_compact:
-                bs.read_bits(64)
-            else:
-                bs.read_bits(32)
-                count = bs.read_bits(4)
-                for _ in range(count):
-                    bs.read_bits(64)
-
-        self._read_advanced_stash_size(bs, version, type_name)
-
-    def _read_advanced_stash_size(self, bs: IBitStream, version: int, type_name: bytes) -> None:
-        if version <= 99 or not self.item_info:
-            return
-        if version <= 101:
-            if type_name in ItemInfo.STACKABLE_FOR_STASH:
-                self.item_info.stash_stack_size = bs.read_bits(8)
-                self.item_info.has_stash_stack_size = True
-        else:
-            if bs.read_bits(1):
-                self.item_info.stash_stack_size = bs.read_bits(8)
-                self.item_info.has_stash_stack_size = True
-
-    def _read_data_classic(
-        self,
-        bs: IBitStream,
-        version: int,
-        read_magic: bool = True,
-        data: VersionData | GameData | None = None,
-    ) -> None:
-        if read_magic:
-            bs.align_byte()
-            self.magic = bs.read_word()
-            if self.magic != ITEM_LIST_MAGIC:
-                bs.seek_back_bytes(2)
-                self.magic = ITEM_LIST_MAGIC
-            self.version = bs.read_dword()
-            if not is_valid_version(self.version):
-                bs.seek_back_bytes(4)
-                self.version = version
-        else:
-            self.magic = ITEM_LIST_MAGIC
-            self.version = version
-
-        d = data.for_version(self.version) if isinstance(data, GameData) else (data or self._data)
-        self._data = d
-
-        self.is_quest = bs.read_bits(1) != 0
-        self.target_del_flags = bs.read_bits(3)
-        self.is_identified = bs.read_bits(1) != 0
-        self.switch_in_out_flags = bs.read_bits(3)
-        self.is_disabled = bs.read_bits(1) != 0
-        self.repair_flags = bs.read_bits(2)
-        self.is_socketed = bs.read_bits(1) != 0
-        self.is_no_sell = bs.read_bits(1) != 0
-        self.is_new = bs.read_bits(1) != 0
-        self.is_bad_equipped = bs.read_bits(1) != 0
-        self.is_named = bs.read_bits(1) != 0
-        self.is_ear = bs.read_bits(1) != 0
-        self.is_newbie = bs.read_bits(1) != 0
-        self.init_flags = bs.read_bits(3)
-        self.is_simple = bs.read_bits(1) != 0
-        self.is_ethereal = bs.read_bits(1) != 0
-        self.is_just_saved = bs.read_bits(1) != 0
-        self.is_personalized = bs.read_bits(1) != 0
-        self.is_low_quality = bs.read_bits(1) != 0
-        self.is_runeword = bs.read_bits(1) != 0
-
-        self.duplicate_chronicle = bs.read_bits(5)
-        self.item_version = bs.read_bits(10)
-
-        self.location = bs.read_bits(3)
-        self.position = bs.read_bits(4)
-        self.column = bs.read_bits(4)
-        self.row = bs.read_bits(4)
-        self.stored_in = bs.read_bits(3)
-
-        if self.is_ear:
-            self.ear = Ear()
-            self.ear.deserialize(bs, self.version)
-            self._meta = d.get_item_meta(b"ear ") if d else None
-        else:
-            self.item_info = ItemInfo(self._meta)
-            self._meta = self.item_info.deserialize(
-                bs,
-                self.version,
-                self.is_simple,
-                self.is_runeword,
-                self.is_personalized,
-                self.is_socketed,
-                data=d,
-            )
-
-        bs.align_byte()
-
-        gem_count = self.gems()
-        self.gem_items = []
-        for _ in range(gem_count):
-            item = D2Item()
-            item.deserialize(bs, self.version, True, data=d)
-            self.gem_items.append(item)
+        self.codec(BitReader(bs), version, read_magic, data=data)
 
     def serialize(
         self,
@@ -1353,235 +765,356 @@ class D2Item:
         write_magic: bool = True,
         data: VersionData | GameData | None = None,
     ) -> None:
-        d = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
-        if is_d2r(version):
-            self._serialize_d2r(bs, version, write_magic, data=d)
-        else:
-            self._serialize_classic(bs, version, write_magic, data=d)
+        self.codec(BitWriter(bs), version, write_magic, data=data)
 
-    def _serialize_d2r(
+    def _codec_d2r(
         self,
-        bs: OBitStream,
+        io: BitIO,
         version: int,
-        write_magic: bool = True,
+        magic_flag: bool = True,
         data: VersionData | GameData | None = None,
     ) -> None:
-        d = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
-        if write_magic:
-            bs.align_byte()
-            bs.write_word(self.magic)
-            bs.write_dword(self.version)
+        if io.is_reading:
+            if magic_flag:
+                io.align_byte()
+                self.magic = io.word()
+                if self.magic != ITEM_LIST_MAGIC:
+                    io.seek_back_bytes(2)
+                    self.magic = ITEM_LIST_MAGIC
+                self.version = io.dword()
+                if not is_valid_version(self.version):
+                    io.seek_back_bytes(4)
+                    self.version = version
+            else:
+                self.magic = ITEM_LIST_MAGIC
+                self.version = version
 
-        bs.write_bits(32, self._flags)
-
-        if self.item_version >= 99:
-            bs.write_bits(1, 1)
-            bs.write_bits(2, self.item_version - 99)
+            d = (
+                data.for_version(self.version)
+                if isinstance(data, GameData)
+                else (data or self._data)
+            )
+            self._data = d
         else:
-            bs.write_bits(1, 0)
-            bs.write_bits(2, self.item_version)
+            d = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
+            if magic_flag:
+                io.align_byte()
+                io.word(self.magic)
+                io.dword(self.version)
 
-        bs.write_bits(3, self.location)
+        if io.is_writing:
+
+            def _sync_bit(f: int, mask: int, val: bool) -> int:
+                return (f | mask) if val else (f & ~mask)
+
+            flags = self._flags
+            flags = _sync_bit(flags, 0x00000010, self.is_identified)
+            flags = _sync_bit(flags, 0x00000020, self._has_quantity)
+            flags = _sync_bit(flags, 0x00000800, self.is_socketed)
+            flags = _sync_bit(flags, 0x00010000, self.is_ear)
+            flags = _sync_bit(flags, 0x00020000, self.is_newbie)
+            flags = _sync_bit(flags, 0x00200000, self.is_simple)
+            flags = _sync_bit(flags, 0x00400000, self.is_ethereal)
+            flags = _sync_bit(flags, 0x01000000, self.is_personalized)
+            flags = _sync_bit(flags, 0x04000000, self.is_runeword)
+            flags = _sync_bit(flags, 0x10000000, self._is_chronicle)
+            flags = _sync_bit(flags, 0x20000000, self._is_chronicle_compact)
+            self._flags = flags
+            io.bits(32, flags)
+
+            if self.item_version >= 99:
+                io.bit(True)
+                io.bits(2, self.item_version - 99)
+            else:
+                io.bit(False)
+                io.bits(2, self.item_version)
+        else:
+            flags = io.bits(32)
+            self._flags = flags
+            self.is_identified = bool(flags & 0x00000010)
+            self._has_quantity = bool(flags & 0x00000020)
+            self.is_socketed = bool(flags & 0x00000800)
+            self.is_ear = bool(flags & 0x00010000)
+            self.is_newbie = bool(flags & 0x00020000)
+            self.is_simple = bool(flags & 0x00200000)
+            self.is_ethereal = bool(flags & 0x00400000)
+            self.is_personalized = bool(flags & 0x01000000)
+            self.is_runeword = bool(flags & 0x04000000)
+            self._is_chronicle = bool(flags & 0x10000000)
+            self._is_chronicle_compact = bool(flags & 0x20000000)
+
+            hf = io.bit()
+            vv = io.bits(2)
+            self.item_version = (vv + 99) if hf else vv
+
+        self.location = io.bits(3, self.location)
         if self.location == 3 or self.location == 5:
-            bs.write_bits(16, self.column)
-            bs.write_bits(16, self.row)
+            if io.is_reading:
+                self.position = 0
+                self.stored_in = 0
+            self.column = io.bits(16, self.column)
+            self.row = io.bits(16, self.row)
         else:
-            bs.write_bits(4, self.position)
-            bs.write_bits(4, self.column)
-            bs.write_bits(4, self.row)
-            bs.write_bits(3, self.stored_in + 1)
+            self.position = io.bits(4, self.position)
+            self.column = io.bits(4, self.column)
+            self.row = io.bits(4, self.row)
+            if io.is_writing:
+                io.bits(3, self.stored_in + 1)
+            else:
+                self.stored_in = io.bits(3) - 1
 
-        huffman = get_huffman()
         if self.is_ear:
+            if io.is_reading:
+                self.ear = Ear()
+                self._meta = d.get_item_meta(b"ear ") if d else None
             if self.ear:
-                self.ear.serialize(bs, self.version)
+                self.ear.codec(io, self.version)
         else:
-            type_name = self.type_name
-            for c in type_name:
-                huffman.write_char(bs, c)
+            if io.is_reading:
+                type_name = bytes(io.huffman_char() for _ in range(4))
+                self._meta = d.get_item_meta(type_name) if d else None
+                self.item_info = ItemInfo(self._meta)
+                self.item_info.type_name = type_name
+            else:
+                for c in self.type_name:
+                    io.huffman_char(c)
 
-        if self.is_simple and self.item_info:
-            self._write_compact_d2r(bs, version, data=d)
-        elif not self.is_simple and self.item_info:
-            self._write_complete_d2r(bs, version, data=d)
+        item_ver = self.version if io.is_reading else version
+        if self.is_simple:
+            self._codec_compact_d2r(io, item_ver, data=d)
+        else:
+            self._codec_complete_d2r(io, item_ver, data=d)
 
-        bs.align_byte()
+        io.align_byte()
 
-        for gem_item in self.gem_items:
-            gem_item.serialize(bs, self.version, self.version <= 96, data=d)
+        gem_count = self.gems()
+        if io.is_reading:
+            self.gem_items = []
+            for _ in range(gem_count):
+                item = D2Item()
+                item.codec(io, self.version, magic_flag=self.version <= 96, data=d)
+                self.gem_items.append(item)
+        else:
+            for gem_item in self.gem_items:
+                gem_item.codec(io, self.version, magic_flag=self.version <= 96, data=d)
 
-    def _write_compact_d2r(
-        self, bs: OBitStream, version: int, data: VersionData | None = None
+    def _codec_compact_d2r(
+        self,
+        io: BitIO,
+        version: int,
+        data: VersionData | None = None,
     ) -> None:
-        if not self.item_info:
+        if self.is_ear or not self.item_info:
             return
 
         d = data or self._data
-        if version > 92 and self.item_info.quest_difficulty > 0 and d:
-            quest_diff_stat = d.get_stat(356)
-            if quest_diff_stat and quest_diff_stat.save_bits > 0:
-                raw = (
-                    self.item_info.quest_difficulty >> quest_diff_stat.val_shift
-                ) + quest_diff_stat.save_add
-                bs.write_bits(quest_diff_stat.save_bits, raw)
+        if version > 92 and d:
+            code = self.type_name.decode("ascii", errors="replace").strip()
+            type_info = d.get_item(code)
+            if type_info and type_info.quest > 0 and type_info.questdiffcheck:
+                quest_diff_stat = d.get_stat(356)
+                if quest_diff_stat and quest_diff_stat.save_bits > 0:
+                    if io.is_writing:
+                        raw = (
+                            self.item_info.quest_difficulty >> quest_diff_stat.val_shift
+                        ) + quest_diff_stat.save_add
+                        io.bits(quest_diff_stat.save_bits, raw)
+                    else:
+                        raw = io.bits(quest_diff_stat.save_bits)
+                        self.item_info.quest_difficulty = (
+                            raw - quest_diff_stat.save_add
+                        ) << quest_diff_stat.val_shift
 
-        realm_flag = len(self.item_info.realm_data) > 0 if self.item_info.realm_data else False
-        bs.write_bits(1, 1 if realm_flag else 0)
+        realm_flag = bool(self.item_info.realm_data)
+        realm_flag = io.bit(realm_flag)
         if realm_flag:
             realm_count = 4 if version > 96 else (3 if version > 93 else 2)
-            for i in range(realm_count):
-                if i < len(self.item_info.realm_data):
-                    bs.write_bits(32, self.item_info.realm_data[i])
-                else:
-                    bs.write_bits(32, 0)
+            if io.is_reading:
+                self.item_info.realm_data = [io.bits(32) for _ in range(realm_count)]
+            else:
+                for i in range(realm_count):
+                    val = self.item_info.realm_data[i] if i < len(self.item_info.realm_data) else 0
+                    io.bits(32, val)
 
-        self._write_advanced_stash_size(bs, version)
+        self._codec_advanced_stash_size(io, version)
 
-    def _write_complete_d2r(
-        self, bs: OBitStream, version: int, data: VersionData | None = None
+    def _codec_complete_d2r(
+        self,
+        io: BitIO,
+        version: int,
+        data: VersionData | None = None,
     ) -> None:
-        if not self.item_info or not self.item_info.ext_info:
+        if self.is_ear or not self.item_info:
             return
 
         d = data or self._data
-        ext = self.item_info.ext_info
         meta = self._meta
 
-        ext.serialize(
-            bs,
-            version,
-            meta.is_charm if meta else False,
-            self.is_runeword,
-            self.is_personalized,
-            False,
-            False,
-            (meta.is_body_part and not meta.is_player_body_part) if meta else False,
-            meta.is_scroll_or_book if meta else False,
-        )
+        if io.is_reading:
+            self.item_info.ext_info = ExtItemInfo(meta)
+        if self.item_info.ext_info:
+            self.item_info.ext_info.codec(
+                io,
+                version,
+                is_runeword=self.is_runeword,
+                is_personalized=self.is_personalized,
+            )
 
-        realm_flag = len(self.item_info.realm_data) > 0 if self.item_info.realm_data else False
-        bs.write_bits(1, 1 if realm_flag else 0)
+        realm_flag = bool(self.item_info.realm_data)
+        realm_flag = io.bit(realm_flag)
         if realm_flag:
             realm_count = 4 if version > 96 else (3 if version > 93 else 2)
-            for i in range(realm_count):
-                if i < len(self.item_info.realm_data):
-                    bs.write_bits(32, self.item_info.realm_data[i])
-                else:
-                    bs.write_bits(32, 0)
+            if io.is_reading:
+                self.item_info.realm_data = [io.bits(32) for _ in range(realm_count)]
+            else:
+                for i in range(realm_count):
+                    val = self.item_info.realm_data[i] if i < len(self.item_info.realm_data) else 0
+                    io.bits(32, val)
 
+        if self.item_info.is_gold():
+            if io.is_reading or self.item_info.gold is None:
+                self.item_info.gold = GoldQuantity()
+            self.item_info.gold.codec(io)
+
+        if io.is_reading:
+            self.item_info.type_specific_info = TypeSpecificInfo(meta)
         if self.item_info.type_specific_info:
-            tp = self.item_info.type_specific_info
-            tp.serialize(
-                bs,
+            self.item_info.type_specific_info.codec(
+                io,
                 version,
-                meta.has_def if meta else False,
-                meta.has_dur if meta else False,
-                self.is_socketed,
-                meta.is_stacked if meta else False,
-                self.is_set(),
-                self.is_runeword,
-                use_stat_cost=True,
-                d2r_order=True,
+                is_socketed=self.is_socketed,
+                is_set=self.is_set(),
+                is_runeword=self.is_runeword,
                 data=d,
             )
 
-        self._write_advanced_stash_size(bs, version)
+        if self._is_chronicle:
+            self.chronicle_id = io.bits(16, self.chronicle_id or 0)
+            if self._is_chronicle_compact:
+                self.chronicle_compact_data = io.qword(self.chronicle_compact_data or 0)
+            else:
+                self.chronicle_data_header = io.dword(self.chronicle_data_header or 0)
+                count = io.bits(4, len(self.chronicle_entries))
+                if io.is_reading:
+                    self.chronicle_entries = [io.qword() for _ in range(count)]
+                else:
+                    for entry in self.chronicle_entries:
+                        io.qword(entry)
 
-    def _write_advanced_stash_size(self, bs: OBitStream, version: int) -> None:
+        self._codec_advanced_stash_size(io, version)
+
+    def _codec_advanced_stash_size(self, io: BitIO, version: int) -> None:
         if version <= 99 or not self.item_info:
             return
-
         if version <= 101:
-            type_name = self.type_name
-            if type_name in ItemInfo.STACKABLE_FOR_STASH:
-                stash_size = self.item_info.stash_stack_size
-                bs.write_bits(8, stash_size)
+            if self.type_name in ItemInfo.STACKABLE_FOR_STASH:
+                self.item_info.stash_stack_size = io.bits(8, self.item_info.stash_stack_size)
+                self.item_info.has_stash_stack_size = True
         else:
-            has_stash_size = self.item_info.has_stash_stack_size
-            bs.write_bits(1, 1 if has_stash_size else 0)
-            if has_stash_size:
-                bs.write_bits(8, self.item_info.stash_stack_size)
+            has_stash = io.bit(self.item_info.has_stash_stack_size)
+            self.item_info.has_stash_stack_size = has_stash
+            if has_stash:
+                self.item_info.stash_stack_size = io.bits(8, self.item_info.stash_stack_size)
 
-    def _serialize_classic(
+    def _codec_classic(
         self,
-        bs: OBitStream,
+        io: BitIO,
         version: int,
-        write_magic: bool = True,
+        magic_flag: bool = True,
         data: VersionData | GameData | None = None,
     ) -> None:
-        d = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
-        if write_magic:
-            bs.align_byte()
-            bs.write_word(self.magic)
-            bs.write_dword(self.version)
+        if io.is_reading:
+            if magic_flag:
+                io.align_byte()
+                self.magic = io.word()
+                if self.magic != ITEM_LIST_MAGIC:
+                    io.seek_back_bytes(2)
+                    self.magic = ITEM_LIST_MAGIC
+                self.version = io.dword()
+                if not is_valid_version(self.version):
+                    io.seek_back_bytes(4)
+                    self.version = version
+            else:
+                self.magic = ITEM_LIST_MAGIC
+                self.version = version
 
-        bs.write_bits(1, 1 if self.is_quest else 0)
-        bs.write_bits(3, self.target_del_flags)
-        bs.write_bits(1, 1 if self.is_identified else 0)
-        bs.write_bits(3, self.switch_in_out_flags)
-        bs.write_bits(1, 1 if self.is_disabled else 0)
-        bs.write_bits(2, self.repair_flags)
-        bs.write_bits(1, 1 if self.is_socketed else 0)
-        bs.write_bits(1, 1 if self.is_no_sell else 0)
-        bs.write_bits(1, 1 if self.is_new else 0)
-        bs.write_bits(1, 1 if self.is_bad_equipped else 0)
-        bs.write_bits(1, 1 if self.is_named else 0)
-        bs.write_bits(1, 1 if self.is_ear else 0)
-        bs.write_bits(1, 1 if self.is_newbie else 0)
-        bs.write_bits(3, self.init_flags)
-        bs.write_bits(1, 1 if self.is_simple else 0)
-        bs.write_bits(1, 1 if self.is_ethereal else 0)
-        bs.write_bits(1, 1 if self.is_just_saved else 0)
-        bs.write_bits(1, 1 if self.is_personalized else 0)
-        bs.write_bits(1, 1 if self.is_low_quality else 0)
-        bs.write_bits(1, 1 if self.is_runeword else 0)
+            d = (
+                data.for_version(self.version)
+                if isinstance(data, GameData)
+                else (data or self._data)
+            )
+            self._data = d
+        else:
+            d = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
+            if magic_flag:
+                io.align_byte()
+                io.word(self.magic)
+                io.dword(self.version)
 
-        bs.write_bits(5, self.duplicate_chronicle)
-        bs.write_bits(10, self.item_version)
+        self.is_quest = io.bit(self.is_quest)
+        self.target_del_flags = io.bits(3, self.target_del_flags)
+        self.is_identified = io.bit(self.is_identified)
+        self.switch_in_out_flags = io.bits(3, self.switch_in_out_flags)
+        self.is_disabled = io.bit(self.is_disabled)
+        self.repair_flags = io.bits(2, self.repair_flags)
+        self.is_socketed = io.bit(self.is_socketed)
+        self.is_no_sell = io.bit(self.is_no_sell)
+        self.is_new = io.bit(self.is_new)
+        self.is_bad_equipped = io.bit(self.is_bad_equipped)
+        self.is_named = io.bit(self.is_named)
+        self.is_ear = io.bit(self.is_ear)
+        self.is_newbie = io.bit(self.is_newbie)
+        self.init_flags = io.bits(3, self.init_flags)
+        self.is_simple = io.bit(self.is_simple)
+        self.is_ethereal = io.bit(self.is_ethereal)
+        self.is_just_saved = io.bit(self.is_just_saved)
+        self.is_personalized = io.bit(self.is_personalized)
+        self.is_low_quality = io.bit(self.is_low_quality)
+        self.is_runeword = io.bit(self.is_runeword)
 
-        bs.write_bits(3, self.location)
-        bs.write_bits(4, self.position)
-        bs.write_bits(4, self.column)
-        bs.write_bits(4, self.row)
-        bs.write_bits(3, self.stored_in)
+        self.duplicate_chronicle = io.bits(5, self.duplicate_chronicle)
+        self.item_version = io.bits(10, self.item_version)
+
+        self.location = io.bits(3, self.location)
+        self.position = io.bits(4, self.position)
+        self.column = io.bits(4, self.column)
+        self.row = io.bits(4, self.row)
+        self.stored_in = io.bits(3, self.stored_in)
 
         if self.is_ear:
+            if io.is_reading:
+                self.ear = Ear()
+                self._meta = d.get_item_meta(b"ear ") if d else None
             if self.ear:
-                self.ear.serialize(bs, self.version)
+                self.ear.codec(io, self.version)
         else:
-            if self.item_info and self.item_info.ext_info:
-                ext = self.item_info.ext_info
-                meta = self._meta
-                ext.serialize(
-                    bs,
-                    version,
-                    meta.is_charm if meta else False,
+            if io.is_reading:
+                self.item_info = ItemInfo(self._meta)
+            if self.item_info:
+                meta = self.item_info.codec(
+                    io,
+                    self.version,
+                    self.is_simple,
                     self.is_runeword,
                     self.is_personalized,
-                    False,
-                    False,
-                    (meta.is_body_part and not meta.is_player_body_part) if meta else False,
-                    meta.is_scroll_or_book if meta else False,
-                )
-
-            if self.item_info and self.item_info.type_specific_info:
-                tp = self.item_info.type_specific_info
-                tp.serialize(
-                    bs,
-                    version,
-                    meta.has_def if meta else False,
-                    meta.has_dur if meta else False,
                     self.is_socketed,
-                    meta.is_stacked if meta else False,
-                    self.is_set(),
-                    self.is_runeword,
                     data=d,
                 )
+                if io.is_reading and meta is not None:
+                    self._meta = meta
 
-        bs.align_byte()
+        io.align_byte()
 
-        for gem_item in self.gem_items:
-            gem_item.serialize(bs, self.version, True, data=d)
+        gem_count = self.gems()
+        if io.is_reading:
+            self.gem_items = []
+            for _ in range(gem_count):
+                item = D2Item()
+                item.codec(io, self.version, magic_flag=True, data=d)
+                self.gem_items.append(item)
+        else:
+            for gem_item in self.gem_items:
+                gem_item.codec(io, self.version, magic_flag=True, data=d)
 
 
 class ItemList:
@@ -1645,7 +1178,7 @@ class ItemList:
         bs.write_word(len(self.items))
 
         for item in self.items:
-            item.serialize(bs, version, False, data=data)
+            item.serialize(bs, version, not is_d2r(version), data=data)
 
     def get_items(self) -> list[D2Item]:
         return self.items
