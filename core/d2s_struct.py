@@ -401,11 +401,11 @@ class Demon:
 
     def _read_demon_data(self, bs):
         stat_data_size = bs.read_word()
-        demon_type = bs.read_word()
-        class_id = bs.read_word() - 1
-        name_seed = bs.read_word()
-        mon_flags = bs.read_word()
-        num_stats = bs.read_word()
+        _demon_type = bs.read_word()
+        _class_id = bs.read_word() - 1
+        _name_seed = bs.read_word()
+        _mon_flags = bs.read_word()
+        _num_stats = bs.read_word()
         bs.read_byte()
         bs.read_byte()
         bs.read_word()

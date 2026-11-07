@@ -36,7 +36,6 @@ class TestHuffmanDecoder(unittest.TestCase):
 
     def test_all_chars_have_codes(self):
         expected_chars = set("0123456789abcdefghijklmnopqrstuvwxyz ")
-        codes = self.huffman.get_all_codes()
 
         for ch in expected_chars:
             code = self.huffman.get_code(ord(ch))

@@ -1679,7 +1679,7 @@ class D2Item:
             self.item_info.type_specific_info = tp
 
         if is_chronicle:
-            chronicle_id = bs.read_bits(16)
+            _chronicle_id = bs.read_bits(16)
             if is_chronicle_compact:
                 bs.read_bits(64)
             else:

@@ -613,7 +613,6 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
         template = get_item_modifier(template_key)
         if template:
             descfunc = stat.descfunc
-            descval = stat.descval
             value = a[0]
 
             match descfunc:

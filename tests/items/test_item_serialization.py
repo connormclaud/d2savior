@@ -166,9 +166,6 @@ class TestItemSerialization(unittest.TestCase):
         if not os.path.exists(file_path):
             self.skipTest(f"Test file not found: {file_path}")
 
-        with open(file_path, "rb") as f:
-            original_data = f.read()
-
         item = self._deserialize_item(file_path)
 
         serialized_data = self._serialize_item(item, 0x63)
