@@ -298,7 +298,7 @@ def compute_advanced_grid(items, subtype: int) -> tuple[int, int, list]:
 
 
 class StashTab:
-    def __init__(self):
+    def __init__(self) -> None:
         self.stash_format = 0
         self.item_format = 0
         self.gold = 0
@@ -371,7 +371,7 @@ class StashTab:
 
 
 class SharedStash:
-    def __init__(self):
+    def __init__(self) -> None:
         self.tabs: list[StashTab] = []
         self.file_path = ""
 

@@ -13,7 +13,7 @@ class LanguageData:
         "time_name": "时刻名字",
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._strings: list[str] = []
         self._sections: dict[str, tuple[int, int]] = {}
         self._section_strings: dict[str, dict[int, str]] = {}

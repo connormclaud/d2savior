@@ -20,7 +20,7 @@ class CharStatus(IntFlag, boundary=FlagBoundary.KEEP):
 
 
 class QuestInfoData:
-    def __init__(self):
+    def __init__(self) -> None:
         self.introduced_1 = 0
         self.act_1 = [0] * 6
         self.travel_1 = 0
@@ -101,7 +101,7 @@ class QuestInfoData:
 
 
 class QuestInfo:
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = 0
         self.acts = 0
         self.size = 0
@@ -123,7 +123,7 @@ class QuestInfo:
 
 
 class WaypointData:
-    def __init__(self):
+    def __init__(self) -> None:
         self.unknown = 0
         self.waypoints = [0] * 5
         self.unknown2 = [0] * 17
@@ -144,7 +144,7 @@ class WaypointData:
 
 
 class Waypoints:
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = 0
         self.unknown = 0
         self.size = 0
@@ -166,7 +166,7 @@ class Waypoints:
 
 
 class PlayerStats:
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = 0
         self.stat_values = [0] * 0x10
         self.end_flag = 0
@@ -269,7 +269,7 @@ class PlayerStats:
 
 
 class CharSkills:
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = 0
         self.skill_levels = [0] * 30
 
@@ -285,7 +285,7 @@ class CharSkills:
 
 
 class CorpseData:
-    def __init__(self):
+    def __init__(self) -> None:
         self.unknown = b""
         self.items = None
 
@@ -302,7 +302,7 @@ class CorpseData:
 
 
 class Corpse:
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = 0
         self.count = 0
         self.corpse_data = None
@@ -329,7 +329,7 @@ class Corpse:
 
 
 class Mercenary:
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = 0
         self.items = None
 
@@ -350,7 +350,7 @@ class Mercenary:
 
 
 class Golem:
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = 0
         self.has_golem = 0
         self.item = None
@@ -373,7 +373,7 @@ class Golem:
 
 
 class Demon:
-    def __init__(self):
+    def __init__(self) -> None:
         self.section_version = 0
         self.magic = 0
         self.has_demon = False
@@ -432,7 +432,7 @@ class Demon:
 
 
 class D2SStruct:
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = 0
         self.version = 0
         self.size = 0

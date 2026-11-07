@@ -1,5 +1,5 @@
 import os
-from collections.abc import Buffer
+from collections.abc import Buffer, Iterator
 from dataclasses import dataclass, field
 from itertools import batched
 from typing import ClassVar
@@ -110,7 +110,7 @@ class PropertyMetaDataItem:
 
 
 class PropertyMetaData:
-    def __init__(self):
+    def __init__(self) -> None:
         self._data: list[PropertyMetaDataItem] = []
 
     def add_item(self, item: PropertyMetaDataItem):
@@ -167,7 +167,7 @@ class ItemMetaData:
 
 
 class ItemMetaDataManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._items: dict[bytes, list[ItemMetaData]] = {}
 
     def add_item(self, item: ItemMetaData):
@@ -543,7 +543,7 @@ def get_stat_cost(stat_id: int) -> StatCostItem | None:
 
 
 class Ear:
-    def __init__(self, name: str = ""):
+    def __init__(self, name: str = "") -> None:
         self.ear_class = 0
         self.ear_level = 1
         self.ear_name = name
@@ -580,7 +580,7 @@ class Ear:
 
 
 class LongName:
-    def __init__(self):
+    def __init__(self) -> None:
         self.name_1: int = 0
         self.name_2: int = 0
         self.pref_1: int | None = None
@@ -630,7 +630,7 @@ class LongName:
 
 
 class GoldQuantity:
-    def __init__(self):
+    def __init__(self) -> None:
         self.is_not_gold = False
         self.quantity = 0
 
@@ -645,7 +645,7 @@ _TRACE_ITEM_IDX = -1
 
 
 class PropertyList:
-    def __init__(self):
+    def __init__(self) -> None:
         self.properties: list[RawProperty] = []
         self.end_flag = 0
         self._version: int = 0
@@ -836,7 +836,7 @@ class PropertyList:
 
 
 class ExtItemInfo:
-    def __init__(self, meta: ItemMetaData = None):
+    def __init__(self, meta: ItemMetaData = None) -> None:
         self.gems: int = 0
         self.guid: int = 0
         self.drop_level: int = 99
@@ -1002,7 +1002,7 @@ class ExtItemInfo:
 
 
 class TypeSpecificInfo:
-    def __init__(self, meta: ItemMetaData = None):
+    def __init__(self, meta: ItemMetaData = None) -> None:
         self.defence: int | None = None
         self.max_durability: int | None = None
         self.current_durability: int | None = None
@@ -1288,7 +1288,7 @@ class ItemInfo:
         b"fed ",
     }
 
-    def __init__(self, meta: ItemMetaData = None):
+    def __init__(self, meta: ItemMetaData = None) -> None:
         self.type_name: bytes = b"    "
         self.ext_info: ExtItemInfo | None = None
         self.gold: GoldQuantity | None = None
@@ -1418,7 +1418,7 @@ ITEM_FLAG_LABELS = [
 
 
 class D2Item:
-    def __init__(self, meta: ItemMetaData = None):
+    def __init__(self, meta: ItemMetaData = None) -> None:
         self.version = 0
         self.magic = ITEM_LIST_MAGIC
         self.is_quest = False
@@ -1985,7 +1985,7 @@ class D2Item:
 
 
 class ItemList:
-    def __init__(self):
+    def __init__(self) -> None:
         self.magic = ITEM_LIST_MAGIC
         self.count = 0
         self.items: list[D2Item] = []
@@ -1996,10 +1996,10 @@ class ItemList:
     def __bool__(self) -> bool:
         return True
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[D2Item]:
         return iter(self.items)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> D2Item:
         return self.items[index]
 
     def deserialize(self, bs, version: int):

@@ -153,7 +153,7 @@ HUFFMAN_TREE = [
 
 
 class HuffmanDecoder:
-    def __init__(self):
+    def __init__(self) -> None:
         self._root = self._build_tree()
         self._codes: dict[int, tuple[int, int]] = {}
         self._build_codes(self._root, 0, 0)

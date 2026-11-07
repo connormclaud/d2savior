@@ -17,7 +17,7 @@ def clean_d2_text(text: str) -> str:
 class LocalizedDataLoader:
     LANG_KEYS: ClassVar[list[str]] = ["enUS", "zhCN"]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._raw: dict[str, list[dict]] = {}
         self._data: dict[str, dict[str, str]] = {}
         self._current_lang: str = "enUS"

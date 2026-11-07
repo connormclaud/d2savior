@@ -9,7 +9,7 @@ type ByteInput = Buffer | list[int]
 class OBitStream:
     """Little endian binary output stream, represents data in bits."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._bytes: bytearray = bytearray()
         self._buffer: int = 0
         self.bits_pos: int = 0

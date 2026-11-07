@@ -200,7 +200,7 @@ class VersionData:
 class D2DataLoader:
     """加载单个版本的数据"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def load_itemstatcost(self, filepath: str) -> tuple[dict[int, StatInfo], dict[str, StatInfo]]:
@@ -1086,7 +1086,7 @@ class D2DataLoader:
 class D2DataManager:
     """管理多个版本的数据"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.version_data: dict[int, VersionData] = {}
         self.default_version: int = 0x63  # 默认版本
 
@@ -1293,7 +1293,7 @@ _g_d2data_wrapper: D2DataWrapper | None = None
 class D2DataWrapper:
     """向后兼容的包装器，模拟旧的D2DataLoader接口"""
 
-    def __init__(self, manager: D2DataManager):
+    def __init__(self, manager: D2DataManager) -> None:
         self.manager = manager
 
     def get_stat(self, stat_id: int) -> StatInfo | None:
@@ -1388,7 +1388,7 @@ class GameDataResolver:
         version: int = 0x63,
         mgr: D2DataManager | None = _UNSET,
         legacy: D2DataWrapper | None = _UNSET,
-    ):
+    ) -> None:
         self.version = version
         self._mgr = get_d2data_manager() if mgr is _UNSET else mgr
         self._legacy = get_d2data() if legacy is _UNSET else legacy

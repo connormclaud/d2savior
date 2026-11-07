@@ -8,7 +8,7 @@ type BitStreamData = Buffer
 class IBitStream:
     """Little endian binary input stream, reads data from bytes as bits."""
 
-    def __init__(self, data: BitStreamData | None = None):
+    def __init__(self, data: BitStreamData | None = None) -> None:
         self._data: bytes = b""
         self.data: BitStreamData | None = None
         self._offset: int = 0
