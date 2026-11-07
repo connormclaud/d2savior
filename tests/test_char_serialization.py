@@ -68,6 +68,16 @@ class TestCharSerialization:
 
         assert original_data == serialized_data, "Data mismatch after round-trip"
 
+    def test_serialize_sork_fixture(self):
+        save_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "sork.d2s")
+        assert os.path.exists(save_file)
+        self._test_char_roundtrip(save_file)
+
+    def test_serialize_sorc_fixture(self):
+        save_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "Sorc.d2s")
+        assert os.path.exists(save_file)
+        self._test_char_roundtrip(save_file)
+
     def test_serialize_warlock_0x69(self):
         save_file = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -140,6 +150,16 @@ class TestCharSerialization:
         assert verify_checksum == checksum, (
             f"Checksum verification failed: {verify_checksum} vs {checksum}"
         )
+
+    def test_checksum_sork_fixture(self):
+        save_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "sork.d2s")
+        assert os.path.exists(save_file)
+        self._test_checksum_update(save_file)
+
+    def test_checksum_sorc_fixture(self):
+        save_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "Sorc.d2s")
+        assert os.path.exists(save_file)
+        self._test_checksum_update(save_file)
 
     def test_checksum_warlock_0x69(self):
         save_file = os.path.join(

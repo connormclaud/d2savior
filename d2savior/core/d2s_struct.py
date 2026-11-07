@@ -1,6 +1,7 @@
 from enum import FlagBoundary, IntFlag
 from typing import Any
 
+from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 from d2savior.core.d2data import GameData
 from d2savior.core.enums import (
     DEMON_MAGIC,
@@ -45,63 +46,40 @@ class QuestInfoData:
         self.unknown3 = 0
         self.unknown4 = [0] * 6
 
-    def deserialize(self, bs: IBitStream) -> None:
-        self.introduced_1 = bs.read_word()
+    def codec(self, io: BitIO) -> None:
+        self.introduced_1 = io.word(self.introduced_1)
         for i in range(6):
-            self.act_1[i] = bs.read_word()
-        self.travel_1 = bs.read_word()
-        self.introduced_2 = bs.read_word()
+            self.act_1[i] = io.word(self.act_1[i])
+        self.travel_1 = io.word(self.travel_1)
+        self.introduced_2 = io.word(self.introduced_2)
         for i in range(6):
-            self.act_2[i] = bs.read_word()
-        self.travel_2 = bs.read_word()
-        self.introduced_3 = bs.read_word()
+            self.act_2[i] = io.word(self.act_2[i])
+        self.travel_2 = io.word(self.travel_2)
+        self.introduced_3 = io.word(self.introduced_3)
         for i in range(6):
-            self.act_3[i] = bs.read_word()
-        self.travel_3 = bs.read_word()
-        self.introduced_4 = bs.read_word()
+            self.act_3[i] = io.word(self.act_3[i])
+        self.travel_3 = io.word(self.travel_3)
+        self.introduced_4 = io.word(self.introduced_4)
         for i in range(3):
-            self.act_4[i] = bs.read_word()
-        self.travel_4 = bs.read_word()
+            self.act_4[i] = io.word(self.act_4[i])
+        self.travel_4 = io.word(self.travel_4)
         for i in range(3):
-            self.unknown1[i] = bs.read_word()
-        self.introduced_5 = bs.read_word()
+            self.unknown1[i] = io.word(self.unknown1[i])
+        self.introduced_5 = io.word(self.introduced_5)
         for i in range(2):
-            self.unknown2[i] = bs.read_word()
+            self.unknown2[i] = io.word(self.unknown2[i])
         for i in range(6):
-            self.act_5[i] = bs.read_word()
-        self.reset_stats = bs.read_byte()
-        self.unknown3 = bs.read_byte()
+            self.act_5[i] = io.word(self.act_5[i])
+        self.reset_stats = io.byte(self.reset_stats)
+        self.unknown3 = io.byte(self.unknown3)
         for i in range(6):
-            self.unknown4[i] = bs.read_word()
+            self.unknown4[i] = io.word(self.unknown4[i])
+
+    def deserialize(self, bs: IBitStream) -> None:
+        self.codec(BitReader(bs))
 
     def serialize(self, bs: OBitStream) -> None:
-        bs.write_word(self.introduced_1)
-        for i in range(6):
-            bs.write_word(self.act_1[i])
-        bs.write_word(self.travel_1)
-        bs.write_word(self.introduced_2)
-        for i in range(6):
-            bs.write_word(self.act_2[i])
-        bs.write_word(self.travel_2)
-        bs.write_word(self.introduced_3)
-        for i in range(6):
-            bs.write_word(self.act_3[i])
-        bs.write_word(self.travel_3)
-        bs.write_word(self.introduced_4)
-        for i in range(3):
-            bs.write_word(self.act_4[i])
-        bs.write_word(self.travel_4)
-        for i in range(3):
-            bs.write_word(self.unknown1[i])
-        bs.write_word(self.introduced_5)
-        for i in range(2):
-            bs.write_word(self.unknown2[i])
-        for i in range(6):
-            bs.write_word(self.act_5[i])
-        bs.write_byte(self.reset_stats)
-        bs.write_byte(self.unknown3)
-        for i in range(6):
-            bs.write_word(self.unknown4[i])
+        self.codec(BitWriter(bs))
 
 
 class QuestInfo:
@@ -111,19 +89,18 @@ class QuestInfo:
         self.size = 0
         self.qi_data = [QuestInfoData() for _ in range(3)]
 
-    def deserialize(self, bs: IBitStream) -> None:
-        self.magic = bs.read_dword()
-        self.acts = bs.read_dword()
-        self.size = bs.read_word()
+    def codec(self, io: BitIO) -> None:
+        self.magic = io.dword(self.magic)
+        self.acts = io.dword(self.acts)
+        self.size = io.word(self.size)
         for i in range(3):
-            self.qi_data[i].deserialize(bs)
+            self.qi_data[i].codec(io)
+
+    def deserialize(self, bs: IBitStream) -> None:
+        self.codec(BitReader(bs))
 
     def serialize(self, bs: OBitStream) -> None:
-        bs.write_dword(self.magic)
-        bs.write_dword(self.acts)
-        bs.write_word(self.size)
-        for i in range(3):
-            self.qi_data[i].serialize(bs)
+        self.codec(BitWriter(bs))
 
 
 class WaypointData:
@@ -132,19 +109,18 @@ class WaypointData:
         self.waypoints = [0] * 5
         self.unknown2 = [0] * 17
 
-    def deserialize(self, bs: IBitStream) -> None:
-        self.unknown = bs.read_word()
+    def codec(self, io: BitIO) -> None:
+        self.unknown = io.word(self.unknown)
         for i in range(5):
-            self.waypoints[i] = bs.read_byte()
+            self.waypoints[i] = io.byte(self.waypoints[i])
         for i in range(17):
-            self.unknown2[i] = bs.read_byte()
+            self.unknown2[i] = io.byte(self.unknown2[i])
+
+    def deserialize(self, bs: IBitStream) -> None:
+        self.codec(BitReader(bs))
 
     def serialize(self, bs: OBitStream) -> None:
-        bs.write_word(self.unknown)
-        for i in range(5):
-            bs.write_byte(self.waypoints[i])
-        for i in range(17):
-            bs.write_byte(self.unknown2[i])
+        self.codec(BitWriter(bs))
 
 
 class Waypoints:
@@ -154,19 +130,18 @@ class Waypoints:
         self.size = 0
         self.wp = [WaypointData() for _ in range(3)]
 
-    def deserialize(self, bs: IBitStream) -> None:
-        self.magic = bs.read_word()
-        self.unknown = bs.read_dword()
-        self.size = bs.read_word()
+    def codec(self, io: BitIO) -> None:
+        self.magic = io.word(self.magic)
+        self.unknown = io.dword(self.unknown)
+        self.size = io.word(self.size)
         for i in range(3):
-            self.wp[i].deserialize(bs)
+            self.wp[i].codec(io)
+
+    def deserialize(self, bs: IBitStream) -> None:
+        self.codec(BitReader(bs))
 
     def serialize(self, bs: OBitStream) -> None:
-        bs.write_word(self.magic)
-        bs.write_dword(self.unknown)
-        bs.write_word(self.size)
-        for i in range(3):
-            self.wp[i].serialize(bs)
+        self.codec(BitWriter(bs))
 
 
 class PlayerStats:
@@ -175,33 +150,36 @@ class PlayerStats:
         self.stat_values = [0] * 0x10
         self.end_flag = 0
 
-    def deserialize(self, bs: IBitStream) -> None:
-        self.magic = bs.read_word()
-        if self.magic != PLAYER_STATS_MAGIC:
-            return
-        self.stat_values = [0] * 0x10
-        while True:
-            try:
-                self.end_flag = bs.read_bits(9)
-                if self.end_flag >= 0x10:
+    def codec(self, io: BitIO) -> None:
+        self.magic = io.word(self.magic)
+        if io.is_writing:
+            for i in range(0x10):
+                if self.stat_values[i] != 0:
+                    io.bits(9, i)
+                    io.bits(PLAYER_STATS_BITS_COUNT[i], self.stat_values[i])
+            io.bits(9, 0x1FF)
+            io.align_byte()
+        else:
+            if self.magic != PLAYER_STATS_MAGIC:
+                return
+            self.stat_values = [0] * 0x10
+            while True:
+                try:
+                    self.end_flag = io.bits(9)
+                    if self.end_flag >= 0x10:
+                        break
+                    self.stat_values[self.end_flag] = io.bits(
+                        PLAYER_STATS_BITS_COUNT[self.end_flag]
+                    )
+                except ValueError:
                     break
-                self.stat_values[self.end_flag] = bs.read_bits(
-                    PLAYER_STATS_BITS_COUNT[self.end_flag]
-                )
-            except ValueError:
-                break
-        bs.align_byte()
+            io.align_byte()
+
+    def deserialize(self, bs: IBitStream) -> None:
+        self.codec(BitReader(bs))
 
     def serialize(self, bs: OBitStream) -> None:
-        bs.write_word(self.magic)
-
-        for i in range(0x10):
-            if self.stat_values[i] != 0:
-                bs.write_bits(9, i)
-                bs.write_bits(PLAYER_STATS_BITS_COUNT[i], self.stat_values[i])
-
-        bs.write_bits(9, 0x1FF)
-        bs.align_byte()
+        self.codec(BitWriter(bs))
 
     @property
     def is_valid(self) -> bool:
@@ -277,15 +255,16 @@ class CharSkills:
         self.magic = 0
         self.skill_levels = [0] * 30
 
-    def deserialize(self, bs: IBitStream) -> None:
-        self.magic = bs.read_word()
+    def codec(self, io: BitIO) -> None:
+        self.magic = io.word(self.magic)
         for i in range(30):
-            self.skill_levels[i] = bs.read_byte()
+            self.skill_levels[i] = io.byte(self.skill_levels[i])
+
+    def deserialize(self, bs: IBitStream) -> None:
+        self.codec(BitReader(bs))
 
     def serialize(self, bs: OBitStream) -> None:
-        bs.write_word(self.magic)
-        for i in range(30):
-            bs.write_byte(self.skill_levels[i])
+        self.codec(BitWriter(bs))
 
 
 class CorpseData:
@@ -293,16 +272,18 @@ class CorpseData:
         self.unknown = b""
         self.items = None
 
+    def codec(self, io: BitIO, version: int, data: Any = None) -> None:
+        self.unknown = io.bytes(12, self.unknown)
+        if io.is_reading:
+            self.items = ItemList()
+        if self.items:
+            self.items.codec(io, version, data=data)
+
     def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
-        self.unknown = bs.data[bs.bytes_pos : bs.bytes_pos + 12]
-        bs.bytes_pos += 12
-        self.items = ItemList()
-        self.items.deserialize(bs, version, data=data)
+        self.codec(BitReader(bs), version, data=data)
 
     def serialize(self, bs: OBitStream, version: int, data: Any = None) -> None:
-        bs.write_bytes(self.unknown)
-        if self.items:
-            self.items.serialize(bs, version, data=data)
+        self.codec(BitWriter(bs), version, data=data)
 
 
 class Corpse:
@@ -311,25 +292,29 @@ class Corpse:
         self.count = 0
         self.corpse_data = None
 
-    def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
-        self.magic = bs.read_word()
-        self.count = bs.read_word()
-        if self.magic != ITEM_LIST_MAGIC:
-            # 不是CCorpse，回退并返回
-            bs.seek_back_bytes(4)
-            return
-        if self.count > 0:
-            self.corpse_data = CorpseData()
-            self.corpse_data.deserialize(bs, version, data=data)
+    def codec(self, io: BitIO, version: int, data: Any = None) -> None:
+        self.magic = io.word(self.magic)
+        self.count = io.word(self.count)
+        if io.is_reading:
+            if self.magic != ITEM_LIST_MAGIC:
+                # 不是CCorpse，回退并返回
+                io.seek_back_bytes(4)
+                return
+            if self.count > 0:
+                self.corpse_data = CorpseData()
+                self.corpse_data.codec(io, version, data=data)
+        else:
+            if self.corpse_data:
+                self.corpse_data.codec(io, version, data=data)
 
     def has_corpse(self) -> bool:
         return self.count > 0 and self.corpse_data is not None
 
+    def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
+        self.codec(BitReader(bs), version, data=data)
+
     def serialize(self, bs: OBitStream, version: int, data: Any = None) -> None:
-        bs.write_word(self.magic)
-        bs.write_word(self.count)
-        if self.corpse_data:
-            self.corpse_data.serialize(bs, version, data=data)
+        self.codec(BitWriter(bs), version, data=data)
 
 
 class Mercenary:
@@ -337,24 +322,29 @@ class Mercenary:
         self.magic = 0
         self.items = None
 
+    def codec(self, io: BitIO, has_mercenary: bool, version: int, data: Any = None) -> None:
+        self.magic = io.word(self.magic)
+        if io.is_reading:
+            if self.magic != MERCENARY_MAGIC:
+                # 不是CMercenary，回退并返回
+                io.seek_back_bytes(2)
+                return
+            if has_mercenary:
+                self.items = ItemList()
+                self.items.codec(io, version, data=data)
+        else:
+            if has_mercenary and self.items:
+                self.items.codec(io, version, data=data)
+
     def deserialize(
         self, bs: IBitStream, has_mercenary: bool, version: int, data: Any = None
     ) -> None:
-        self.magic = bs.read_word()
-        if self.magic != MERCENARY_MAGIC:
-            # 不是CMercenary，回退并返回
-            bs.seek_back_bytes(2)
-            return
-        if has_mercenary:
-            self.items = ItemList()
-            self.items.deserialize(bs, version, data=data)
+        self.codec(BitReader(bs), has_mercenary, version, data=data)
 
     def serialize(
         self, bs: OBitStream, has_mercenary: bool, version: int, data: Any = None
     ) -> None:
-        bs.write_word(self.magic)
-        if has_mercenary and self.items:
-            self.items.serialize(bs, version, data=data)
+        self.codec(BitWriter(bs), has_mercenary, version, data=data)
 
 
 class Golem:
@@ -363,21 +353,25 @@ class Golem:
         self.has_golem = 0
         self.item = None
 
+    def codec(self, io: BitIO, version: int, data: Any = None) -> None:
+        self.magic = io.word(self.magic)
+        self.has_golem = io.byte(self.has_golem)
+        if io.is_reading:
+            if self.magic not in [GOLEM_MAGIC_1, GOLEM_MAGIC_2]:
+                io.seek_back_bytes(3)
+                return
+            if self.has_golem:
+                self.item = D2Item()
+                self.item.codec(io, version, False, data=data)
+        else:
+            if self.has_golem and self.item:
+                self.item.codec(io, version, False, data=data)
+
     def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
-        self.magic = bs.read_word()
-        self.has_golem = bs.read_byte()
-        if self.magic not in [GOLEM_MAGIC_1, GOLEM_MAGIC_2]:
-            bs.seek_back_bytes(3)
-            return
-        if self.has_golem:
-            self.item = D2Item()
-            self.item.deserialize(bs, version, data=data)
+        self.codec(BitReader(bs), version, data=data)
 
     def serialize(self, bs: OBitStream, version: int, data: Any = None) -> None:
-        bs.write_word(self.magic)
-        bs.write_byte(self.has_golem)
-        if self.has_golem and self.item:
-            self.item.serialize(bs, version, False, data=data)
+        self.codec(BitWriter(bs), version, data=data)
 
 
 class Demon:
@@ -389,54 +383,55 @@ class Demon:
         self.demon_data = None
         self._raw_data = b""
 
-    def deserialize(self, bs: IBitStream) -> None:
-        start_pos = bs.bytes_pos
-        self.section_version = bs.read_word()
-        self.magic = bs.read_word()
-        if self.magic != DEMON_MAGIC:
-            bs.seek_back_bytes(4)
-            return
-        has_demon_byte = bs.read_byte()
-        self.has_demon = has_demon_byte != 0
-        self.padding = bs.read_byte()
-        if self.has_demon:
-            self._read_demon_data(bs)
+    def codec(self, io: BitIO) -> None:
+        if io.is_writing:
+            if self._raw_data:
+                io.bytes(len(self._raw_data), self._raw_data)
+        else:
+            if isinstance(io, BitReader):
+                start_pos = io.bs.bytes_pos
+                self.section_version = io.word(self.section_version)
+                self.magic = io.word(self.magic)
+                if self.magic != DEMON_MAGIC:
+                    io.seek_back_bytes(4)
+                    return
+                has_demon_byte = io.byte()
+                self.has_demon = has_demon_byte != 0
+                self.padding = io.byte(self.padding)
+                if self.has_demon:
+                    self._read_demon_data(io)
 
-        end_pos = bs.bytes_pos
-        bs.bytes_pos = start_pos
-        self._raw_data = bs.data[start_pos:end_pos]
-        bs.bytes_pos = end_pos
+                end_pos = io.bs.bytes_pos
+                io.bs.bytes_pos = start_pos
+                self._raw_data = io.bs.read_bytes(end_pos - start_pos)
 
-    def _read_demon_data(self, bs: IBitStream) -> None:
-        stat_data_size = bs.read_word()
-        _demon_type = bs.read_word()
-        _class_id = bs.read_word() - 1
-        _name_seed = bs.read_word()
-        _mon_flags = bs.read_word()
-        _num_stats = bs.read_word()
-        bs.read_byte()
-        bs.read_byte()
-        bs.read_word()
-        bs.data[bs.bytes_pos : bs.bytes_pos + 28]
-        bs.bytes_pos += 28
-        bs.read_dword()
-        bs.read_dword()
-        bs.read_dword()
-        bs.read_dword()
-        bs.read_dword()
-        bs.data[bs.bytes_pos : bs.bytes_pos + 16]
-        bs.bytes_pos += 16
-        bs.data[bs.bytes_pos : bs.bytes_pos + 10]
-        bs.bytes_pos += 10
-        bs.data[bs.bytes_pos : bs.bytes_pos + 2]
-        bs.bytes_pos += 2
+    def _read_demon_data(self, io: BitIO) -> None:
+        stat_data_size = io.word()
+        _demon_type = io.word()
+        _class_id = io.word() - 1
+        _name_seed = io.word()
+        _mon_flags = io.word()
+        _num_stats = io.word()
+        io.byte()
+        io.byte()
+        io.word()
+        io.bytes(28)
+        io.dword()
+        io.dword()
+        io.dword()
+        io.dword()
+        io.dword()
+        io.bytes(16)
+        io.bytes(10)
+        io.bytes(2)
         if stat_data_size > 0:
-            bs.data[bs.bytes_pos : bs.bytes_pos + stat_data_size]
-            bs.bytes_pos += stat_data_size
+            io.bytes(stat_data_size)
+
+    def deserialize(self, bs: IBitStream) -> None:
+        self.codec(BitReader(bs))
 
     def serialize(self, bs: OBitStream) -> None:
-        if self._raw_data:
-            bs.write_bytes(self._raw_data)
+        self.codec(BitWriter(bs))
 
 
 class D2SStruct:
@@ -507,171 +502,160 @@ class D2SStruct:
     def merc_experience(self, val: int) -> None:
         self._merc_experience = val
 
-    def deserialize(self, bs: IBitStream, data: Any = None) -> None:
-        self.magic = bs.read_dword()
-        self.version = bs.read_dword()
-        self.size = bs.read_dword()
-        self.crc = bs.read_dword()
-        self.weapon_set = bs.read_dword()
+    def codec(self, io: BitIO, data: Any = None) -> None:
+        self.magic = io.dword(self.magic)
+        self.version = io.dword(self.version)
+        self.size = io.dword(self.size)
+        self.crc = io.dword(self.crc)
+        self.weapon_set = io.dword(self.weapon_set)
 
         vd = data.for_version(self.version) if isinstance(data, GameData) else (data or self._data)
         self._data = vd
 
         if self.version >= 0x69:
-            self._read_data_v69(bs, data=vd)
+            self._codec_v69(io, data=vd)
         else:
-            self._read_data_common(bs, data=vd)
+            self._codec_common(io, data=vd)
 
-    def _read_data_v69(self, bs: IBitStream, data: Any = None) -> None:
-        self.char_flags = CharStatus(bs.read_dword())
-        self.char_type = self.char_flags
-        self.char_title = (self.char_flags >> 8) & 0x1F
-        self.char_class = bs.read_byte()
-        self.num_stats = bs.read_byte()
-        self.num_skills = bs.read_byte()
-        self.char_level = bs.read_byte()
-        self.create_time = bs.read_dword()
-        self.last_save_time = bs.read_dword()
-        self.play_time = bs.read_dword()
+    def deserialize(self, bs: IBitStream, data: Any = None) -> None:
+        self.codec(BitReader(bs), data=data)
+
+    def _codec_v69(self, io: BitIO, data: Any = None) -> None:
+        self.char_flags = CharStatus(io.dword(int(self.char_flags)))
+        if io.is_reading:
+            self.char_type = self.char_flags
+            self.char_title = (self.char_flags >> 8) & 0x1F
+
+        self.char_class = io.byte(self.char_class)
+        self.num_stats = io.byte(self.num_stats)
+        self.num_skills = io.byte(self.num_skills)
+        self.char_level = io.byte(self.char_level)
+        self.create_time = io.dword(self.create_time)
+        self.last_save_time = io.dword(self.last_save_time)
+        self.play_time = io.dword(self.play_time)
 
         for i in range(16):
-            self.skill_keys[i] = bs.read_dword()
+            self.skill_keys[i] = io.dword(self.skill_keys[i])
 
-        self.left_skill_1 = bs.read_dword()
-        self.right_skill_1 = bs.read_dword()
-        self.left_skill_2 = bs.read_dword()
-        self.right_skill_2 = bs.read_dword()
+        self.left_skill_1 = io.dword(self.left_skill_1)
+        self.right_skill_1 = io.dword(self.right_skill_1)
+        self.left_skill_2 = io.dword(self.left_skill_2)
+        self.right_skill_2 = io.dword(self.right_skill_2)
 
-        self.outfit = bs.data[bs.bytes_pos : bs.bytes_pos + 16]
-        bs.bytes_pos += 16
-        self.colors = bs.data[bs.bytes_pos : bs.bytes_pos + 16]
-        bs.bytes_pos += 16
+        self.outfit = io.bytes(16, self.outfit)
+        self.colors = io.bytes(16, self.colors)
+        self.town = io.bytes(3, self.town)
 
-        self.town = bs.data[bs.bytes_pos : bs.bytes_pos + 3]
-        bs.bytes_pos += 3
+        self.map_seed = io.dword(self.map_seed)
 
-        self.map_seed = bs.read_dword()
+        self.merc_flags = io.dword(self.merc_flags)
+        self.merc_seed = io.dword(self.merc_seed)
+        self.merc_name_index = io.word(self.merc_name_index)
+        self.merc_hireling_id = io.word(self.merc_hireling_id)
+        self._merc_experience = io.dword(self._merc_experience)
 
-        self.merc_flags = bs.read_dword()
-        self.merc_seed = bs.read_dword()
-        self.merc_name_index = bs.read_word()
-        self.merc_hireling_id = bs.read_word()
-        self._merc_experience = bs.read_dword()
+        self.preview_data = io.bytes(228, self.preview_data)
 
-        preview_size = 228
-        self.preview_data = bs.data[bs.bytes_pos : bs.bytes_pos + preview_size]
-        bs.bytes_pos += preview_size
-
-        self.game_version = self.preview_data[73]
-
-        name_offset = 0x7C
-        name_bytes = self.preview_data[name_offset : name_offset + 96]
-        self.name = name_bytes.split(b"\x00")[0]
+        if io.is_reading:
+            self.game_version = self.preview_data[73]
+            name_offset = 0x7C
+            name_bytes = self.preview_data[name_offset : name_offset + 96]
+            self.name = name_bytes.split(b"\x00")[0]
 
         if self.quests is not None:
-            self.quests.deserialize(bs)
+            self.quests.codec(io)
 
-        self.waypoints.deserialize(bs)
+        self.waypoints.codec(io)
 
-        self.npc = bs.data[bs.bytes_pos : bs.bytes_pos + 0x34]
-        bs.bytes_pos += 0x34
+        self.npc = io.bytes(0x34, self.npc)
 
-        self.player_stats.deserialize(bs)
+        self.player_stats.codec(io)
 
-        self.skills.deserialize(bs)
+        self.skills.codec(io)
 
-        self.item_list.deserialize(bs, self.version, data=data)
+        self.item_list.codec(io, self.version, data=data)
 
-        self.corpse.deserialize(bs, self.version, data=data)
+        self.corpse.codec(io, self.version, data=data)
 
         if self.is_expansion():
-            self.mercenary.deserialize(bs, self.has_mercenary(), self.version, data=data)
-            self.golem.deserialize(bs, self.version, data=data)
+            self.mercenary.codec(io, self.has_mercenary(), self.version, data=data)
+            self.golem.codec(io, self.version, data=data)
 
         if self.version >= 0x69 and self.game_version >= 3:
-            self.demon.deserialize(bs)
+            self.demon.codec(io)
 
-        bs.align_byte()
+        io.align_byte()
 
-    def _read_data_common(self, bs: IBitStream, data: Any = None) -> None:
-        self.name = bs.data[bs.bytes_pos : bs.bytes_pos + 16]
-        bs.bytes_pos += 16
+    def _read_data_v69(self, bs: IBitStream, data: Any = None) -> None:
+        self._codec_v69(BitReader(bs), data=data)
 
-        char_type = bs.read_byte()
-        self.char_flags = CharStatus(char_type)
-        self.char_type = char_type
-        self.char_title = bs.read_byte()
-        self.num_stats_num_skills = bs.read_word()
-        self.char_class = bs.read_byte()
-        self.padding1 = bs.read_word()
-        self.char_level = bs.read_byte()
-        self.create_time = bs.read_dword()
-        self.dw_time = bs.read_dword()
-        self.play_time = bs.read_dword()
+    def _codec_common(self, io: BitIO, data: Any = None) -> None:
+        self.name = io.bytes(16, self.name)
+
+        if io.is_reading:
+            char_type = io.byte()
+            self.char_flags = CharStatus(char_type)
+            self.char_type = char_type
+        else:
+            io.byte(self.char_type)
+
+        self.char_title = io.byte(self.char_title)
+        self.num_stats_num_skills = io.word(self.num_stats_num_skills)
+        self.char_class = io.byte(self.char_class)
+        self.padding1 = io.word(self.padding1)
+        self.char_level = io.byte(self.char_level)
+        self.create_time = io.dword(self.create_time)
+        self.dw_time = io.dword(self.dw_time)
+        self.play_time = io.dword(self.play_time)
 
         for i in range(16):
-            self.skill_keys[i] = bs.read_dword()
+            self.skill_keys[i] = io.dword(self.skill_keys[i])
 
-        self.left_skill_1 = bs.read_dword()
-        self.right_skill_1 = bs.read_dword()
-        self.left_skill_2 = bs.read_dword()
-        self.right_skill_2 = bs.read_dword()
+        self.left_skill_1 = io.dword(self.left_skill_1)
+        self.right_skill_1 = io.dword(self.right_skill_1)
+        self.left_skill_2 = io.dword(self.left_skill_2)
+        self.right_skill_2 = io.dword(self.right_skill_2)
 
-        # 读取outfit和colors
-        self.outfit = bs.data[bs.bytes_pos : bs.bytes_pos + 16]
-        bs.bytes_pos += 16
-        self.colors = bs.data[bs.bytes_pos : bs.bytes_pos + 16]
-        bs.bytes_pos += 16
+        self.outfit = io.bytes(16, self.outfit)
+        self.colors = io.bytes(16, self.colors)
+        self.town = io.bytes(3, self.town)
 
-        # 读取Town
-        self.town = bs.data[bs.bytes_pos : bs.bytes_pos + 3]
-        bs.bytes_pos += 3
+        self.map_seed = io.dword(self.map_seed)
+        self.merc_flags_low = io.word(self.merc_flags_low)
+        self.merc_dead = io.byte(self.merc_dead)
+        self.merc_flags_high = io.byte(self.merc_flags_high)
+        self.merc_control = io.dword(self.merc_control)
+        self.merc_name = io.word(self.merc_name)
+        self.merc_type = io.word(self.merc_type)
+        self.merc_exp = io.dword(self.merc_exp)
 
-        self.map_seed = bs.read_dword()
-        self.merc_flags_low = bs.read_word()
-        self.merc_dead = bs.read_byte()
-        self.merc_flags_high = bs.read_byte()
-        self.merc_control = bs.read_dword()
-        self.merc_name = bs.read_word()
-        self.merc_type = bs.read_word()
-        self.merc_exp = bs.read_dword()
-
-        self.preview_prefix = bs.data[bs.bytes_pos : bs.bytes_pos + 0x4C]
-        bs.bytes_pos += 0x4C
-
-        self.name_ptr = bs.data[bs.bytes_pos : bs.bytes_pos + 0x40]
-        bs.bytes_pos += 0x40
-
-        self.preview_suffix = bs.read_dword()
+        self.preview_prefix = io.bytes(0x4C, self.preview_prefix)
+        self.name_ptr = io.bytes(0x40, self.name_ptr)
+        self.preview_suffix = io.dword(self.preview_suffix)
 
         if self.quests is not None:
-            self.quests.deserialize(bs)
+            self.quests.codec(io)
 
-        # 读取传送点信息
-        self.waypoints.deserialize(bs)
+        self.waypoints.codec(io)
 
-        # 读取NPC信息
-        self.npc = bs.data[bs.bytes_pos : bs.bytes_pos + 0x34]
-        bs.bytes_pos += 0x34
+        self.npc = io.bytes(0x34, self.npc)
 
-        # 读取人物属性
-        self.player_stats.deserialize(bs)
+        self.player_stats.codec(io)
 
-        # 读取技能信息
-        self.skills.deserialize(bs)
+        self.skills.codec(io)
 
-        # 读取物品列表
-        self.item_list.deserialize(bs, self.version, data=data)
+        self.item_list.codec(io, self.version, data=data)
 
-        # 读取尸体
-        self.corpse.deserialize(bs, self.version, data=data)
+        self.corpse.codec(io, self.version, data=data)
 
-        # 如果是扩展版，读取雇佣兵和石魔
         if self.is_expansion():
-            self.mercenary.deserialize(bs, self.has_mercenary(), self.version, data=data)
-            self.golem.deserialize(bs, self.version, data=data)
+            self.mercenary.codec(io, self.has_mercenary(), self.version, data=data)
+            self.golem.codec(io, self.version, data=data)
 
-        bs.align_byte()
+        io.align_byte()
+
+    def _read_data_common(self, bs: IBitStream, data: Any = None) -> None:
+        self._codec_common(BitReader(bs), data=data)
 
     def has_mercenary(self) -> bool:
         if self.version >= 0x69:
@@ -756,120 +740,13 @@ class D2SStruct:
         return title_names.get(title, f"Unknown({title})")
 
     def serialize(self, bs: OBitStream, data: Any = None) -> None:
-        bs.write_dword(self.magic)
-        bs.write_dword(self.version)
-        bs.write_dword(self.size)
-        bs.write_dword(self.crc)
-        bs.write_dword(self.weapon_set)
-
-        vd = data.for_version(self.version) if isinstance(data, GameData) else (data or self._data)
-
-        if self.version >= 0x69:
-            self._serialize_v69(bs, data=vd)
-        else:
-            self._serialize_common(bs, data=vd)
+        self.codec(BitWriter(bs), data=data)
 
     def _serialize_v69(self, bs: OBitStream, data: Any = None) -> None:
-        bs.write_dword(self.char_flags)
-        bs.write_byte(self.char_class)
-        bs.write_byte(self.num_stats)
-        bs.write_byte(self.num_skills)
-        bs.write_byte(self.char_level)
-        bs.write_dword(self.create_time)
-        bs.write_dword(self.last_save_time)
-        bs.write_dword(self.play_time)
-
-        for i in range(16):
-            bs.write_dword(self.skill_keys[i])
-
-        bs.write_dword(self.left_skill_1)
-        bs.write_dword(self.right_skill_1)
-        bs.write_dword(self.left_skill_2)
-        bs.write_dword(self.right_skill_2)
-
-        bs.write_bytes(self.outfit)
-        bs.write_bytes(self.colors)
-        bs.write_bytes(self.town)
-
-        bs.write_dword(self.map_seed)
-
-        bs.write_dword(self.merc_flags)
-        bs.write_dword(self.merc_seed)
-        bs.write_word(self.merc_name_index)
-        bs.write_word(self.merc_hireling_id)
-        bs.write_dword(self._merc_experience)
-
-        bs.write_bytes(self.preview_data)
-
-        if self.quests is not None:
-            self.quests.serialize(bs)
-        self.waypoints.serialize(bs)
-        bs.write_bytes(self.npc)
-        self.player_stats.serialize(bs)
-        self.skills.serialize(bs)
-        self.item_list.serialize(bs, self.version, data=data)
-        self.corpse.serialize(bs, self.version, data=data)
-
-        if self.is_expansion():
-            self.mercenary.serialize(bs, self.has_mercenary(), self.version, data=data)
-            self.golem.serialize(bs, self.version, data=data)
-
-        if self.version >= 0x69 and self.game_version >= 3:
-            self.demon.serialize(bs)
-
-        bs.align_byte()
+        self._codec_v69(BitWriter(bs), data=data)
 
     def _serialize_common(self, bs: OBitStream, data: Any = None) -> None:
-        bs.write_bytes(self.name)
-        bs.write_byte(self.char_type)
-        bs.write_byte(self.char_title)
-        bs.write_word(self.num_stats_num_skills)
-        bs.write_byte(self.char_class)
-        bs.write_word(self.padding1)
-        bs.write_byte(self.char_level)
-        bs.write_dword(self.create_time)
-        bs.write_dword(self.dw_time)
-        bs.write_dword(self.play_time)
-
-        for i in range(16):
-            bs.write_dword(self.skill_keys[i])
-
-        bs.write_dword(self.left_skill_1)
-        bs.write_dword(self.right_skill_1)
-        bs.write_dword(self.left_skill_2)
-        bs.write_dword(self.right_skill_2)
-
-        bs.write_bytes(self.outfit)
-        bs.write_bytes(self.colors)
-        bs.write_bytes(self.town)
-
-        bs.write_dword(self.map_seed)
-        bs.write_word(self.merc_flags_low)
-        bs.write_byte(self.merc_dead)
-        bs.write_byte(self.merc_flags_high)
-        bs.write_dword(self.merc_control)
-        bs.write_word(self.merc_name)
-        bs.write_word(self.merc_type)
-        bs.write_dword(self.merc_exp)
-
-        bs.write_bytes(self.preview_prefix)
-        bs.write_bytes(self.name_ptr)
-        bs.write_dword(self.preview_suffix)
-
-        if self.quests is not None:
-            self.quests.serialize(bs)
-        self.waypoints.serialize(bs)
-        bs.write_bytes(self.npc)
-        self.player_stats.serialize(bs)
-        self.skills.serialize(bs)
-        self.item_list.serialize(bs, self.version, data=data)
-        self.corpse.serialize(bs, self.version, data=data)
-
-        if self.is_expansion():
-            self.mercenary.serialize(bs, self.has_mercenary(), self.version, data=data)
-            self.golem.serialize(bs, self.version, data=data)
-
-        bs.align_byte()
+        self._codec_common(BitWriter(bs), data=data)
 
     def calculate_checksum(self, data: bytes | bytearray) -> int:
         checksum = 0

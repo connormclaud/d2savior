@@ -1,5 +1,6 @@
 """Unified BitIO abstraction for symmetrical reading and writing of bitstreams."""
 
+import builtins
 from abc import ABC, abstractmethod
 
 from d2savior.core.ibitstream import IBitStream
@@ -48,6 +49,11 @@ class BitIO(ABC):
     @abstractmethod
     def qword(self, value: int = 0) -> int:
         """Read or write a 64-bit qword."""
+        ...
+
+    @abstractmethod
+    def bytes(self, count: int, value: builtins.bytes | bytearray = b"") -> builtins.bytes:
+        """Read count bytes or write value bytes."""
         ...
 
     @abstractmethod
@@ -123,6 +129,9 @@ class BitReader(BitIO):
     def qword(self, value: int = 0) -> int:
         return self.bs.read_bits(64)
 
+    def bytes(self, count: int, value: builtins.bytes | bytearray = b"") -> builtins.bytes:
+        return self.bs.read_bytes(count)
+
     def align_byte(self) -> None:
         self.bs.align_byte()
 
@@ -177,6 +186,12 @@ class BitWriter(BitIO):
     def qword(self, value: int = 0) -> int:
         self.bits(64, value)
         return value
+
+    def bytes(self, count: int, value: builtins.bytes | bytearray = b"") -> builtins.bytes:
+        val = builtins.bytes(value) if value is not None else b""
+        val = val.ljust(count, b"\x00")[:count]
+        self.bs.write_bytes(val)
+        return val
 
     def align_byte(self) -> None:
         self.bs.align_byte()

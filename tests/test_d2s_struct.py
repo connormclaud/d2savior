@@ -525,3 +525,117 @@ class TestD2SStruct:
         assert qid.travel_2 == 2
         assert qid.travel_3 == 3
         assert qid.travel_4 == 4
+
+
+class TestCodecRoundtrips:
+    def test_player_stats_codec_roundtrip(self):
+        from d2savior.core.bit_io import BitReader, BitWriter
+        from d2savior.core.d2s_struct import PLAYER_STATS_MAGIC, PlayerStats
+
+        ps = PlayerStats()
+        ps.magic = PLAYER_STATS_MAGIC
+        ps.stat_values[0] = 120  # str
+        ps.stat_values[3] = 95  # vit
+        ps.stat_values[12] = 45  # level
+
+        obs = OBitStream()
+        ps.codec(BitWriter(obs))
+
+        bs = IBitStream(obs.get_data())
+        ps2 = PlayerStats()
+        ps2.codec(BitReader(bs))
+
+        assert ps2.magic == PLAYER_STATS_MAGIC
+        assert ps2.stat_values[0] == 120
+        assert ps2.stat_values[3] == 95
+        assert ps2.stat_values[12] == 45
+        assert ps2.stat_values[1] == 0
+
+    def test_quest_info_codec_roundtrip(self):
+        from d2savior.core.bit_io import BitReader, BitWriter
+        from d2savior.core.d2s_struct import QuestInfo
+
+        qi = QuestInfo()
+        qi.magic = 0x216F6F57
+        qi.acts = 5
+        qi.size = 298
+        qi.qi_data[0].act_1[0] = 0x1001
+        qi.qi_data[0].reset_stats = 1
+        qi.qi_data[1].travel_2 = 3
+
+        obs = OBitStream()
+        qi.codec(BitWriter(obs))
+
+        bs = IBitStream(obs.get_data())
+        qi2 = QuestInfo()
+        qi2.codec(BitReader(bs))
+
+        assert qi2.magic == qi.magic
+        assert qi2.acts == qi.acts
+        assert qi2.size == qi.size
+        assert qi2.qi_data[0].act_1[0] == 0x1001
+        assert qi2.qi_data[0].reset_stats == 1
+        assert qi2.qi_data[1].travel_2 == 3
+
+    def test_waypoints_codec_roundtrip(self):
+        from d2savior.core.bit_io import BitReader, BitWriter
+        from d2savior.core.d2s_struct import Waypoints
+
+        wp = Waypoints()
+        wp.magic = 0x5357
+        wp.unknown = 1
+        wp.size = 0x51
+        wp.wp[0].waypoints = [0xFF, 0xFF, 0x01, 0x00, 0x00]
+
+        obs = OBitStream()
+        wp.codec(BitWriter(obs))
+
+        bs = IBitStream(obs.get_data())
+        wp2 = Waypoints()
+        wp2.codec(BitReader(bs))
+
+        assert wp2.magic == wp.magic
+        assert wp2.unknown == wp.unknown
+        assert wp2.size == wp.size
+        assert wp2.wp[0].waypoints == [0xFF, 0xFF, 0x01, 0x00, 0x00]
+
+    def test_char_skills_codec_roundtrip(self):
+        from d2savior.core.bit_io import BitReader, BitWriter
+        from d2savior.core.d2s_struct import CharSkills
+
+        cs = CharSkills()
+        cs.magic = 0x6669
+        cs.skill_levels[0] = 20
+        cs.skill_levels[29] = 1
+
+        obs = OBitStream()
+        cs.codec(BitWriter(obs))
+
+        bs = IBitStream(obs.get_data())
+        cs2 = CharSkills()
+        cs2.codec(BitReader(bs))
+
+        assert cs2.magic == cs.magic
+        assert cs2.skill_levels[0] == 20
+        assert cs2.skill_levels[29] == 1
+        assert cs2.skill_levels[1] == 0
+
+    def test_demon_codec_roundtrip(self):
+        from d2savior.core.bit_io import BitReader, BitWriter
+        from d2savior.core.d2s_struct import Demon
+
+        demon = Demon()
+        obs = OBitStream()
+        obs.write_word(1)
+        obs.write_word(0x666C)
+        obs.write_byte(0)
+        obs.write_byte(0)
+        obs.align_byte()
+
+        demon.codec(BitReader(IBitStream(obs.get_data())))
+        assert demon.magic == 0x666C
+        assert not demon.has_demon
+
+        obs_out = OBitStream()
+        demon.codec(BitWriter(obs_out))
+        assert obs_out.get_data() == obs.get_data()

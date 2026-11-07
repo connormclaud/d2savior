@@ -49,6 +49,14 @@ class IBitStream:
     def bits_pos(self, value: int) -> None:
         self._offset = (self._offset // 8) * 8 + value
 
+    def read_bytes(self, count: int) -> bytes:
+        if count <= 0:
+            return b""
+        start = self.bytes_pos
+        data = self._data[start : start + count]
+        self.bytes_pos += count
+        return data
+
     def seek_back_bytes(self, num_bytes: int) -> None:
         self._offset -= num_bytes * 8
 

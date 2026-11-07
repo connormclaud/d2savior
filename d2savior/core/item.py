@@ -1135,50 +1135,53 @@ class ItemList:
     def __getitem__(self, index: int) -> D2Item:
         return self.items[index]
 
+    def codec(self, io: BitIO, version: int, data: VersionData | GameData | None = None) -> None:
+        if io.is_writing:
+            io.align_byte()
+            self.magic = io.word(self.magic)
+            self.count = io.word(len(self.items))
+            for item in self.items:
+                item.codec(io, version, not is_d2r(version), data=data)
+        else:
+            self.magic = io.word(self.magic)
+            self.count = io.word(self.count)
+            if self.magic != ITEM_LIST_MAGIC:
+                return
+
+            self.items = []
+            for i in range(self.count):
+                assert isinstance(io, BitReader)
+                if io.bs.is_end():
+                    break
+                if io.bs.remaining() < 16 * 8:
+                    break
+                import d2savior.core.item as _self_mod
+
+                old_trace = _self_mod._TRACE_ITEM
+                old_trace_prop = _self_mod._TRACE_PROPERTY
+                if _self_mod._TRACE_ITEM_IDX >= 0 and i == _self_mod._TRACE_ITEM_IDX:
+                    _self_mod._TRACE_ITEM = True
+                    _self_mod._TRACE_PROPERTY = True
+                item = D2Item()
+                start_offset = io.get_offset()
+                try:
+                    item.codec(io, version, not is_d2r(version), data=data)
+                except ValueError:
+                    io.bs._offset = start_offset
+                    continue
+                _self_mod._TRACE_ITEM = old_trace
+                _self_mod._TRACE_PROPERTY = old_trace_prop
+                self.items.append(item)
+
     def deserialize(
         self, bs: IBitStream, version: int, data: VersionData | GameData | None = None
     ) -> None:
-        self.magic = bs.read_word()
-        self.count = bs.read_word()
-        if self.magic != ITEM_LIST_MAGIC:
-            return
-
-        self.items = []
-        for i in range(self.count):
-            if bs.is_end():
-                break
-            if bs.remaining() < 16 * 8:
-                break
-            import d2savior.core.item as _self_mod
-
-            old_trace = _self_mod._TRACE_ITEM
-            old_trace_prop = _self_mod._TRACE_PROPERTY
-            if _self_mod._TRACE_ITEM_IDX >= 0 and i == _self_mod._TRACE_ITEM_IDX:
-                _self_mod._TRACE_ITEM = True
-                _self_mod._TRACE_PROPERTY = True
-            item = D2Item()
-            start_offset = bs.get_offset()
-            try:
-                if is_d2r(version):
-                    item.deserialize(bs, version, False, data=data)
-                else:
-                    item.deserialize(bs, version, True, data=data)
-            except ValueError:
-                bs._offset = start_offset
-                continue
-            _self_mod._TRACE_ITEM = old_trace
-            _self_mod._TRACE_PROPERTY = old_trace_prop
-            self.items.append(item)
+        self.codec(BitReader(bs), version, data=data)
 
     def serialize(
         self, bs: OBitStream, version: int, data: VersionData | GameData | None = None
     ) -> None:
-        bs.align_byte()
-        bs.write_word(self.magic)
-        bs.write_word(len(self.items))
-
-        for item in self.items:
-            item.serialize(bs, version, not is_d2r(version), data=data)
+        self.codec(BitWriter(bs), version, data=data)
 
     def get_items(self) -> list[D2Item]:
         return self.items

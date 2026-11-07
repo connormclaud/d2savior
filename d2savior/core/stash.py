@@ -1,5 +1,6 @@
 from typing import Any
 
+from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 from d2savior.core.d2data import GameData
 from d2savior.core.obitstream import OBitStream
 
@@ -313,68 +314,64 @@ class StashTab:
         self._tab_size = 0
         self._data: Any = None
 
-    def deserialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
-        start_pos = bs.bytes_pos
+    def codec(self, io: BitIO, version: int | None = None, data: Any = None) -> None:
+        start_pos = io.bs.bytes_pos if isinstance(io, BitReader) else 0
 
-        magic = bs.read_dword()
-        if magic != STASH_TAB_MAGIC:
+        magic = io.dword(STASH_TAB_MAGIC)
+        if io.is_reading and magic != STASH_TAB_MAGIC:
             raise ValueError(f"Invalid stash tab magic: 0x{magic:08X}")
 
-        self.stash_format = bs.read_dword()
-        self.item_format = bs.read_dword()
-        self.gold = bs.read_dword()
-        self._tab_size = bs.read_word()
-        self.season = bs.read_word()
-        self.tab_type = bs.read_byte()
-        self.reserved = bytes(bs.read_byte() for _ in range(43))
+        self.stash_format = io.dword(self.stash_format)
+        self.item_format = io.dword(self.item_format)
+        self.gold = io.dword(self.gold)
+        self._tab_size = io.word(self._tab_size if io.is_writing else 0)
+        self.season = io.word(self.season)
+        self.tab_type = io.byte(self.tab_type)
+        self.reserved = io.bytes(43, self.reserved)
 
-        if self.stash_format < 2:
+        if io.is_reading and self.stash_format < 2:
             self.tab_type = STASH_TAB_TYPE_NORMAL
 
         item_version = version if version else self.item_format
         vd = data.for_version(item_version) if isinstance(data, GameData) else (data or self._data)
         self._data = vd
 
-        try:
-            if self.tab_type == STASH_TAB_TYPE_CHRONICLE:
-                self._read_chronicle(bs)
+        if self.tab_type == STASH_TAB_TYPE_CHRONICLE:
+            if io.is_writing:
+                if self.chronicle:
+                    io.bytes(len(self.chronicle), self.chronicle)
+            else:
+                body_size = max(0, self._tab_size - STASH_TAB_HEADER_SIZE)
+                self.chronicle = io.bytes(body_size)
+        else:
+            if io.is_writing:
+                if self.items:
+                    self.items.codec(io, item_version, data=vd)
             else:
                 from d2savior.core.item import ItemList
 
-                self.items = ItemList()
-                self.items.deserialize(bs, item_version, data=vd)
-        except Exception as e:
-            import logging
+                try:
+                    self.items = ItemList()
+                    self.items.codec(io, item_version, data=vd)
+                except Exception as e:
+                    import logging
 
-            logging.warning(
-                f"Failed to parse stash tab items (TabType={self.tab_type}, "
-                f"ItemFormat={self.item_format:#x}): {e}"
-            )
+                    logging.warning(
+                        f"Failed to parse stash tab items (TabType={self.tab_type}, "
+                        f"ItemFormat={self.item_format:#x}): {e}"
+                    )
 
-        end_pos = start_pos + self._tab_size
-        bs.bytes_pos = end_pos
+        if isinstance(io, BitReader):
+            end_pos = start_pos + self._tab_size
+            io.bs.bytes_pos = end_pos
 
-    def _read_chronicle(self, bs: Any) -> None:
-        body_size = max(0, self._tab_size - STASH_TAB_HEADER_SIZE)
-        self.chronicle = bytes(bs.read_byte() for _ in range(body_size))
+    def deserialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
+        reader = bs if isinstance(bs, BitIO) else BitReader(bs)
+        self.codec(reader, version, data=data)
 
     def serialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
-        item_version = version if version else self.item_format
-        vd = data.for_version(item_version) if isinstance(data, GameData) else (data or self._data)
-
-        bs.write_dword(STASH_TAB_MAGIC)
-        bs.write_dword(self.stash_format)
-        bs.write_dword(self.item_format)
-        bs.write_dword(self.gold)
-        bs.write_word(0)
-        bs.write_word(self.season)
-        bs.write_byte(self.tab_type)
-        bs.write_bytes(self.reserved)
-
-        if self.tab_type == STASH_TAB_TYPE_CHRONICLE and self.chronicle:
-            bs.write_bytes(self.chronicle)
-        elif self.items:
-            self.items.serialize(bs, item_version, data=vd)
+        writer = bs if isinstance(bs, BitIO) else BitWriter(bs)
+        self.codec(writer, version, data=data)
 
 
 class SharedStash:
@@ -382,31 +379,40 @@ class SharedStash:
         self.tabs: list[StashTab] = []
         self.file_path = ""
 
-    def deserialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
-        self.tabs = []
-        while bs.remaining() >= STASH_TAB_HEADER_SIZE * 8:
-            try:
-                tab = StashTab()
-                tab.deserialize(bs, version, data=data)
-                self.tabs.append(tab)
-            except ValueError:
-                break
-            except Exception as e:
-                import logging
-
-                logging.warning(f"Failed to parse stash tab #{len(self.tabs)}: {e}")
-                break
-
-    def serialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
+    def codec(self, io: BitIO, version: int | None = None, data: Any = None) -> None:
         import struct
 
-        for tab in self.tabs:
-            tab_bs = OBitStream()
-            tab.serialize(tab_bs, version, data=data)
-            tab_data = bytearray(tab_bs.get_data())
-            tab_size = len(tab_data)
-            struct.pack_into("<H", tab_data, 16, tab_size)
-            bs.write_bytes(tab_data)
+        if io.is_writing:
+            for tab in self.tabs:
+                tab_bs = OBitStream()
+                tab.codec(BitWriter(tab_bs), version, data=data)
+                tab_data = bytearray(tab_bs.get_data())
+                tab_size = len(tab_data)
+                struct.pack_into("<H", tab_data, 16, tab_size)
+                io.bytes(len(tab_data), tab_data)
+        else:
+            assert isinstance(io, BitReader)
+            self.tabs = []
+            while io.bs.remaining() >= STASH_TAB_HEADER_SIZE * 8:
+                try:
+                    tab = StashTab()
+                    tab.codec(io, version, data=data)
+                    self.tabs.append(tab)
+                except ValueError:
+                    break
+                except Exception as e:
+                    import logging
+
+                    logging.warning(f"Failed to parse stash tab #{len(self.tabs)}: {e}")
+                    break
+
+    def deserialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
+        reader = bs if isinstance(bs, BitIO) else BitReader(bs)
+        self.codec(reader, version, data=data)
+
+    def serialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
+        writer = bs if isinstance(bs, BitIO) else BitWriter(bs)
+        self.codec(writer, version, data=data)
 
     def get_tab_count(self) -> int:
         return len(self.tabs)
