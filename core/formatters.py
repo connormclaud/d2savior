@@ -99,7 +99,7 @@ def format_timestamp(ts: int) -> str:
     try:
         dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
         return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-    except (OSError, OverflowError, ValueError):
+    except OSError, OverflowError, ValueError:
         return f"Unknown({ts})"
 
 

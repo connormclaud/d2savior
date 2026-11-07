@@ -665,7 +665,7 @@ def _format_template(template: str, values: List) -> str:
             return template % (values[0], values[1], values[2], values[3])
         
         return template
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return template
 
 
