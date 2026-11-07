@@ -1,5 +1,5 @@
 import os
-from typing import ClassVar
+from typing import Any, ClassVar
 
 
 class LanguageData:
@@ -391,7 +391,7 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
                 return template
         return get_property_name(prop_id)
 
-    a = list(params)
+    a: list[Any] = list(params)
     while len(a) < 4:
         a.append(0)
 

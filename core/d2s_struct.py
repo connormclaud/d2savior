@@ -441,7 +441,7 @@ class D2SStruct:
         self.crc = 0
         self.weapon_set = 0
         self.name = b""
-        self.char_flags: CharStatus = CharStatus(0)
+        self.char_flags: CharStatus | int = CharStatus(0)
         self.char_class = 0
         self.num_stats = 16
         self.num_skills = 30
@@ -480,7 +480,7 @@ class D2SStruct:
         self.num_stats_num_skills = 0
         self.padding1 = 0
 
-        self.quests = QuestInfo()
+        self.quests: QuestInfo | None = QuestInfo()
         self.waypoints = Waypoints()
         self.npc = b""
         self.player_stats = PlayerStats()
@@ -855,7 +855,7 @@ class D2SStruct:
 
         bs.align_byte()
 
-    def calculate_checksum(self, data: bytes) -> int:
+    def calculate_checksum(self, data: bytes | bytearray) -> int:
         checksum = 0
         for i, b in enumerate(data):
             if 0x0C <= i < 0x10:
@@ -865,7 +865,7 @@ class D2SStruct:
         return checksum
 
     def update_checksum(self, data: bytes) -> bytes:
-        data = bytearray(data)
-        checksum = self.calculate_checksum(data)
-        data[0x0C:0x10] = checksum.to_bytes(4, "little")
-        return bytes(data)
+        buf = bytearray(data)
+        checksum = self.calculate_checksum(buf)
+        buf[0x0C:0x10] = checksum.to_bytes(4, "little")
+        return bytes(buf)

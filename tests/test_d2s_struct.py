@@ -392,6 +392,7 @@ class TestD2SStruct:
         char.waypoints.wp[2].waypoints = [0x00, 0x00, 0x00, 0x00, 0x00]
 
         # Setup quests
+        assert char.quests is not None
         char.quests.magic = 0x216F6F57
         # Normal: all completed, Akara reset used
         char.quests.qi_data[0].reset_stats = 1

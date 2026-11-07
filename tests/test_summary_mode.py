@@ -10,7 +10,15 @@ from core.formatters import (
     format_item_summary,
     format_stash_summary,
 )
-from core.item import D2Item, ExtItemInfo, GoldQuantity, ItemInfo, TypeSpecificInfo
+from core.item import (
+    D2Item,
+    ExtItemInfo,
+    GoldQuantity,
+    ItemInfo,
+    ItemList,
+    PropertyList,
+    TypeSpecificInfo,
+)
 from core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     STASH_TAB_TYPE_NORMAL,
@@ -58,9 +66,9 @@ class TestSummaryMode:
         item.item_info = ItemInfo()
         item.item_info.type_specific_info = TypeSpecificInfo()
 
-        class MockPropertyList:
+        class MockPropertyList(PropertyList):
             def __init__(self, props):
-                self.properties = True
+                self.properties = [(0, 0, 0)]
                 self.props = props
 
             def get_parsed_properties(self, version=0x63):
@@ -102,7 +110,7 @@ class TestSummaryMode:
         item1.item_info.type_specific_info = TypeSpecificInfo()
         item1.item_info.type_specific_info.defence = 120
 
-        class MockItemList:
+        class MockItemList(ItemList):
             def __init__(self, items):
                 self.items = items
                 self.count = len(items)
@@ -183,7 +191,7 @@ class TestSummaryMode:
             it.item_info.stash_stack_size = count
             items.append(it)
 
-        class MockItemList:
+        class MockItemList(ItemList):
             def __init__(self, items):
                 self.items = items
                 self.count = len(items)
@@ -223,7 +231,7 @@ class TestSummaryMode:
         char.skills.skill_levels[8] = 1  # Teleport
 
         # Items
-        class MockItemList:
+        class MockItemList(ItemList):
             def __init__(self, items):
                 self.magic = 0x4D4A
                 self.items = items

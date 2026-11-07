@@ -31,7 +31,7 @@ class D2IntEnum(IntEnum):
         val = int(value) if isinstance(value, int | str) else 0
         obj = int.__new__(cls, val)
         obj._name_ = f"Unknown({value})"
-        obj._value_ = value
+        obj._value_ = val
         return obj
 
 
