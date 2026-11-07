@@ -1026,11 +1026,7 @@ class TypeSpecificInfo:
         return self.defence - save_add
 
     def is_indestructible(self) -> bool:
-        if self.max_durability == 0:
-            return True
-        if self.property_list.is_indestructible():
-            return True
-        return False
+        return self.max_durability == 0 or self.property_list.is_indestructible()
 
     def deserialize(
         self,

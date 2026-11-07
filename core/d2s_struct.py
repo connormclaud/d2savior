@@ -687,9 +687,7 @@ class D2SStruct:
             return self.game_version > 1
         if self.char_flags & CharStatus.EXPANSION:
             return True
-        if self.quests and self.quests.acts >= 5:
-            return True
-        return False
+        return bool(self.quests and self.quests.acts >= 5)
 
     def is_warlock_expansion(self):
         return bool(self.char_flags & CharStatus.EXPANSION)
