@@ -26,61 +26,6 @@ class QuestInfoData:
         self.unknown3 = 0
         self.unknown4 = [0] * 6
     
-    @property
-    def wIntroduced1(self): return self.introduced_1
-    @wIntroduced1.setter
-    def wIntroduced1(self, val): self.introduced_1 = val
-
-    @property
-    def wActI(self): return self.act_1
-    @wActI.setter
-    def wActI(self, val): self.act_1 = val
-
-    @property
-    def wIntroduced2(self): return self.introduced_2
-    @wIntroduced2.setter
-    def wIntroduced2(self, val): self.introduced_2 = val
-
-    @property
-    def wActII(self): return self.act_2
-    @wActII.setter
-    def wActII(self, val): self.act_2 = val
-
-    @property
-    def wIntroduced3(self): return self.introduced_3
-    @wIntroduced3.setter
-    def wIntroduced3(self, val): self.introduced_3 = val
-
-    @property
-    def wActIII(self): return self.act_3
-    @wActIII.setter
-    def wActIII(self, val): self.act_3 = val
-
-    @property
-    def wIntroduced4(self): return self.introduced_4
-    @wIntroduced4.setter
-    def wIntroduced4(self, val): self.introduced_4 = val
-
-    @property
-    def wActIV(self): return self.act_4
-    @wActIV.setter
-    def wActIV(self, val): self.act_4 = val
-
-    @property
-    def wIntroduced5(self): return self.introduced_5
-    @wIntroduced5.setter
-    def wIntroduced5(self, val): self.introduced_5 = val
-
-    @property
-    def wActV(self): return self.act_5
-    @wActV.setter
-    def wActV(self, val): self.act_5 = val
-
-    @property
-    def bResetStats(self): return self.reset_stats
-    @bResetStats.setter
-    def bResetStats(self, val): self.reset_stats = val
-
     def deserialize(self, bs):
         self.introduced_1 = bs.read_word()
         for i in range(6):
@@ -166,11 +111,6 @@ class WaypointData:
         self.waypoints = [0] * 5
         self.unknown2 = [0] * 17
     
-    @property
-    def Waypoints(self): return self.waypoints
-    @Waypoints.setter
-    def Waypoints(self, val): self.waypoints = val
-
     def deserialize(self, bs):
         self.unknown = bs.read_word()
         for i in range(5):
@@ -211,11 +151,6 @@ class PlayerStats:
         self.magic = 0
         self.stat_values = [0] * 0x10
         self.end_flag = 0
-
-    @property
-    def iEnd(self): return self.end_flag
-    @iEnd.setter
-    def iEnd(self, val): self.end_flag = val
     
     def deserialize(self, bs):
         self.magic = bs.read_word()
@@ -315,16 +250,6 @@ class CharSkills:
     def __init__(self):
         self.magic = 0
         self.skill_levels = [0] * 30
-
-    @property
-    def wMagic(self): return self.magic
-    @wMagic.setter
-    def wMagic(self, val): self.magic = val
-
-    @property
-    def bSkillLevel(self): return self.skill_levels
-    @bSkillLevel.setter
-    def bSkillLevel(self, val): self.skill_levels = val
     
     def deserialize(self, bs):
         self.magic = bs.read_word()
@@ -340,11 +265,6 @@ class CorpseData:
     def __init__(self):
         self.unknown = b''
         self.items = None
-
-    @property
-    def stItems(self): return self.items
-    @stItems.setter
-    def stItems(self, val): self.items = val
     
     def deserialize(self, bs, version):
         self.unknown = bs.data[bs.bytes_pos:bs.bytes_pos+12]
@@ -362,21 +282,6 @@ class Corpse:
         self.magic = 0
         self.count = 0
         self.corpse_data = None
-
-    @property
-    def wMagic(self): return self.magic
-    @wMagic.setter
-    def wMagic(self, val): self.magic = val
-
-    @property
-    def wCount(self): return self.count
-    @wCount.setter
-    def wCount(self, val): self.count = val
-
-    @property
-    def pCorpseData(self): return self.corpse_data
-    @pCorpseData.setter
-    def pCorpseData(self, val): self.corpse_data = val
     
     def deserialize(self, bs, version):
         self.magic = bs.read_word()
@@ -402,16 +307,6 @@ class Mercenary:
     def __init__(self):
         self.magic = 0
         self.items = None
-
-    @property
-    def wMagic(self): return self.magic
-    @wMagic.setter
-    def wMagic(self, val): self.magic = val
-
-    @property
-    def stItems(self): return self.items
-    @stItems.setter
-    def stItems(self, val): self.items = val
     
     def deserialize(self, bs, has_mercenary, version):
         self.magic = bs.read_word()
@@ -433,21 +328,6 @@ class Golem:
         self.magic = 0
         self.has_golem = 0
         self.item = None
-
-    @property
-    def wMagic(self): return self.magic
-    @wMagic.setter
-    def wMagic(self, val): self.magic = val
-
-    @property
-    def bHasGolem(self): return self.has_golem
-    @bHasGolem.setter
-    def bHasGolem(self, val): self.has_golem = val
-
-    @property
-    def pItem(self): return self.item
-    @pItem.setter
-    def pItem(self, val): self.item = val
     
     def deserialize(self, bs, version):
         self.magic = bs.read_word()
@@ -473,26 +353,6 @@ class Demon:
         self.padding = 0
         self.demon_data = None
         self._raw_data = b''
-
-    @property
-    def sectionVersion(self): return self.section_version
-    @sectionVersion.setter
-    def sectionVersion(self, val): self.section_version = val
-
-    @property
-    def wMagic(self): return self.magic
-    @wMagic.setter
-    def wMagic(self, val): self.magic = val
-
-    @property
-    def hasDemon(self): return self.has_demon
-    @hasDemon.setter
-    def hasDemon(self, val): self.has_demon = val
-
-    @property
-    def demonData(self): return self.demon_data
-    @demonData.setter
-    def demonData(self, val): self.demon_data = val
     
     def deserialize(self, bs):
         start_pos = bs.bytes_pos
@@ -602,127 +462,6 @@ class D2SStruct:
         self.demon = Demon()
         self.game_version = 0
 
-    # Backward compatibility properties
-    @property
-    def dwSize(self): return self.size
-    @dwSize.setter
-    def dwSize(self, val): self.size = val
-
-    @property
-    def dwCRC(self): return self.crc
-    @dwCRC.setter
-    def dwCRC(self, val): self.crc = val
-
-    @property
-    def dwWeaponSet(self): return self.weapon_set
-    @dwWeaponSet.setter
-    def dwWeaponSet(self, val): self.weapon_set = val
-
-    @property
-    def Name(self): return self.name
-    @Name.setter
-    def Name(self, val): self.name = val
-
-    @property
-    def charFlags(self): return self.char_flags
-    @charFlags.setter
-    def charFlags(self, val): self.char_flags = val
-
-    @property
-    def charClass(self): return self.char_class
-    @charClass.setter
-    def charClass(self, val): self.char_class = val
-
-    @property
-    def numStats(self): return self.num_stats
-    @numStats.setter
-    def numStats(self, val): self.num_stats = val
-
-    @property
-    def numSkills(self): return self.num_skills
-    @numSkills.setter
-    def numSkills(self, val): self.num_skills = val
-
-    @property
-    def charLevel(self): return self.char_level
-    @charLevel.setter
-    def charLevel(self, val): self.char_level = val
-
-    @property
-    def createTime(self): return self.create_time
-    @createTime.setter
-    def createTime(self, val): self.create_time = val
-
-    @property
-    def lastSaveTime(self): return self.last_save_time
-    @lastSaveTime.setter
-    def lastSaveTime(self, val): self.last_save_time = val
-
-    @property
-    def playTime(self): return self.play_time
-    @playTime.setter
-    def playTime(self, val): self.play_time = val
-
-    @property
-    def dwTime(self): return self.dw_time
-    @dwTime.setter
-    def dwTime(self, val): self.dw_time = val
-
-    @property
-    def dwSkillKey(self): return self.skill_keys
-    @dwSkillKey.setter
-    def dwSkillKey(self, val): self.skill_keys = val
-
-    @property
-    def dwLeftSkill1(self): return self.left_skill_1
-    @dwLeftSkill1.setter
-    def dwLeftSkill1(self, val): self.left_skill_1 = val
-
-    @property
-    def dwRightSkill1(self): return self.right_skill_1
-    @dwRightSkill1.setter
-    def dwRightSkill1(self, val): self.right_skill_1 = val
-
-    @property
-    def dwLeftSkill2(self): return self.left_skill_2
-    @dwLeftSkill2.setter
-    def dwLeftSkill2(self, val): self.left_skill_2 = val
-
-    @property
-    def dwRightSkill2(self): return self.right_skill_2
-    @dwRightSkill2.setter
-    def dwRightSkill2(self, val): self.right_skill_2 = val
-
-    @property
-    def Town(self): return self.town
-    @Town.setter
-    def Town(self, val): self.town = val
-
-    @property
-    def dwMapSeed(self): return self.map_seed
-    @dwMapSeed.setter
-    def dwMapSeed(self, val): self.map_seed = val
-
-    @property
-    def mercFlags(self): return self.merc_flags
-    @mercFlags.setter
-    def mercFlags(self, val): self.merc_flags = val
-
-    @property
-    def mercSeed(self): return self.merc_seed
-    @mercSeed.setter
-    def mercSeed(self, val): self.merc_seed = val
-
-    @property
-    def mercNameIndex(self): return self.merc_name_index
-    @mercNameIndex.setter
-    def mercNameIndex(self, val): self.merc_name_index = val
-
-    @property
-    def mercHirelingId(self): return self.merc_hireling_id
-    @mercHirelingId.setter
-    def mercHirelingId(self, val): self.merc_hireling_id = val
-
     @property
     def merc_experience(self) -> int:
         return self._merc_experience if self.version >= 0x69 else getattr(self, 'merc_exp', 0)
@@ -730,76 +469,6 @@ class D2SStruct:
     @merc_experience.setter
     def merc_experience(self, val: int):
         self._merc_experience = val
-
-    @property
-    def mercExperience(self): return self.merc_experience
-    @mercExperience.setter
-    def mercExperience(self, val): self.merc_experience = val
-
-    @property
-    def previewData(self): return self.preview_data
-    @previewData.setter
-    def previewData(self, val): self.preview_data = val
-
-    @property
-    def charType(self): return self.char_type
-    @charType.setter
-    def charType(self, val): self.char_type = val
-
-    @property
-    def charTitle(self): return self.char_title
-    @charTitle.setter
-    def charTitle(self, val): self.char_title = val
-
-    @property
-    def dwMercControl(self): return self.merc_control
-    @dwMercControl.setter
-    def dwMercControl(self, val): self.merc_control = val
-
-    @property
-    def wMercName(self): return self.merc_name
-    @wMercName.setter
-    def wMercName(self, val): self.merc_name = val
-
-    @property
-    def wMercType(self): return self.merc_type
-    @wMercType.setter
-    def wMercType(self, val): self.merc_type = val
-
-    @property
-    def dwMercExp(self): return self.merc_exp
-    @dwMercExp.setter
-    def dwMercExp(self, val): self.merc_exp = val
-
-    @property
-    def bMercDead(self): return self.merc_dead
-    @bMercDead.setter
-    def bMercDead(self, val): self.merc_dead = val
-
-    @property
-    def NPC(self): return self.npc
-    @NPC.setter
-    def NPC(self, val): self.npc = val
-
-    @property
-    def previewPrefix(self): return self.preview_prefix
-    @previewPrefix.setter
-    def previewPrefix(self, val): self.preview_prefix = val
-
-    @property
-    def NamePTR(self): return self.name_ptr
-    @NamePTR.setter
-    def NamePTR(self, val): self.name_ptr = val
-
-    @property
-    def previewSuffix(self): return self.preview_suffix
-    @previewSuffix.setter
-    def previewSuffix(self, val): self.preview_suffix = val
-
-    @property
-    def gameVersion(self): return self.game_version
-    @gameVersion.setter
-    def gameVersion(self, val): self.game_version = val
     
     def deserialize(self, bs):
         self.magic = bs.read_dword()
