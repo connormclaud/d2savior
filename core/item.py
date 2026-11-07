@@ -653,7 +653,7 @@ class PropertyList:
         self._use_stat_cost = _g_stat_cost is not None and is_d2r(version)
 
         while True:
-            bit_pos = bs.getOffset() if _TRACE_PROPERTY else 0
+            bit_pos = bs.get_offset() if _TRACE_PROPERTY else 0
             self.end_flag = bs.read_bits(9)
             if self.end_flag >= 0x1FF:
                 break
@@ -2006,7 +2006,7 @@ class ItemList:
 
         self.items = []
         for i in range(self.count):
-            if bs.isEnd():
+            if bs.is_end():
                 break
             if bs.remaining() < 16 * 8:
                 break
@@ -2018,7 +2018,7 @@ class ItemList:
                 _self_mod._TRACE_ITEM = True
                 _self_mod._TRACE_PROPERTY = True
             item = D2Item()
-            start_offset = bs.getOffset()
+            start_offset = bs.get_offset()
             try:
                 if is_d2r(version):
                     item.deserialize(bs, version, False)

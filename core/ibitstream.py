@@ -33,8 +33,6 @@ class IBitStream:
         self._data = bytes(data) if data is not None else b""
         self._offset = 0
 
-    setData = set_data
-
     @property
     def bytes_pos(self) -> int:
         return self._offset // 8
@@ -57,15 +55,11 @@ class IBitStream:
     def get_offset(self) -> int:
         return self._offset
 
-    getOffset = get_offset
-
     def remaining(self) -> int:
         return len(self._data) * 8 - self._offset
 
     def is_end(self) -> bool:
         return self._offset >= len(self._data) * 8
-
-    isEnd = is_end
 
     def read_bits(self, num_bits: int) -> int:
         if num_bits == 0:
@@ -99,8 +93,6 @@ class IBitStream:
         for _ in range(length):
             chars.append(chr(self.read_bits(8)))
         return "".join(chars)
-
-    readString = read_string
 
     def peek(self, num_bits: int) -> int:
         if num_bits == 0:

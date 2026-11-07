@@ -13,7 +13,7 @@ class TestIBitStream(unittest.TestCase):
         self.assertEqual("", stream.to_bit_string())
         self.assertEqual("<IBitStream offset=0 len=0>", str(stream))
         self.assertEqual(0, len(stream))
-        self.assertEqual(0, stream.getOffset())
+        self.assertEqual(0, stream.get_offset())
         self.assertEqual(0, stream.remaining())
 
     def test_init_with_data(self):
@@ -21,40 +21,40 @@ class TestIBitStream(unittest.TestCase):
         self.assertEqual("01110110"[::-1], stream.to_bit_string())
         self.assertEqual("<IBitStream offset=0 len=8>", str(stream))
         self.assertEqual(8, len(stream))
-        self.assertEqual(0, stream.getOffset())
+        self.assertEqual(0, stream.get_offset())
         self.assertEqual(8, stream.remaining())
 
     def test_read_zero_bit(self):
         stream = IBitStream(bytearray([0x76]))
         result = stream.read(0)
         self.assertEqual(0, result)
-        self.assertEqual(0, stream.getOffset())
+        self.assertEqual(0, stream.get_offset())
 
     def test_read_one_bit(self):
         stream = IBitStream(bytearray([0x01]))
         result = stream.read(1)
         self.assertEqual(1, result)
-        self.assertEqual(1, stream.getOffset())
+        self.assertEqual(1, stream.get_offset())
         self.assertEqual(7, stream.remaining())
 
     def test_read_one_bit_from_value(self):
         stream = IBitStream(bytearray([0x0F]))
         result = stream.read(1)
         self.assertEqual(1, result)
-        self.assertEqual(1, stream.getOffset())
+        self.assertEqual(1, stream.get_offset())
 
     def test_read_8_bits(self):
         stream = IBitStream(bytearray([0x76]))
         result = stream.read(8)
         self.assertEqual(0x76, result)
-        self.assertEqual(8, stream.getOffset())
-        self.assertTrue(stream.isEnd())
+        self.assertEqual(8, stream.get_offset())
+        self.assertTrue(stream.is_end())
 
     def test_read_9_bits(self):
         stream = IBitStream(bytearray([0x76, 0x01]))
         result = stream.read(9)
         self.assertEqual(0x176, result)
-        self.assertEqual(9, stream.getOffset())
+        self.assertEqual(9, stream.get_offset())
 
     def test_read_9_bits_extracted(self):
         stream = IBitStream(bytearray([0x76, 0x07]))
@@ -72,7 +72,7 @@ class TestIBitStream(unittest.TestCase):
         result2 = stream.read(2)
         self.assertEqual(3, result1)
         self.assertEqual(1, result2)
-        self.assertEqual(5, stream.getOffset())
+        self.assertEqual(5, stream.get_offset())
 
     def test_read_3_6_4(self):
         stream = IBitStream(bytearray([0x19, 0x0E]))
@@ -85,35 +85,35 @@ class TestIBitStream(unittest.TestCase):
 
     def test_read_string(self):
         stream = IBitStream(bytearray([0x30, 0x31, 0x32, 0x20]))
-        result = stream.readString(4)
+        result = stream.read_string(4)
         self.assertEqual("012 ", result)
-        self.assertEqual(32, stream.getOffset())
+        self.assertEqual(32, stream.get_offset())
 
     def test_peek(self):
         stream = IBitStream(bytearray([0x76]))
         result = stream.peek(8)
         self.assertEqual(0x76, result)
-        self.assertEqual(0, stream.getOffset())
+        self.assertEqual(0, stream.get_offset())
 
     def test_peek_partial(self):
         stream = IBitStream(bytearray([0x76]))
         stream.read(4)
         result = stream.peek(4)
         self.assertEqual(7, result)
-        self.assertEqual(4, stream.getOffset())
+        self.assertEqual(4, stream.get_offset())
 
     def test_skip(self):
         stream = IBitStream(bytearray([0x76, 0x01]))
         stream.skip(9)
-        self.assertEqual(9, stream.getOffset())
+        self.assertEqual(9, stream.get_offset())
         result = stream.read(7)
         self.assertEqual(0, result)
 
     def test_is_end(self):
         stream = IBitStream(bytearray([0x76]))
-        self.assertFalse(stream.isEnd())
+        self.assertFalse(stream.is_end())
         stream.read(8)
-        self.assertTrue(stream.isEnd())
+        self.assertTrue(stream.is_end())
 
     def test_not_enough_bits(self):
         stream = IBitStream(bytearray([0x76]))
@@ -137,15 +137,15 @@ class TestIBitStream(unittest.TestCase):
 
     def test_set_data(self):
         stream = IBitStream()
-        stream.setData(bytearray([0x76]))
+        stream.set_data(bytearray([0x76]))
         self.assertEqual(0x76, stream.read(8))
 
     def test_set_data_resets_offset(self):
         stream = IBitStream(bytearray([0x76]))
         stream.read(4)
-        self.assertEqual(4, stream.getOffset())
-        stream.setData(bytearray([0x01]))
-        self.assertEqual(0, stream.getOffset())
+        self.assertEqual(4, stream.get_offset())
+        stream.set_data(bytearray([0x01]))
+        self.assertEqual(0, stream.get_offset())
 
 
 class TestIBitStreamNewInterface(unittest.TestCase):
@@ -237,7 +237,7 @@ class TestIBitStreamOBitStreamRoundTrip(unittest.TestCase):
         ostream = OBitStream()
         ostream.append(0x76, 8)
 
-        istream = IBitStream(bytearray(ostream.getByteList()))
+        istream = IBitStream(bytearray(ostream.get_byte_list()))
         result = istream.read(8)
         self.assertEqual(0x76, result)
 
@@ -249,7 +249,7 @@ class TestIBitStreamOBitStreamRoundTrip(unittest.TestCase):
         ostream.append(1, 2)
         ostream.append(0x1F, 5)
 
-        istream = IBitStream(bytearray(ostream.getByteList()))
+        istream = IBitStream(bytearray(ostream.get_byte_list()))
         self.assertEqual(3, istream.read(3))
         self.assertEqual(1, istream.read(2))
         self.assertEqual(0x1F, istream.read(5))
@@ -258,10 +258,10 @@ class TestIBitStreamOBitStreamRoundTrip(unittest.TestCase):
         from core.obitstream import OBitStream
 
         ostream = OBitStream()
-        ostream.appendString("AB")
+        ostream.write_string("AB")
 
-        istream = IBitStream(bytearray(ostream.getByteList()))
-        self.assertEqual("AB", istream.readString(2))
+        istream = IBitStream(bytearray(ostream.get_byte_list()))
+        self.assertEqual("AB", istream.read_string(2))
 
     def test_roundtrip_9_bits(self):
         from core.obitstream import OBitStream
@@ -269,7 +269,7 @@ class TestIBitStreamOBitStreamRoundTrip(unittest.TestCase):
         ostream = OBitStream()
         ostream.append(0x176, 9)
 
-        istream = IBitStream(bytearray(ostream.getByteList()))
+        istream = IBitStream(bytearray(ostream.get_byte_list()))
         self.assertEqual(0x176, istream.read(9))
 
     def test_roundtrip_32_bits(self):
@@ -278,7 +278,7 @@ class TestIBitStreamOBitStreamRoundTrip(unittest.TestCase):
         ostream = OBitStream()
         ostream.append(0xF1F2F4F8, 32)
 
-        istream = IBitStream(bytearray(ostream.getByteList()))
+        istream = IBitStream(bytearray(ostream.get_byte_list()))
         self.assertEqual(0xF1F2F4F8, istream.read(32))
 
 

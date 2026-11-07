@@ -39,12 +39,8 @@ class OBitStream:
     def get_byte_list(self) -> list[int]:
         return list(self.get_data())
 
-    getByteList = get_byte_list
-
     def to_hex_string(self) -> str:
         return " ".join(f"{b:02x}" for b in self.get_byte_list())
-
-    toHexString = to_hex_string
 
     def write_bits(self, num_bits: int, value: int):
         if num_bits == 0:
@@ -81,12 +77,8 @@ class OBitStream:
         for ch in str_value:
             self.write_bits(8, ord(ch))
 
-    appendString = write_string
-
     def write_bytes_to(self, writer: Any):
         writer.write(bytearray(self.get_data()))
-
-    writeBytes = write_bytes_to
 
     def align_byte(self):
         if self.bits_pos > 0:

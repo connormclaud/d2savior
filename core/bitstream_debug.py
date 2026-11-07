@@ -2,7 +2,7 @@
 
 
 def debug_bitstream(bs, context_bits=64, label=""):
-    offset = bs.getOffset()
+    offset = bs.get_offset()
     bits_str = bs.to_bit_string() if hasattr(bs, "to_bit_string") else str(bs)
 
     start = max(0, offset - context_bits)

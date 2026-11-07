@@ -72,7 +72,7 @@ def parse_d2i_file(file_path, debug=False):
             if debug:
                 print("\n=== BitStream Final State ===")
                 print(f"Total bits: {len(bs)}")
-                print(f"Final offset: {bs.getOffset()}")
+                print(f"Final offset: {bs.get_offset()}")
                 print(f"Remaining: {bs.remaining()}")
             return True, stash, "stash", bs
         elif data.startswith(b"JM"):
@@ -105,7 +105,7 @@ def parse_d2s_file(file_path, debug=False):
         if debug:
             print("\n=== BitStream Final State ===")
             print(f"Total bits: {len(bs)}")
-            print(f"Final offset: {bs.getOffset()}")
+            print(f"Final offset: {bs.get_offset()}")
             print(f"Remaining: {bs.remaining()}")
 
         return True, char_data, bs
