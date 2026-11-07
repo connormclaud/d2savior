@@ -60,7 +60,7 @@ class TestSummaryMode(unittest.TestCase):
         
         class MockPropertyList:
             def __init__(self, props):
-                self.mProperty = True
+                self.properties = True
                 self.props = props
             def get_parsed_properties(self, version=0x63):
                 return self.props
@@ -230,8 +230,8 @@ class TestSummaryMode(unittest.TestCase):
 
         # Equipped Helm
         helm = D2Item()
-        helm.iLocation = ItemLocation.EQUIPPED
-        helm.iPosition = EquipSlot.HELMET.value
+        helm.location = ItemLocation.EQUIPPED
+        helm.position = EquipSlot.HELMET.value
         helm.type_name = b'uap '
         helm.item_info = ItemInfo()
         helm.item_info.ext_info = ExtItemInfo()
@@ -241,17 +241,17 @@ class TestSummaryMode(unittest.TestCase):
 
         # Stored Charm in Inventory
         charm = D2Item()
-        charm.iLocation = ItemLocation.STORED
-        charm.iStoredIn = StoredIn.INVENTORY
+        charm.location = ItemLocation.STORED
+        charm.stored_in = StoredIn.INVENTORY
         charm.type_name = b'cm3 '  # Grand Charm
 
         # Belt potions
         pot1 = D2Item()
-        pot1.iLocation = ItemLocation.BELT
+        pot1.location = ItemLocation.BELT
         pot1.type_name = b'hp5 '
 
         pot2 = D2Item()
-        pot2.iLocation = ItemLocation.BELT
+        pot2.location = ItemLocation.BELT
         pot2.type_name = b'hp5 '
 
         char.item_list = MockItemList([helm, charm, pot1, pot2])
@@ -369,11 +369,11 @@ class TestSummaryMode(unittest.TestCase):
         self.assertEqual(_format_parsed_properties(None), [])
 
         empty_list = MagicMock()
-        empty_list.mProperty = None
+        empty_list.properties = None
         self.assertEqual(_format_parsed_properties(empty_list), [])
 
         prop_list = MagicMock()
-        prop_list.mProperty = [1]
+        prop_list.properties = [1]
         # (prop_id, value, params)
         prop_list.get_parsed_properties.return_value = [
             (7, 25, [25]),           # max life

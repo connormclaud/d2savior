@@ -71,8 +71,8 @@ class TestItemSerialization(unittest.TestCase):
         if not tp1 or not tp2:
             return
         
-        props1 = tp1.property_list.mProperty
-        props2 = tp2.property_list.mProperty
+        props1 = tp1.property_list.properties
+        props2 = tp2.property_list.properties
         
         self.assertEqual(len(props1), len(props2), 
                         f"Property count mismatch: {len(props1)} vs {len(props2)}")
@@ -86,8 +86,8 @@ class TestItemSerialization(unittest.TestCase):
             self.assertIsNotNone(tp1.runeword_property_list, "Item1 should have runeword properties")
             self.assertIsNotNone(tp2.runeword_property_list, "Item2 should have runeword properties")
             
-            rw_props1 = tp1.runeword_property_list.mProperty
-            rw_props2 = tp2.runeword_property_list.mProperty
+            rw_props1 = tp1.runeword_property_list.properties
+            rw_props2 = tp2.runeword_property_list.properties
             
             self.assertEqual(len(rw_props1), len(rw_props2),
                            f"Runeword property count mismatch: {len(rw_props1)} vs {len(rw_props2)}")
@@ -105,8 +105,8 @@ class TestItemSerialization(unittest.TestCase):
                 self.assertEqual(has1, has2, f"Set property {i} existence mismatch")
                 
                 if has1 and has2:
-                    set_props1 = tp1.set_properties[i].mProperty if tp1.set_properties[i] else []
-                    set_props2 = tp2.set_properties[i].mProperty if tp2.set_properties[i] else []
+                    set_props1 = tp1.set_properties[i].properties if tp1.set_properties[i] else []
+                    set_props2 = tp2.set_properties[i].properties if tp2.set_properties[i] else []
                     
                     self.assertEqual(len(set_props1), len(set_props2),
                                    f"Set property {i} count mismatch: {len(set_props1)} vs {len(set_props2)}")

@@ -129,7 +129,7 @@ class TestModularization(unittest.TestCase):
 
     def test_property_formatter_dependency_injection(self):
         mock_prop_list = MagicMock()
-        mock_prop_list.mProperty = [1]
+        mock_prop_list.properties = [1]
         mock_prop_list.ext_sockets.return_value = 0
         mock_prop_list.get_parsed_properties.return_value = [
             (7, 25, [25]),

@@ -354,9 +354,9 @@ class TestFormatItemInfoSetProperties(unittest.TestCase):
         item.item_info.type_specific_info = TypeSpecificInfo()
 
         p2 = PropertyList()
-        p2.mProperty = [(31, 0, 60)]  # +60 Defense
+        p2.properties = [(31, 0, 60)]  # +60 Defense
         p3 = PropertyList()
-        p3.mProperty = [(105, 0, 10)]  # +10% Faster Cast Rate
+        p3.properties = [(105, 0, 10)]  # +10% Faster Cast Rate
 
         item.item_info.type_specific_info.set_properties = [p2, p3, None, None, None]
 

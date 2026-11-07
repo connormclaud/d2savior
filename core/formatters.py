@@ -176,7 +176,7 @@ def get_item_display_name(item, version=0x63, resolver=None) -> str:
 
 def _format_parsed_properties(prop_list, version: int = 0x63, property_formatter=None) -> List[str]:
     """Format a property list into human-readable strings, falling back to raw IDs."""
-    if not prop_list or not getattr(prop_list, 'mProperty', None):
+    if not prop_list or not getattr(prop_list, 'properties', None):
         return []
     format_func = property_formatter or format_property
     result = []
@@ -218,7 +218,7 @@ def format_item_summary(
 
     if getattr(item, 'is_ethereal', False):
         meta_tags.append("Eth")
-    if getattr(item, 'bDisabled', False):
+    if getattr(item, 'is_disabled', False):
         meta_tags.append("Broken")
 
     stack_size = getattr(info, 'stash_stack_size', 0)
@@ -270,13 +270,13 @@ def _format_item_lines(item, indent="  ", version=None, resolver=None) -> List[s
     if req_level > 0:
         result.append(f"{indent}Required Level: {req_level}")
 
-    location = ItemLocation(item.iLocation)
-    if location == ItemLocation.EQUIPPED and item.iPosition in EquipSlot._value2member_map_:
-        result.append(f"{indent}Location: {location}, Position: {item.iPosition} ({EquipSlot(item.iPosition)})")
+    location = ItemLocation(item.location)
+    if location == ItemLocation.EQUIPPED and item.position in EquipSlot._value2member_map_:
+        result.append(f"{indent}Location: {location}, Position: {item.position} ({EquipSlot(item.position)})")
     else:
-        result.append(f"{indent}Location: {location}, Position: {item.iPosition}")
-    storedin = StoredIn(item.iStoredIn)
-    result.append(f"{indent}Column: {item.iColumn}, Row: {item.iRow}, StoredIn: {storedin}")
+        result.append(f"{indent}Location: {location}, Position: {item.position}")
+    storedin = StoredIn(item.stored_in)
+    result.append(f"{indent}Column: {item.column}, Row: {item.row}, StoredIn: {storedin}")
     quality = ItemQuality(item.quality())
     result.append(f"{indent}Quality: {quality}")
 
@@ -711,17 +711,17 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
     if item_list and getattr(item_list, 'magic', None) == 0x4D4A:
         items = getattr(item_list, 'items', [])
         for item in items:
-            loc = ItemLocation(item.iLocation)
+            loc = ItemLocation(item.location)
             if loc == ItemLocation.EQUIPPED:
-                equipped_items[item.iPosition] = item
+                equipped_items[item.position] = item
             elif loc == ItemLocation.BELT:
                 belt_items.append(item)
             elif loc == ItemLocation.STORED:
-                if item.iStoredIn == StoredIn.INVENTORY:
+                if item.stored_in == StoredIn.INVENTORY:
                     inventory_items.append(item)
-                elif item.iStoredIn == StoredIn.STASH:
+                elif item.stored_in == StoredIn.STASH:
                     stash_items.append(item)
-                elif item.iStoredIn == StoredIn.CUBE:
+                elif item.stored_in == StoredIn.CUBE:
                     cube_items.append(item)
                 else:
                     inventory_items.append(item)
@@ -745,10 +745,10 @@ def format_char_summary(char_data: D2SStruct, resolver=None) -> str:
         if char_data.mercenary.stItems and char_data.mercenary.stItems.items:
             result.append("Equipped:")
             for m_item in char_data.mercenary.stItems.items:
-                loc = ItemLocation(m_item.iLocation)
+                loc = ItemLocation(m_item.location)
                 slot_str = ""
-                if loc == ItemLocation.EQUIPPED and m_item.iPosition in EquipSlot._value2member_map_:
-                    slot_str = f"{EquipSlot(m_item.iPosition).display_name}: "
+                if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot._value2member_map_:
+                    slot_str = f"{EquipSlot(m_item.position).display_name}: "
                 result.append(f"  - {slot_str}{format_item_summary(m_item, version, resolver=resolver)}")
         else:
             result.append("Equipped: None")

@@ -128,14 +128,14 @@ class TestVersionFunctions(unittest.TestCase):
 class TestCEar(unittest.TestCase):
     def test_ear_creation(self):
         ear = Ear("TestName")
-        self.assertEqual(ear.sEarName, "TestName")
-        self.assertEqual(ear.iEarClass, 0)
-        self.assertEqual(ear.iEarLevel, 1)
+        self.assertEqual(ear.ear_name, "TestName")
+        self.assertEqual(ear.ear_class, 0)
+        self.assertEqual(ear.ear_level, 1)
 
     def test_ear_is_valid(self):
         ear = Ear()
         self.assertTrue(ear.is_valid())
-        ear.iEarLevel = 0
+        ear.ear_level = 0
         self.assertFalse(ear.is_valid())
 
 
@@ -158,18 +158,18 @@ class TestCGoldQuantity(unittest.TestCase):
 class TestCPropertyList(unittest.TestCase):
     def test_property_list_creation(self):
         prop_list = PropertyList()
-        self.assertEqual(len(prop_list.mProperty), 0)
+        self.assertEqual(len(prop_list.properties), 0)
         self.assertEqual(prop_list.ext_sockets(), 0)
         self.assertFalse(prop_list.is_indestructible())
 
     def test_property_list_ext_sockets(self):
         prop_list = PropertyList()
-        prop_list.mProperty = [(194, 0, 2), (0, 0, 10)]
+        prop_list.properties = [(194, 0, 2), (0, 0, 10)]
         self.assertEqual(prop_list.ext_sockets(), 2)
 
     def test_property_list_is_indestructible(self):
         prop_list = PropertyList()
-        prop_list.mProperty = [(152, 0, 1)]
+        prop_list.properties = [(152, 0, 1)]
         self.assertTrue(prop_list.is_indestructible())
 
 
@@ -229,7 +229,7 @@ class TestCD2Item(unittest.TestCase):
         self.assertEqual(item.magic, 0x4D4A)
         self.assertFalse(item.is_ear)
         self.assertTrue(item.is_simple)
-        self.assertEqual(item.iLocation, 0)
+        self.assertEqual(item.location, 0)
 
     def test_d2_item_quality(self):
         item = D2Item()
@@ -245,7 +245,7 @@ class TestCD2Item(unittest.TestCase):
 
     def test_d2_item_get_flag_names(self):
         item = D2Item()
-        # Default flags: is_identified=True, bJustSaved=True
+        # Default flags: is_identified=True, is_just_saved=True
         flags = item.get_flag_names()
         self.assertIn("Identified", flags)
         self.assertIn("JustSaved", flags)
@@ -480,7 +480,7 @@ class TestPropertyParsing(unittest.TestCase):
 
     def test_property_list_get_parsed_properties(self):
         prop_list = PropertyList()
-        prop_list.mProperty = [(0, 0, 32), (1, 0, 64)]
+        prop_list.properties = [(0, 0, 32), (1, 0, 64)]
         prop_list._version = 0x60
         
         parsed = prop_list.get_parsed_properties()

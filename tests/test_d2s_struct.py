@@ -317,8 +317,8 @@ class TestD2SStruct(unittest.TestCase):
         item = D2Item()
         item.item_info = ItemInfo()
         item.type_name = b'bsd '
-        item.iLocation = int(ItemLocation.EQUIPPED)
-        item.iPosition = 4
+        item.location = int(ItemLocation.EQUIPPED)
+        item.position = 4
 
         full_text = format_item_info(item)
         self.assertIsInstance(full_text, str)
@@ -328,8 +328,8 @@ class TestD2SStruct(unittest.TestCase):
         item_stored = D2Item()
         item_stored.item_info = ItemInfo()
         item_stored.type_name = b'bsd '
-        item_stored.iLocation = int(ItemLocation.STORED)
-        item_stored.iPosition = 0
+        item_stored.location = int(ItemLocation.STORED)
+        item_stored.position = 0
         full_text_stored = format_item_info(item_stored)
         self.assertIsInstance(full_text_stored, str)
         self.assertIn("Location: STORED, Position: 0", full_text_stored)

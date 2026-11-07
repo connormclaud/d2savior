@@ -164,9 +164,9 @@ class TestVersionCompatibility(unittest.TestCase):
         prop_list = PropertyList()
         prop_list.deserialize(bs, 0x60)
         
-        self.assertEqual(len(prop_list.mProperty), 1)
-        self.assertEqual(prop_list.mProperty[0][0], 0)
-        self.assertEqual(prop_list.mProperty[0][2], 32)
+        self.assertEqual(len(prop_list.properties), 1)
+        self.assertEqual(prop_list.properties[0][0], 0)
+        self.assertEqual(prop_list.properties[0][2], 32)
         self.assertFalse(prop_list._use_stat_cost)
     
     def test_property_list_d2r_mode(self):
@@ -190,8 +190,8 @@ class TestVersionCompatibility(unittest.TestCase):
         prop_list.deserialize(bs, 0x63)
         
         self.assertTrue(prop_list._use_stat_cost)
-        self.assertGreaterEqual(len(prop_list.mProperty), 1)
-        self.assertEqual(prop_list.mProperty[0][0], 0)
+        self.assertGreaterEqual(len(prop_list.properties), 1)
+        self.assertEqual(prop_list.properties[0][0], 0)
     
     def test_property_list_d2r_aura_stat(self):
         """测试 D2R 模式下 stat 151 (item_aura) 解析: save_bits=5, save_param_bits=9"""
@@ -218,7 +218,7 @@ class TestVersionCompatibility(unittest.TestCase):
         prop_list.deserialize(bs, 0x63)
         
         self.assertTrue(prop_list._use_stat_cost)
-        found_151 = [p for p in prop_list.mProperty if p[0] == 151]
+        found_151 = [p for p in prop_list.properties if p[0] == 151]
         self.assertEqual(len(found_151), 1)
         self.assertEqual(found_151[0][1], 10)
     
@@ -245,7 +245,7 @@ class TestVersionCompatibility(unittest.TestCase):
         prop_list.deserialize(bs, 0x63)
         
         self.assertTrue(prop_list._use_stat_cost)
-        found_152 = [p for p in prop_list.mProperty if p[0] == 152]
+        found_152 = [p for p in prop_list.properties if p[0] == 152]
         self.assertEqual(len(found_152), 1)
         self.assertTrue(prop_list.is_indestructible())
     
@@ -272,8 +272,8 @@ class TestVersionCompatibility(unittest.TestCase):
         prop_list.deserialize(bs, 0x63)
         
         self.assertTrue(prop_list._use_stat_cost)
-        found_17 = [p for p in prop_list.mProperty if p[0] == 17]
-        found_18 = [p for p in prop_list.mProperty if p[0] == 18]
+        found_17 = [p for p in prop_list.properties if p[0] == 17]
+        found_18 = [p for p in prop_list.properties if p[0] == 18]
         self.assertEqual(len(found_17), 1)
         self.assertEqual(len(found_18), 1)
     

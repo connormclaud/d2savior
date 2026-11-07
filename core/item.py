@@ -536,30 +536,6 @@ class Ear:
         self.ear_level = 1
         self.ear_name = name
 
-    @property
-    def iEarClass(self):
-        return self.ear_class
-
-    @iEarClass.setter
-    def iEarClass(self, val):
-        self.ear_class = val
-
-    @property
-    def iEarLevel(self):
-        return self.ear_level
-
-    @iEarLevel.setter
-    def iEarLevel(self, val):
-        self.ear_level = val
-
-    @property
-    def sEarName(self):
-        return self.ear_name
-
-    @sEarName.setter
-    def sEarName(self, val):
-        self.ear_name = val
-
     def deserialize(self, bs, version: int):
         self.ear_class = bs.read_bits(3)
         self.ear_level = bs.read_bits(7)
@@ -660,22 +636,6 @@ class PropertyList:
         self.end_flag = 0
         self._version: int = 0
         self._use_stat_cost: bool = False
-
-    @property
-    def mProperty(self) -> List[Tuple[int, int, int]]:
-        return self.properties
-
-    @mProperty.setter
-    def mProperty(self, val: List[Tuple[int, int, int]]):
-        self.properties = val
-
-    @property
-    def iEndFlag(self) -> int:
-        return self.end_flag
-
-    @iEndFlag.setter
-    def iEndFlag(self, val: int):
-        self.end_flag = val
 
     def deserialize(self, bs, version: int):
         self._version = version
@@ -1354,127 +1314,6 @@ class D2Item:
         self.gem_items: List[D2Item] = []
 
         self._meta = meta
-
-    # Backward compatibility properties
-    @property
-    def bQuest(self): return self.is_quest
-    @bQuest.setter
-    def bQuest(self, val): self.is_quest = val
-
-    @property
-    def iTargetDelFlags(self): return self.target_del_flags
-    @iTargetDelFlags.setter
-    def iTargetDelFlags(self, val): self.target_del_flags = val
-
-    @property
-    def iSwitchInOutFlags(self): return self.switch_in_out_flags
-    @iSwitchInOutFlags.setter
-    def iSwitchInOutFlags(self, val): self.switch_in_out_flags = val
-
-    @property
-    def bDisabled(self): return self.is_disabled
-    @bDisabled.setter
-    def bDisabled(self, val): self.is_disabled = val
-
-    @property
-    def iRepairFlags(self): return self.repair_flags
-    @iRepairFlags.setter
-    def iRepairFlags(self, val): self.repair_flags = val
-
-    @property
-    def bNoSell(self): return self.is_no_sell
-    @bNoSell.setter
-    def bNoSell(self, val): self.is_no_sell = val
-
-    @property
-    def bNew(self): return self.is_new
-    @bNew.setter
-    def bNew(self, val): self.is_new = val
-
-    @property
-    def bBadEquipped(self): return self.is_bad_equipped
-    @bBadEquipped.setter
-    def bBadEquipped(self, val): self.is_bad_equipped = val
-
-    @property
-    def bNamed(self): return self.is_named
-    @bNamed.setter
-    def bNamed(self, val): self.is_named = val
-
-    @property
-    def bNewbie(self): return self.is_newbie
-    @bNewbie.setter
-    def bNewbie(self, val): self.is_newbie = val
-
-    @property
-    def iInitFlags(self): return self.init_flags
-    @iInitFlags.setter
-    def iInitFlags(self, val): self.init_flags = val
-
-    @property
-    def bJustSaved(self): return self.is_just_saved
-    @bJustSaved.setter
-    def bJustSaved(self, val): self.is_just_saved = val
-
-    @property
-    def bLowQuality(self): return self.is_low_quality
-    @bLowQuality.setter
-    def bLowQuality(self, val): self.is_low_quality = val
-
-    @property
-    def iDuplicateChronicle(self): return self.duplicate_chronicle
-    @iDuplicateChronicle.setter
-    def iDuplicateChronicle(self, val): self.duplicate_chronicle = val
-
-    @property
-    def wVersion(self): return self.item_version
-    @wVersion.setter
-    def wVersion(self, val): self.item_version = val
-
-    @property
-    def iVersionHigh(self): return self.version_high
-    @iVersionHigh.setter
-    def iVersionHigh(self, val): self.version_high = val
-
-    @property
-    def iLocation(self): return self.location
-    @iLocation.setter
-    def iLocation(self, val): self.location = val
-
-    @property
-    def iPosition(self): return self.position
-    @iPosition.setter
-    def iPosition(self, val): self.position = val
-
-    @property
-    def iColumn(self): return self.column
-    @iColumn.setter
-    def iColumn(self, val): self.column = val
-
-    @property
-    def iRow(self): return self.row
-    @iRow.setter
-    def iRow(self, val): self.row = val
-
-    @property
-    def iStoredIn(self): return self.stored_in
-    @iStoredIn.setter
-    def iStoredIn(self, val): self.stored_in = val
-
-    @property
-    def _bHasQuantity(self): return self._has_quantity
-    @_bHasQuantity.setter
-    def _bHasQuantity(self, val): self._has_quantity = val
-
-    @property
-    def _bChronicle(self): return self._is_chronicle
-    @_bChronicle.setter
-    def _bChronicle(self, val): self._is_chronicle = val
-
-    @property
-    def _bChronicleCompact(self): return self._is_chronicle_compact
-    @_bChronicleCompact.setter
-    def _bChronicleCompact(self, val): self._is_chronicle_compact = val
 
 
     @property
