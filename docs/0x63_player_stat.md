@@ -1,66 +1,113 @@
-# 0x63 版本玩家属性格式
+# Player Stats Block Format (0x63 and 0x69)
 
-## 1. PlayerStats 结构
+## 1. Structure Overview
 
-玩家属性数据位于存档文件的后半部分，以魔法数 `0x6667` 开始。
+Player attributes and resources are stored in a compressed bitstream block in the character save file (`.d2s`), marked by a 16-bit magic number:
 
-| 字段 | 大小 (位) | 描述 |
-|------|-----------|------|
-| wMajic | 16 | 魔法数 (0x6667) |
-| 属性数据 | 可变 | 9位ID + 变长值 的序列 |
-| 结束标志 | 9 | >= 0x10 时结束 |
+| Field | Size | Description |
+|-------|------|-------------|
+| `magic` | 16 bits | Section identifier (`0x6667` = ASCII "gf") |
+| Attribute Data | Variable | Sequential (9-bit ID + variable-length value) pairs |
+| Terminator | 9 bits | Stop marker (`stat_id >= 0x10`, typically `0x1FF`) |
+| Alignment | 0-7 bits | Byte boundary alignment (`bs.align_byte()`) |
 
-## 2. 属性存储格式
+> Note: Both version 0x63 and 0x69 use the exact same player stats block format and attribute IDs.
 
-每个属性由 9 位 ID 和对应位长的值组成。属性按 ID 顺序存储，但不保证连续。当读取到的 ID >= 0x10 时，表示属性列表结束。
+## 2. Attribute IDs and Bit Widths
 
-### 2.1 属性ID与位长
+Attributes are stored in ascending order of their 9-bit ID. Unallocated or zeroed attributes may be omitted from the stream.
 
-| ID | 属性名称 | 位长 | 描述 |
-|----|----------|------|------|
-| 0 | Strength | 10 | 力量 |
-| 1 | Energy | 10 | 精力 |
-| 2 | Dexterity | 10 | 敏捷 |
-| 3 | Vitality | 10 | 体力 |
-| 4 | Unused Stats | 10 | 剩余属性点 |
-| 5 | Unused Skills | 8 | 剩余技能点 |
-| 6 | Current HP | 21 | 当前生命值 (内部值，显示值 = 内部值 >> 8) |
-| 7 | Max HP | 21 | 最大生命值 (内部值) |
-| 8 | Current Mana | 21 | 当前法力值 (内部值) |
-| 9 | Max Mana | 21 | 最大法力值 (内部值) |
-| 10 | Current Stamina | 21 | 当前耐力值 (内部值) |
-| 11 | Max Stamina | 21 | 最大耐力值 (内部值) |
-| 12 | Level | 7 | 等级 |
-| 13 | Experience | 32 | 经验值 |
-| 14 | Gold | 25 | 身上金币 |
-| 15 | Stash Gold | 25 | 存储金币 |
-
-### 2.2 生命/法力/耐力的内部值
-
-HP、Mana、Stamina 使用 21 位存储内部值，实际显示值需要右移 8 位：
-
-```
-显示值 = 内部值 >> 8
-```
-
-例如：内部值 0x1400 = 5120，显示值 = 5120 >> 8 = 20
-
-## 3. 解析逻辑
+The bit lengths are defined by `PLAYER_STATS_BITS_COUNT`:
 
 ```python
-PLAYER_STATS_BITS_COUNT = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
-
-def read_player_stats(bs):
-    wMajic = bs.read_word()  # 0x6667
-    values = [0] * 16
-    while True:
-        stat_id = bs.read_bits(9)
-        if stat_id >= 0x10:  # 结束标志
-            break
-        values[stat_id] = bs.read_bits(PLAYER_STATS_BITS_COUNT[stat_id])
-    bs.align_byte()
+PLAYER_STATS_BITS_COUNT = [
+    10,  # 0:  Strength
+    10,  # 1:  Energy
+    10,  # 2:  Dexterity
+    10,  # 3:  Vitality
+    10,  # 4:  Stat points remaining
+    8,   # 5:  Skill points remaining
+    21,  # 6:  Current Life (fixed-point 256ths)
+    21,  # 7:  Max Life (fixed-point 256ths)
+    21,  # 8:  Current Mana (fixed-point 256ths)
+    21,  # 9:  Max Mana (fixed-point 256ths)
+    21,  # 10: Current Stamina (fixed-point 256ths)
+    21,  # 11: Max Stamina (fixed-point 256ths)
+    7,   # 12: Level (1 - 99)
+    32,  # 13: Experience
+    25,  # 14: Gold (Inventory)
+    25,  # 15: Gold (Personal Stash)
+]
 ```
 
-## 4. 与 0x69 版本的差异
+### Table of Attributes
 
-0x69 版本的 PlayerStats 格式与 0x63 版本相同，使用相同的魔法数和属性ID定义。
+| ID | Attribute Name | Bit Width | Description |
+|----|----------------|-----------|-------------|
+| 0  | Strength | 10 | Base strength attribute |
+| 1  | Energy | 10 | Base energy attribute |
+| 2  | Dexterity | 10 | Base dexterity attribute |
+| 3  | Vitality | 10 | Base vitality attribute |
+| 4  | Stat Points | 10 | Unspent attribute stat points |
+| 5  | Skill Points | 8 | Unspent skill points |
+| 6  | Current HP | 21 | Current life (`display_value = raw_value >> 8`) |
+| 7  | Max HP | 21 | Maximum life (`display_value = raw_value >> 8`) |
+| 8  | Current Mana | 21 | Current mana (`display_value = raw_value >> 8`) |
+| 9  | Max Mana | 21 | Maximum mana (`display_value = raw_value >> 8`) |
+| 10 | Current Stamina| 21 | Current stamina (`display_value = raw_value >> 8`) |
+| 11 | Max Stamina | 21 | Maximum stamina (`display_value = raw_value >> 8`) |
+| 12 | Level | 7 | Character level (1 - 99) |
+| 13 | Experience | 32 | Total accumulated experience |
+| 14 | Gold (Inventory)| 25 | Gold carried on character |
+| 15 | Gold (Stash) | 25 | Gold in personal character stash |
+
+## 3. Fixed-Point HP, Mana, and Stamina Representation
+
+Life, Mana, and Stamina are stored as 21-bit fixed-point integers representing 256ths of a point (8 fractional bits). To calculate the integer display value visible in game:
+
+```
+display_value = raw_value >> 8
+```
+
+For example, a raw current life value of `0x1400` (5120 decimal) yields `5120 >> 8 = 20` HP.
+
+## 4. Deserialization & Serialization Reference
+
+```python
+class PlayerStats:
+    def deserialize(self, bs):
+        self.magic = bs.read_word()
+        if self.magic != PLAYER_STATS_MAGIC:
+            return
+        self.stat_values = [0] * 0x10
+        while True:
+            try:
+                stat_id = bs.read_bits(9)
+                if stat_id >= 0x10:
+                    break
+                self.stat_values[stat_id] = bs.read_bits(PLAYER_STATS_BITS_COUNT[stat_id])
+            except ValueError:
+                break
+        bs.align_byte()
+
+    def serialize(self, bs):
+        bs.write_word(self.magic)
+        for i in range(0x10):
+            if self.stat_values[i] != 0:
+                bs.write_bits(9, i)
+                bs.write_bits(PLAYER_STATS_BITS_COUNT[i], self.stat_values[i])
+        bs.write_bits(9, 0x1FF)
+        bs.align_byte()
+```
+
+## 5. Model Properties
+
+The `PlayerStats` class exposes Python properties for direct attribute access:
+
+- `strength`, `energy`, `dexterity`, `vitality`
+- `stat_points_remaining`, `skill_points_remaining`
+- `current_life`, `max_life` (auto-shifted `>> 8`)
+- `current_mana`, `max_mana` (auto-shifted `>> 8`)
+- `current_stamina`, `max_stamina` (auto-shifted `>> 8`)
+- `level`, `experience`
+- `gold`, `gold_stash`

@@ -1,130 +1,118 @@
-# D2R 物品标志位格式
+# Item Flags Format Specification
 
-## 1. 概述
+## 1. Overview
 
-D2R 物品使用 32 位标志位 (flags) 存储物品状态信息。标志位的读取方式取决于版本：
+Diablo II and Diablo II: Resurrected items store status and behavior flags in their header. The deserialization mechanism depends on the format version:
 
-- **D2R 格式 (version > 96)**：整体读取 32 位 `flags`，通过位掩码提取各标志
-- **Classic 格式 (version <= 96)**：逐位读取 (多个 `read_bits(1)`)
+- **D2R Format (`version >= 0x61`)**: Reads a 32-bit `flags` dword at once, extracting individual flags via bitwise masking.
+- **Classic Format (`version < 0x61`)**: Reads individual bitfields sequentially from the bitstream.
 
-0x63 和 0x69 版本均使用 D2R 格式。
+## 2. D2R 32-Bit Flags (`version >= 0x61`)
 
-## 2. 标志位定义
+In D2R save versions `0x63` and `0x69`, the 32-bit `flags` dword is unpacked with bitwise AND operations:
 
-### 2.1 32位 flags 整体布局
+| Bit | Hex Mask | Field | Description |
+|-----|----------|-------|-------------|
+| 0   | `0x00000001` | `NewItem` | Newly generated item flag |
+| 1   | `0x00000002` | `Target` | Target state |
+| 2   | `0x00000004` | `Targeting` | Targeting state |
+| 3   | `0x00000008` | `Deleted` | Marked for deletion |
+| 4   | `0x00000010` | `is_identified` | Item is identified |
+| 5   | `0x00000020` | `_bHasQuantity` | Stack quantity is present |
+| 6   | `0x00000040` | `SwitchIn` | Active during weapon swap set 1 |
+| 7   | `0x00000080` | `SwitchOut` | Active during weapon swap set 2 |
+| 8   | `0x00000100` | `Broken` / `bDisabled` | Broken / zero durability |
+| 9   | `0x00000200` | `Repaired` | Repaired state |
+| 10  | `0x00000400` | (undefined) | Reserved |
+| 11  | `0x00000800` | `is_socketed` | Item contains or can hold sockets |
+| 12  | `0x00001000` | `bNoSell` | Cannot be sold to vendors |
+| 13  | `0x00002000` | `bNew` / `InStore` | In vendor store inventory |
+| 14  | `0x00004000` | `bBadEquipped` / `NoEquip` | Cannot be equipped |
+| 15  | `0x00008000` | `bNamed` | Personalized / named item |
+| 16  | `0x00010000` | `is_ear` | Item is a player PvP ear |
+| 17  | `0x00020000` | `bNewbie` / `StarterItem` | Starter character equipment |
+| 18  | `0x00040000` | (undefined) | Reserved |
+| 19  | `0x00080000` | `Init` | Engine initialization flag |
+| 20  | `0x00100000` | (undefined) | Reserved |
+| 21  | `0x00200000` | `is_simple` / `CompactSave` | Compact save format (no ext info / props) |
+| 22  | `0x00400000` | `is_ethereal` | Ethereal item (cannot be repaired) |
+| 23  | `0x00800000` | `bJustSaved` | Save state marker |
+| 24  | `0x01000000` | `is_personalized` | Personalized by Anya |
+| 25  | `0x02000000` | `bLowQuality` / `Gamble` | Low quality or gamble item |
+| 26  | `0x04000000` | `is_runeword` | Active runeword with extra properties |
+| 27  | `0x08000000` | `Duplicated` | Duplicated item flag |
+| 28  | `0x10000000` | `_bChronicle` | Holy Grail chronicle tracking flag |
+| 29  | `0x20000000` | `_bChronicleCompact` | Compact chronicle entry |
+| 30  | `0x40000000` | (undefined) | Reserved |
+| 31  | `0x80000000` | (undefined) | Reserved |
 
-| 位 | 位掩码 | 标志 | 描述 |
-|----|--------|------|------|
-| 0 | 0x00000001 | NewItem | 新物品 |
-| 1 | 0x00000002 | Target | 目标 |
-| 2 | 0x00000004 | Targeting | 正在瞄准 |
-| 3 | 0x00000008 | Deleted | 已删除 |
-| 4 | 0x00000010 | Identified | 已鉴定 |
-| 5 | 0x00000020 | HasQuantity | 有数量 |
-| 6 | 0x00000040 | SwitchIn | 武器切换进入 |
-| 7 | 0x00000080 | SwitchOut | 武器切换离开 |
-| 8 | 0x00000100 | Broken | 已损坏 |
-| 9 | 0x00000200 | Repaired | 已修复 |
-| 10 | 0x00000400 | (undefined) | 未定义 |
-| 11 | 0x00000800 | Socketed | 有孔 |
-| 12 | 0x00001000 | NoSell | 不可出售 |
-| 13 | 0x00002000 | InStore | 在商店 |
-| 14 | 0x00004000 | NoEquip | 不可装备 |
-| 15 | 0x00008000 | Named | 已命名 |
-| 16 | 0x00010000 | IsEar | 耳朵物品 |
-| 17 | 0x00020000 | StarterItem | 新手物品 |
-| 18 | 0x00040000 | (undefined) | 未定义 |
-| 19 | 0x00080000 | Init | 初始化标志 (读取时清除) |
-| 20 | 0x00100000 | (undefined) | 未定义 |
-| 21 | 0x00200000 | CompactSave | 简单物品 (紧凑存储) |
-| 22 | 0x00400000 | Ethereal | 无形物品 |
-| 23 | 0x00800000 | JustSaved | 刚保存标志 |
-| 24 | 0x01000000 | Personalized | 个性化物品 |
-| 25 | 0x02000000 | LowQuality/Gamble | 低品质/赌博标志 |
-| 26 | 0x04000000 | Runeword | 符文之语 |
-| 27 | 0x08000000 | Duplicated | 已复制 |
-| 28 | 0x10000000 | Chronicle | 编年史标志 (v100+) |
-| 29 | 0x20000000 | ChronicleCompact | 编年史紧凑标志 (v100+) |
-| 30 | 0x40000000 | (undefined) | 未定义 |
-| 31 | 0x80000000 | (undefined) | 未定义 |
+### D2R Deserialization Logic
+```python
+flags = bs.read_bits(32)
+self._flags = flags
+self.is_identified = bool(flags & 0x00000010)
+self._bHasQuantity = bool(flags & 0x00000020)
+self.is_socketed = bool(flags & 0x00000800)
+self.is_ear = bool(flags & 0x00010000)
+self.bNewbie = bool(flags & 0x00020000)
+self.is_simple = bool(flags & 0x00200000)
+self.is_ethereal = bool(flags & 0x00400000)
+self.is_personalized = bool(flags & 0x01000000)
+self.is_runeword = bool(flags & 0x04000000)
+self._bChronicle = bool(flags & 0x10000000)
+self._bChronicleCompact = bool(flags & 0x20000000)
+```
 
-### 2.2 D2R 逐位读取顺序
+## 3. Classic Sequential Bitstream Flags (`version < 0x61`)
 
-D2R 格式虽然整体读取 32 位 flags，但内部按位顺序读取，某些位是组合标志：
+In legacy Classic saves (`_read_data_classic`), flags are read one bitfield at a time in exact order:
 
-| 读取顺序 | 位数 | 字段名 | 对应 flags 位 | 描述 |
-|----------|------|--------|--------------|------|
-| 1 | 1 | bQuest | bit 0 (NewItem) | 任务物品标志 |
-| 2 | 3 | iTargetDelFlags | bit 1~3 (Target+Targeting+Deleted) | 目标/删除组合标志 |
-| 3 | 1 | bIdentified | bit 4 | 已鉴定 |
-| 4 | 3 | iSwitchInOutFlags | bit 5~7 (HasQuantity+SwitchIn+SwitchOut) | 切换/数量组合标志 |
-| 5 | 1 | bDisabled | bit 8 (Broken) | 禁用/损坏 |
-| 6 | 2 | iRepairFlags | bit 9~10 (Repaired+undefined) | 修复组合标志 |
-| 7 | 1 | bSocketed | bit 11 | 有孔 |
-| 8 | 1 | bNoSell | bit 12 | 不可出售 |
-| 9 | 1 | bNew | bit 13 (InStore) | 新物品 |
-| 10 | 1 | bBadEquipped | bit 14 (NoEquip) | 装备不当 |
-| 11 | 1 | bNamed | bit 15 | 已命名 |
-| 12 | 1 | bEar | bit 16 | 耳朵物品 |
-| 13 | 1 | bNewbie | bit 17 (StarterItem) | 新手物品 |
-| 14 | 3 | iInitFlags | bit 18~20 (undefined+Init+undefined) | 初始化组合标志 |
-| 15 | 1 | bSimple | bit 21 (CompactSave) | 紧凑存储 |
-| 16 | 1 | bEthereal | bit 22 | 无形 |
-| 17 | 1 | bJustSaved | bit 23 | 刚保存 |
-| 18 | 1 | bPersonalized | bit 24 | 个性化 |
-| 19 | 1 | bLowQuality | bit 25 | 低品质/赌博 |
-| 20 | 1 | bRuneWord | bit 26 | 符文之语 |
-| 21 | 5 | iDuplicateChronicle | bit 27~31 (Duplicated+Chronicle+ChronicleCompact+2×undefined) | 复制/编年史组合标志 |
+| Order | Bit Width | Field | Description |
+|-------|-----------|-------|-------------|
+| 1     | 1 | `bQuest` | Quest item flag |
+| 2     | 3 | `iTargetDelFlags` | Target / deletion state |
+| 3     | 1 | `is_identified` | Identified flag |
+| 4     | 3 | `iSwitchInOutFlags` | Weapon swap state |
+| 5     | 1 | `bDisabled` | Broken / zero durability |
+| 6     | 2 | `iRepairFlags` | Repair state |
+| 7     | 1 | `is_socketed` | Socketed flag |
+| 8     | 1 | `bNoSell` | Cannot sell |
+| 9     | 1 | `bNew` | Vendor shop item |
+| 10    | 1 | `bBadEquipped` | Cannot equip |
+| 11    | 1 | `bNamed` | Named / personalized |
+| 12    | 1 | `is_ear` | PvP ear |
+| 13    | 1 | `bNewbie` | Starter equipment |
+| 14    | 3 | `iInitFlags` | Init flags |
+| 15    | 1 | `is_simple` | Compact format |
+| 16    | 1 | `is_ethereal` | Ethereal |
+| 17    | 1 | `bJustSaved` | Saved state |
+| 18    | 1 | `is_personalized` | Personalized |
+| 19    | 1 | `bLowQuality` | Low quality / gamble |
+| 20    | 1 | `is_runeword` | Runeword |
+| 21    | 5 | `iDuplicateChronicle` | Duplicate / chronicle bits |
+| 22    | 10| `wVersion` | Classic item format version |
 
-> 注意：D2R 逐位读取时，某些标志的语义与 32 位 flags 掩码不完全对应。例如 bit 0 在 32 位 flags 中是 NewItem，但在逐位读取时第一个 bit 被称为 bQuest。这是因为 D2R 格式在读取时对标志位做了重新映射。
+The 21 flag bitfields total 32 bits (`1+3+1+3+1+2+1+1+1+1+1+1+1+3+1+1+1+1+1+1+5 = 32`), directly mirroring the D2R packed word layout.
 
-## 3. 重要标志处理逻辑
+## 4. Human-Readable Flag Reporting
 
-### 3.1 LowQuality / 赌博物品
+The `D2Item.get_flag_names()` method returns human-readable labels matching `ITEM_FLAG_LABELS`:
 
-如果 `LowQuality` (0x02000000) 标志被设置，表示该物品是赌博物品：
-1. 记录该标志
-2. 清除 flags 中的 LowQuality 位
-3. 如果是完整物品，将品质设为 Inferior (1)，跳过后续品质数据读取
-
-### 3.2 Init 标志
-
-`Init` (0x00080000) 标志在读取时清除，写入时也不设置。
-
-### 3.3 JustSaved 标志
-
-`JustSaved` (0x00800000) 标志在写入时始终设置。
-
-### 3.4 CompactSave 标志
-
-`CompactSave` (0x00200000) 决定物品使用紧凑格式还是完整格式。紧凑物品只包含最少数据，没有扩展信息和属性列表。
-
-### 3.5 Chronicle 标志
-
-`Chronicle` (0x10000000) 和 `ChronicleCompact` (0x20000000) 是 v100+ 新增标志，用于编年史数据。
-
-## 4. Classic 格式对比 (version <= 96)
-
-Classic 格式逐位读取，每个标志独立读取 1 位：
-
-| 读取顺序 | 标志 | 描述 |
-|----------|------|------|
-| 1 | bIdentified | 已鉴定 |
-| 2 | bShiftSwitch | 切换 |
-| 3 | bLeftAttack | 左手攻击 |
-| 4 | bHasQuantity | 有数量 |
-| 5 | bSimple | 紧凑存储 |
-| 6 | bEthereal | 无形 |
-| 7 | bPersonalized | 个性化 |
-| 8 | bRuneWord | 符文之语 |
-| 9 | bVarGfx | 可变图形 |
-| 10 | bShort | 短格式 |
-| 11 | bMaxDur | 有最大耐久 |
-| 12 | bSocketed | 有孔 |
-| 13 | bUnknown | 未知 |
-| 14 | bEar | 耳朵物品 |
-| 15 | bStarterItem | 新手物品 |
-| 16 | bSimple2 | 紧凑存储2 |
-| 17 | bRunewordComplete | 符文之语完成 |
-
-Classic 格式的标志位数量和含义与 D2R 格式有显著差异。
+```python
+ITEM_FLAG_LABELS = [
+    ("is_identified", "Identified"),
+    ("is_socketed", "Socketed"),
+    ("is_ethereal", "Ethereal"),
+    ("is_runeword", "RuneWord"),
+    ("is_personalized", "Personalized"),
+    ("bQuest", "Quest"),
+    ("bNoSell", "NoSell"),
+    ("bNamed", "Named"),
+    ("bJustSaved", "JustSaved"),
+    ("bLowQuality", "LowQuality"),
+    ("bDisabled", "Broken"),
+    ("bNew", "InStore"),
+    ("bBadEquipped", "NoEquip"),
+    ("bNewbie", "StarterItem"),
+]
+```

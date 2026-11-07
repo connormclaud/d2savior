@@ -1,239 +1,218 @@
-# 0x63 版本 D2S 存档格式
+# 0x63 (v1.x/v2.x) D2S Save Format Specification
 
-## 1. 总体结构
+## 1. Overall Binary Layout
 
-0x63 版本的 Diablo II Resurrected 存档文件 (.d2s) 采用二进制格式，所有多字节数值使用小端序。
+Version `0x63` (Patch 2.5+) of Diablo II: Resurrected save files (`.d2s`) uses a binary structure with little-endian integer byte order. The fixed header occupies 335 bytes (`0x014F`).
 
-| 偏移量 (字节) | 大小 (字节) | 字段 | 描述 |
-|-------------|-----------|------|------|
-| 0x0000      | 4         | dwMajic | 魔法数 (0xAA55AA55) |
-| 0x0004      | 4         | dwVersion | 版本标识 (0x63) |
-| 0x0008      | 4         | dwSize | 存档大小 |
-| 0x000C      | 4         | dwCRC | CRC 校验 |
-| 0x0010      | 4         | dwWeaponSet | 武器切换设置 |
-| 0x0014      | 16        | Name | 角色名称 (null 终止) |
-| 0x0024      | 1         | charType | 角色类型标志 |
-| 0x0025      | 1         | charTitle | 角色称号 |
-| 0x0026      | 2         | numStatsNumSkills | 属性数量(高8位) + 技能数量(低8位) |
-| 0x0028      | 1         | charClass | 角色职业 |
-| 0x0029      | 2         | padding1 | 填充 (固定 0x101E) |
-| 0x002C      | 1         | charLevel | 角色等级 |
-| 0x002D      | 4         | createTime | 创建时间 (0x63版本中通常为0) |
-| 0x0031      | 4         | dwTime | 最后保存时间 (Unix时间戳) |
-| 0x0035      | 4         | playTime | 游戏时间 (0x63版本中通常为0xFFFFFFFF, 未使用) |
-| 0x0039      | 64        | dwSkillKey[16] | 技能快捷键 |
-| 0x0079      | 4         | dwLeftSkill1 | 左手技能1 |
-| 0x007D      | 4         | dwRightSkill1 | 右手技能1 |
-| 0x0081      | 4         | dwLeftSkill2 | 左手技能2 |
-| 0x0085      | 4         | dwRightSkill2 | 右手技能2 |
-| 0x0089      | 16        | outfit[16] | 外观 |
-| 0x0099      | 16        | colors[16] | 颜色 |
-| 0x00A9      | 3         | Town[3] | 城镇 |
-| 0x00AC      | 4         | dwMapSeed | 地图种子 |
-| 0x00B0      | 2         | mercFlagsLow | 雇佣兵标志低16位 |
-| 0x00B2      | 1         | bMercDead | 雇佣兵死亡标志 |
-| 0x00B3      | 1         | mercFlagsHigh | 雇佣兵标志高8位 |
-| 0x00B4      | 4         | dwMercControl | 雇佣兵控制 |
-| 0x00B8      | 2         | wMercName | 雇佣兵名称 |
-| 0x00BA      | 2         | wMercType | 雇佣兵类型 |
-| 0x00BC      | 4         | dwMercExp | 雇佣兵经验 |
-| 0x00C0      | 76        | previewPrefix | 预览数据前缀 (含装备预览+公会徽章+经验值) |
-| 0x010C      | 64        | NamePTR | 名称指针 (含Name) |
-| 0x014C      | 4         | previewSuffix | 预览数据后缀 |
-| 可变        | 可变      | QuestInfo | 任务数据 |
-| 可变        | 可变      | Waypoints | 小站数据 |
-| 可变        | 可变      | NPC | NPC 信息 (0x34 字节) |
-| 可变        | 可变      | PlayerStats | 玩家属性 |
-| 可变        | 可变      | Skills | 技能数据 |
-| 可变        | 可变      | ItemList | 物品列表 |
-| 可变        | 可变      | Corpse | 尸体数据 |
-| 可变        | 可变      | Mercenary | 雇佣兵数据 (扩展版) |
-| 可变        | 可变      | Golem | 石魔数据 (扩展版) |
+| Offset (Hex) | Size (Bytes) | Field | Description |
+|--------------|--------------|-------|-------------|
+| 0x0000       | 4            | `magic` | File magic identifier (`0xAA55AA55`) |
+| 0x0004       | 4            | `version` | Save format version (`0x63` = 99 decimal) |
+| 0x0008       | 4            | `dwSize` | Total file size in bytes |
+| 0x000C       | 4            | `dwCRC` | 32-bit rotational checksum (CRC) |
+| 0x0010       | 4            | `dwWeaponSet` | Active weapon swap set (0 or 1) |
+| 0x0014       | 16           | `Name` | Legacy character name (ASCII, null-padded) |
+| 0x0024       | 1            | `charType` / `charFlags` | Character type bitmask flags |
+| 0x0025       | 1            | `charTitle` | Character title index (0=None, 5=Slayer, etc.) |
+| 0x0026       | 2            | `numStatsNumSkills` | High 8 bits: stat count; Low 8 bits: skill count |
+| 0x0028       | 1            | `charClass` | Character class (0=Amazon .. 6=Assassin) |
+| 0x0029       | 2            | `padding1` | Constant padding (`0x101E`) |
+| 0x002B       | 1            | `charLevel` | Character level (1-99) |
+| 0x002C       | 4            | `createTime` | Creation timestamp (unused/0 in 0x63) |
+| 0x0030       | 4            | `dwTime` | Last save timestamp (Unix epoch seconds) |
+| 0x0034       | 4            | `playTime` | Total play time (unused/`0xFFFFFFFF`) |
+| 0x0038       | 64           | `dwSkillKey[16]` | Hotkey skill assignments (16 x 32-bit dwords) |
+| 0x0078       | 4            | `dwLeftSkill1` | Primary left-hand skill ID |
+| 0x007C       | 4            | `dwRightSkill1` | Primary right-hand skill ID |
+| 0x0080       | 4            | `dwLeftSkill2` | Alternate (swap) left-hand skill ID |
+| 0x0084       | 4            | `dwRightSkill2` | Alternate (swap) right-hand skill ID |
+| 0x0088       | 16           | `outfit[16]` | Character appearance configuration |
+| 0x0098       | 16           | `colors[16]` | Character color palette settings |
+| 0x00A8       | 3            | `Town[3]` | Current town per difficulty (Normal, NM, Hell) |
+| 0x00AB       | 4            | `dwMapSeed` | Random map generation seed |
+| 0x00AF       | 2            | `mercFlagsLow` | Mercenary flags lower 16 bits |
+| 0x00B1       | 1            | `bMercDead` | Mercenary dead flag (1=Dead, 0=Alive) |
+| 0x00B2       | 1            | `mercFlagsHigh` | Mercenary flags upper 8 bits |
+| 0x00B3       | 4            | `dwMercControl` | Mercenary control seed/flag |
+| 0x00B7       | 2            | `wMercName` | Mercenary name ID table index |
+| 0x00B9       | 2            | `wMercType` | Mercenary hireling type / difficulty index |
+| 0x00BB       | 4            | `dwMercExp` | Mercenary accumulated experience points |
+| 0x00BF       | 76           | `previewPrefix` | Preview metadata (equipment, guild emblem, XP) |
+| 0x010B       | 64           | `NamePTR` | D2R character name (UTF-8, null-terminated) |
+| 0x014B       | 4            | `previewSuffix` | Preview metadata suffix |
+| Variable     | Variable     | `quests` | Quest data block (`QuestInfo`) |
+| Variable     | Variable     | `waypoints` | Waypoint activation block (`Waypoints`) |
+| Variable     | 52           | `NPC` | NPC introduction / talk state flags (0x34 bytes) |
+| Variable     | Variable     | `player_stats` | Attributes block (`PlayerStats`) |
+| Variable     | 32           | `skills` | Skill allocation block (`CharSkills`) |
+| Variable     | Variable     | `item_list` | Inventory, equipped, and stash items (`ItemList`) |
+| Variable     | Variable     | `corpse` | Player corpse item block (`Corpse`) |
+| Variable     | Variable     | `mercenary` | Mercenary item block (`Mercenary`, expansion only) |
+| Variable     | Variable     | `golem` | Iron Golem item data (`Golem`, expansion only) |
 
-## 2. 角色类型标志 (charType)
+## 2. Character Type Flags (`charFlags` / `charType`)
 
-charType 字段包含多个布尔标志的位组合：
+The character type byte at offset `0x0024` stores boolean gameplay flags:
 
-| 位 | 标志 | 描述 |
-|----|------|------|
-| 0x01 | Init | 初始化标志 |
-| 0x02 | RealmChar | 战网角色 |
-| 0x04 | Hardcore | 硬核角色 |
-| 0x08 | Died | 曾经死亡 |
-| 0x10 | SaveProcess | 保存处理中 |
-| 0x20 | Expansion | 资料片角色 |
-| 0x40 | Ladder | 天梯角色 |
-| 0x80 | NeedsRenaming | 需要重命名 |
+| Bit | Mask | Flag | Description |
+|-----|------|------|-------------|
+| 0   | 0x01 | Init | Character initialized |
+| 1   | 0x02 | RealmChar | Battle.net realm character |
+| 2   | 0x04 | Hardcore | Hardcore character mode (permadeath) |
+| 3   | 0x08 | Died | Character has died at least once |
+| 4   | 0x10 | SaveProcess | Active save flag |
+| 5   | 0x20 | Expansion | Lord of Destruction expansion character |
+| 6   | 0x40 | Ladder | Ladder character |
+| 7   | 0x80 | NeedsRenaming | Renaming required flag |
 
-> 0x63 版本 (v97~v103) 使用 charType (1字节) 存储角色标志。0x69 版本 (v104+) 扩展为 charFlags (4字节)，其中 bit8~bit12 存储角色进度 (Progression)。
+> In save version 0x63, character type flags fit in 1 byte (`charType`). In version 0x69, this is expanded to a 4-byte `charFlags` dword that incorporates progression in bits 8-12.
 
-## 3. 角色职业 (charClass)
+## 3. Character Class Identifiers (`charClass`)
 
-| 值 | 职业 |
-|-----|------|
-| 0 | Amazon (亚马逊) |
-| 1 | Sorceress (法师) |
-| 2 | Necromancer (死灵法师) |
-| 3 | Paladin (圣骑士) |
-| 4 | Barbarian (野蛮人) |
-| 5 | Druid (德鲁伊) |
-| 6 | Assassin (刺客) |
+| Value | Class |
+|-------|-------|
+| 0     | Amazon |
+| 1     | Sorceress |
+| 2     | Necromancer |
+| 3     | Paladin |
+| 4     | Barbarian |
+| 5     | Druid |
+| 6     | Assassin |
 
-## 4. 任务数据 (QuestInfo)
+## 4. Character Name Resolution
 
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| dwMajic | 4 | 魔法数 |
-| dwActs | 4 | 已解锁章节数 |
-| wSize | 2 | 数据大小 |
-| QIData[3] | 可变 | 3个难度的任务数据 |
-
-### 4.1 单个难度任务数据 (QuestInfoData)
-
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| wIntroduced1 | 2 | Act I 引入 |
-| wActI[6] | 12 | Act I 任务 (6个word) |
-| wTraval1 | 2 | Act I 旅行 |
-| wIntroduced2 | 2 | Act II 引入 |
-| wActII[6] | 12 | Act II 任务 |
-| wTraval2 | 2 | Act II 旅行 |
-| wIntroduced3 | 2 | Act III 引入 |
-| wActIII[6] | 12 | Act III 任务 |
-| wTraval3 | 2 | Act III 旅行 |
-| wIntroduced4 | 2 | Act IV 引入 |
-| wActIV[3] | 6 | Act IV 任务 (3个word) |
-| wTraval4 | 2 | Act IV 旅行 |
-| unknown1[3] | 6 | 未知 |
-| wIntroduced5 | 2 | Act V 引入 |
-| unknown2[2] | 4 | 未知 |
-| wActV[6] | 12 | Act V 任务 |
-| bResetStats | 1 | 重置属性标志 |
-| unknown3 | 1 | 未知 |
-| unknown4[6] | 12 | 未知 |
-
-## 5. 小站数据 (Waypoints)
-
-详细格式见 [waypoint_format.md](waypoint_format.md)。
-
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| wMajic | 2 | 魔法数 (0x5357 = "WS") |
-| unknown | 4 | 版本号 (通常为 1) |
-| wSize | 2 | 数据大小 (0x0050 = 80) |
-| wp[3] | 72 | 3个难度的小站数据 (每个24字节) |
-
-### 5.1 单个难度小站数据 (WaypointData)
-
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| unknown | 2 | 头部 (通常为 0x0102) |
-| Waypoints[5] | 5 | 小站标志位图 (39位有效 + 1位填充) |
-| unknown2[17] | 17 | 保留 (全0) |
-
-## 6. 玩家属性 (PlayerStats)
-
-| 字段 | 大小 (位) | 描述 |
-|------|-----------|------|
-| wMajic | 16 | 魔法数 (0x6667) |
-| 属性数据 | 可变 | 9位ID + 变长值 的序列 |
-| 结束标志 | 9 | >= 0x10 时结束 |
-
-### 6.1 属性ID与位长
-
-| ID | 属性 | 位长 |
-|----|------|------|
-| 0 | Strength (力量) | 10 |
-| 1 | Energy (精力) | 10 |
-| 2 | Dexterity (敏捷) | 10 |
-| 3 | Vitality (体力) | 10 |
-| 4 | Unused Stats (剩余属性点) | 10 |
-| 5 | Unused Skills (剩余技能点) | 8 |
-| 6 | Current HP (当前生命) | 21 |
-| 7 | Max HP (最大生命) | 21 |
-| 8 | Current Mana (当前法力) | 21 |
-| 9 | Max Mana (最大法力) | 21 |
-| 10 | Current Stamina (当前耐力) | 21 |
-| 11 | Max Stamina (最大耐力) | 21 |
-| 12 | Level (等级) | 7 |
-| 13 | Experience (经验) | 32 |
-| 14 | Gold (金币) | 25 |
-| 15 | Stash Gold (存储金币) | 25 |
-
-## 7. 技能数据 (Skills)
-
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| wMagic | 2 | 魔法数 |
-| bSkillLevel[30] | 30 | 每个技能的点数 (每技能1字节) |
-
-## 8. 物品列表
-
-详见 [0x63_itemlist_format.md](0x63_itemlist_format.md)。
-
-## 9. 尸体数据 (Corpse)
-
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| wMagic | 2 | 魔法数 (0x4D4A) |
-| wCount | 2 | 尸体数量 (0 或 1) |
-| CorpseData | 可变 | 尸体详细数据 (如果 wCount > 0) |
-
-### 9.1 尸体详细数据 (CorpseData)
-
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| unknown | 12 | 未知 |
-| stItems | 可变 | 尸体上的物品列表 |
-
-## 10. 雇佣兵数据 (Mercenary)
-
-仅在扩展版角色中出现。
-
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| wMagic | 2 | 魔法数 (0x666A) |
-| stItems | 可变 | 雇佣兵装备物品列表 |
-
-## 11. 石魔数据 (Golem)
-
-仅在扩展版角色中出现。
-
-| 字段 | 大小 (字节) | 描述 |
-|------|-----------|------|
-| wMagic | 2 | 魔法数 (0x666B 或 0x6669) |
-| bHasGolem | 1 | 是否有石魔 |
-| pItem | 可变 | 石魔物品数据 (如果 bHasGolem) |
-
-## 12. 雇佣兵判断逻辑
+In save version `0x63` (and any version `>= 0x62`), the game reads the character name from `NamePTR` (offset `0x010B`, 64 bytes) decoded as **UTF-8** rather than the legacy 16-byte ASCII field at offset `0x0014`:
 
 ```python
-def has_mercenary(self):
-    # 0x61+ 版本: dwMercControl != 0
-    return self.dwMercControl != 0
+def get_char_name(self) -> str:
+    if self.version >= 0x69:
+        name_data = self.Name
+    elif self.version >= 0x62:
+        name_data = self.NamePTR
+    else:
+        name_data = self.Name
+    null_pos = name_data.find(b'\x00')
+    name_bytes = name_data[:null_pos] if null_pos != -1 else name_data
+    if self.version >= 0x62:
+        return name_bytes.decode('utf-8', errors='replace')
+    return name_bytes.decode('ascii', errors='replace')
 ```
 
-## 13. 扩展版判断逻辑
+## 5. Quest Information (`QuestInfo`)
+
+The quest block starts immediately after `previewSuffix` (offset `0x014F`):
+
+| Field | Size (Bytes) | Description |
+|-------|--------------|-------------|
+| `magic` | 4 | Magic header (`0x21666F57` = ASCII "Woo!") |
+| `acts` | 4 | Number of unlocked acts (typically 5 for expansion) |
+| `size` | 2 | Quest data payload length (typically 298 bytes: `10 + 3 * 96`) |
+| `qi_data[3]` | 96 x 3 | Per-difficulty quest data (Normal, Nightmare, Hell) |
+
+### Per-Difficulty Quest Data (`QuestInfoData`, 96 Bytes)
+
+| Field | Size (Bytes) | Description |
+|-------|--------------|-------------|
+| `wIntroduced1` | 2 | Act I intro dialogue flag |
+| `wActI[6]` | 12 | Act I quest state words (6 quests) |
+| `travel_1` | 2 | Act I -> Act II transition flag |
+| `wIntroduced2` | 2 | Act II intro dialogue flag |
+| `wActII[6]` | 12 | Act II quest state words (6 quests) |
+| `travel_2` | 2 | Act II -> Act III transition flag |
+| `wIntroduced3` | 2 | Act III intro dialogue flag |
+| `wActIII[6]` | 12 | Act III quest state words (6 quests) |
+| `travel_3` | 2 | Act III -> Act IV transition flag |
+| `wIntroduced4` | 2 | Act IV intro dialogue flag |
+| `wActIV[3]` | 6 | Act IV quest state words (3 quests) |
+| `travel_4` | 2 | Act IV -> Act V transition flag |
+| `unknown1[3]` | 6 | Padding / reserved |
+| `wIntroduced5` | 2 | Act V intro dialogue flag |
+| `unknown2[2]` | 4 | Padding / reserved |
+| `wActV[6]` | 12 | Act V quest state words (6 quests) |
+| `bResetStats` | 1 | Akara stat/skill reset available flag |
+| `unknown3` | 1 | Padding / reserved |
+| `unknown4[6]` | 12 | Reserved trailing words |
+
+## 6. Waypoints (`Waypoints`)
+
+Refer to [waypoint_format.md](waypoint_format.md) for full bitmask details.
+
+| Field | Size (Bytes) | Description |
+|-------|--------------|-------------|
+| `magic` | 2 | Magic identifier (`0x5357` = ASCII "WS") |
+| `unknown` | 4 | Section version (always `1`) |
+| `size` | 2 | Section size (`0x0050` = 80 bytes) |
+| `wp[3]` | 72 | 3 difficulty waypoint structures (24 bytes each) |
+
+## 7. Player Attributes (`PlayerStats`)
+
+Refer to [0x63_player_stat.md](0x63_player_stat.md) for full attribute unpacking details.
+
+- Magic identifier: `0x6667` (ASCII "gf")
+- Bitstream sequence of 9-bit stat IDs and variable-length values.
+- Terminated by a 9-bit ID `>= 0x10`.
+
+## 8. Character Skills (`CharSkills`)
+
+| Field | Size (Bytes) | Description |
+|-------|--------------|-------------|
+| `wMagic` | 2 | Magic identifier (`0x6669` = ASCII "if") |
+| `bSkillLevel[30]` | 30 | Base skill points allocated per skill (1 byte each) |
+
+## 9. Items Block (`ItemList`)
+
+Refer to [0x63_itemlist_format.md](0x63_itemlist_format.md).
+
+- Magic identifier: `0x4D4A` (ASCII "JM")
+- `count` (2 bytes): Number of items in list
+- Followed by sequentially serialized items (`D2Item`).
+
+## 10. Corpse Items (`Corpse`)
+
+| Field | Size (Bytes) | Description |
+|-------|--------------|-------------|
+| `wMagic` | 2 | Magic identifier (`0x4D4A` = ASCII "JM") |
+| `wCount` | 2 | Corpse count (0 or 1) |
+| `pCorpseData` | Variable | If `wCount > 0`: 12-byte header + `ItemList` |
+
+## 11. Mercenary Gear (`Mercenary`)
+
+Present only when `is_expansion()` is True:
+
+| Field | Size (Bytes) | Description |
+|-------|--------------|-------------|
+| `wMagic` | 2 | Magic identifier (`0x666A` = ASCII "jf") |
+| `stItems` | Variable | `ItemList` containing mercenary equipped items |
+
+Presence detection in 0x63:
+```python
+def has_mercenary(self) -> bool:
+    if self.version >= 0x61:
+        return self.dwMercControl != 0
+    return self.wMercName > 0
+```
+
+## 12. Iron Golem Item (`Golem`)
+
+Present only when `is_expansion()` is True:
+
+| Field | Size (Bytes) | Description |
+|-------|--------------|-------------|
+| `wMagic` | 2 | Magic identifier (`0x666B` or `0x6669`) |
+| `bHasGolem` | 1 | Boolean flag (1 = Active Golem, 0 = None) |
+| `pItem` | Variable | If `bHasGolem`: serialized `D2Item` |
+
+## 13. CRC Checksum Calculation
+
+Diablo II uses a 32-bit rotational checksum algorithm over the entire save file bytes, skipping the 4 checksum bytes at offsets `0x000C..0x000F`:
 
 ```python
-def is_expansion(self):
-    # v97~v103: 使用 charType 的 Expansion 位
-    if (self.charFlags & 0x20) != 0:
-        return True
-    # 兜底: 任务数据中 Act 数 >= 5
-    if self.QuestInfo and self.QuestInfo.dwActs >= 5:
-        return True
-    return False
+def calculate_checksum(self, data: bytes) -> int:
+    checksum = 0
+    for i, b in enumerate(data):
+        if 0x0C <= i < 0x10:
+            b = 0
+        checksum = ((checksum << 1) | (checksum >> 31)) + b
+        checksum &= 0xFFFFFFFF
+    return checksum
 ```
-
-## 14. 时间字段说明
-
-0x63 版本的时间字段：
-
-| 字段 | 描述 | 实际值 |
-|------|------|--------|
-| createTime | 创建时间 | 通常为 0 (0x63版本中未使用) |
-| dwTime | 最后保存时间 | Unix 时间戳，可正常转换为日期 |
-| playTime | 游戏时间 | 通常为 0xFFFFFFFF (0x63版本中未使用) |
-
-> 0x69 版本 (v104+) 中对应字段为 createTime、lastSaveTime、playTime，其中 createTime 和 playTime 同样为无效默认值，实际使用 lastSaveTime。

@@ -1,188 +1,131 @@
-# D2R 小站格式
+# Waypoints Format Specification
 
-## 1. 概述
+## 1. Overview
 
-小站 (Waypoint) 数据存储了角色在三个难度（Normal/Nightmare/Hell）中已激活的小站信息。0x63 和 0x69 版本使用相同的小站格式。
+The waypoint data section tracks unlocked waypoints across all three difficulties (Normal, Nightmare, and Hell). Both save versions `0x63` and `0x69` use the identical 80-byte binary format.
 
-## 2. Waypoints 结构 (80 字节)
+## 2. Waypoints Block (`Waypoints`, 80 Bytes)
 
-| 字段 | 大小 | 描述 |
-|------|------|------|
-| wMajic | 2 | 魔法数 (0x5357 = "WS") |
-| unknown | 4 | 版本号 (通常为 1) |
-| wSize | 2 | 段大小 (0x0050 = 80) |
-| wp[0] | 24 | Normal 难度小站数据 |
-| wp[1] | 24 | Nightmare 难度小站数据 |
-| wp[2] | 24 | Hell 难度小站数据 |
+| Field | Size (Bytes) | Description |
+|-------|--------------|-------------|
+| `magic` | 2 | Magic identifier (`0x5357` = ASCII "WS") |
+| `unknown` | 4 | Section version identifier (constant `1`) |
+| `size` | 2 | Total section length in bytes (`0x0050` = 80 decimal) |
+| `wp[0]` | 24 | Normal difficulty waypoint data (`WaypointData`) |
+| `wp[1]` | 24 | Nightmare difficulty waypoint data (`WaypointData`) |
+| `wp[2]` | 24 | Hell difficulty waypoint data (`WaypointData`) |
 
-## 3. WaypointData 结构 (24 字节)
+## 3. Per-Difficulty Waypoint Data (`WaypointData`, 24 Bytes)
 
-每个难度的小站数据：
+| Field | Size (Bytes) | Description |
+|-------|--------------|-------------|
+| `unknown` | 2 | Header constant (`0x0102`) |
+| `Waypoints[5]` | 5 | 40-bit bitfield (39 active waypoints + 1 padding bit) |
+| `unknown2[17]`| 17 | Trailing reserved bytes (zeroed) |
 
-| 字段 | 大小 | 描述 |
-|------|------|------|
-| unknown | 2 | 头部 (通常为 0x0102) |
-| Waypoints[5] | 5 | 小站位图 (39位有效 + 9位填充) |
-| unknown2[17] | 17 | 保留 (全0) |
+## 4. Waypoint Bitfield Mapping (39 Waypoints)
 
-### 3.1 Waypoints 位图详解
+The 5-byte `Waypoints` array stores a 39-bit mask of unlocked waypoints in order across Acts I through V:
 
-5 字节 (40位) 中前 39 位为小站激活标志，最后 1 位为填充：
-
-| 位范围 | 幕 | 小站数 | 描述 |
-|--------|-----|--------|------|
-| 0-8 | Act I | 9 | 罗格营地 → 修道院 |
-| 9-17 | Act II | 9 | 鲁高因 → 神秘避难所 |
-| 18-26 | Act III | 9 | 库拉斯特 → 混沌避难所 |
-| 27-29 | Act IV | 3 | 群魔堡垒 → 混沌避难所 |
-| 30-38 | Act V | 9 | 哈洛加斯 → 世界之石大殿 |
-| 39 | — | — | 填充位 |
-
-### 3.2 各幕小站详细列表
-
-#### Act I (9 个小站, 位 0-8)
-
-| 位 | 全局索引 | 小站名称 |
-|----|----------|----------|
-| 0 | 0 | Rogue Encampment (罗格营地) |
-| 1 | 1 | Cold Plains (冰冷之原) |
-| 2 | 2 | Stony Field (石块旷野) |
-| 3 | 3 | Dark Wood (黑暗森林) |
-| 4 | 4 | Black Marsh (黑色荒地) |
-| 5 | 5 | Outer Cloister (外侧回廊) |
-| 6 | 6 | Inner Cloister (内侧回廊) |
-| 7 | 7 | Catacombs (地下墓穴) |
-| 8 | 8 | Monastery Gate (修道院) |
-
-#### Act II (9 个小站, 位 9-17)
-
-| 位 | 全局索引 | 小站名称 |
-|----|----------|----------|
-| 0 | 9 | Lut Gholein (鲁高因) |
-| 1 | 10 | Sewers (下水道) |
-| 2 | 11 | Dry Hills (干燥高地) |
-| 3 | 12 | Halls of the Dead (死灵大厅) |
-| 4 | 13 | Far Oasis (遥远绿洲) |
-| 5 | 14 | Lost City (失落城市) |
-| 6 | 15 | Palace Cellar (皇宫地窖) |
-| 7 | 16 | Arcane Sanctuary (神秘避难所) |
-| 8 | 17 | Canyon of the Magi (术士峡谷) |
-
-#### Act III (9 个小站, 位 18-26)
-
-| 位 | 全局索引 | 小站名称 |
-|----|----------|----------|
-| 0 | 18 | Kurast Docks (库拉斯特海港) |
-| 1 | 19 | Spider Forest (蜘蛛森林) |
-| 2 | 20 | Great Marsh (大沼地) |
-| 3 | 21 | Flayer Jungle (剥皮丛林) |
-| 4 | 22 | Lower Kurast (库拉斯特下层) |
-| 5 | 23 | Upper Kurast (库拉斯特上层) |
-| 6 | 24 | Travincal (崔凡克) |
-| 7 | 25 | Durance of Hate (憎恨之牢) |
-| 8 | 26 | Pandemonium Fortress (混沌避难所) |
-
-#### Act IV (3 个小站, 位 27-29)
-
-| 位 | 全局索引 | 小站名称 |
-|----|----------|----------|
-| 0 | 27 | Pandemonium Fortress (群魔堡垒) |
-| 1 | 28 | River of Flame (火焰之河) |
-| 2 | 29 | Chaos Sanctuary (混沌避难所) |
-
-#### Act V (9 个小站, 位 30-38)
-
-| 位 | 全局索引 | 小站名称 |
-|----|----------|----------|
-| 0 | 30 | Harrogath (哈洛加斯) |
-| 1 | 31 | Frigid Highlands (冰冻高原) |
-| 2 | 32 | Arreat Plateau (亚瑞特高原) |
-| 3 | 33 | Crystalline Passage (水晶通道) |
-| 4 | 34 | Halls of Pain (痛苦之厅) |
-| 5 | 35 | Glacial Trail (冰河路径) |
-| 6 | 36 | Frozen Tundra (冰冻苔原) |
-| 7 | 37 | The Ancients' Way (远古之路) |
-| 8 | 38 | Worldstone Keep (世界之石大殿) |
-
-## 4. 解析逻辑
-
-### 4.1 d2savior 当前实现 (字节级)
-
-```python
-class WaypointData:
-    def deserialize(self, bs):
-        self.unknown = bs.read_word()       # 0x0102
-        for i in range(5):
-            self.Waypoints[i] = bs.read_byte()  # 5字节小站位图
-        for i in range(17):
-            self.unknown2[i] = bs.read_byte()   # 17字节保留
-
-class Waypoints:
-    def deserialize(self, bs):
-        self.wMajic = bs.read_word()        # 0x5357
-        self.unknown = bs.read_dword()      # 版本号
-        self.wSize = bs.read_word()         # 0x0050
-        for i in range(3):
-            self.wp[i].deserialize(bs)
+```
+Byte 0: Act I waypoints 0..7
+Byte 1: Act I waypoint 8 + Act II waypoints 0..6
+Byte 2: Act II waypoints 7..8 + Act III waypoints 0..5
+Byte 3: Act III waypoints 6..8 + Act IV waypoints 0..2 + Act V waypoints 0..1
+Byte 4: Act V waypoints 2..8 (bit 7 is unused padding)
 ```
 
-### 4.2 D2SSharp 实现 (位级)
+### Complete Waypoint Directory (`WAYPOINTS_BY_ACT`)
 
-D2SSharp 使用位级读取，按幕分别读取不同位数：
+#### Act I (9 Waypoints, Global Indices 0 - 8)
+| Bit (Act) | Global Index | Waypoint Name |
+|-----------|--------------|---------------|
+| 0 | 0 | Rogue Encampment |
+| 1 | 1 | Cold Plains |
+| 2 | 2 | Stony Field |
+| 3 | 3 | Dark Wood |
+| 4 | 4 | Black Marsh |
+| 5 | 5 | Outer Cloister |
+| 6 | 6 | Jail Level 1 |
+| 7 | 7 | Inner Cloister |
+| 8 | 8 | Catacombs Level 2 |
 
-```csharp
-// 每个难度
-header = reader.ReadUInt16();        // 2字节
-actI = reader.ReadBits(9);           // 9位
-actII = reader.ReadBits(9);          // 9位
-actIII = reader.ReadBits(9);         // 9位
-actIV = reader.ReadBits(3);          // 3位
-actV = reader.ReadBits(9);           // 9位
-padding = reader.ReadBits(9);        // 9位填充
-reserved = reader.ReadBytes(16);     // 16字节保留
-```
+#### Act II (9 Waypoints, Global Indices 9 - 17)
+| Bit (Act) | Global Index | Waypoint Name |
+|-----------|--------------|---------------|
+| 0 | 9 | Lut Gholein |
+| 1 | 10 | Sewers Level 2 |
+| 2 | 11 | Dry Hills |
+| 3 | 12 | Halls of the Dead Level 2 |
+| 4 | 13 | Far Oasis |
+| 5 | 14 | Lost City |
+| 6 | 15 | Palace Cellar Level 1 |
+| 7 | 16 | Arcane Sanctuary |
+| 8 | 17 | Canyon of the Magi |
 
-> 注意：两种实现读取的总字节数相同 (24字节/难度)，但 D2SSharp 的位级实现更精确地按幕分割了小站位图。d2savior 的字节级实现将 5 字节作为原始数据处理，需要额外的位操作来提取各幕小站。
+#### Act III (9 Waypoints, Global Indices 18 - 26)
+| Bit (Act) | Global Index | Waypoint Name |
+|-----------|--------------|---------------|
+| 0 | 18 | Kurast Docks |
+| 1 | 19 | Spider Forest |
+| 2 | 20 | Great Marsh |
+| 3 | 21 | Flayer Jungle |
+| 4 | 22 | Lower Kurast |
+| 5 | 23 | Kurast Bazaar |
+| 6 | 24 | Upper Kurast |
+| 7 | 25 | Travincal |
+| 8 | 26 | Durance of Hate Level 2 |
 
-## 5. 小站位图提取方法
+#### Act IV (3 Waypoints, Global Indices 27 - 29)
+| Bit (Act) | Global Index | Waypoint Name |
+|-----------|--------------|---------------|
+| 0 | 27 | The Pandemonium Fortress |
+| 1 | 28 | City of the Damned |
+| 2 | 29 | River of Flame |
 
-从 Waypoints[5] 字节数组中提取各幕小站：
+#### Act V (9 Waypoints, Global Indices 30 - 38)
+| Bit (Act) | Global Index | Waypoint Name |
+|-----------|--------------|---------------|
+| 0 | 30 | Harrogath |
+| 1 | 31 | Frigid Highlands |
+| 2 | 32 | Arreat Plateau |
+| 3 | 33 | Crystalline Passage |
+| 4 | 34 | Glacial Trail |
+| 5 | 35 | Halls of Pain |
+| 6 | 36 | Frozen Tundra |
+| 7 | 37 | The Ancients' Way |
+| 8 | 38 | Worldstone Keep Level 2 |
+
+## 5. Bitwise Verification and Progress Check
+
+### Bit Index Calculation
+To check or modify any waypoint by its global index (0 to 38):
 
 ```python
-def get_waypoint(waypoints_bytes, global_index):
-    """获取指定全局索引的小站是否激活"""
-    if global_index < 0 or global_index > 38:
+def is_waypoint_unlocked(wp_data: WaypointData, global_idx: int) -> bool:
+    if not (0 <= global_idx <= 38):
         return False
-    byte_index = global_index // 8
-    bit_index = global_index % 8
-    return (waypoints_bytes[byte_index] & (1 << bit_index)) != 0
+    byte_idx = global_idx // 8
+    bit_idx = global_idx % 8
+    return bool(wp_data.Waypoints[byte_idx] & (1 << bit_idx))
 
-def set_waypoint(waypoints_bytes, global_index, active):
-    """设置指定全局索引的小站激活状态"""
-    byte_index = global_index // 8
-    bit_index = global_index % 8
-    if active:
-        waypoints_bytes[byte_index] |= (1 << bit_index)
-    else:
-        waypoints_bytes[byte_index] &= ~(1 << bit_index)
+def unlock_waypoint(wp_data: WaypointData, global_idx: int) -> None:
+    byte_idx = global_idx // 8
+    bit_idx = global_idx % 8
+    wp_data.Waypoints[byte_idx] |= (1 << bit_idx)
 ```
 
-## 6. 与任务数据的关联
+### Difficulty Progress Detection
+Because the Rogue Encampment waypoint (bit 0) is default-enabled on newly created characters, detection of real progression beyond the starter town checks:
 
-小站数据与 QuestInfoData 中的 wTraval 字段有关联：
+```python
+has_wp_progress = (wp_data.Waypoints[0] & ~1) != 0 or any(b != 0 for b in wp_data.Waypoints[1:])
+```
 
-| wTraval 字段 | 描述 | 对应小站 |
-|-------------|------|----------|
-| wTraval1 | 从 Act I 旅行到 Act II | Act I 最后一个小站 (位8) |
-| wTraval2 | 从 Act II 旅行到 Act III | Act II 最后一个小站 (位17) |
-| wTraval3 | 从 Act III 旅行到 Act IV | Act III 最后一个小站 (位26) |
-| wTraval4 | 从 Act IV 旅行到 Act V | Act IV 最后一个小站 (位29) |
+## 6. Relation to Act Travel Flags
 
-> diablo_edit 的 DlgWayPoints.cpp 中将 wTraval 与小站数据关联：
-> ```cpp
-> character.QuestInfo.QIData[i].wTraval1 = m_bWayData[i][10] ? 1 : 0;
-> character.QuestInfo.QIData[i].wTraval2 = m_bWayData[i][19] ? 1 : 0;
-> character.QuestInfo.QIData[i].wTraval3 = m_bWayData[i][28] ? 1 : 0;
-> character.QuestInfo.QIData[i].wTraval4 = m_bWayData[i][31] ? 1 : 0;
-> ```
-> 注意：这里的索引 10/19/28/31 是小站 UI 列表中的位置（包含起始城镇），不是位图中的位索引。
+Transitioning between acts also updates the transition flags in `QuestInfoData`:
+- `travel_1`: Traveled from Act I to Act II
+- `travel_2`: Traveled from Act II to Act III
+- `travel_3`: Traveled from Act III to Act IV
+- `travel_4`: Traveled from Act IV to Act V
