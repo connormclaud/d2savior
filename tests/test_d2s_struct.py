@@ -334,8 +334,8 @@ class TestD2SStruct(unittest.TestCase):
 
     def test_format_item_info_equipped_position(self):
         from core.enums import ItemLocation
+        from core.formatters import format_item_info
         from core.item import D2Item, ItemInfo
-        from d2s_parse import format_item_info
 
         item = D2Item()
         item.item_info = ItemInfo()
@@ -359,7 +359,7 @@ class TestD2SStruct(unittest.TestCase):
         self.assertNotIn("Weapon", full_text_stored)
 
     def test_format_timestamp(self):
-        from d2s_parse import format_timestamp
+        from core.formatters import format_timestamp
 
         self.assertEqual(format_timestamp(0), "N/A")
         self.assertEqual(format_timestamp(0xFFFFFFFF), "N/A")
@@ -367,7 +367,7 @@ class TestD2SStruct(unittest.TestCase):
         self.assertEqual(format_timestamp(1793981148), "2026-11-06 16:05:48 UTC")
 
     def test_format_duration(self):
-        from d2s_parse import format_duration
+        from core.formatters import format_duration
 
         self.assertEqual(format_duration(0xFFFFFFFF), "N/A")
         self.assertEqual(format_duration(-5), "N/A")
@@ -378,7 +378,7 @@ class TestD2SStruct(unittest.TestCase):
         self.assertEqual(format_duration(90061), "1d 1h 1m 1s")
 
     def test_format_char_info_waypoints_and_quests(self):
-        from d2s_parse import format_char_info
+        from core.formatters import format_char_info
 
         char = D2SStruct()
         char.version = 0x69

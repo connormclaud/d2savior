@@ -48,54 +48,6 @@ class TestModularization(unittest.TestCase):
         self.assertEqual(formatters.format_duration(0), "0s")
         self.assertEqual(formatters.format_duration(3665), "1h 1m 5s")
 
-    def test_re_exports_in_d2s_parse(self):
-        expected_constants = [
-            "TAB_TYPE_NAMES",
-            "GEM_TYPE_NAMES",
-            "GEM_CODE_MAP",
-            "RUNE_CODES_STRIPPED",
-            "GEM_CODES_STRIPPED",
-            "MATERIAL_CODES_STRIPPED",
-            "COMBINED_SLOT_ORDER_STRIPPED",
-            "CLASS_SKILL_BASES",
-            "DIFFICULTY_NAMES",
-            "WAYPOINTS_BY_ACT",
-            "QUESTS_BY_ACT",
-        ]
-        for name in expected_constants:
-            self.assertTrue(hasattr(d2s_parse, name), f"Missing re-export {name}")
-
-        expected_debug = [
-            "debug_bitstream",
-            "search_bits",
-            "search_bytes",
-            "run_bitstream_searches",
-            "_run_bitstream_searches",
-        ]
-        for name in expected_debug:
-            self.assertTrue(hasattr(d2s_parse, name), f"Missing re-export {name}")
-
-        expected_formatters = [
-            "ensure_data_loaded",
-            "get_char_type_name",
-            "get_char_title_name",
-            "format_timestamp",
-            "format_duration",
-            "get_item_display_name",
-            "_format_parsed_properties",
-            "format_item_summary",
-            "format_item_info",
-            "format_waypoints_info",
-            "format_quests_info",
-            "_get_character_skills",
-            "format_char_info",
-            "format_char_summary",
-            "format_stash_info",
-            "format_stash_summary",
-        ]
-        for name in expected_formatters:
-            self.assertTrue(hasattr(d2s_parse, name), f"Missing re-export {name}")
-
     def test_unified_parse_file_and_dispatch(self):
         mock_char = D2SStruct()
         mock_stash = SharedStash()

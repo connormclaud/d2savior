@@ -8,7 +8,6 @@ from core.constants import (
     COMBINED_SLOT_ORDER_STRIPPED,
     DIFFICULTY_NAMES,
     GEM_CODE_MAP,
-    GEM_CODES_STRIPPED,
     GEM_TYPE_NAMES,
     MATERIAL_CODES_STRIPPED,
     QUESTS_BY_ACT,
@@ -16,21 +15,17 @@ from core.constants import (
     TAB_TYPE_NAMES,
     WAYPOINTS_BY_ACT,
 )
-from core.d2data import GameDataResolver, get_d2data, get_d2data_manager, init_d2data
+from core.d2data import GameDataResolver, get_d2data_manager, init_d2data
 from core.d2s_struct import CharStatus, D2SStruct
 from core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
-from core.ibitstream import IBitStream
 from core.item import ITEM_FLAG_LABELS
 from core.localized_data import get_localized_data, init_localized_data, set_language
 from core.property import (
     format_property,
-    get_skill_name,
     init_item_modifiers,
 )
 from core.stash import (
     STASH_TAB_TYPE_ADVANCED,
-    STASH_TAB_TYPE_CHRONICLE,
-    STASH_TAB_TYPE_NORMAL,
     SharedStash,
 )
 

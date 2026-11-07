@@ -9,7 +9,7 @@ from core.enums import (
     PLAYER_STATS_BITS_COUNT,
     PLAYER_STATS_MAGIC,
 )
-from core.item import D2Item, ItemList, init_item_data
+from core.item import D2Item, ItemList
 
 
 class CharStatus(IntFlag, boundary=FlagBoundary.KEEP):

@@ -338,8 +338,8 @@ class TestFormatPropertySpecialCases(unittest.TestCase):
 
 class TestFormatItemInfoSetProperties(unittest.TestCase):
     def test_format_item_info_with_set_properties(self):
+        from core.formatters import format_item_info
         from core.item import D2Item, ItemInfo, PropertyList, TypeSpecificInfo
-        from d2s_parse import format_item_info
 
         item = D2Item()
         item.item_info = ItemInfo()

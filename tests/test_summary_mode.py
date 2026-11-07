@@ -5,22 +5,20 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.d2s_struct import D2SStruct
-from core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
+from core.enums import EquipSlot, ItemLocation, StoredIn
+from core.formatters import (
+    format_char_summary,
+    format_item_summary,
+    format_stash_summary,
+)
 from core.item import D2Item, ExtItemInfo, GoldQuantity, ItemInfo, TypeSpecificInfo
 from core.stash import (
     STASH_TAB_TYPE_ADVANCED,
-    STASH_TAB_TYPE_CHRONICLE,
     STASH_TAB_TYPE_NORMAL,
     SharedStash,
     StashTab,
 )
-from d2s_parse import (
-    format_char_summary,
-    format_item_summary,
-    format_stash_summary,
-    get_item_display_name,
-    main,
-)
+from d2s_parse import main
 
 
 class TestSummaryMode(unittest.TestCase):
@@ -286,14 +284,10 @@ class TestSummaryMode(unittest.TestCase):
 
     def test_cli_argument_parsing(self):
         import argparse
-        from unittest.mock import MagicMock, patch
-
-        from d2s_parse import process_file
+        from unittest.mock import patch
 
         # Test single file without summary
         with patch("sys.argv", ["d2s_parse.py", "char.d2s"]):
-            import d2s_parse
-
             # Test that argparse accepts positional file_path as list and summary flag
             parser = argparse.ArgumentParser()
             parser.add_argument("file_path", nargs="+")
@@ -364,7 +358,7 @@ class TestSummaryMode(unittest.TestCase):
             mock_stash_summary.assert_not_called()
 
     def test_main_multiple_files_header(self):
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import patch
 
         with (
             patch("sys.argv", ["d2s_parse.py", "--summary", "char1.d2s", "char2.d2s"]),
@@ -379,7 +373,7 @@ class TestSummaryMode(unittest.TestCase):
     def test_format_parsed_properties_helper(self):
         from unittest.mock import MagicMock, patch
 
-        from d2s_parse import _format_parsed_properties
+        from core.formatters import _format_parsed_properties
 
         self.assertEqual(_format_parsed_properties(None), [])
 
@@ -406,7 +400,7 @@ class TestSummaryMode(unittest.TestCase):
             self.assertEqual(formatted[2], "ID 998: 5")
 
     def test_get_character_skills_helper(self):
-        from d2s_parse import _get_character_skills
+        from core.formatters import _get_character_skills
 
         char_data = D2SStruct()
         self.assertEqual(_get_character_skills(char_data), [])
@@ -429,7 +423,7 @@ class TestSummaryMode(unittest.TestCase):
         import argparse
         from unittest.mock import MagicMock, patch
 
-        from d2s_parse import _run_bitstream_searches
+        from core.bitstream_debug import _run_bitstream_searches
 
         bs = MagicMock()
         args = argparse.Namespace(search="1010", search_bytes="4a4d")
@@ -452,37 +446,41 @@ class TestSummaryMode(unittest.TestCase):
             mock_print.assert_any_call("\n=== Search Results for bytes '4a4d' ===")
 
     def test_ensure_data_loaded(self):
-        import d2s_parse
         from core.d2data import get_d2data_manager
+        from core.formatters import ensure_data_loaded
         from core.localized_data import get_localized_data
 
         # Initial call ensures default language loaded
-        d2s_parse.ensure_data_loaded()
+        ensure_data_loaded()
         self.assertIsNotNone(get_d2data_manager())
         self.assertEqual(get_localized_data().current_lang, "enUS")
 
         # Second call with same language is a no-op
         prev_mgr = get_d2data_manager()
-        d2s_parse.ensure_data_loaded(lang_key="enUS")
+        ensure_data_loaded(lang_key="enUS")
         self.assertIs(get_d2data_manager(), prev_mgr)
         self.assertEqual(get_localized_data().current_lang, "enUS")
 
         # Switching language updates localized data
-        d2s_parse.ensure_data_loaded(lang_key="zhCN")
+        ensure_data_loaded(lang_key="zhCN")
         self.assertEqual(get_localized_data().current_lang, "zhCN")
 
         # Restore back to enUS
-        d2s_parse.ensure_data_loaded(lang_key="enUS")
+        ensure_data_loaded(lang_key="enUS")
         self.assertEqual(get_localized_data().current_lang, "enUS")
 
     def test_ru_summary_mode(self):
-        import d2s_parse
         from core.d2s_struct import D2SStruct, ItemList
+        from core.formatters import (
+            ensure_data_loaded,
+            format_char_summary,
+            format_stash_summary,
+        )
         from core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
         from core.stash import STASH_TAB_TYPE_ADVANCED, STASH_TAB_TYPE_NORMAL, SharedStash, StashTab
 
         try:
-            d2s_parse.ensure_data_loaded(lang_key="ruRU", force=True)
+            ensure_data_loaded(lang_key="ruRU", force=True)
 
             # Test stash summary in Russian
             s = SharedStash()
@@ -524,7 +522,7 @@ class TestSummaryMode(unittest.TestCase):
             t2.items.items.append(p_rub)
             s.tabs.append(t2)
 
-            stash_out = d2s_parse.format_stash_summary(s)
+            stash_out = format_stash_summary(s)
             self.assertIn("наголовник", stash_out)
             self.assertIn("Шутовской капюшон (шако)", stash_out)
             self.assertIn("Рал: 10", stash_out)
@@ -534,10 +532,10 @@ class TestSummaryMode(unittest.TestCase):
             char = D2SStruct()
             char.char_class = 1  # Sorceress
             char.char_level = 80
-            char_out = d2s_parse.format_char_summary(char)
+            char_out = format_char_summary(char)
             self.assertIn("Волшебница", char_out)
         finally:
-            d2s_parse.ensure_data_loaded(lang_key="enUS", force=True)
+            ensure_data_loaded(lang_key="enUS", force=True)
 
 
 if __name__ == "__main__":

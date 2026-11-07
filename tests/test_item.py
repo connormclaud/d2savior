@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.huffman import HuffmanDecoder, get_huffman
+from core.huffman import get_huffman
 from core.ibitstream import IBitStream
 from core.item import (
     D2Item,
@@ -340,7 +340,6 @@ class TestCD2ItemVersionDifferences(unittest.TestCase):
 
     def test_item_version_0x69_quantity_flag(self):
         """测试 0x69 版本 quantity 使用 flag 而非 is_stacked"""
-        from core.item import TypeSpecificInfo
 
         meta = get_item_meta(b"elx ", 0x69)
         if meta:

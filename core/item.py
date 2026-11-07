@@ -5,7 +5,7 @@ from itertools import batched
 from typing import ClassVar
 
 from core.enums import ITEM_LIST_MAGIC
-from core.huffman import HuffmanDecoder, get_huffman
+from core.huffman import get_huffman
 
 type RawProperty = tuple[int, int, int]
 type ItemTypeId = Buffer | str

@@ -1,63 +1,20 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import sys
 
-from core.bitstream_debug import (
-    _run_bitstream_searches,
-    debug_bitstream,
-    run_bitstream_searches,
-    search_bits,
-    search_bytes,
-)
-from core.constants import (
-    CLASS_SKILL_BASES,
-    COMBINED_SLOT_ORDER_STRIPPED,
-    DIFFICULTY_NAMES,
-    GEM_CODE_MAP,
-    GEM_CODES_STRIPPED,
-    GEM_TYPE_NAMES,
-    MATERIAL_CODES_STRIPPED,
-    QUESTS_BY_ACT,
-    RUNE_CODES_STRIPPED,
-    TAB_TYPE_NAMES,
-    WAYPOINTS_BY_ACT,
-)
-from core.d2data import GameDataResolver, get_d2data, get_d2data_manager, init_d2data
+from core.bitstream_debug import _run_bitstream_searches
 from core.d2s_struct import D2SStruct
-from core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
 from core.formatters import (
-    _format_parsed_properties,
-    _get_character_skills,
     ensure_data_loaded,
     format_char_info,
     format_char_summary,
-    format_duration,
     format_item_info,
     format_item_summary,
-    format_quests_info,
     format_stash_info,
     format_stash_summary,
-    format_timestamp,
-    format_waypoints_info,
-    get_char_title_name,
-    get_char_type_name,
-    get_item_display_name,
 )
 from core.ibitstream import IBitStream
-from core.item import ITEM_FLAG_LABELS
-from core.localized_data import get_localized_data, init_localized_data, set_language
-from core.property import format_property, get_skill_name, init_item_modifiers
-from core.stash import (
-    COMBINED_SLOT_ORDER,
-    GEM_CODES,
-    MATERIAL_CODES,
-    RUNE_CODES,
-    STASH_TAB_TYPE_ADVANCED,
-    STASH_TAB_TYPE_CHRONICLE,
-    STASH_TAB_TYPE_NORMAL,
-    SharedStash,
-)
+from core.stash import SharedStash
 
 
 def parse_d2i_file(file_path, debug=False):
