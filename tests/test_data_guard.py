@@ -128,33 +128,8 @@ class TestDataGuard:
             "d2r/local/ui.json",
         }
 
-        # Legacy files identified in survey pending cleanup in Step 3
-        legacy_unloaded_files = {
-            "README.py",
-            "d2r/automagic.txt",
-            "d2r/charstats.txt",
-            "d2r/difficultylevels.txt",
-            "d2r/experience.txt",
-            "d2r/gems.txt",
-            "d2r/itemratio.txt",
-            "d2r/levels.txt",
-            "d2r/lvlmaze.txt",
-            "d2r/lvlprest.txt",
-            "d2r/lvlwarp.txt",
-            "d2r/missiles.txt",
-            "d2r/monstats.txt",
-            "d2r/rareprefix.txt",
-            "d2r/raresuffix.txt",
-            "d2r/runewords.txt",
-            "d2r/sets.txt",
-            "d2r/skilldesc.txt",
-            "d2r/treasureclassex.txt",
-            "d2r/local/bnet.json",
-            "d2r/local/chinese-overlay.json",
-            "d2r/local/presence-states.json",
-            "d2r/local/ui-controller.json",
-            "d2r/local/vo.json",
-        }
+        # Documentation and manifest files
+        allowed_docs = {"README.md"}
 
         actual_files = set()
         for root, _dirs, files in os.walk(self.data_dir):
@@ -162,5 +137,9 @@ class TestDataGuard:
                 rel = os.path.relpath(os.path.join(root, f), self.data_dir)
                 actual_files.add(rel)
 
-        uncatalogued = actual_files - active_loader_files - legacy_unloaded_files
-        assert not uncatalogued, f"Found uncatalogued files in data directory: {uncatalogued}"
+        uncatalogued = actual_files - active_loader_files - allowed_docs
+        assert not uncatalogued, (
+            f"Found uncatalogued/unused files in data directory: {uncatalogued}"
+        )
+        missing = active_loader_files - actual_files
+        assert not missing, f"Missing required loader files: {missing}"
