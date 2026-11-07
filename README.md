@@ -48,6 +48,29 @@ uv run d2savior --lang zhCN path/to/character.d2s
 uv run d2savior --debug path/to/character.d2s
 ```
 
+### List Characters
+
+List all characters in your save directory sorted by last played (most recently played on top):
+
+```bash
+# List characters in the configured save folder
+d2savior list
+
+# Or specify a directory (also remembers the directory in config)
+d2savior list "/path/to/Saved Games/Diablo II Resurrected"
+
+# Run without reading or writing config
+d2savior list --no-config /path/to/saves
+```
+
+Output:
+
+```text
+NAME       CLASS      LEVEL  MODE      LAST PLAYED
+sork       Sorceress     74  Softcore  2026-11-06 17:31:34 UTC
+hammerdin  Paladin       99  Hardcore  2026-11-05 10:15:00 UTC
+```
+
 ### Save Directory & Automatic Lookup
 
 When pointing `d2savior` to a character file or save folder, it automatically saves that folder to your user configuration (`~/.config/d2savior/config.toml` on Linux):

@@ -7,15 +7,18 @@ from typing import Any
 
 from d2savior.config import load_save_dir, update_save_dir
 from d2savior.core.bitstream_debug import _run_bitstream_searches
+from d2savior.core.d2data import GameDataResolver
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.formatters import (
     ensure_data_loaded,
     format_char_info,
+    format_char_list,
     format_char_summary,
     format_item_info,
     format_item_summary,
     format_stash_info,
     format_stash_summary,
+    format_timestamp,
 )
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.stash import SharedStash
@@ -206,12 +209,107 @@ def resolve_target_files(
     return resolved_files, dir_to_save
 
 
-def main() -> None:
+def extract_char_row(file_path: str) -> dict[str, Any] | None:
+    ok, char_data, _ = parse_d2s_file(file_path, debug=False)
+    if not ok or not char_data:
+        return None
+
+    name = char_data.get_char_name().strip() or Path(file_path).stem
+    resolver = GameDataResolver(char_data.version)
+    char_class = resolver.get_localized_class_name(char_data.char_class)
+    level = char_data.char_level
+    mode = "Hardcore" if char_data.is_hardcore() else "Softcore"
+
+    ts = char_data.last_save_time or char_data.dw_time
+    if not ts or ts == 0xFFFFFFFF:
+        try:
+            ts = int(os.path.getmtime(file_path))
+        except OSError:
+            ts = 0
+
+    last_played = format_timestamp(ts)
+    return {
+        "name": name,
+        "class": char_class,
+        "level": level,
+        "mode": mode,
+        "last_played": last_played,
+        "sort_ts": ts,
+        "file_path": file_path,
+    }
+
+
+def list_characters(files: list[str], lang: str | None = None) -> list[dict[str, Any]]:
+    ensure_data_loaded(lang_key=lang or "enUS")
+    records: list[dict[str, Any]] = []
+    for f in files:
+        row = extract_char_row(f)
+        if row is not None:
+            records.append(row)
+    records.sort(key=lambda r: (-r["sort_ts"], r["name"].lower()))
+    return records
+
+
+def cmd_list(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="d2savior list",
+        description="List Diablo II characters in save directory",
+    )
+    parser.add_argument(
+        "file_path",
+        nargs="*",
+        help="Optional save directory or character files (defaults to configured directory)",
+    )
+    parser.add_argument(
+        "--no-config",
+        action="store_true",
+        help="Do not read from or write to the configuration file",
+    )
+    parser.add_argument("--lang", metavar="LANG_KEY", help="Set language (e.g. enUS, zhCN, zhTW)")
+
+    args = parser.parse_args(argv)
+    files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
+
+    if not args.no_config and dir_to_save:
+        update_save_dir(dir_to_save)
+
+    if not files_to_process:
+        return 1
+
+    char_files = [f for f in files_to_process if f.lower().endswith(".d2s")]
+    if not char_files:
+        print("Error: No .d2s character files found", file=sys.stderr)
+        return 1
+
+    records = list_characters(char_files, lang=args.lang)
+    if not records:
+        print("Error: No characters could be parsed", file=sys.stderr)
+        return 1
+
+    print(format_char_list(records))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> None:
+    if argv is None:
+        argv = sys.argv[1:]
+
+    if argv and argv[0] == "list":
+        code = cmd_list(argv[1:])
+        if code != 0:
+            sys.exit(code)
+        return
+
     parser = argparse.ArgumentParser(
         description="Diablo II Save and Shared Stash File Parser",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Commands:
+  list [path]       List characters in save directory (sorted by last played)
+
 Examples:
+  %(prog)s list
+  %(prog)s list /path/to/saves
   %(prog)s character.d2s
   %(prog)s --summary character.d2s
   %(prog)s ModernSharedStashSoftCoreV2.d2i
@@ -245,7 +343,7 @@ Examples:
     )
     parser.add_argument("--lang", metavar="LANG_KEY", help="Set language (e.g. enUS, zhCN, zhTW)")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
 
     if not args.no_config and dir_to_save:

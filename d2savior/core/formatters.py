@@ -881,6 +881,38 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver | None 
     return "\n".join(result).rstrip()
 
 
+def format_char_list(records: list[dict[str, Any]]) -> str:
+    """Format a list of character records into a column-aligned table."""
+    if not records:
+        return ""
+    headers = ("NAME", "CLASS", "LEVEL", "MODE", "LAST PLAYED")
+    col_name = max(len(headers[0]), max((len(r["name"]) for r in records), default=0))
+    col_class = max(len(headers[1]), max((len(r["class"]) for r in records), default=0))
+    col_level = max(len(headers[2]), max((len(str(r["level"])) for r in records), default=0))
+    col_mode = max(len(headers[3]), max((len(r["mode"]) for r in records), default=0))
+    col_last_played = max(len(headers[4]), max((len(r["last_played"]) for r in records), default=0))
+
+    header_line = (
+        f"{headers[0]:<{col_name}}  "
+        f"{headers[1]:<{col_class}}  "
+        f"{headers[2]:>{col_level}}  "
+        f"{headers[3]:<{col_mode}}  "
+        f"{headers[4]:<{col_last_played}}"
+    ).rstrip()
+
+    lines = [header_line]
+    for r in records:
+        line = (
+            f"{r['name']:<{col_name}}  "
+            f"{r['class']:<{col_class}}  "
+            f"{r['level']!s:>{col_level}}  "
+            f"{r['mode']:<{col_mode}}  "
+            f"{r['last_played']:<{col_last_played}}"
+        ).rstrip()
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def format_stash_info(stash: SharedStash, resolver: GameDataResolver | None = None) -> str:
     ensure_data_loaded()
     result = []
