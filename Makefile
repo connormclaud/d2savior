@@ -29,5 +29,5 @@ test_struct:
 
 .PHONY: clean
 clean:
-	@find . -name '__pycache__' -type d -print -exec rm -rf {} \;
+	@find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 	@rm -rf build/ dist/ .pytest_cache/ .ruff_cache/

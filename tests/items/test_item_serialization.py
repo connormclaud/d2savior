@@ -4,16 +4,16 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.ibitstream import IBitStream
-from core.item import D2Item, init_item_data
-from core.obitstream import OBitStream
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.item import D2Item, init_item_data
+from d2savior.core.obitstream import OBitStream
 
 
 class TestItemSerialization(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        data_dir = os.path.join(base_dir, "data")
+        data_dir = os.path.join(base_dir, "d2savior", "data")
         init_item_data(
             os.path.join(data_dir, "itemdata.txt"),
             os.path.join(data_dir, "property.txt"),

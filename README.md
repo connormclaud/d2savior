@@ -14,23 +14,33 @@ Supports both version 0x63 (v1.x) and 0x69 (v3.x / Reign of the Warlock) save fi
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.15+
 
 ## Usage
 
+### Run with uvx (no installation needed)
+
+```bash
+uvx d2savior path/to/character.d2s
+```
+
+### Run installed tool or via uv
+
 ```bash
 # Parse a character save
-uv run python d2s_parse.py path/to/character.d2s
+uv run d2savior path/to/character.d2s
 
 # Parse a shared stash
-uv run python d2s_parse.py path/to/ModernSharedStashSoftCoreV2.d2i
+uv run d2savior path/to/ModernSharedStashSoftCoreV2.d2i
 
 # With language option
-uv run python d2s_parse.py --lang zhCN path/to/character.d2s
+uv run d2savior --lang zhCN path/to/character.d2s
 
 # With debug information
-uv run python d2s_parse.py --debug path/to/character.d2s
+uv run d2savior --debug path/to/character.d2s
 ```
+
+`d2s-parse` and `python d2s_parse.py` are also available as compatibility aliases.
 
 ## Testing
 

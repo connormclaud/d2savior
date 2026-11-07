@@ -1,6 +1,6 @@
 from enum import FlagBoundary, IntFlag
 
-from core.enums import (
+from d2savior.core.enums import (
     DEMON_MAGIC,
     GOLEM_MAGIC_1,
     GOLEM_MAGIC_2,
@@ -9,9 +9,9 @@ from core.enums import (
     PLAYER_STATS_BITS_COUNT,
     PLAYER_STATS_MAGIC,
 )
-from core.ibitstream import IBitStream
-from core.item import D2Item, ItemList
-from core.obitstream import OBitStream
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.item import D2Item, ItemList
+from d2savior.core.obitstream import OBitStream
 
 
 class CharStatus(IntFlag, boundary=FlagBoundary.KEEP):

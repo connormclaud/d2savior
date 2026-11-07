@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "d2savior"
 version = "0.1.0"
@@ -14,12 +18,8 @@ dev = [
 ]
 
 [project.scripts]
-d2s-parse = "d2s_parse:main"
-
-[tool.setuptools]
-packages = ["core"]
-py-modules = ["d2s_parse"]
-include-package-data = false
+d2savior = "d2savior.cli:main"
+d2s-parse = "d2savior.cli:main"
 
 [tool.ruff]
 line-length = 100
@@ -48,9 +48,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN", "RUF001", "RUF002", "RUF003"]
-"data/**" = ["ANN", "RUF001", "RUF002", "RUF003"]
-"core/**" = ["RUF001", "RUF002", "RUF003"]
+"d2savior/data/**" = ["ANN", "RUF001", "RUF002", "RUF003"]
+"d2savior/core/**" = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ty.environment]
 python-version = "3.15"
-

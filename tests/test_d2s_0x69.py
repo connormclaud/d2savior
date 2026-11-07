@@ -5,12 +5,12 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.d2data import init_d2data
-from core.d2s_struct import D2SStruct
-from core.ibitstream import IBitStream
-from core.item import init_item_data
-from core.localized_data import init_localized_data
-from core.obitstream import OBitStream
+from d2savior.core.d2data import init_d2data
+from d2savior.core.d2s_struct import D2SStruct
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.item import init_item_data
+from d2savior.core.localized_data import init_localized_data
+from d2savior.core.obitstream import OBitStream
 
 EXAMPLES_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "examples"
@@ -28,7 +28,9 @@ def _load_d2s(save_file):
 
 @pytest.fixture(scope="module", autouse=True)
 def init_data():
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+    data_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+    )
     init_item_data(
         os.path.join(data_dir, "itemdata.txt"),
         os.path.join(data_dir, "property.txt"),

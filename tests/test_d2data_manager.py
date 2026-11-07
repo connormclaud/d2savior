@@ -1,6 +1,6 @@
 import os
 
-from core.d2data import (
+from d2savior.core.d2data import (
     D2DataLoader,
     D2DataManager,
     D2DataWrapper,
@@ -18,7 +18,7 @@ class TestD2DataManager:
 
     def setup_method(self):
         """设置测试环境"""
-        self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+        self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "d2savior", "data")
         init_d2data(self.data_dir)
         mgr = get_d2data_manager()
         assert mgr is not None

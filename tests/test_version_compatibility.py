@@ -5,15 +5,17 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.d2data import get_d2data_manager, init_d2data
-from core.ibitstream import IBitStream
-from core.item import D2Item, PropertyList, get_item_meta, get_property_meta
-from core.obitstream import OBitStream
+from d2savior.core.d2data import get_d2data_manager, init_d2data
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.item import D2Item, PropertyList, get_item_meta, get_property_meta
+from d2savior.core.obitstream import OBitStream
 
 
 class TestMergedDataCompatibility:
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
         init_d2data(data_dir)
         manager = get_d2data_manager()
         self._has_merged_data = manager is not None and len(manager.version_data) > 0
@@ -110,7 +112,7 @@ class TestMergedDataCompatibility:
         if not self._has_merged_data:
             pytest.skip("Version data not loaded")
 
-        from core.item import get_stat_cost
+        from d2savior.core.item import get_stat_cost
 
         stat_151 = get_stat_cost(151)
         if stat_151:
@@ -123,7 +125,7 @@ class TestMergedDataCompatibility:
         if not self._has_merged_data:
             pytest.skip("Version data not loaded")
 
-        from core.item import get_stat_cost
+        from d2savior.core.item import get_stat_cost
 
         stat_152 = get_stat_cost(152)
         if stat_152:
@@ -134,7 +136,9 @@ class TestMergedDataCompatibility:
 
 class TestVersionCompatibility:
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
         init_d2data(data_dir)
         manager = get_d2data_manager()
         self._has_merged_data = manager is not None and len(manager.version_data) > 0
@@ -164,7 +168,7 @@ class TestVersionCompatibility:
         if not self._has_merged_data:
             pytest.skip("Version data not loaded")
 
-        from core.item import get_stat_cost
+        from d2savior.core.item import get_stat_cost
 
         stat_0 = get_stat_cost(0)
         if not stat_0:
@@ -189,7 +193,7 @@ class TestVersionCompatibility:
         if not self._has_merged_data:
             pytest.skip("Version data not loaded")
 
-        from core.item import get_stat_cost
+        from d2savior.core.item import get_stat_cost
 
         stat_151 = get_stat_cost(151)
         if not stat_151:
@@ -219,7 +223,7 @@ class TestVersionCompatibility:
         if not self._has_merged_data:
             pytest.skip("Version data not loaded")
 
-        from core.item import get_stat_cost
+        from d2savior.core.item import get_stat_cost
 
         stat_152 = get_stat_cost(152)
         if not stat_152:
@@ -247,7 +251,7 @@ class TestVersionCompatibility:
         if not self._has_merged_data:
             pytest.skip("Version data not loaded")
 
-        from core.item import get_stat_cost
+        from d2savior.core.item import get_stat_cost
 
         stat_17 = get_stat_cost(17)
         stat_18 = get_stat_cost(18)
@@ -285,7 +289,9 @@ class TestVersionCompatibility:
 
 class TestDataFileCoverage:
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
         init_d2data(data_dir)
         manager = get_d2data_manager()
         self._has_merged_data = manager is not None and len(manager.version_data) > 0

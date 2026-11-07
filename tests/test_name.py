@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from core.d2s_struct import D2SStruct
-from core.ibitstream import IBitStream
+from d2savior.core.d2s_struct import D2SStruct
+from d2savior.core.ibitstream import IBitStream
 
 
 class TestCharacterNameEncoding:

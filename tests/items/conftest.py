@@ -5,16 +5,16 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.d2data import init_d2data
-from core.item import init_item_data
-from core.localized_data import init_localized_data
-from core.property import init_item_modifiers, init_language
+from d2savior.core.d2data import init_d2data
+from d2savior.core.item import init_item_data
+from d2savior.core.localized_data import init_localized_data
+from d2savior.core.property import init_item_modifiers, init_language
 
 
 @pytest.fixture(scope="session")
 def init_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    data_dir = os.path.join(base_dir, "data")
+    data_dir = os.path.join(base_dir, "d2savior", "data")
     local_dir = os.path.join(data_dir, "local")
 
     init_item_data(os.path.join(data_dir, "itemdata.txt"))

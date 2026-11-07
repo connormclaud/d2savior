@@ -100,7 +100,7 @@ Maintains versioned instances:
 The `GameDataResolver` class provides a unified interface across versioned data, legacy wrappers, and localized strings:
 
 ```python
-from core.d2data import GameDataResolver
+from d2savior.core.d2data import GameDataResolver
 
 resolver = GameDataResolver(version=char_data.version)
 

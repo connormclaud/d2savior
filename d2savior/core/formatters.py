@@ -1,11 +1,12 @@
 """Full and summary text formatting for Diablo II saves, stashes, and items."""
 
 import datetime
+import importlib.resources
 import os
 from collections.abc import Callable
 from typing import Any
 
-from core.constants import (
+from d2savior.core.constants import (
     CLASS_SKILL_BASES,
     COMBINED_SLOT_ORDER_STRIPPED,
     DIFFICULTY_NAMES,
@@ -17,22 +18,28 @@ from core.constants import (
     TAB_TYPE_NAMES,
     WAYPOINTS_BY_ACT,
 )
-from core.d2data import GameDataResolver, get_d2data_manager, init_d2data
-from core.d2s_struct import CharStatus, D2SStruct
-from core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
-from core.item import ITEM_FLAG_LABELS
-from core.localized_data import get_localized_data, init_localized_data, set_language
-from core.property import (
+from d2savior.core.d2data import GameDataResolver, get_d2data_manager, init_d2data
+from d2savior.core.d2s_struct import CharStatus, D2SStruct
+from d2savior.core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
+from d2savior.core.item import ITEM_FLAG_LABELS
+from d2savior.core.localized_data import get_localized_data, init_localized_data, set_language
+from d2savior.core.property import (
     format_property,
     init_item_modifiers,
 )
-from core.stash import (
+from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     SharedStash,
 )
 
 type SkillInfo = tuple[int, str, int]
 type FormattedLines = list[str]
+
+
+def get_default_data_dir() -> str:
+    """Return the filesystem path to the bundled data directory."""
+    ref = importlib.resources.files("d2savior").joinpath("data")
+    return str(ref)
 
 
 def ensure_data_loaded(
@@ -50,8 +57,7 @@ def ensure_data_loaded(
     actual_lang = lang_key if lang_key else (loc.current_lang or "enUS")
 
     if data_dir is None:
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        data_dir = os.path.join(script_dir, "data")
+        data_dir = get_default_data_dir()
 
     if os.path.exists(data_dir):
         init_d2data(data_dir)

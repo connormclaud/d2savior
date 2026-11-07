@@ -1067,7 +1067,11 @@ class D2DataLoader:
         version_data.skills, version_data.aura_skill_ids = self.load_skills(skills_path)
 
         # 加载itemdata.txt（物品元数据）
-        from core.item import parse_itemdata_txt, parse_itemstatcost_txt, parse_property_txt
+        from d2savior.core.item import (
+            parse_itemdata_txt,
+            parse_itemstatcost_txt,
+            parse_property_txt,
+        )
 
         itemdata_path = self._resolve_path("itemdata.txt", data_dir, fallback_dir)
         version_data.item_manager = parse_itemdata_txt(itemdata_path)
@@ -1345,7 +1349,7 @@ def init_d2data(data_dir: str) -> bool:
 
     _g_d2data_wrapper = D2DataWrapper(_g_d2data_manager)
 
-    from core.item import init_item_data
+    from d2savior.core.item import init_item_data
 
     itemdata_path = os.path.join(data_dir, "itemdata.txt")
     if not os.path.exists(itemdata_path):
@@ -1399,7 +1403,7 @@ class GameDataResolver:
         return self._legacy.get_item(code) if self._legacy else None
 
     def get_skill_name(self, skill_id: int) -> str:
-        from core.property import get_skill_name as prop_get_skill_name
+        from d2savior.core.property import get_skill_name as prop_get_skill_name
 
         loc_name, _ = prop_get_skill_name(skill_id)
         if loc_name and loc_name != "Unknown Skill":
@@ -1450,7 +1454,7 @@ class GameDataResolver:
         return self._legacy.get_property(prop_id) if self._legacy else None
 
     def get_localized_item_name(self, code_or_name: str, fallback: str = "") -> str:
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         if not loc:
@@ -1482,7 +1486,7 @@ class GameDataResolver:
         u_info = self.get_unique_item(unique_id)
         if not u_info:
             return ""
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         if loc:
@@ -1495,7 +1499,7 @@ class GameDataResolver:
         s_info = self.get_set_item(set_id)
         if not s_info:
             return ""
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         if loc:
@@ -1508,7 +1512,7 @@ class GameDataResolver:
         rw_info = self.get_runeword(runeword_id)
         if not rw_info:
             return ""
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         if loc:
@@ -1524,7 +1528,7 @@ class GameDataResolver:
         p_info = self.get_magic_prefix(prefix_id)
         if not p_info:
             return ""
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         if loc:
@@ -1537,7 +1541,7 @@ class GameDataResolver:
         s_info = self.get_magic_suffix(suffix_id)
         if not s_info:
             return ""
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         if loc:
@@ -1547,7 +1551,7 @@ class GameDataResolver:
         return s_info.name
 
     def get_localized_quality_name(self, quality_name: str) -> str:
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         if not loc or loc.current_lang == "enUS":
@@ -1570,7 +1574,7 @@ class GameDataResolver:
         return quality_name
 
     def get_localized_gem_type_name(self, gem_type: str) -> str:
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         if not loc:
@@ -1584,7 +1588,7 @@ class GameDataResolver:
         return gem_type
 
     def get_localized_rune_short_name(self, code_str: str) -> str:
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         type_info = self.get_item(code_str)
@@ -1615,7 +1619,7 @@ class GameDataResolver:
             "Warlock",
         ]
         default_name = class_keys[class_id] if 0 <= class_id < len(class_keys) else "Unknown"
-        from core.localized_data import get_localized_data
+        from d2savior.core.localized_data import get_localized_data
 
         loc = get_localized_data()
         if loc:

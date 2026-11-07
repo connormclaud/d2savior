@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.d2data import GameDataResolver, init_d2data
+from d2savior.core.d2data import GameDataResolver, init_d2data
 
 
 class TestGameDataResolver:
     @classmethod
     def setup_class(cls):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "d2savior", "data")
         init_d2data(data_dir)
 
     def test_default_initialization(self):

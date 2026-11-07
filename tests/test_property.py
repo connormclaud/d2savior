@@ -5,9 +5,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.d2data import init_d2data
-from core.localized_data import init_localized_data
-from core.property import (
+from d2savior.core.d2data import init_d2data
+from d2savior.core.localized_data import init_localized_data
+from d2savior.core.property import (
     LanguageData,
     format_property,
     get_class_name,
@@ -88,7 +88,9 @@ class TestInitLanguage:
 
 class TestGetClassName:
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
         local_dir = os.path.join(data_dir, "local")
         if os.path.exists(local_dir):
             init_localized_data(local_dir, lang_key="enUS")
@@ -112,7 +114,9 @@ class TestGetClassName:
 
 class TestGetSkillName:
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
             local_dir = os.path.join(data_dir, "local")
@@ -141,7 +145,9 @@ class TestGetSkillName:
 
 class TestGetMonsterName:
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
             local_dir = os.path.join(data_dir, "local")
@@ -165,7 +171,9 @@ class TestGetTimeName:
 
 class TestGetPropertyName:
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
 
@@ -192,7 +200,9 @@ class TestGetPropertyName:
 
 class TestFormatProperty:
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
             item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
@@ -290,7 +300,9 @@ class TestFormatProperty:
 
 class TestFormatPropertySpecialCases:
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
         if os.path.exists(data_dir):
             init_d2data(data_dir)
             item_modifiers_file = os.path.join(data_dir, "local", "item-modifiers.json")
@@ -337,8 +349,8 @@ class TestFormatPropertySpecialCases:
 
 class TestFormatItemInfoSetProperties:
     def test_format_item_info_with_set_properties(self):
-        from core.formatters import format_item_info
-        from core.item import D2Item, ItemInfo, PropertyList, TypeSpecificInfo
+        from d2savior.core.formatters import format_item_info
+        from d2savior.core.item import D2Item, ItemInfo, PropertyList, TypeSpecificInfo
 
         item = D2Item()
         item.item_info = ItemInfo()

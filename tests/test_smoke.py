@@ -5,8 +5,8 @@ import sys
 
 import pytest
 
-from core.formatters import ensure_data_loaded
 from d2s_parse import FORMATTERS, parse_file
+from d2savior.core.formatters import ensure_data_loaded
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:

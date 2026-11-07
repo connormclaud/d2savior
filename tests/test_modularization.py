@@ -2,14 +2,14 @@ import argparse
 import io
 from unittest.mock import MagicMock, patch
 
-import core.bitstream_debug as bitstream_debug
-import core.constants as constants
-import core.formatters as formatters
 import d2s_parse
-from core.d2s_struct import D2SStruct
-from core.ibitstream import IBitStream
-from core.item import D2Item, ItemInfo, TypeSpecificInfo
-from core.stash import SharedStash
+import d2savior.core.bitstream_debug as bitstream_debug
+import d2savior.core.constants as constants
+import d2savior.core.formatters as formatters
+from d2savior.core.d2s_struct import D2SStruct
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.item import D2Item, ItemInfo, TypeSpecificInfo
+from d2savior.core.stash import SharedStash
 
 
 class TestModularization:
@@ -145,11 +145,12 @@ class TestModularization:
 
         with (
             patch(
-                "core.bitstream_debug.search_bits",
+                "d2savior.core.bitstream_debug.search_bits",
                 return_value=[{"offset": 1, "byte": 0, "bit": 1, "context": "c"}],
             ) as mock_sb,
             patch(
-                "core.bitstream_debug.search_bytes", return_value=[{"offset": 2, "context": "cb"}]
+                "d2savior.core.bitstream_debug.search_bytes",
+                return_value=[{"offset": 2, "context": "cb"}],
             ) as mock_sbytes,
             patch("builtins.print"),
         ):

@@ -215,7 +215,7 @@ _DEFAULT_SKILL_TAB_NAMES = {
 
 
 def get_class_name(class_id: int) -> str:
-    from core.localized_data import get_localized_data
+    from d2savior.core.localized_data import get_localized_data
 
     loc = get_localized_data()
     if loc:
@@ -232,7 +232,7 @@ def get_class_name(class_id: int) -> str:
 
 
 def get_skill_name(skill_id: int) -> tuple[str, int]:
-    from core.localized_data import get_localized_data
+    from d2savior.core.localized_data import get_localized_data
 
     class_id = -1
     if 6 <= skill_id < 156:
@@ -246,7 +246,7 @@ def get_skill_name(skill_id: int) -> tuple[str, int]:
         if result:
             return result, class_id
 
-    from core.d2data import get_d2data
+    from d2savior.core.d2data import get_d2data
 
     d2data = get_d2data()
 
@@ -280,7 +280,7 @@ def get_skill_name(skill_id: int) -> tuple[str, int]:
 
 
 def get_skill_tab_name(tab: int, class_id: int) -> str:
-    from core.localized_data import get_localized_data
+    from d2savior.core.localized_data import get_localized_data
 
     loc = get_localized_data()
     if loc:
@@ -297,11 +297,11 @@ def get_skill_tab_name(tab: int, class_id: int) -> str:
 
 
 def get_monster_name(monster_id: int) -> str:
-    from core.localized_data import get_localized_data
+    from d2savior.core.localized_data import get_localized_data
 
     loc = get_localized_data()
     if loc:
-        from core.d2data import get_d2data_manager
+        from d2savior.core.d2data import get_d2data_manager
 
         mgr = get_d2data_manager()
         if mgr:
@@ -329,7 +329,7 @@ def get_time_name(time_id: int) -> str:
 
 
 def get_property_name(stat_id: int) -> str:
-    from core.d2data import get_d2data
+    from d2savior.core.d2data import get_d2data
 
     d2data = get_d2data()
     if d2data:
@@ -344,7 +344,7 @@ def get_property_name(stat_id: int) -> str:
 
 
 def get_property_tooltip(prop_id: int) -> str:
-    from core.d2data import get_d2data
+    from d2savior.core.d2data import get_d2data
 
     d2data = get_d2data()
     if d2data:
@@ -376,7 +376,7 @@ _CHANCE_CAST_KEYS = {
 
 
 def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str:
-    from core.d2data import get_d2data
+    from d2savior.core.d2data import get_d2data
 
     d2data = get_d2data()
 
@@ -571,7 +571,7 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
                     return result
             return f"Level {level} {skill_name} ({a[2]}/{a[3]} Charges)"
         case _ if prop_id in range(214, 251):
-            from core.item import get_stat_cost
+            from d2savior.core.item import get_stat_cost
 
             sc = get_stat_cost(prop_id)
             if sc and sc.op_param > 0:

@@ -4,10 +4,10 @@ from dataclasses import dataclass, field
 from itertools import batched
 from typing import Any, ClassVar
 
-from core.enums import ITEM_LIST_MAGIC
-from core.huffman import get_huffman
-from core.ibitstream import IBitStream
-from core.obitstream import OBitStream
+from d2savior.core.enums import ITEM_LIST_MAGIC
+from d2savior.core.huffman import get_huffman
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.obitstream import OBitStream
 
 type RawProperty = tuple[int, int, int]
 type ItemTypeId = Buffer | str
@@ -473,7 +473,7 @@ def init_item_data(
 def get_item_meta(type_id: ItemTypeId, version: int = 0) -> ItemMetaData | None:
     global _g_item_manager
 
-    from core.d2data import get_d2data, get_d2data_manager
+    from d2savior.core.d2data import get_d2data, get_d2data_manager
 
     d2data_manager = get_d2data_manager()
     d2data = get_d2data()
@@ -521,7 +521,7 @@ def _supplement_meta_from_d2data(meta: ItemMetaData, d2data: Any) -> None:
 
 
 def get_property_meta(prop_id: int, version: int) -> PropertyMetaDataItem | None:
-    from core.d2data import get_d2data_manager
+    from d2savior.core.d2data import get_d2data_manager
 
     d2data_manager = get_d2data_manager()
     if d2data_manager is not None:
@@ -535,7 +535,7 @@ def get_property_meta(prop_id: int, version: int) -> PropertyMetaDataItem | None
 
 
 def get_stat_cost(stat_id: int) -> StatCostItem | None:
-    from core.d2data import get_d2data_manager
+    from d2savior.core.d2data import get_d2data_manager
 
     d2data_manager = get_d2data_manager()
     if d2data_manager is not None:
@@ -1622,7 +1622,7 @@ class D2Item:
             return
 
         if version > 92:
-            from core.d2data import get_d2data
+            from d2savior.core.d2data import get_d2data
 
             d2data = get_d2data()
             code = type_name.decode("ascii", errors="replace").strip()
@@ -2030,7 +2030,7 @@ class ItemList:
                 break
             if bs.remaining() < 16 * 8:
                 break
-            import core.item as _self_mod
+            import d2savior.core.item as _self_mod
 
             old_trace = _self_mod._TRACE_ITEM
             old_trace_prop = _self_mod._TRACE_PROPERTY

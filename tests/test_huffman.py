@@ -5,9 +5,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.huffman import HUFFMAN_TREE, HuffmanDecoder, get_huffman
-from core.ibitstream import IBitStream
-from core.obitstream import OBitStream
+from d2savior.core.huffman import HUFFMAN_TREE, HuffmanDecoder, get_huffman
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.obitstream import OBitStream
 
 
 class TestHuffmanTree:

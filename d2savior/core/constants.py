@@ -1,6 +1,6 @@
 """Constants for Diablo II save and stash parsing and formatting."""
 
-from core.stash import (
+from d2savior.core.stash import (
     COMBINED_SLOT_ORDER,
     GEM_CODES,
     MATERIAL_CODES,

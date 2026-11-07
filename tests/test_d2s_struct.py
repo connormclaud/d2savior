@@ -3,9 +3,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.d2s_struct import D2SStruct
-from core.ibitstream import IBitStream
-from core.obitstream import OBitStream
+from d2savior.core.d2s_struct import D2SStruct
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.obitstream import OBitStream
 
 
 class TestD2SStruct:
@@ -142,7 +142,7 @@ class TestD2SStruct:
 
     def test_is_expansion_0x63_acts(self):
         """测试 0x63 版本资料片判断回退: QuestInfo.dwActs >= 5"""
-        from core.d2s_struct import QuestInfo
+        from d2savior.core.d2s_struct import QuestInfo
 
         char_data = D2SStruct()
         char_data.version = 0x63
@@ -171,7 +171,7 @@ class TestD2SStruct:
 
     def test_player_stats_magic(self):
         """测试 PlayerStats 魔法数"""
-        from core.d2s_struct import PlayerStats
+        from d2savior.core.d2s_struct import PlayerStats
 
         ps = PlayerStats()
         assert ps.magic == 0
@@ -179,7 +179,7 @@ class TestD2SStruct:
 
     def test_player_stats_read_data(self):
         """测试 PlayerStats 从 bitstream 解析"""
-        from core.d2s_struct import PlayerStats
+        from d2savior.core.d2s_struct import PlayerStats
 
         player_stats_bits_count = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
 
@@ -202,7 +202,7 @@ class TestD2SStruct:
 
     def test_player_stats_invalid_magic(self):
         """测试 PlayerStats 无效魔法数时跳过解析"""
-        from core.d2s_struct import PlayerStats
+        from d2savior.core.d2s_struct import PlayerStats
 
         obs = OBitStream()
         obs.write_word(0x1234)
@@ -216,7 +216,7 @@ class TestD2SStruct:
 
     def test_player_stats_all_stats(self):
         """测试 PlayerStats 解析所有16个属性"""
-        from core.d2s_struct import PlayerStats
+        from d2savior.core.d2s_struct import PlayerStats
 
         player_stats_bits_count = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
         test_values = [
@@ -261,7 +261,7 @@ class TestD2SStruct:
 
     def test_demon_default(self):
         """测试 Demon 默认状态"""
-        from core.d2s_struct import Demon
+        from d2savior.core.d2s_struct import Demon
 
         demon = Demon()
         assert not demon.has_demon
@@ -269,7 +269,7 @@ class TestD2SStruct:
 
     def test_demon_read_data_no_demon(self):
         """测试 Demon 解析: 无 Demon 数据 (has_demon=False)"""
-        from core.d2s_struct import Demon
+        from d2savior.core.d2s_struct import Demon
 
         obs = OBitStream()
         obs.write_word(1)
@@ -287,7 +287,7 @@ class TestD2SStruct:
 
     def test_demon_read_data_invalid_magic(self):
         """测试 Demon 解析: 无效魔法数时跳过"""
-        from core.d2s_struct import Demon
+        from d2savior.core.d2s_struct import Demon
 
         obs = OBitStream()
         obs.write_word(1)
@@ -309,7 +309,7 @@ class TestD2SStruct:
         assert char_data.get_char_name() == "D2RChar"
 
     def test_equip_slot_enum(self):
-        from core.enums import EquipSlot
+        from d2savior.core.enums import EquipSlot
 
         expected = {
             1: "Helmet",
@@ -330,9 +330,9 @@ class TestD2SStruct:
             assert EquipSlot(pos).display_name == name
 
     def test_format_item_info_equipped_position(self):
-        from core.enums import ItemLocation
-        from core.formatters import format_item_info
-        from core.item import D2Item, ItemInfo
+        from d2savior.core.enums import ItemLocation
+        from d2savior.core.formatters import format_item_info
+        from d2savior.core.item import D2Item, ItemInfo
 
         item = D2Item()
         item.item_info = ItemInfo()
@@ -356,7 +356,7 @@ class TestD2SStruct:
         assert "Weapon" not in full_text_stored
 
     def test_format_timestamp(self):
-        from core.formatters import format_timestamp
+        from d2savior.core.formatters import format_timestamp
 
         assert format_timestamp(0) == "N/A"
         assert format_timestamp(4294967295) == "N/A"
@@ -364,7 +364,7 @@ class TestD2SStruct:
         assert format_timestamp(1793981148) == "2026-11-06 16:05:48 UTC"
 
     def test_format_duration(self):
-        from core.formatters import format_duration
+        from d2savior.core.formatters import format_duration
 
         assert format_duration(4294967295) == "N/A"
         assert format_duration(-5) == "N/A"
@@ -375,7 +375,7 @@ class TestD2SStruct:
         assert format_duration(90061) == "1d 1h 1m 1s"
 
     def test_format_char_info_waypoints_and_quests(self):
-        from core.formatters import format_char_info
+        from d2savior.core.formatters import format_char_info
 
         char = D2SStruct()
         char.version = 0x69
@@ -441,7 +441,7 @@ class TestD2SStruct:
         )
 
     def test_player_stats_properties(self):
-        from core.d2s_struct import PLAYER_STATS_MAGIC, PlayerStats
+        from d2savior.core.d2s_struct import PLAYER_STATS_MAGIC, PlayerStats
 
         stats = PlayerStats()
         assert not stats.is_valid
@@ -508,7 +508,7 @@ class TestD2SStruct:
         assert not char_v69.merc_is_dead
 
     def test_quest_info_data_travel_properties(self):
-        from core.d2s_struct import QuestInfoData
+        from d2savior.core.d2s_struct import QuestInfoData
 
         qid = QuestInfoData()
         assert qid.travel_1 == 0

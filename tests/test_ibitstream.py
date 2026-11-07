@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.ibitstream import IBitStream
+from d2savior.core.ibitstream import IBitStream
 
 
 class TestIBitStream:
@@ -233,7 +233,7 @@ class TestIBitStreamNewInterface:
 
 class TestIBitStreamOBitStreamRoundTrip:
     def test_roundtrip_single_byte(self):
-        from core.obitstream import OBitStream
+        from d2savior.core.obitstream import OBitStream
 
         ostream = OBitStream()
         ostream.append(0x76, 8)
@@ -243,7 +243,7 @@ class TestIBitStreamOBitStreamRoundTrip:
         assert result == 118
 
     def test_roundtrip_multiple_values(self):
-        from core.obitstream import OBitStream
+        from d2savior.core.obitstream import OBitStream
 
         ostream = OBitStream()
         ostream.append(3, 3)
@@ -256,7 +256,7 @@ class TestIBitStreamOBitStreamRoundTrip:
         assert istream.read(5) == 31
 
     def test_roundtrip_string(self):
-        from core.obitstream import OBitStream
+        from d2savior.core.obitstream import OBitStream
 
         ostream = OBitStream()
         ostream.write_string("AB")
@@ -265,7 +265,7 @@ class TestIBitStreamOBitStreamRoundTrip:
         assert istream.read_string(2) == "AB"
 
     def test_roundtrip_9_bits(self):
-        from core.obitstream import OBitStream
+        from d2savior.core.obitstream import OBitStream
 
         ostream = OBitStream()
         ostream.append(0x176, 9)
@@ -274,7 +274,7 @@ class TestIBitStreamOBitStreamRoundTrip:
         assert istream.read(9) == 374
 
     def test_roundtrip_32_bits(self):
-        from core.obitstream import OBitStream
+        from d2savior.core.obitstream import OBitStream
 
         ostream = OBitStream()
         ostream.append(0xF1F2F4F8, 32)

@@ -1,6 +1,6 @@
 from typing import Any
 
-from core.obitstream import OBitStream
+from d2savior.core.obitstream import OBitStream
 
 STASH_TAB_MAGIC = 0xAA55AA55
 STASH_TAB_HEADER_SIZE = 64
@@ -335,7 +335,7 @@ class StashTab:
             if self.tab_type == STASH_TAB_TYPE_CHRONICLE:
                 self._read_chronicle(bs)
             else:
-                from core.item import ItemList
+                from d2savior.core.item import ItemList
 
                 self.items = ItemList()
                 self.items.deserialize(bs, item_version)

@@ -5,9 +5,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.huffman import get_huffman
-from core.ibitstream import IBitStream
-from core.item import (
+from d2savior.core.huffman import get_huffman
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.item import (
     D2Item,
     Ear,
     ExtItemInfo,
@@ -30,7 +30,7 @@ from core.item import (
     parse_itemdata_txt,
     parse_property_txt,
 )
-from core.obitstream import OBitStream
+from d2savior.core.obitstream import OBitStream
 
 
 class TestItemMetaData:
@@ -270,8 +270,10 @@ class TestCD2ItemVersionDifferences:
     """测试 0x63 与 0x69 版本物品格式差异"""
 
     def setup_method(self):
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-        from core.d2data import init_d2data
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
+        )
+        from d2savior.core.d2data import init_d2data
 
         init_d2data(data_dir)
         self._has_data = True

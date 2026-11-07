@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.obitstream import OBitStream
+from d2savior.core.obitstream import OBitStream
 
 
 class MemWriter:

@@ -1,6 +1,6 @@
 import pytest
 
-from core.ibitstream import IBitStream
+from d2savior.core.ibitstream import IBitStream
 
 
 class TestInBitsStream:

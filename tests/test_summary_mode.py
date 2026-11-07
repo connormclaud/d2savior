@@ -3,14 +3,15 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.d2s_struct import D2SStruct
-from core.enums import EquipSlot, ItemLocation, StoredIn
-from core.formatters import (
+from d2s_parse import main
+from d2savior.core.d2s_struct import D2SStruct
+from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
+from d2savior.core.formatters import (
     format_char_summary,
     format_item_summary,
     format_stash_summary,
 )
-from core.item import (
+from d2savior.core.item import (
     D2Item,
     ExtItemInfo,
     GoldQuantity,
@@ -19,13 +20,12 @@ from core.item import (
     PropertyList,
     TypeSpecificInfo,
 )
-from core.stash import (
+from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     STASH_TAB_TYPE_NORMAL,
     SharedStash,
     StashTab,
 )
-from d2s_parse import main
 
 
 class TestSummaryMode:
@@ -81,7 +81,7 @@ class TestSummaryMode:
             [(999, 42, [1, 2]), (998, 15, [])]
         )
 
-        with patch("core.formatters.format_property", return_value=None):
+        with patch("d2savior.core.formatters.format_property", return_value=None):
             summary = format_item_summary(item)
             assert "ID 999: raw=42, params=[1, 2]" in summary
             assert "ID 998: 15" in summary
@@ -380,7 +380,7 @@ class TestSummaryMode:
     def test_format_parsed_properties_helper(self):
         from unittest.mock import MagicMock, patch
 
-        from core.formatters import _format_parsed_properties
+        from d2savior.core.formatters import _format_parsed_properties
 
         assert _format_parsed_properties(None) == []
 
@@ -397,7 +397,7 @@ class TestSummaryMode:
             (998, 5, []),  # unmapped without params
         ]
         with patch(
-            "core.formatters.format_property",
+            "d2savior.core.formatters.format_property",
             side_effect=lambda pid, params, ver: "+25 to Life" if pid == 7 else "",
         ):
             formatted = _format_parsed_properties(prop_list, version=0x63)
@@ -407,7 +407,7 @@ class TestSummaryMode:
             assert formatted[2] == "ID 998: 5"
 
     def test_get_character_skills_helper(self):
-        from core.formatters import _get_character_skills
+        from d2savior.core.formatters import _get_character_skills
 
         char_data = D2SStruct()
         assert _get_character_skills(char_data) == []
@@ -430,18 +430,18 @@ class TestSummaryMode:
         import argparse
         from unittest.mock import MagicMock, patch
 
-        from core.bitstream_debug import _run_bitstream_searches
+        from d2savior.core.bitstream_debug import _run_bitstream_searches
 
         bs = MagicMock()
         args = argparse.Namespace(search="1010", search_bytes="4a4d")
 
         with (
             patch(
-                "core.bitstream_debug.search_bits",
+                "d2savior.core.bitstream_debug.search_bits",
                 return_value=[{"offset": 10, "byte": 1, "bit": 2, "context": "ctx"}],
             ) as mock_sb,
             patch(
-                "core.bitstream_debug.search_bytes",
+                "d2savior.core.bitstream_debug.search_bytes",
                 return_value=[{"offset": 5, "context": "ctx_b"}],
             ) as mock_sbytes,
             patch("builtins.print") as mock_print,
@@ -453,9 +453,9 @@ class TestSummaryMode:
             mock_print.assert_any_call("\n=== Search Results for bytes '4a4d' ===")
 
     def test_ensure_data_loaded(self):
-        from core.d2data import get_d2data_manager
-        from core.formatters import ensure_data_loaded
-        from core.localized_data import get_localized_data
+        from d2savior.core.d2data import get_d2data_manager
+        from d2savior.core.formatters import ensure_data_loaded
+        from d2savior.core.localized_data import get_localized_data
 
         # Initial call ensures default language loaded
         ensure_data_loaded()
@@ -477,14 +477,19 @@ class TestSummaryMode:
         assert get_localized_data().current_lang == "enUS"
 
     def test_ru_summary_mode(self):
-        from core.d2s_struct import D2SStruct, ItemList
-        from core.formatters import (
+        from d2savior.core.d2s_struct import D2SStruct, ItemList
+        from d2savior.core.formatters import (
             ensure_data_loaded,
             format_char_summary,
             format_stash_summary,
         )
-        from core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
-        from core.stash import STASH_TAB_TYPE_ADVANCED, STASH_TAB_TYPE_NORMAL, SharedStash, StashTab
+        from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
+        from d2savior.core.stash import (
+            STASH_TAB_TYPE_ADVANCED,
+            STASH_TAB_TYPE_NORMAL,
+            SharedStash,
+            StashTab,
+        )
 
         try:
             ensure_data_loaded(lang_key="ruRU", force=True)

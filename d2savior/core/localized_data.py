@@ -263,6 +263,6 @@ def set_language(lang_key: str) -> None:
     loader = get_localized_data()
     loader.set_language(lang_key)
 
-    from core.property import _set_item_modifiers_lang
+    from d2savior.core.property import _set_item_modifiers_lang
 
     _set_item_modifiers_lang(lang_key)

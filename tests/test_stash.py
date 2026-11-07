@@ -6,9 +6,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.ibitstream import IBitStream
-from core.obitstream import OBitStream
-from core.stash import (
+from d2savior.core.ibitstream import IBitStream
+from d2savior.core.obitstream import OBitStream
+from d2savior.core.stash import (
     ADVANCED_SUBTYPE_GEM,
     ADVANCED_SUBTYPE_MATERIAL,
     ADVANCED_SUBTYPE_RUNE,
