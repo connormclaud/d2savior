@@ -107,12 +107,12 @@ class LocalizedDataLoader:
     def current_lang(self) -> str:
         return self._current_lang
 
-    def get_string(self, file_key: str, key: str, default: str = None) -> str:
+    def get_string(self, file_key: str, key: str, default: str | None = None) -> str:
         if file_key in self._data and key in self._data[file_key]:
             return self._data[file_key][key]
         return default if default is not None else key
 
-    def get_clean_string(self, file_key: str, key: str, default: str = None) -> str:
+    def get_clean_string(self, file_key: str, key: str, default: str | None = None) -> str:
         s = self.get_string(file_key, key, default)
         return clean_d2_text(s)
 

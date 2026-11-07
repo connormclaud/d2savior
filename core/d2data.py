@@ -963,7 +963,7 @@ class D2DataLoader:
         return type_ancestors, type_descendants, type_bodyloc, beltable_codes
 
     def _build_ancestors(
-        self, code: str, type_equivs: dict[str, tuple[str, str]], visited: set[str] = None
+        self, code: str, type_equivs: dict[str, tuple[str, str]], visited: set[str] | None = None
     ) -> set[str]:
         if visited is None:
             visited = set()
@@ -980,7 +980,7 @@ class D2DataLoader:
                     ancestors.update(self._build_ancestors(equiv, type_equivs, visited))
         return ancestors
 
-    def _resolve_path(self, filename: str, data_dir: str, fallback_dir: str = None) -> str:
+    def _resolve_path(self, filename: str, data_dir: str, fallback_dir: str | None = None) -> str:
         """解析文件路径，优先从版本目录加载，缺失时回退到根目录"""
         path = os.path.join(data_dir, filename)
         if os.path.exists(path):
@@ -991,7 +991,7 @@ class D2DataLoader:
                 return fallback_path
         return path
 
-    def load_version_data(self, data_dir: str, fallback_dir: str = None) -> VersionData:
+    def load_version_data(self, data_dir: str, fallback_dir: str | None = None) -> VersionData:
         """加载单个版本的所有数据
 
         Args:
@@ -1090,7 +1090,7 @@ class D2DataManager:
         self.version_data: dict[int, VersionData] = {}
         self.default_version: int = 0x63  # 默认版本
 
-    def load_version(self, version: int, data_dir: str, fallback_dir: str = None) -> bool:
+    def load_version(self, version: int, data_dir: str, fallback_dir: str | None = None) -> bool:
         """加载指定版本的数据
 
         Args:
@@ -1138,7 +1138,7 @@ class D2DataManager:
         # 如果请求的版本不存在，返回默认版本
         return self.version_data.get(self.default_version)
 
-    def get_stat(self, stat_id: int, version: int = None) -> StatInfo | None:
+    def get_stat(self, stat_id: int, version: int | None = None) -> StatInfo | None:
         """获取指定版本的stat信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1146,7 +1146,7 @@ class D2DataManager:
             return data.stats.get(stat_id)
         return None
 
-    def get_stat_by_name(self, stat_name: str, version: int = None) -> StatInfo | None:
+    def get_stat_by_name(self, stat_name: str, version: int | None = None) -> StatInfo | None:
         """通过名称获取指定版本的stat信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1154,7 +1154,7 @@ class D2DataManager:
             return data.stats_by_name.get(stat_name)
         return None
 
-    def get_property(self, prop_id: int, version: int = None) -> PropertyInfo | None:
+    def get_property(self, prop_id: int, version: int | None = None) -> PropertyInfo | None:
         """获取指定版本的property信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1162,7 +1162,7 @@ class D2DataManager:
             return data.properties.get(prop_id)
         return None
 
-    def get_property_by_code(self, code: str, version: int = None) -> PropertyInfo | None:
+    def get_property_by_code(self, code: str, version: int | None = None) -> PropertyInfo | None:
         """通过代码获取指定版本的property信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1170,7 +1170,7 @@ class D2DataManager:
             return data.properties_by_code.get(code)
         return None
 
-    def get_item(self, code: str, version: int = None) -> ItemTypeInfo | None:
+    def get_item(self, code: str, version: int | None = None) -> ItemTypeInfo | None:
         """获取指定版本的item信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1178,7 +1178,7 @@ class D2DataManager:
             return data.items.get(code)
         return None
 
-    def get_magic_prefix(self, prefix_id: int, version: int = None) -> MagicAffixInfo | None:
+    def get_magic_prefix(self, prefix_id: int, version: int | None = None) -> MagicAffixInfo | None:
         """获取指定版本的magic prefix信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1186,7 +1186,7 @@ class D2DataManager:
             return data.magic_prefixes.get(prefix_id)
         return None
 
-    def get_magic_suffix(self, suffix_id: int, version: int = None) -> MagicAffixInfo | None:
+    def get_magic_suffix(self, suffix_id: int, version: int | None = None) -> MagicAffixInfo | None:
         """获取指定版本的magic suffix信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1194,7 +1194,7 @@ class D2DataManager:
             return data.magic_suffixes.get(suffix_id)
         return None
 
-    def get_unique_item(self, unique_id: int, version: int = None) -> UniqueItemInfo | None:
+    def get_unique_item(self, unique_id: int, version: int | None = None) -> UniqueItemInfo | None:
         """获取指定版本的unique item信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1202,7 +1202,7 @@ class D2DataManager:
             return data.unique_items.get(unique_id)
         return None
 
-    def get_set_item(self, set_id: int, version: int = None) -> SetItemInfo | None:
+    def get_set_item(self, set_id: int, version: int | None = None) -> SetItemInfo | None:
         """获取指定版本的set item信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1210,7 +1210,7 @@ class D2DataManager:
             return data.set_items.get(set_id)
         return None
 
-    def get_runeword(self, runeword_id: int, version: int = None) -> RuneWordInfo | None:
+    def get_runeword(self, runeword_id: int, version: int | None = None) -> RuneWordInfo | None:
         """获取指定版本的runeword信息"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1218,7 +1218,7 @@ class D2DataManager:
             return data.runewords.get(runeword_id)
         return None
 
-    def get_skill_name(self, skill_id: int, version: int = None) -> str:
+    def get_skill_name(self, skill_id: int, version: int | None = None) -> str:
         """获取指定版本的skill名称"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1226,7 +1226,7 @@ class D2DataManager:
             return data.skills.get(skill_id, "")
         return ""
 
-    def get_aura_skill_ids(self, version: int = None) -> set[int]:
+    def get_aura_skill_ids(self, version: int | None = None) -> set[int]:
         """获取指定版本的aura技能ID集合"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1234,7 +1234,9 @@ class D2DataManager:
             return data.aura_skill_ids
         return set()
 
-    def is_descendant(self, item_type_code: str, ancestor_code: str, version: int = None) -> bool:
+    def is_descendant(
+        self, item_type_code: str, ancestor_code: str, version: int | None = None
+    ) -> bool:
         """检查item类型是否是指定祖先类型的后代"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1242,7 +1244,7 @@ class D2DataManager:
             return data.is_descendant(item_type_code, ancestor_code)
         return False
 
-    def is_beltable(self, item_code: str, version: int = None) -> bool:
+    def is_beltable(self, item_code: str, version: int | None = None) -> bool:
         """检查物品是否可以放入腰带"""
         version = version or self.default_version
         data = self.get_version_data(version)
@@ -1250,7 +1252,7 @@ class D2DataManager:
             return data.is_beltable(item_code)
         return False
 
-    def get_belt_rows(self, item_code: str, version: int = None) -> int:
+    def get_belt_rows(self, item_code: str, version: int | None = None) -> int:
         version = version or self.default_version
         data = self.get_version_data(version)
         if data:
@@ -1273,7 +1275,7 @@ class D2DataManager:
             return data.prop_meta[prop_id].find_data(version)
         return None
 
-    def get_stat_cost(self, stat_id: int, version: int = None) -> object | None:
+    def get_stat_cost(self, stat_id: int, version: int | None = None) -> object | None:
         """获取指定版本的属性成本元数据"""
         ver = version if version in self.version_data else self.default_version
         data = self.get_version_data(ver)
@@ -1318,7 +1320,7 @@ class D2DataWrapper:
     def get_unique_item(self, unique_id: int) -> UniqueItemInfo | None:
         return self.manager.get_unique_item(unique_id)
 
-    def get_set_item(self, set_id: int, version: int = None) -> SetItemInfo | None:
+    def get_set_item(self, set_id: int, version: int | None = None) -> SetItemInfo | None:
         return self.manager.get_set_item(set_id, version)
 
     def get_runeword(self, runeword_id: int) -> RuneWordInfo | None:
@@ -1330,7 +1332,7 @@ class D2DataWrapper:
     def is_descendant(self, item_type_code: str, ancestor_code: str) -> bool:
         return self.manager.is_descendant(item_type_code, ancestor_code)
 
-    def is_beltable(self, item_code: str, version: int = None) -> bool:
+    def is_beltable(self, item_code: str, version: int | None = None) -> bool:
         return self.manager.is_beltable(item_code, version)
 
 

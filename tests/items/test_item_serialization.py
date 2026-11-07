@@ -22,7 +22,7 @@ class TestItemSerialization(unittest.TestCase):
         cls.examples_dir = os.path.join(base_dir, "..", "examples")
         cls.items_dir = os.path.join(base_dir, "..", "items")
 
-    def _deserialize_item(self, file_path: str, version: int = None):
+    def _deserialize_item(self, file_path: str, version: int | None = None):
         if not os.path.exists(file_path):
             self.skipTest(f"Test file not found: {file_path}")
         with open(file_path, "rb") as f:

@@ -113,7 +113,7 @@ _g_item_modifiers_raw: list = []
 _g_item_modifiers_lang: str = "enUS"
 
 
-def init_language(filepath: str = None, lang_index: int = 1) -> bool:
+def init_language(filepath: str | None = None, lang_index: int = 1) -> bool:
     global _g_language
     _g_language = LanguageData()
     if filepath:

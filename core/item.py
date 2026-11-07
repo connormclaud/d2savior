@@ -453,7 +453,11 @@ def parse_itemstatcost_txt(filepath: str) -> dict[int, StatCostItem]:
     return result
 
 
-def init_item_data(itemdata_path: str = None, property_path: str = None, statcost_path: str = None):
+def init_item_data(
+    itemdata_path: str | None = None,
+    property_path: str | None = None,
+    statcost_path: str | None = None,
+):
     global _g_item_manager, _g_properties, _g_stat_cost
 
     if itemdata_path:
@@ -705,7 +709,7 @@ class PropertyList:
     def is_indestructible(self) -> bool:
         return any(prop_id == 152 and value != 0 for prop_id, layer, value in self.properties)
 
-    def get_parsed_properties(self, version: int = None) -> list[tuple[int, int, list[int]]]:
+    def get_parsed_properties(self, version: int | None = None) -> list[tuple[int, int, list[int]]]:
         ver = version if version is not None else self._version
         result = []
         for prop_id, layer, value in self.properties:
