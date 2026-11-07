@@ -505,9 +505,8 @@ def _supplement_meta_from_d2data(meta: ItemMetaData, d2data):
         meta.is_body_part = d2data.is_descendant(type_info.item_type2, "body")
     if not meta.is_player_body_part:
         meta.is_player_body_part = d2data.is_descendant(type_info.item_type2, "play")
-    if not meta.has_def:
-        if d2data.is_descendant(type_info.item_type2, "armo"):
-            meta.has_def = True
+    if not meta.has_def and d2data.is_descendant(type_info.item_type2, "armo"):
+        meta.has_def = True
 
 
 def get_property_meta(prop_id: int, version: int) -> PropertyMetaDataItem | None:
@@ -1825,14 +1824,13 @@ class D2Item:
         if not self.item_info:
             return
 
-        if version > 92:
-            if self.item_info.quest_difficulty > 0:
-                quest_diff_stat = get_stat_cost(356)
-                if quest_diff_stat and quest_diff_stat.save_bits > 0:
-                    raw = (
-                        self.item_info.quest_difficulty >> quest_diff_stat.val_shift
-                    ) + quest_diff_stat.save_add
-                    bs.write_bits(quest_diff_stat.save_bits, raw)
+        if version > 92 and self.item_info.quest_difficulty > 0:
+            quest_diff_stat = get_stat_cost(356)
+            if quest_diff_stat and quest_diff_stat.save_bits > 0:
+                raw = (
+                    self.item_info.quest_difficulty >> quest_diff_stat.val_shift
+                ) + quest_diff_stat.save_add
+                bs.write_bits(quest_diff_stat.save_bits, raw)
 
         realm_flag = len(self.item_info.realm_data) > 0 if self.item_info.realm_data else False
         bs.write_bits(1, 1 if realm_flag else 0)

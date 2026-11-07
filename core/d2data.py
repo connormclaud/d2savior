@@ -1125,9 +1125,8 @@ class D2DataManager:
 
         # 尝试加载0x69版本
         v69_dir = os.path.join(base_data_dir, "0x69")
-        if os.path.exists(v69_dir):
-            if not self.load_version(0x69, v69_dir, base_data_dir):
-                success = False
+        if os.path.exists(v69_dir) and not self.load_version(0x69, v69_dir, base_data_dir):
+            success = False
 
         return success
 
