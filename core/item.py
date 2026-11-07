@@ -1524,7 +1524,7 @@ class D2Item:
     def has_property_list(self) -> bool:
         return self.item_info is not None and self.item_info.type_specific_info is not None
 
-    def deserialize(self, bs: IBitStream, version: int, read_magic: bool = True) -> None:
+    def deserialize(self, bs: IBitStream, version: int = 0x63, read_magic: bool = True) -> None:
         if is_d2r(version):
             self._read_data_d2r(bs, version, read_magic)
         else:
