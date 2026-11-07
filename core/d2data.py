@@ -126,7 +126,6 @@ class ItemTypeInfo:
     spawnstack: int = 0
     quest: int = 0
     questdiffcheck: bool = False
-    pSpell: int = 0
     spellicon: int = 0
     spell_id: int = 0
     belt_rows: int = 0
@@ -454,7 +453,7 @@ class D2DataLoader:
                 spawnstack=get_int('spawnstack'),
                 quest=get_int('quest'),
                 questdiffcheck=get_bool('questdiffcheck'),
-                pSpell=get_int('pSpell'),
+                spell_id=get_int('pSpell'),
                 spellicon=get_int('spellicon'),
                 belt_rows=belt_rows,
             )
