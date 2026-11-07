@@ -1,4 +1,5 @@
 from enum import IntEnum
+from typing import Self
 
 PLAYER_STATS_MAGIC = 0x6667
 ITEM_LIST_MAGIC = 0x4D4A
@@ -26,7 +27,7 @@ class D2IntEnum(IntEnum):
         return self.display_name
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value: object) -> Self:
         obj = int.__new__(cls, value)
         obj._name_ = f"Unknown({value})"
         obj._value_ = value
