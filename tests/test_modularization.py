@@ -157,9 +157,8 @@ class TestModularization(unittest.TestCase):
         ]
 
         # Custom injected formatter
-        custom_formatter = lambda pid, params, ver: (
-            f"CUSTOM_PROP_{pid}:{params[0]}" if pid == 7 else None
-        )
+        def custom_formatter(pid, params, ver):
+            return f"CUSTOM_PROP_{pid}:{params[0]}" if pid == 7 else None
 
         res = formatters._format_parsed_properties(
             mock_prop_list, property_formatter=custom_formatter
