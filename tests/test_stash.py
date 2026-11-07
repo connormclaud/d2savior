@@ -538,24 +538,24 @@ class TestComputeAdvancedGrid(unittest.TestCase):
         self.assertEqual(slots, GEM_SLOT_ORDER)
 
     def test_empty_items_rune(self):
-        cols, rows, slots = compute_advanced_grid([], ADVANCED_SUBTYPE_RUNE)
+        cols, rows, _slots = compute_advanced_grid([], ADVANCED_SUBTYPE_RUNE)
         self.assertEqual(cols, RUNE_LAYOUT[0])
         self.assertEqual(rows, RUNE_LAYOUT[1])
 
     def test_empty_items_material(self):
-        cols, rows, slots = compute_advanced_grid([], ADVANCED_SUBTYPE_MATERIAL)
+        cols, rows, _slots = compute_advanced_grid([], ADVANCED_SUBTYPE_MATERIAL)
         self.assertEqual(cols, MATERIAL_LAYOUT[0])
         self.assertEqual(rows, MATERIAL_LAYOUT[1])
 
     def test_with_items_within_base_layout(self):
         items = [self._make_item(b"r01 "), self._make_item(b"r02 ")]
-        cols, rows, slots = compute_advanced_grid(items, ADVANCED_SUBTYPE_RUNE)
+        cols, rows, _slots = compute_advanced_grid(items, ADVANCED_SUBTYPE_RUNE)
         self.assertEqual(cols, RUNE_LAYOUT[0])
         self.assertEqual(rows, RUNE_LAYOUT[1])
 
     def test_with_items_exceeding_base_rows(self):
         items = [self._make_item(f"r{i:02d} ".encode()) for i in range(1, 40)]
-        cols, rows, slots = compute_advanced_grid(items, ADVANCED_SUBTYPE_RUNE)
+        cols, rows, _slots = compute_advanced_grid(items, ADVANCED_SUBTYPE_RUNE)
         self.assertEqual(cols, RUNE_LAYOUT[0])
         self.assertGreaterEqual(rows * cols, len(items))
 

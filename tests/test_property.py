@@ -129,12 +129,12 @@ class TestGetSkillName(unittest.TestCase):
         self.assertEqual(class_id, 1)
 
     def test_get_skill_name_normal_skill(self):
-        name, class_id = get_skill_name(217)
+        name, _class_id = get_skill_name(217)
         self.assertIsInstance(name, str)
         self.assertNotEqual(name, "")
 
     def test_get_skill_name_out_of_range(self):
-        name, class_id = get_skill_name(2000)
+        name, _class_id = get_skill_name(2000)
         self.assertIsInstance(name, str)
 
 
