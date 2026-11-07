@@ -246,12 +246,11 @@ def get_skill_name(skill_id: int) -> tuple[str, int]:
         if result:
             return result, class_id
 
-    from d2savior.core.d2data import get_d2data
+    from d2savior.core.d2data import get_game_data
 
-    d2data = get_d2data()
-
-    if d2data:
-        name = d2data.get_skill_name(skill_id)
+    game_data = get_game_data()
+    if game_data:
+        name = game_data.for_version(0x63).get_skill_name(skill_id)
         if name:
             return name, class_id
 
@@ -301,12 +300,12 @@ def get_monster_name(monster_id: int) -> str:
 
     loc = get_localized_data()
     if loc:
-        from d2savior.core.d2data import get_d2data_manager
+        from d2savior.core.d2data import get_game_data
 
-        mgr = get_d2data_manager()
+        mgr = get_game_data()
         if mgr:
             for ver in (0x69, 0x63):
-                vd = mgr.get_version_data(ver)
+                vd = mgr.for_version(ver)
                 if vd:
                     mon = getattr(vd, "monsters", {}).get(monster_id)
                     if mon and hasattr(mon, "name") and mon.name:
@@ -328,12 +327,13 @@ def get_time_name(time_id: int) -> str:
     return f"Time{time_id}"
 
 
-def get_property_name(stat_id: int) -> str:
-    from d2savior.core.d2data import get_d2data
+def get_property_name(stat_id: int, data: Any = None) -> str:
+    from d2savior.core.d2data import get_game_data
 
-    d2data = get_d2data()
-    if d2data:
-        stat = d2data.get_stat(stat_id)
+    game_data = get_game_data()
+    vd = data or (game_data.for_version(0x63) if game_data else None)
+    if vd:
+        stat = vd.get_stat(stat_id)
         if stat and stat.stat_name:
             return stat.stat_name
 
@@ -343,12 +343,13 @@ def get_property_name(stat_id: int) -> str:
     return f"Stat{stat_id}"
 
 
-def get_property_tooltip(prop_id: int) -> str:
-    from d2savior.core.d2data import get_d2data
+def get_property_tooltip(prop_id: int, data: Any = None) -> str:
+    from d2savior.core.d2data import get_game_data
 
-    d2data = get_d2data()
-    if d2data:
-        prop = d2data.get_property(prop_id)
+    game_data = get_game_data()
+    vd = data or (game_data.for_version(0x63) if game_data else None)
+    if vd:
+        prop = vd.get_property(prop_id)
         if prop:
             return prop.code
     return ""
@@ -375,24 +376,29 @@ _CHANCE_CAST_KEYS = {
 }
 
 
-def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str:
-    from d2savior.core.d2data import get_d2data
+def format_property(prop_id: int, params: list[int], version: int = 0x60, data: Any = None) -> str:
+    from d2savior.core.d2data import GameData, get_game_data
 
-    d2data = get_d2data()
+    game_data = get_game_data()
+    vd = (
+        (data.for_version(version) if isinstance(data, GameData) else data)
+        if data
+        else (game_data.for_version(version) if game_data else None)
+    )
 
     if not params:
-        stat = d2data.get_stat(prop_id) if d2data else None
+        stat = vd.get_stat(prop_id) if vd else None
         if stat and stat.descstrpos:
             template = get_item_modifier(stat.descstrpos)
             if template and "%d" not in template and "%g" not in template:
                 return template
-        return get_property_name(prop_id)
+        return get_property_name(prop_id, vd)
 
     a: list[Any] = list(params)
     while len(a) < 4:
         a.append(0)
 
-    prop_name = get_property_name(prop_id)
+    prop_name = get_property_name(prop_id, vd)
 
     match prop_id:
         case 54:
@@ -417,7 +423,7 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
             return f"+{a[1]} to {class_name} Skill Levels"
         case 97:
             skill_name, class_id = get_skill_name(a[0])
-            stat = d2data.get_stat(prop_id) if d2data else None
+            stat = vd.get_stat(prop_id) if vd else None
             if stat and stat.descstrpos:
                 tpl = get_item_modifier(stat.descstrpos)
                 if tpl and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
@@ -445,7 +451,7 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
                 return time_name
             return prop_name
         case 73:
-            stat = d2data.get_stat(prop_id) if d2data else None
+            stat = vd.get_stat(prop_id) if vd else None
             if stat and stat.descstrpos:
                 tpl = get_item_modifier(stat.descstrpos)
                 if tpl and ("%+d" in tpl or "%d" in tpl):
@@ -461,7 +467,7 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
         case 107:
             skill_name, class_id = get_skill_name(a[0])
             class_name = get_class_name(class_id) if class_id >= 0 else ""
-            stat = d2data.get_stat(prop_id) if d2data else None
+            stat = vd.get_stat(prop_id) if vd else None
             if stat and stat.descstrpos:
                 tpl = get_item_modifier(stat.descstrpos)
                 if tpl and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
@@ -488,14 +494,14 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
                 )
             return f"{a[1]}% Reanimate as: {monster_name}"
         case 159:
-            stat = d2data.get_stat(prop_id) if d2data else None
+            stat = vd.get_stat(prop_id) if vd else None
             if stat and stat.descstrpos:
                 tpl = get_item_modifier(stat.descstrpos)
                 if tpl and ("%+d" in tpl or "%d" in tpl):
                     return tpl.replace("%+d", f"{a[0]:+d}").replace("%d", str(a[0]))
             return f"+{a[0]} to Minimum Throw Damage"
         case 160:
-            stat = d2data.get_stat(prop_id) if d2data else None
+            stat = vd.get_stat(prop_id) if vd else None
             if stat and stat.descstrpos:
                 tpl = get_item_modifier(stat.descstrpos)
                 if tpl and ("%+d" in tpl or "%d" in tpl):
@@ -503,7 +509,7 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
             return f"+{a[0]} to Maximum Throw Damage"
         case 179 | 180:
             monster_name = get_monster_name(a[0])
-            stat = d2data.get_stat(prop_id) if d2data else None
+            stat = vd.get_stat(prop_id) if vd else None
             if stat and stat.descstrpos:
                 tpl = get_item_modifier(stat.descstrpos)
                 if tpl and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
@@ -552,7 +558,7 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
         case 204:
             level = a[0]
             skill_name, _ = get_skill_name(a[1])
-            stat = d2data.get_stat(prop_id) if d2data else None
+            stat = vd.get_stat(prop_id) if vd else None
             if stat and stat.descstrpos:
                 tpl = get_item_modifier(stat.descstrpos)
                 if tpl and ("%d" in tpl or "%s" in tpl):
@@ -571,15 +577,13 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
                     return result
             return f"Level {level} {skill_name} ({a[2]}/{a[3]} Charges)"
         case _ if prop_id in range(214, 251):
-            from d2savior.core.item import get_stat_cost
-
-            sc = get_stat_cost(prop_id)
+            sc = vd.get_stat(prop_id) if vd else None
             if sc and sc.op_param > 0:
                 a[0] = round(a[0] / sc.op_param, 2)
             elif sc and sc.val_shift > 0:
                 a[0] = a[0] / (1 << sc.val_shift)
             if prop_id == 237:
-                stat = d2data.get_stat(prop_id) if d2data else None
+                stat = vd.get_stat(prop_id) if vd else None
                 if stat and stat.descstrpos:
                     tpl = get_item_modifier(stat.descstrpos)
                     if tpl and ("%+d" in tpl or "%d" in tpl or "%g" in tpl or "%+g" in tpl):
@@ -603,7 +607,7 @@ def format_property(prop_id: int, params: list[int], version: int = 0x60) -> str
         case _:
             pass
 
-    stat = d2data.get_stat(prop_id) if d2data else None
+    stat = vd.get_stat(prop_id) if vd else None
     if stat and stat.descstrpos:
         template_key = stat.descstrpos if a[0] >= 0 else (stat.descstrneg or stat.descstrpos)
         template = get_item_modifier(template_key)

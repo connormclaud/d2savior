@@ -1,6 +1,11 @@
+import copy
 import os
+from collections.abc import Buffer
 from dataclasses import dataclass, field
+from itertools import batched
 from typing import Any, ClassVar
+
+type ItemTypeId = Buffer | str
 
 
 @dataclass(slots=True)
@@ -12,6 +17,7 @@ class StatInfo:
     save_bits: int = 0
     save_add: int = 0
     save_param_bits: int = 0
+    val_shift: int = 0
     op: int = 0
     op_param: int = 0
     op_base: int = 0
@@ -24,6 +30,185 @@ class StatInfo:
     descstrpos: str = ""
     descstrneg: str = ""
     descstr2: str = ""
+
+
+# StatCostItem is merged into StatInfo
+StatCostItem = StatInfo
+
+
+@dataclass(slots=True)
+class PropertyField:
+    bits: int = 0
+    base: int = 0
+    min_val: int = 0
+    max_val: int = 0
+
+
+@dataclass(slots=True)
+class PropertyMetaDataItem:
+    ver_min: int = 0
+    fields: list[PropertyField] = field(default_factory=list)
+    default_value: int = 0
+    bits_sum: int = 0
+
+    def parse(self, value: int) -> list[int]:
+        result = []
+        remaining = value
+        for f in self.fields:
+            if f.bits > 0:
+                mask = (1 << f.bits) - 1
+                v = remaining & mask
+                result.append(v + f.base)
+                remaining >>= f.bits
+            else:
+                result.append(0)
+        return result
+
+    def get_value(self, params: list[int]) -> tuple[bool, int]:
+        if len(params) != len(self.fields):
+            return False, 0
+        value = 0
+        bit_pos = 0
+        for i, f in enumerate(self.fields):
+            if f.bits > 0:
+                v = params[i] - f.base
+                if v < 0 or v >= (1 << f.bits):
+                    return False, 0
+                value += v << bit_pos
+                bit_pos += f.bits
+        return True, value
+
+
+class PropertyMetaData:
+    def __init__(self) -> None:
+        self._data: list[PropertyMetaDataItem] = []
+
+    def add_item(self, item: PropertyMetaDataItem) -> None:
+        self._data.append(item)
+
+    def find_data(self, version: int) -> PropertyMetaDataItem | None:
+        best_match = None
+        best_ver_min = -1
+        for item in self._data:
+            if item.ver_min <= version and item.ver_min > best_ver_min:
+                best_match = item
+                best_ver_min = item.ver_min
+        if best_match is None and self._data:
+            return self._data[-1]
+        return best_match
+
+
+@dataclass(slots=True)
+class ItemMetaData:
+    type_id: bytes = b"    "
+    ver_min: int = 0
+    name: str = ""
+    pic_index: int = 0
+    name_index: int = 0
+    equip: int = 0
+    range_val: int = 0
+    simple: bool = False
+    normal: bool = False
+    white: bool = False
+    is_new: bool = False
+    has_def: bool = False
+    has_dur: bool = False
+    is_stacked: bool = False
+    has_monster_id: bool = False
+    is_charm: bool = False
+    spell_id: int = 0
+    is_unique: bool = False
+    is_craft: bool = False
+    is_gem: bool = False
+    dmg1_min: int = 0
+    dmg1_max: int = 0
+    dmg2_min: int = 0
+    dmg2_max: int = 0
+    ipad_bits: int = 0
+    ipad: int = 0
+    is_body_part: bool = False
+    is_player_body_part: bool = False
+    is_scroll_or_book: bool = False
+
+    @property
+    def type_name(self) -> str:
+        return self.type_id.decode("ascii", errors="replace").strip()
+
+
+class ItemMetaDataManager:
+    def __init__(self) -> None:
+        self._items: dict[bytes, list[ItemMetaData]] = {}
+
+    def add_item(self, item: ItemMetaData) -> None:
+        if item.type_id not in self._items:
+            self._items[item.type_id] = []
+        self._items[item.type_id].append(item)
+
+    def get_item(self, type_id: ItemTypeId, version: int = 0) -> ItemMetaData | None:
+        if isinstance(type_id, str):
+            raw_id = type_id.encode("ascii", errors="replace")
+        else:
+            raw_id = bytes(type_id)
+        tid = raw_id.ljust(4)[:4]
+
+        items = self._items.get(tid)
+        if not items:
+            return None
+
+        best_match = None
+        best_ver_min = -1
+        for item in items:
+            if item.ver_min <= version and item.ver_min > best_ver_min:
+                best_match = item
+                best_ver_min = item.ver_min
+
+        if best_match is not None:
+            return copy.copy(best_match)
+        return copy.copy(items[-1])
+
+    def get_item_by_name(self, name: str, version: int = 0) -> ItemMetaData | None:
+        padded_name = name.ljust(4)[:4].encode("ascii")
+        return self.get_item(padded_name, version)
+
+
+def _convert_item_type_to_meta(type_info: Any, d2data: Any = None) -> ItemMetaData | None:
+    if type_info is None:
+        return None
+
+    meta = ItemMetaData()
+    meta.type_id = type_info.code.encode("ascii").ljust(4)[:4]
+    meta.name = type_info.name
+
+    meta.simple = type_info.compactsave
+    meta.normal = type_info.spawnable
+    meta.white = not type_info.rarity or type_info.rarity == 1
+
+    meta.has_def = type_info.item_type == "armor"
+    meta.has_dur = not type_info.nodurability and type_info.durability > 0
+    meta.is_stacked = type_info.stackable
+
+    meta.is_charm = type_info.item_type2 in ["char", "charmed"]
+    meta.spell_id = type_info.spell_id if type_info.spell_id > 0 else 0
+
+    meta.is_gem = type_info.item_type2 in ["gem", "gem2"]
+    meta.is_unique = type_info.rarity == 7
+    meta.is_craft = type_info.item_type2 == "craft"
+
+    if d2data is not None and type_info.item_type2:
+        meta.is_scroll_or_book = d2data.is_descendant(
+            type_info.item_type2, "scro"
+        ) or d2data.is_descendant(type_info.item_type2, "book")
+        meta.is_body_part = d2data.is_descendant(type_info.item_type2, "body")
+        meta.is_player_body_part = d2data.is_descendant(type_info.item_type2, "play")
+        if d2data.is_descendant(type_info.item_type2, "armo"):
+            meta.has_def = True
+
+    meta.dmg1_min = type_info.mindam
+    meta.dmg1_max = type_info.maxdam
+    meta.dmg2_min = type_info.minmisdam
+    meta.dmg2_max = type_info.maxmisdam
+
+    return meta
 
 
 @dataclass(slots=True)
@@ -133,8 +318,9 @@ class ItemTypeInfo:
 
 @dataclass(slots=True)
 class VersionData:
-    """存储单个版本的所有数据"""
+    """Stores all game data for a specific version."""
 
+    version: int = 0x63
     stats: dict[int, StatInfo] = field(default_factory=dict)
     stats_by_name: dict[str, StatInfo] = field(default_factory=dict)
     properties: dict[int, PropertyInfo] = field(default_factory=dict)
@@ -151,9 +337,91 @@ class VersionData:
     type_descendants: dict[str, set[str]] = field(default_factory=dict)
     type_bodyloc: dict[str, tuple[int, int]] = field(default_factory=dict)
     type_beltable: set[str] = field(default_factory=set)
-    item_manager: Any = None
-    prop_meta: dict = field(default_factory=dict)
-    stat_cost: dict = field(default_factory=dict)
+    item_manager: ItemMetaDataManager | None = None
+    prop_meta: dict[int, PropertyMetaData] = field(default_factory=dict)
+
+    @property
+    def stat_cost(self) -> dict[int, StatInfo]:
+        return self.stats
+
+    @stat_cost.setter
+    def stat_cost(self, val: dict[int, StatInfo]) -> None:
+        self.stats = val
+
+    def get_item(self, code: str) -> ItemTypeInfo | None:
+        if not code:
+            return None
+        return self.items.get(code.lower().strip())
+
+    def get_stat(self, stat_id: int) -> StatInfo | None:
+        return self.stats.get(stat_id)
+
+    def get_stat_by_name(self, stat_name: str) -> StatInfo | None:
+        return self.stats_by_name.get(stat_name)
+
+    def get_stat_cost(self, stat_id: int) -> StatInfo | None:
+        return self.stats.get(stat_id)
+
+    def get_property(self, prop_id: int) -> PropertyInfo | None:
+        return self.properties.get(prop_id)
+
+    def get_property_by_code(self, code: str) -> PropertyInfo | None:
+        return self.properties_by_code.get(code)
+
+    def get_magic_prefix(self, prefix_id: int) -> MagicAffixInfo | None:
+        return self.magic_prefixes.get(prefix_id)
+
+    def get_magic_suffix(self, suffix_id: int) -> MagicAffixInfo | None:
+        return self.magic_suffixes.get(suffix_id)
+
+    def get_unique_item(self, unique_id: int) -> UniqueItemInfo | None:
+        return self.unique_items.get(unique_id)
+
+    def get_set_item(self, set_id: int) -> SetItemInfo | None:
+        return self.set_items.get(set_id)
+
+    def get_runeword(self, runeword_id: int) -> RuneWordInfo | None:
+        return self.runewords.get(runeword_id)
+
+    def get_skill_name(self, skill_id: int) -> str:
+        return self.skills.get(skill_id, "")
+
+    def get_property_meta(
+        self, prop_id: int, version: int | None = None
+    ) -> PropertyMetaDataItem | None:
+        if prop_id in self.prop_meta:
+            return self.prop_meta[prop_id].find_data(self.version if version is None else version)
+        return None
+
+    def get_item_meta(self, type_id: ItemTypeId) -> ItemMetaData | None:
+        if self.item_manager is not None:
+            meta = self.item_manager.get_item(type_id, self.version)
+            if meta is not None:
+                self._supplement_meta(meta)
+                return meta
+        code = (
+            type_id.strip()
+            if isinstance(type_id, str)
+            else bytes(type_id).decode("ascii", errors="replace").strip()
+        )
+        type_info = self.get_item(code)
+        return _convert_item_type_to_meta(type_info, self)
+
+    def _supplement_meta(self, meta: ItemMetaData) -> None:
+        code = meta.type_id.decode("ascii", errors="replace").strip()
+        type_info = self.get_item(code)
+        if type_info is None or not type_info.item_type2:
+            return
+        if not meta.is_scroll_or_book:
+            meta.is_scroll_or_book = self.is_descendant(
+                type_info.item_type2, "scro"
+            ) or self.is_descendant(type_info.item_type2, "book")
+        if not meta.is_body_part:
+            meta.is_body_part = self.is_descendant(type_info.item_type2, "body")
+        if not meta.is_player_body_part:
+            meta.is_player_body_part = self.is_descendant(type_info.item_type2, "play")
+        if not meta.has_def and self.is_descendant(type_info.item_type2, "armo"):
+            meta.has_def = True
 
     def is_descendant(self, item_type_code: str, ancestor_code: str) -> bool:
         if not item_type_code or not ancestor_code:
@@ -217,9 +485,7 @@ class D2DataLoader:
             return stats, stats_by_name
 
         header = lines[0].strip().split("\t")
-        col_map = {}
-        for i, col in enumerate(header):
-            col_map[col] = i
+        col_map = {col.strip().lower(): i for i, col in enumerate(header)}
 
         for line in lines[1:]:
             line = line.strip()
@@ -229,8 +495,9 @@ class D2DataLoader:
             parts = line.split("\t")
 
             def get_col(col_name: str, default: str = "", _parts: list[str] = parts) -> str:
-                if col_name in col_map and col_map[col_name] < len(_parts):
-                    return _parts[col_map[col_name]]
+                idx = col_map.get(col_name.strip().lower(), -1)
+                if 0 <= idx < len(_parts):
+                    return _parts[idx].strip()
                 return default
 
             def get_int(col_name: str, default: int = 0) -> int:
@@ -256,6 +523,7 @@ class D2DataLoader:
                 save_bits=get_int("Save Bits"),
                 save_add=get_int("Save Add"),
                 save_param_bits=get_int("Save Param Bits"),
+                val_shift=get_int("ValShift"),
                 op=get_int("op"),
                 op_param=get_int("op param"),
                 op_base=get_int("op base"),
@@ -1066,341 +1334,275 @@ class D2DataLoader:
         skills_path = self._resolve_path("skills.txt", data_dir, fallback_dir)
         version_data.skills, version_data.aura_skill_ids = self.load_skills(skills_path)
 
-        # 加载itemdata.txt（物品元数据）
-        from d2savior.core.item import (
-            parse_itemdata_txt,
-            parse_itemstatcost_txt,
-            parse_property_txt,
-        )
-
+        # Load itemdata.txt
         itemdata_path = self._resolve_path("itemdata.txt", data_dir, fallback_dir)
-        version_data.item_manager = parse_itemdata_txt(itemdata_path)
+        version_data.item_manager = self.load_itemdata(itemdata_path)
 
-        # 加载property.txt（属性编码元数据）
+        # Load property.txt
         property_path = self._resolve_path("property.txt", data_dir, fallback_dir)
-        version_data.prop_meta = parse_property_txt(property_path)
-
-        # 加载ItemStatCost.txt（属性成本元数据）
-        statcost_path = self._resolve_path("ItemStatCost.txt", data_dir, fallback_dir)
-        version_data.stat_cost = parse_itemstatcost_txt(statcost_path)
+        version_data.prop_meta = self.load_property_meta(property_path)
 
         return version_data
 
+    def load_property_meta(self, filepath: str) -> dict[int, PropertyMetaData]:
+        properties: dict[int, PropertyMetaData] = {}
+        if not os.path.exists(filepath):
+            return properties
 
-class D2DataManager:
-    """管理多个版本的数据"""
+        with open(filepath, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("*"):
+                continue
+
+            parts = line.split("\t")
+            if len(parts) < 1:
+                continue
+
+            try:
+                prop_id = int(parts[0])
+            except ValueError:
+                continue
+
+            ver_min = 0
+            if len(parts) > 1 and parts[1]:
+                if parts[1].startswith("0x"):
+                    ver_min = int(parts[1], 16)
+                else:
+                    try:
+                        ver_min = int(parts[1])
+                    except ValueError:
+                        ver_min = 0
+
+            default_value = 0
+            if len(parts) > 2 and parts[2]:
+                if parts[2].startswith("0x"):
+                    default_value = int(parts[2], 16)
+                else:
+                    try:
+                        default_value = int(parts[2])
+                    except ValueError:
+                        default_value = 0
+
+            fields: list[PropertyField] = []
+            bits_sum = 0
+
+            for chunk in batched(parts[3:], 4, strict=False):
+                bits_str = chunk[0]
+                if not bits_str:
+                    break
+
+                try:
+                    bits = int(bits_str)
+                    base_str = chunk[1] if len(chunk) > 1 else ""
+                    min_str = chunk[2] if len(chunk) > 2 else ""
+                    max_str = chunk[3] if len(chunk) > 3 else ""
+
+                    base = int(base_str) if base_str else 0
+                    min_val = int(min_str) if min_str else 0
+                    max_val = int(max_str) if max_str else 0
+
+                    fields.append(PropertyField(bits, base, min_val, max_val))
+                    bits_sum += bits
+                except ValueError:
+                    break
+
+            while len(fields) < 4:
+                fields.append(PropertyField())
+
+            item = PropertyMetaDataItem(ver_min, fields, default_value, bits_sum)
+
+            if prop_id not in properties:
+                properties[prop_id] = PropertyMetaData()
+            properties[prop_id].add_item(item)
+
+        return properties
+
+    def load_itemdata(self, filepath: str) -> ItemMetaDataManager:
+        manager = ItemMetaDataManager()
+        if not os.path.exists(filepath):
+            return manager
+
+        with open(filepath, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+
+        has_version_min = False
+        for line in lines:
+            if line.strip().startswith("*ID"):
+                if "VersionMin" in line:
+                    has_version_min = True
+                break
+
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("*"):
+                continue
+
+            parts = line.split("\t")
+            if len(parts) < 2:
+                continue
+
+            type_id = parts[0].ljust(4)[:4].encode("ascii")
+
+            def parse_int(s: str, default: int = 0) -> int:
+                if not s:
+                    return default
+                try:
+                    return int(s)
+                except ValueError:
+                    return default
+
+            def parse_bool(s: str) -> bool:
+                return s == "1"
+
+            def parse_version(s: str) -> int:
+                if not s:
+                    return 0
+                if s.startswith("0x"):
+                    return int(s, 16)
+                try:
+                    return int(s)
+                except ValueError:
+                    return 0
+
+            idx_offset = 1 if has_version_min else 0
+            ver_min = parse_version(parts[1]) if has_version_min and len(parts) > 1 else 0
+
+            item = ItemMetaData(
+                type_id=type_id,
+                ver_min=ver_min,
+                pic_index=parse_int(parts[1 + idx_offset]) if len(parts) > 1 + idx_offset else 0,
+                name_index=parse_int(parts[2 + idx_offset]) if len(parts) > 2 + idx_offset else 0,
+                range_val=parse_int(parts[3 + idx_offset]) if len(parts) > 3 + idx_offset else 0,
+                equip=parse_int(parts[4 + idx_offset]) if len(parts) > 4 + idx_offset else 0,
+                simple=parse_bool(parts[5 + idx_offset]) if len(parts) > 5 + idx_offset else False,
+                normal=parse_bool(parts[6 + idx_offset]) if len(parts) > 6 + idx_offset else False,
+                white=parse_bool(parts[7 + idx_offset]) if len(parts) > 7 + idx_offset else False,
+                is_new=parse_bool(parts[8 + idx_offset]) if len(parts) > 8 + idx_offset else False,
+                has_def=parse_bool(parts[9 + idx_offset]) if len(parts) > 9 + idx_offset else False,
+                has_dur=parse_bool(parts[10 + idx_offset])
+                if len(parts) > 10 + idx_offset
+                else False,
+                is_stacked=parse_bool(parts[11 + idx_offset])
+                if len(parts) > 11 + idx_offset
+                else False,
+                has_monster_id=parse_bool(parts[12 + idx_offset])
+                if len(parts) > 12 + idx_offset
+                else False,
+                is_charm=parse_bool(parts[13 + idx_offset])
+                if len(parts) > 13 + idx_offset
+                else False,
+                spell_id=parse_int(parts[14 + idx_offset]) if len(parts) > 14 + idx_offset else 0,
+                is_unique=parse_bool(parts[15 + idx_offset])
+                if len(parts) > 15 + idx_offset
+                else False,
+                is_craft=parse_bool(parts[16 + idx_offset])
+                if len(parts) > 16 + idx_offset
+                else False,
+                is_gem=parse_bool(parts[17 + idx_offset])
+                if len(parts) > 17 + idx_offset
+                else False,
+                dmg1_min=parse_int(parts[18 + idx_offset]) if len(parts) > 18 + idx_offset else 0,
+                dmg1_max=parse_int(parts[19 + idx_offset]) if len(parts) > 19 + idx_offset else 0,
+                dmg2_min=parse_int(parts[20 + idx_offset]) if len(parts) > 20 + idx_offset else 0,
+                dmg2_max=parse_int(parts[21 + idx_offset]) if len(parts) > 21 + idx_offset else 0,
+                ipad_bits=parse_int(parts[22 + idx_offset]) if len(parts) > 22 + idx_offset else 0,
+                ipad=parse_int(parts[23 + idx_offset]) if len(parts) > 23 + idx_offset else 0,
+            )
+            manager.add_item(item)
+
+        return manager
+
+
+class GameData:
+    """Manages versioned data stores."""
 
     def __init__(self) -> None:
         self.version_data: dict[int, VersionData] = {}
-        self.default_version: int = 0x63  # 默认版本
+        self.default_version: int = 0x63
+
+    @classmethod
+    def load(cls, base_data_dir: str) -> GameData:
+        mgr = cls()
+        mgr.load_all_versions(base_data_dir)
+        return mgr
+
+    def for_version(self, version: int) -> VersionData:
+        """Return VersionData for a given game version."""
+        if version in self.version_data:
+            return self.version_data[version]
+        if version >= 0x69 and 0x69 in self.version_data:
+            return self.version_data[0x69]
+        if self.default_version in self.version_data:
+            return self.version_data[self.default_version]
+        if self.version_data:
+            return next(iter(self.version_data.values()))
+        raise KeyError(f"No game data loaded for version {version:#x}")
 
     def load_version(self, version: int, data_dir: str, fallback_dir: str | None = None) -> bool:
-        """加载指定版本的数据
-
-        Args:
-            version: 版本号（如 0x63, 0x69）
-            data_dir: 版本数据目录
-            fallback_dir: 回退目录，当版本目录中缺失文件时从此目录加载
-        """
         if not os.path.exists(data_dir):
             return False
 
         loader = D2DataLoader()
         version_data = loader.load_version_data(data_dir, fallback_dir)
+        version_data.version = version
         self.version_data[version] = version_data
         return True
 
     def load_all_versions(self, base_data_dir: str) -> bool:
-        """加载所有版本的数据
-
-        Args:
-            base_data_dir: 基础数据目录，包含版本子目录（0x63/, 0x69/）和回退文件
-        """
         success = True
 
-        # 尝试加载0x63版本
         v63_dir = os.path.join(base_data_dir, "0x63")
         if os.path.exists(v63_dir):
             if not self.load_version(0x63, v63_dir, base_data_dir):
                 success = False
         else:
-            # 如果没有0x63子目录，尝试从根目录加载（保持向后兼容）
             if not self.load_version(0x63, base_data_dir):
                 success = False
 
-        # 尝试加载0x69版本
         v69_dir = os.path.join(base_data_dir, "0x69")
         if os.path.exists(v69_dir) and not self.load_version(0x69, v69_dir, base_data_dir):
             success = False
 
         return success
 
-    def get_version_data(self, version: int) -> VersionData | None:
-        """获取指定版本的数据"""
-        if version in self.version_data:
-            return self.version_data[version]
-        # 如果请求的版本不存在，返回默认版本
-        return self.version_data.get(self.default_version)
 
-    def get_stat(self, stat_id: int, version: int | None = None) -> StatInfo | None:
-        """获取指定版本的stat信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.stats.get(stat_id)
-        return None
-
-    def get_stat_by_name(self, stat_name: str, version: int | None = None) -> StatInfo | None:
-        """通过名称获取指定版本的stat信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.stats_by_name.get(stat_name)
-        return None
-
-    def get_property(self, prop_id: int, version: int | None = None) -> PropertyInfo | None:
-        """获取指定版本的property信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.properties.get(prop_id)
-        return None
-
-    def get_property_by_code(self, code: str, version: int | None = None) -> PropertyInfo | None:
-        """通过代码获取指定版本的property信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.properties_by_code.get(code)
-        return None
-
-    def get_item(self, code: str, version: int | None = None) -> ItemTypeInfo | None:
-        """获取指定版本的item信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.items.get(code)
-        return None
-
-    def get_magic_prefix(self, prefix_id: int, version: int | None = None) -> MagicAffixInfo | None:
-        """获取指定版本的magic prefix信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.magic_prefixes.get(prefix_id)
-        return None
-
-    def get_magic_suffix(self, suffix_id: int, version: int | None = None) -> MagicAffixInfo | None:
-        """获取指定版本的magic suffix信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.magic_suffixes.get(suffix_id)
-        return None
-
-    def get_unique_item(self, unique_id: int, version: int | None = None) -> UniqueItemInfo | None:
-        """获取指定版本的unique item信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.unique_items.get(unique_id)
-        return None
-
-    def get_set_item(self, set_id: int, version: int | None = None) -> SetItemInfo | None:
-        """获取指定版本的set item信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.set_items.get(set_id)
-        return None
-
-    def get_runeword(self, runeword_id: int, version: int | None = None) -> RuneWordInfo | None:
-        """获取指定版本的runeword信息"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.runewords.get(runeword_id)
-        return None
-
-    def get_skill_name(self, skill_id: int, version: int | None = None) -> str:
-        """获取指定版本的skill名称"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.skills.get(skill_id, "")
-        return ""
-
-    def get_aura_skill_ids(self, version: int | None = None) -> set[int]:
-        """获取指定版本的aura技能ID集合"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.aura_skill_ids
-        return set()
-
-    def is_descendant(
-        self, item_type_code: str, ancestor_code: str, version: int | None = None
-    ) -> bool:
-        """检查item类型是否是指定祖先类型的后代"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.is_descendant(item_type_code, ancestor_code)
-        return False
-
-    def is_beltable(self, item_code: str, version: int | None = None) -> bool:
-        """检查物品是否可以放入腰带"""
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.is_beltable(item_code)
-        return False
-
-    def get_belt_rows(self, item_code: str, version: int | None = None) -> int:
-        version = version or self.default_version
-        data = self.get_version_data(version)
-        if data:
-            return data.get_belt_rows(item_code)
-        return 0
-
-    def get_item_meta(self, type_id: Any, version: int = 0) -> Any | None:
-        """获取指定版本的物品元数据"""
-        ver = version if version in self.version_data else self.default_version
-        data = self.get_version_data(ver)
-        if data and data.item_manager is not None:
-            return data.item_manager.get_item(type_id, version)
-        return None
-
-    def get_property_meta(self, prop_id: int, version: int = 0) -> Any | None:
-        """获取指定版本的属性编码元数据"""
-        ver = version if version in self.version_data else self.default_version
-        data = self.get_version_data(ver)
-        if data and prop_id in data.prop_meta:
-            return data.prop_meta[prop_id].find_data(version)
-        return None
-
-    def get_stat_cost(self, stat_id: int, version: int | None = None) -> Any | None:
-        """获取指定版本的属性成本元数据"""
-        ver = version if version in self.version_data else self.default_version
-        data = self.get_version_data(ver)
-        if data and stat_id in data.stat_cost:
-            return data.stat_cost.get(stat_id)
-        return None
-
-
-# 全局数据管理器实例
-_g_d2data_manager: D2DataManager | None = None
-# 向后兼容的全局数据加载器（包装器）
-_g_d2data_wrapper: D2DataWrapper | None = None
-
-
-class D2DataWrapper:
-    """向后兼容的包装器，模拟旧的D2DataLoader接口"""
-
-    def __init__(self, manager: D2DataManager) -> None:
-        self.manager = manager
-
-    def get_stat(self, stat_id: int) -> StatInfo | None:
-        return self.manager.get_stat(stat_id)
-
-    def get_stat_by_name(self, stat_name: str) -> StatInfo | None:
-        return self.manager.get_stat_by_name(stat_name)
-
-    def get_property(self, prop_id: int) -> PropertyInfo | None:
-        return self.manager.get_property(prop_id)
-
-    def get_property_by_code(self, code: str) -> PropertyInfo | None:
-        return self.manager.get_property_by_code(code)
-
-    def get_item(self, code: str) -> ItemTypeInfo | None:
-        return self.manager.get_item(code)
-
-    def get_magic_prefix(self, prefix_id: int) -> MagicAffixInfo | None:
-        return self.manager.get_magic_prefix(prefix_id)
-
-    def get_magic_suffix(self, suffix_id: int) -> MagicAffixInfo | None:
-        return self.manager.get_magic_suffix(suffix_id)
-
-    def get_unique_item(self, unique_id: int) -> UniqueItemInfo | None:
-        return self.manager.get_unique_item(unique_id)
-
-    def get_set_item(self, set_id: int, version: int | None = None) -> SetItemInfo | None:
-        return self.manager.get_set_item(set_id, version)
-
-    def get_runeword(self, runeword_id: int) -> RuneWordInfo | None:
-        return self.manager.get_runeword(runeword_id)
-
-    def get_skill_name(self, skill_id: int) -> str:
-        return self.manager.get_skill_name(skill_id)
-
-    def is_descendant(self, item_type_code: str, ancestor_code: str) -> bool:
-        return self.manager.is_descendant(item_type_code, ancestor_code)
-
-    def is_beltable(self, item_code: str, version: int | None = None) -> bool:
-        return self.manager.is_beltable(item_code, version)
+_g_game_data: GameData | None = None
 
 
 def init_d2data(data_dir: str) -> bool:
-    """初始化数据，保持向后兼容"""
-    global _g_d2data_manager, _g_d2data_wrapper
-
-    _g_d2data_manager = D2DataManager()
-    result = _g_d2data_manager.load_all_versions(data_dir)
-
-    _g_d2data_wrapper = D2DataWrapper(_g_d2data_manager)
-
-    from d2savior.core.item import init_item_data
-
-    itemdata_path = os.path.join(data_dir, "itemdata.txt")
-    if not os.path.exists(itemdata_path):
-        itemdata_path = None
-
-    property_path = os.path.join(data_dir, "property.txt")
-    if not os.path.exists(property_path):
-        property_path = None
-
-    statcost_path = os.path.join(data_dir, "ItemStatCost.txt")
-    if not os.path.exists(statcost_path):
-        statcost_path = None
-
-    if itemdata_path or property_path or statcost_path:
-        init_item_data(
-            itemdata_path=itemdata_path, property_path=property_path, statcost_path=statcost_path
-        )
-
-    return result
+    """Initialize versioned game data from data_dir."""
+    global _g_game_data
+    _g_game_data = GameData.load(data_dir)
+    return True
 
 
-def get_d2data() -> D2DataWrapper | None:
-    """获取数据加载器，保持向后兼容"""
-    return _g_d2data_wrapper
-
-
-def get_d2data_manager() -> D2DataManager | None:
-    """获取数据管理器"""
-    return _g_d2data_manager
-
-
-_UNSET: Any = object()
+def get_game_data() -> GameData | None:
+    return _g_game_data
 
 
 class GameDataResolver:
-    """Facade unifying versioned D2DataManager and fallback D2Data lookups."""
+    """Facade unifying versioned GameData lookups and localization."""
 
     def __init__(
         self,
-        version: int = 0x63,
-        mgr: D2DataManager | None = _UNSET,
-        legacy: D2DataWrapper | None = _UNSET,
+        version: int | VersionData = 0x63,
+        game_data: GameData | None = None,
     ) -> None:
-        self.version = version
-        self._mgr = get_d2data_manager() if mgr is _UNSET else mgr
-        self._legacy = get_d2data() if legacy is _UNSET else legacy
+        if isinstance(version, VersionData):
+            self.data = version
+            self.version = version.version
+        else:
+            self.version = version
+            gd = game_data or get_game_data()
+            if gd is None:
+                raise RuntimeError("GameData is not initialized")
+            self.data = gd.for_version(self.version)
 
     def get_item(self, code: str) -> ItemTypeInfo | None:
-        if self._mgr:
-            return self._mgr.get_item(code, self.version)
-        return self._legacy.get_item(code) if self._legacy else None
+        return self.data.get_item(code)
 
     def get_skill_name(self, skill_id: int) -> str:
         from d2savior.core.property import get_skill_name as prop_get_skill_name
@@ -1408,50 +1610,45 @@ class GameDataResolver:
         loc_name, _ = prop_get_skill_name(skill_id)
         if loc_name and loc_name != "Unknown Skill":
             return loc_name
-        if self._mgr:
-            name = self._mgr.get_skill_name(skill_id, self.version)
-            if name:
-                return name
-        if self._legacy:
-            name = self._legacy.get_skill_name(skill_id)
-            if name:
-                return name
-        return ""
+        return self.data.get_skill_name(skill_id)
 
     def get_runeword(self, runeword_id: int) -> RuneWordInfo | None:
-        if self._mgr:
-            return self._mgr.get_runeword(runeword_id, self.version)
-        return self._legacy.get_runeword(runeword_id) if self._legacy else None
+        return self.data.get_runeword(runeword_id)
 
     def get_unique_item(self, unique_id: int) -> UniqueItemInfo | None:
-        if self._mgr:
-            return self._mgr.get_unique_item(unique_id, self.version)
-        return self._legacy.get_unique_item(unique_id) if self._legacy else None
+        return self.data.get_unique_item(unique_id)
 
     def get_set_item(self, set_id: int) -> SetItemInfo | None:
-        if self._mgr:
-            return self._mgr.get_set_item(set_id, self.version)
-        return self._legacy.get_set_item(set_id, self.version) if self._legacy else None
+        return self.data.get_set_item(set_id)
 
     def get_magic_prefix(self, prefix_id: int) -> MagicAffixInfo | None:
-        if self._mgr:
-            return self._mgr.get_magic_prefix(prefix_id, self.version)
-        return self._legacy.get_magic_prefix(prefix_id) if self._legacy else None
+        return self.data.get_magic_prefix(prefix_id)
 
     def get_magic_suffix(self, suffix_id: int) -> MagicAffixInfo | None:
-        if self._mgr:
-            return self._mgr.get_magic_suffix(suffix_id, self.version)
-        return self._legacy.get_magic_suffix(suffix_id) if self._legacy else None
+        return self.data.get_magic_suffix(suffix_id)
 
     def get_stat(self, stat_id: int) -> StatInfo | None:
-        if self._mgr:
-            return self._mgr.get_stat(stat_id, self.version)
-        return self._legacy.get_stat(stat_id) if self._legacy else None
+        return self.data.get_stat(stat_id)
 
     def get_property(self, prop_id: int) -> PropertyInfo | None:
-        if self._mgr:
-            return self._mgr.get_property(prop_id, self.version)
-        return self._legacy.get_property(prop_id) if self._legacy else None
+        return self.data.get_property(prop_id)
+
+    def get_item_meta(self, type_id: Any) -> ItemMetaData | None:
+        return self.data.get_item_meta(type_id)
+
+    def get_property_meta(
+        self, prop_id: int, version: int | None = None
+    ) -> PropertyMetaDataItem | None:
+        return self.data.get_property_meta(prop_id, version)
+
+    def is_beltable(self, item_code: str) -> bool:
+        return self.data.is_beltable(item_code)
+
+    def get_belt_rows(self, item_code: str) -> int:
+        return self.data.get_belt_rows(item_code)
+
+    def is_descendant(self, item_type_code: str, ancestor_code: str) -> bool:
+        return self.data.is_descendant(item_type_code, ancestor_code)
 
     def get_localized_item_name(self, code_or_name: str, fallback: str = "") -> str:
         from d2savior.core.localized_data import get_localized_data

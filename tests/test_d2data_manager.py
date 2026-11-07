@@ -2,10 +2,10 @@ import os
 
 from d2savior.core.d2data import (
     D2DataLoader,
-    D2DataManager,
-    D2DataWrapper,
-    get_d2data,
-    get_d2data_manager,
+    GameData,
+    StatInfo,
+    VersionData,
+    get_game_data,
     init_d2data,
 )
 
@@ -13,55 +13,67 @@ from d2savior.core.d2data import (
 class TestD2DataManager:
     """测试多版本数据管理功能"""
 
-    manager: D2DataManager
-    wrapper: D2DataWrapper
+    manager: GameData
+    default_data: VersionData
 
     def setup_method(self):
         """设置测试环境"""
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "d2savior", "data")
         init_d2data(self.data_dir)
-        mgr = get_d2data_manager()
+        mgr = get_game_data()
         assert mgr is not None
         self.manager = mgr
-        wrapper = get_d2data()
-        assert wrapper is not None
-        self.wrapper = wrapper
+        default_data = mgr.for_version(0x63)
+        assert default_data is not None
+        self.default_data = default_data
 
     def test_manager_initialization(self):
         """测试数据管理器初始化"""
         assert self.manager is not None, "数据管理器初始化失败"
-        assert self.wrapper is not None, "数据包装器初始化失败"
+        assert self.default_data is not None, "版本数据初始化失败"
 
     def test_version_data_loading(self):
         """测试版本数据加载"""
-        default_data = self.manager.get_version_data(0x63)
+        default_data = self.manager.for_version(0x63)
         assert default_data is not None, "默认版本数据加载失败"
 
-        item = self.manager.get_item("gsw", 0x63)
+        item = default_data.get_item("gsw")
         assert item is not None, "物品数据加载失败"
         assert item.name == "Diamond", "物品名称不正确"
 
     def test_version_specific_access(self):
         """测试版本特定的数据访问"""
-        item_v63 = self.manager.get_item("gsw", 0x63)
+        item_v63 = self.manager.for_version(0x63).get_item("gsw")
         assert item_v63 is not None, "0x63版本物品数据加载失败"
 
-        item_v69 = self.manager.get_item("gsw", 0x69)
+        item_v69 = self.manager.for_version(0x69).get_item("gsw")
         assert item_v69 is not None, "0x69版本物品数据加载失败"
 
     def test_version_data_isolation(self):
         """测试版本数据隔离：0x63和0x69的物品数量应该不同"""
-        v63 = self.manager.get_version_data(0x63)
-        v69 = self.manager.get_version_data(0x69)
+        v63 = self.manager.for_version(0x63)
+        v69 = self.manager.for_version(0x69)
         assert v63 is not None
         assert v69 is not None
         assert len(v63.items) != len(v69.items), "0x63和0x69的物品数量应该不同（0x69应该更多）"
         assert len(v69.items) > len(v63.items), "0x69版本应该有更多物品"
         assert len(v69.stats) > len(v63.stats), "0x69版本应该有更多属性"
 
+    def test_version_data_stat_cost_property_and_setter(self):
+        v63 = self.manager.for_version(0x63)
+        assert v63.stat_cost is v63.stats
+        dummy_stats = {9999: StatInfo(stat_id=9999, stat_name="dummy")}
+        original_stats = v63.stats
+        try:
+            v63.stat_cost = dummy_stats
+            assert v63.stat_cost is dummy_stats
+            assert v63.stats is dummy_stats
+        finally:
+            v63.stats = original_stats
+
     def test_fallback_mechanism(self):
         """测试回退机制：0x63缺失的文件应从根目录加载"""
-        v63 = self.manager.get_version_data(0x63)
+        v63 = self.manager.for_version(0x63)
         assert v63 is not None
         # 0x63目录没有Properties.txt，应该从根目录回退加载
         assert len(v63.properties) > 0, "0x63属性数据应通过回退机制加载"
@@ -90,40 +102,40 @@ class TestD2DataManager:
 
     def test_backward_compatibility(self):
         """测试向后兼容性"""
-        item = self.wrapper.get_item("gsw")
-        assert item is not None, "旧接口物品数据加载失败"
-        assert item.name == "Diamond", "旧接口物品名称不正确"
+        item = self.default_data.get_item("gsw")
+        assert item is not None, "物品数据加载失败"
+        assert item.name == "Diamond", "物品名称不正确"
 
     def test_stat_access(self):
         """测试属性数据访问"""
-        stat = self.manager.get_stat(1, 0x63)
+        stat = self.manager.for_version(0x63).get_stat(1)
         assert stat is not None, "属性数据加载失败"
 
     def test_property_access(self):
         """测试属性数据访问"""
-        prop = self.manager.get_property(1, 0x63)
+        prop = self.manager.for_version(0x63).get_property(1)
         assert prop is not None, "属性数据加载失败"
 
     def test_magic_affix_access(self):
         """测试魔法前缀后缀数据访问"""
-        prefix = self.manager.get_magic_prefix(1, 0x63)
-        suffix = self.manager.get_magic_suffix(1, 0x63)
+        prefix = self.manager.for_version(0x63).get_magic_prefix(1)
+        suffix = self.manager.for_version(0x63).get_magic_suffix(1)
         assert prefix is not None, "魔法前缀数据加载失败"
         assert suffix is not None, "魔法后缀数据加载失败"
 
     def test_unique_item_access(self):
         """测试唯一物品数据访问"""
-        unique = self.manager.get_unique_item(1, 0x63)
+        unique = self.manager.for_version(0x63).get_unique_item(1)
         assert unique is not None, "唯一物品数据加载失败"
 
     def test_skill_name_access(self):
         """测试技能名称访问"""
-        skill_name = self.manager.get_skill_name(1, 0x63)
+        skill_name = self.manager.for_version(0x63).get_skill_name(1)
         assert isinstance(skill_name, str), "技能名称返回类型不正确"
 
     def test_is_descendant(self):
         """测试类型继承关系"""
-        is_armor = self.manager.is_descendant("shie", "armo", 0x63)
+        is_armor = self.manager.for_version(0x63).is_descendant("shie", "armo")
         assert is_armor, "类型继承关系判断错误"
 
     def test_warlock_set_items_0x69(self):
@@ -139,7 +151,7 @@ class TestD2DataManager:
             139: ("Horazon's Secrets", 27648),
         }
         for idx, (name, item_id) in expected.items():
-            info = self.manager.get_set_item(idx, 0x69)
+            info = self.manager.for_version(0x69).get_set_item(idx)
             assert info is not None, f"Missing set item at index {idx}"
             assert info.name == name
             assert info.set_id == item_id

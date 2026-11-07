@@ -7,10 +7,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from d2savior.core.d2data import init_d2data
+from d2savior.core.d2data import get_game_data, init_d2data
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.ibitstream import IBitStream
-from d2savior.core.item import init_item_data
 from d2savior.core.localized_data import init_localized_data
 from d2savior.core.obitstream import OBitStream
 
@@ -22,13 +21,9 @@ class TestCharSerialization:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
 
-        init_item_data(
-            os.path.join(data_dir, "itemdata.txt"),
-            os.path.join(data_dir, "property.txt"),
-            os.path.join(data_dir, "ItemStatCost.txt"),
-        )
         init_d2data(data_dir)
         init_localized_data(os.path.join(data_dir, "local"), lang_key="enUS")
+        cls.game_data = get_game_data()
 
     def _test_char_roundtrip(self, save_file):
         with open(save_file, "rb") as f:
@@ -36,10 +31,10 @@ class TestCharSerialization:
 
         bs = IBitStream(original_data)
         d2s = D2SStruct()
-        d2s.deserialize(bs)
+        d2s.deserialize(bs, data=self.game_data)
 
         obs = OBitStream()
-        d2s.serialize(obs)
+        d2s.serialize(obs, data=self.game_data)
 
         serialized_data = obs.get_data()
 
@@ -129,10 +124,10 @@ class TestCharSerialization:
 
         bs = IBitStream(original_data)
         d2s = D2SStruct()
-        d2s.deserialize(bs)
+        d2s.deserialize(bs, data=self.game_data)
 
         obs = OBitStream()
-        d2s.serialize(obs)
+        d2s.serialize(obs, data=self.game_data)
         serialized_data = obs.get_data()
 
         d2s.size = len(serialized_data)

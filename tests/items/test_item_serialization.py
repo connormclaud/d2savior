@@ -4,23 +4,28 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from d2savior.core.d2data import GameData, get_game_data
+from d2savior.core.d2s_struct import D2SStruct
+from d2savior.core.formatters import ensure_data_loaded
 from d2savior.core.ibitstream import IBitStream
-from d2savior.core.item import D2Item, init_item_data
+from d2savior.core.item import D2Item
 from d2savior.core.obitstream import OBitStream
+from d2savior.core.stash import SharedStash
 
 
 class TestItemSerialization(unittest.TestCase):
+    game_data: GameData
+
     @classmethod
     def setUpClass(cls):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        data_dir = os.path.join(base_dir, "d2savior", "data")
-        init_item_data(
-            os.path.join(data_dir, "itemdata.txt"),
-            os.path.join(data_dir, "property.txt"),
-            os.path.join(data_dir, "ItemStatCost.txt"),
-        )
+        ensure_data_loaded()
+        gd = get_game_data()
+        assert gd is not None
+        cls.game_data = gd
         cls.examples_dir = os.path.join(base_dir, "..", "examples")
         cls.items_dir = os.path.join(base_dir, "..", "items")
+        cls.fixtures_dir = os.path.join(base_dir, "tests", "fixtures")
 
     def _deserialize_item(self, file_path: str, version: int | None = None):
         if not os.path.exists(file_path):
@@ -28,19 +33,22 @@ class TestItemSerialization(unittest.TestCase):
         with open(file_path, "rb") as f:
             data = f.read()
 
+        ver = version if version is not None else 0x63
+        vd = self.game_data.for_version(ver) if self.game_data else None
         bs = IBitStream(data)
         item = D2Item()
 
         if version is not None:
-            item.deserialize(bs, version, read_magic=False)
+            item.deserialize(bs, version, read_magic=False, data=vd)
         else:
-            item.deserialize(bs, 0x63, read_magic=True)
+            item.deserialize(bs, 0x63, read_magic=True, data=vd)
 
         return item
 
     def _serialize_item(self, item: D2Item, version: int):
+        vd = self.game_data.for_version(version) if self.game_data else None
         bs = OBitStream()
-        item.serialize(bs, version, write_magic=False)
+        item.serialize(bs, version, write_magic=False, data=vd)
         return bs.get_data()
 
     def _compare_items(self, item1: D2Item, item2: D2Item):
@@ -164,7 +172,7 @@ class TestItemSerialization(unittest.TestCase):
 
         bs = IBitStream(serialized_data)
         item2 = D2Item()
-        item2.deserialize(bs, 0x63, read_magic=False)
+        item2.deserialize(bs, 0x63, read_magic=False, data=self.game_data.for_version(0x63))
 
         self._compare_items(item, item2)
         self._compare_properties(item, item2)
@@ -178,7 +186,7 @@ class TestItemSerialization(unittest.TestCase):
 
         bs = IBitStream(serialized_data)
         item2 = D2Item()
-        item2.deserialize(bs, 0x69, read_magic=False)
+        item2.deserialize(bs, 0x69, read_magic=False, data=self.game_data.for_version(0x69))
 
         self._compare_items(item, item2)
         self._compare_properties(item, item2)
@@ -194,7 +202,7 @@ class TestItemSerialization(unittest.TestCase):
 
         bs = IBitStream(serialized_data)
         item2 = D2Item()
-        item2.deserialize(bs, 0x69, read_magic=False)
+        item2.deserialize(bs, 0x69, read_magic=False, data=self.game_data.for_version(0x69))
 
         self._compare_items(item, item2)
         self._compare_properties(item, item2)
@@ -210,7 +218,7 @@ class TestItemSerialization(unittest.TestCase):
 
         bs = IBitStream(serialized_data)
         item2 = D2Item()
-        item2.deserialize(bs, 0x69, read_magic=False)
+        item2.deserialize(bs, 0x69, read_magic=False, data=self.game_data.for_version(0x69))
 
         self._compare_items(item, item2)
         self._compare_properties(item, item2)
@@ -226,7 +234,7 @@ class TestItemSerialization(unittest.TestCase):
 
         bs = IBitStream(serialized_data)
         item2 = D2Item()
-        item2.deserialize(bs, 0x69, read_magic=False)
+        item2.deserialize(bs, 0x69, read_magic=False, data=self.game_data.for_version(0x69))
 
         self._compare_items(item, item2)
         self._compare_properties(item, item2)
@@ -242,9 +250,150 @@ class TestItemSerialization(unittest.TestCase):
 
         bs = IBitStream(serialized_data)
         item2 = D2Item()
-        item2.deserialize(bs, 0x69, read_magic=False)
+        item2.deserialize(bs, 0x69, read_magic=False, data=self.game_data.for_version(0x69))
 
         self._compare_items(item, item2)
+
+    def test_roundtrip_sork_items(self):
+        file_path = os.path.join(self.fixtures_dir, "sork.d2s")
+        with open(file_path, "rb") as f:
+            raw_data = f.read()
+
+        bs = IBitStream(raw_data)
+        d2s = D2SStruct()
+        d2s.deserialize(bs, data=self.game_data)
+
+        assert len(d2s.item_list) > 0, "No items found in sork.d2s"
+
+        vd = self.game_data.for_version(d2s.version)
+
+        # Verify bit-exact match against raw save bitstream
+        jm_pos = raw_data.find(b"JM")
+        assert jm_pos != -1
+        bs_raw = IBitStream(raw_data)
+        bs_raw._offset = jm_pos * 8
+        assert bs_raw.read_word() == 0x4D4A
+        count = bs_raw.read_word()
+
+        for i in range(count):
+            start = bs_raw.get_offset()
+            item = D2Item()
+            item.deserialize(bs_raw, d2s.version, False, data=vd)
+            end = bs_raw.get_offset()
+            bit_len = end - start
+
+            bs_slice = IBitStream(raw_data)
+            bs_slice._offset = start
+            orig_bits = [bs_slice.read_bits(1) for _ in range(bit_len)]
+
+            obs = OBitStream()
+            item.serialize(obs, d2s.version, False, data=vd)
+            obs_data = obs.get_data()
+            obs_bs = IBitStream(obs_data)
+            ser_bits = [obs_bs.read_bits(1) for _ in range(bit_len)]
+
+            assert orig_bits == ser_bits, (
+                f"Item {i} ({item.type_name}) bit mismatch against raw file"
+            )
+
+            # Verify deserialize -> serialize round-trip
+            item2 = D2Item()
+            item2.deserialize(IBitStream(obs_data), d2s.version, False, data=vd)
+            obs2 = OBitStream()
+            item2.serialize(obs2, d2s.version, False, data=vd)
+            assert obs_data == obs2.get_data()
+            self._compare_items(item, item2)
+            self._compare_properties(item, item2)
+
+    def test_roundtrip_stash_items(self):
+        file_path = os.path.join(self.fixtures_dir, "ModernSharedStashSoftCoreV2.d2i")
+        with open(file_path, "rb") as f:
+            raw_data = f.read()
+
+        bs = IBitStream(raw_data)
+        stash = SharedStash()
+        stash.deserialize(bs, data=self.game_data)
+
+        total_items = 0
+        bs_raw = IBitStream(raw_data)
+
+        for tab_idx, _tab in enumerate(stash.tabs):
+            start_tab = bs_raw.bytes_pos
+            _magic = bs_raw.read_dword()
+            _stash_format = bs_raw.read_dword()
+            item_format = bs_raw.read_dword()
+            _gold = bs_raw.read_dword()
+            tab_size = bs_raw.read_word()
+            _season = bs_raw.read_word()
+            tab_type = bs_raw.read_byte()
+            _reserved = bytes(bs_raw.read_byte() for _ in range(43))
+
+            if tab_type == 2:  # chronicle tab
+                bs_raw.bytes_pos = start_tab + tab_size
+                continue
+
+            vd = self.game_data.for_version(item_format)
+            _jm = bs_raw.read_word()
+            count = bs_raw.read_word()
+            for i in range(count):
+                if bs_raw.is_end() or bs_raw.remaining() < 16 * 8:
+                    break
+                start = bs_raw.get_offset()
+                item = D2Item()
+                try:
+                    item.deserialize(bs_raw, item_format, False, data=vd)
+                except ValueError:
+                    bs_raw._offset = start
+                    continue
+                end = bs_raw.get_offset()
+                bit_len = end - start
+
+                bs_slice = IBitStream(raw_data)
+                bs_slice._offset = start
+                orig_bits = [bs_slice.read_bits(1) for _ in range(bit_len)]
+
+                obs = OBitStream()
+                item.serialize(obs, item_format, False, data=vd)
+                obs_data = obs.get_data()
+                obs_bs = IBitStream(obs_data)
+                ser_bits = [obs_bs.read_bits(1) for _ in range(bit_len)]
+
+                total_items += 1
+                assert orig_bits == ser_bits, (
+                    f"Tab {tab_idx} Item {i} ({item.type_name}) bit mismatch against raw file"
+                )
+
+                item2 = D2Item()
+                item2.deserialize(IBitStream(obs_data), item_format, False, data=vd)
+                obs2 = OBitStream()
+                item2.serialize(obs2, item_format, False, data=vd)
+                assert obs_data == obs2.get_data()
+                self._compare_items(item, item2)
+                self._compare_properties(item, item2)
+
+            bs_raw.bytes_pos = start_tab + tab_size
+
+        assert total_items == 165
+
+    def test_deserialize_standalone_item_with_game_data(self):
+        sork_path = os.path.join(self.fixtures_dir, "sork.d2s")
+        if not os.path.exists(sork_path):
+            self.skipTest(f"Test file not found: {sork_path}")
+        with open(sork_path, "rb") as f:
+            d2s_data = f.read()
+        char = D2SStruct()
+        char.deserialize(IBitStream(d2s_data), data=self.game_data)
+        assert len(char.item_list.items) > 0
+        first_item = char.item_list.items[0]
+        obs = OBitStream()
+        first_item.serialize(obs, char.version, write_magic=True, data=self.game_data)
+        item_bytes = obs.get_data()
+
+        new_item = D2Item()
+        new_item.deserialize(IBitStream(item_bytes), data=self.game_data)
+        assert new_item.version == char.version
+        assert new_item._data is not None
+        assert new_item._data.version == char.version
 
 
 if __name__ == "__main__":

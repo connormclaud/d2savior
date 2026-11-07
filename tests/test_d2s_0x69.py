@@ -5,10 +5,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from d2savior.core.d2data import init_d2data
+from d2savior.core.d2data import get_game_data, init_d2data
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.ibitstream import IBitStream
-from d2savior.core.item import init_item_data
 from d2savior.core.localized_data import init_localized_data
 from d2savior.core.obitstream import OBitStream
 
@@ -22,7 +21,7 @@ def _load_d2s(save_file):
         data = f.read()
     bs = IBitStream(data)
     d2s = D2SStruct()
-    d2s.deserialize(bs)
+    d2s.deserialize(bs, data=get_game_data())
     return d2s
 
 
@@ -30,11 +29,6 @@ def _load_d2s(save_file):
 def init_data():
     data_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
-    )
-    init_item_data(
-        os.path.join(data_dir, "itemdata.txt"),
-        os.path.join(data_dir, "property.txt"),
-        os.path.join(data_dir, "ItemStatCost.txt"),
     )
     init_d2data(data_dir)
     init_localized_data(os.path.join(data_dir, "local"), lang_key="enUS")
@@ -498,10 +492,11 @@ class Test0x69Roundtrip:
 
         bs = IBitStream(original_data)
         d2s = D2SStruct()
-        d2s.deserialize(bs)
+        gd = get_game_data()
+        d2s.deserialize(bs, data=gd)
 
         obs = OBitStream()
-        d2s.serialize(obs)
+        d2s.serialize(obs, data=gd)
         serialized_data = obs.get_data()
 
         assert len(original_data) == len(serialized_data), (

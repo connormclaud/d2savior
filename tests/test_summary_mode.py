@@ -71,7 +71,7 @@ class TestSummaryMode:
                 self.properties = [(0, 0, 0)]
                 self.props = props
 
-            def get_parsed_properties(self, version=0x63):
+            def get_parsed_properties(self, version=0x63, data=None):
                 return self.props
 
             def ext_sockets(self):
@@ -453,19 +453,19 @@ class TestSummaryMode:
             mock_print.assert_any_call("\n=== Search Results for bytes '4a4d' ===")
 
     def test_ensure_data_loaded(self):
-        from d2savior.core.d2data import get_d2data_manager
+        from d2savior.core.d2data import get_game_data
         from d2savior.core.formatters import ensure_data_loaded
         from d2savior.core.localized_data import get_localized_data
 
         # Initial call ensures default language loaded
         ensure_data_loaded()
-        assert get_d2data_manager() is not None
+        assert get_game_data() is not None
         assert get_localized_data().current_lang == "enUS"
 
         # Second call with same language is a no-op
-        prev_mgr = get_d2data_manager()
+        prev_mgr = get_game_data()
         ensure_data_loaded(lang_key="enUS")
-        assert get_d2data_manager() is prev_mgr
+        assert get_game_data() is prev_mgr
         assert get_localized_data().current_lang == "enUS"
 
         # Switching language updates localized data

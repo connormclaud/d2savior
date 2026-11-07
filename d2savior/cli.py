@@ -31,16 +31,21 @@ def parse_d2i_file(
         with open(file_path, "rb") as f:
             data = f.read()
 
+        ensure_data_loaded()
+        from d2savior.core.d2data import get_game_data
+
+        game_data = get_game_data()
+
         bs = IBitStream(data)
         if data.startswith(b"JM"):
             from d2savior.core.item import D2Item
 
             item = D2Item()
-            item.deserialize(bs)
+            item.deserialize(bs, data=game_data)
             return True, item, "item", bs
 
         stash = SharedStash()
-        stash.deserialize(bs)
+        stash.deserialize(bs, data=game_data)
         if not stash.tabs:
             print(f"Error: '{file_path}' contains no parseable stash tabs", file=sys.stderr)
             return False, None, None, None
@@ -67,9 +72,14 @@ def parse_d2s_file(
         with open(file_path, "rb") as f:
             data = f.read()
 
+        ensure_data_loaded()
+        from d2savior.core.d2data import get_game_data
+
+        game_data = get_game_data()
+
         bs = IBitStream(data)
         char_data = D2SStruct()
-        char_data.deserialize(bs)
+        char_data.deserialize(bs, data=game_data)
 
         if debug:
             print("\n=== BitStream Final State ===")

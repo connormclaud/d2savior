@@ -1,5 +1,6 @@
 from typing import Any
 
+from d2savior.core.d2data import GameData
 from d2savior.core.obitstream import OBitStream
 
 STASH_TAB_MAGIC = 0xAA55AA55
@@ -310,8 +311,9 @@ class StashTab:
         self.items = None
         self.chronicle = None
         self._tab_size = 0
+        self._data: Any = None
 
-    def deserialize(self, bs: Any, version: int | None = None) -> None:
+    def deserialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
         start_pos = bs.bytes_pos
 
         magic = bs.read_dword()
@@ -330,6 +332,8 @@ class StashTab:
             self.tab_type = STASH_TAB_TYPE_NORMAL
 
         item_version = version if version else self.item_format
+        vd = data.for_version(item_version) if isinstance(data, GameData) else (data or self._data)
+        self._data = vd
 
         try:
             if self.tab_type == STASH_TAB_TYPE_CHRONICLE:
@@ -338,7 +342,7 @@ class StashTab:
                 from d2savior.core.item import ItemList
 
                 self.items = ItemList()
-                self.items.deserialize(bs, item_version)
+                self.items.deserialize(bs, item_version, data=vd)
         except Exception as e:
             import logging
 
@@ -354,8 +358,9 @@ class StashTab:
         body_size = max(0, self._tab_size - STASH_TAB_HEADER_SIZE)
         self.chronicle = bytes(bs.read_byte() for _ in range(body_size))
 
-    def serialize(self, bs: Any, version: int | None = None) -> None:
+    def serialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
         item_version = version if version else self.item_format
+        vd = data.for_version(item_version) if isinstance(data, GameData) else (data or self._data)
 
         bs.write_dword(STASH_TAB_MAGIC)
         bs.write_dword(self.stash_format)
@@ -369,7 +374,7 @@ class StashTab:
         if self.tab_type == STASH_TAB_TYPE_CHRONICLE and self.chronicle:
             bs.write_bytes(self.chronicle)
         elif self.items:
-            self.items.serialize(bs, item_version)
+            self.items.serialize(bs, item_version, data=vd)
 
 
 class SharedStash:
@@ -377,12 +382,12 @@ class SharedStash:
         self.tabs: list[StashTab] = []
         self.file_path = ""
 
-    def deserialize(self, bs: Any, version: int | None = None) -> None:
+    def deserialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
         self.tabs = []
         while bs.remaining() >= STASH_TAB_HEADER_SIZE * 8:
             try:
                 tab = StashTab()
-                tab.deserialize(bs, version)
+                tab.deserialize(bs, version, data=data)
                 self.tabs.append(tab)
             except ValueError:
                 break
@@ -392,12 +397,12 @@ class SharedStash:
                 logging.warning(f"Failed to parse stash tab #{len(self.tabs)}: {e}")
                 break
 
-    def serialize(self, bs: Any, version: int | None = None) -> None:
+    def serialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
         import struct
 
         for tab in self.tabs:
             tab_bs = OBitStream()
-            tab.serialize(tab_bs, version)
+            tab.serialize(tab_bs, version, data=data)
             tab_data = bytearray(tab_bs.get_data())
             tab_size = len(tab_data)
             struct.pack_into("<H", tab_data, 16, tab_size)

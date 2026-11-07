@@ -1,5 +1,7 @@
 from enum import FlagBoundary, IntFlag
+from typing import Any
 
+from d2savior.core.d2data import GameData
 from d2savior.core.enums import (
     DEMON_MAGIC,
     GOLEM_MAGIC_1,
@@ -291,16 +293,16 @@ class CorpseData:
         self.unknown = b""
         self.items = None
 
-    def deserialize(self, bs: IBitStream, version: int) -> None:
+    def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
         self.unknown = bs.data[bs.bytes_pos : bs.bytes_pos + 12]
         bs.bytes_pos += 12
         self.items = ItemList()
-        self.items.deserialize(bs, version)
+        self.items.deserialize(bs, version, data=data)
 
-    def serialize(self, bs: OBitStream, version: int) -> None:
+    def serialize(self, bs: OBitStream, version: int, data: Any = None) -> None:
         bs.write_bytes(self.unknown)
         if self.items:
-            self.items.serialize(bs, version)
+            self.items.serialize(bs, version, data=data)
 
 
 class Corpse:
@@ -309,7 +311,7 @@ class Corpse:
         self.count = 0
         self.corpse_data = None
 
-    def deserialize(self, bs: IBitStream, version: int) -> None:
+    def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
         self.magic = bs.read_word()
         self.count = bs.read_word()
         if self.magic != ITEM_LIST_MAGIC:
@@ -318,16 +320,16 @@ class Corpse:
             return
         if self.count > 0:
             self.corpse_data = CorpseData()
-            self.corpse_data.deserialize(bs, version)
+            self.corpse_data.deserialize(bs, version, data=data)
 
     def has_corpse(self) -> bool:
         return self.count > 0 and self.corpse_data is not None
 
-    def serialize(self, bs: OBitStream, version: int) -> None:
+    def serialize(self, bs: OBitStream, version: int, data: Any = None) -> None:
         bs.write_word(self.magic)
         bs.write_word(self.count)
         if self.corpse_data:
-            self.corpse_data.serialize(bs, version)
+            self.corpse_data.serialize(bs, version, data=data)
 
 
 class Mercenary:
@@ -335,7 +337,9 @@ class Mercenary:
         self.magic = 0
         self.items = None
 
-    def deserialize(self, bs: IBitStream, has_mercenary: bool, version: int) -> None:
+    def deserialize(
+        self, bs: IBitStream, has_mercenary: bool, version: int, data: Any = None
+    ) -> None:
         self.magic = bs.read_word()
         if self.magic != MERCENARY_MAGIC:
             # 不是CMercenary，回退并返回
@@ -343,12 +347,14 @@ class Mercenary:
             return
         if has_mercenary:
             self.items = ItemList()
-            self.items.deserialize(bs, version)
+            self.items.deserialize(bs, version, data=data)
 
-    def serialize(self, bs: OBitStream, has_mercenary: bool, version: int) -> None:
+    def serialize(
+        self, bs: OBitStream, has_mercenary: bool, version: int, data: Any = None
+    ) -> None:
         bs.write_word(self.magic)
         if has_mercenary and self.items:
-            self.items.serialize(bs, version)
+            self.items.serialize(bs, version, data=data)
 
 
 class Golem:
@@ -357,7 +363,7 @@ class Golem:
         self.has_golem = 0
         self.item = None
 
-    def deserialize(self, bs: IBitStream, version: int) -> None:
+    def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
         self.magic = bs.read_word()
         self.has_golem = bs.read_byte()
         if self.magic not in [GOLEM_MAGIC_1, GOLEM_MAGIC_2]:
@@ -365,13 +371,13 @@ class Golem:
             return
         if self.has_golem:
             self.item = D2Item()
-            self.item.deserialize(bs, version)
+            self.item.deserialize(bs, version, data=data)
 
-    def serialize(self, bs: OBitStream, version: int) -> None:
+    def serialize(self, bs: OBitStream, version: int, data: Any = None) -> None:
         bs.write_word(self.magic)
         bs.write_byte(self.has_golem)
         if self.has_golem and self.item:
-            self.item.serialize(bs, version, False)
+            self.item.serialize(bs, version, False, data=data)
 
 
 class Demon:
@@ -491,6 +497,7 @@ class D2SStruct:
         self.golem = Golem()
         self.demon = Demon()
         self.game_version = 0
+        self._data: Any = None
 
     @property
     def merc_experience(self) -> int:
@@ -500,19 +507,22 @@ class D2SStruct:
     def merc_experience(self, val: int) -> None:
         self._merc_experience = val
 
-    def deserialize(self, bs: IBitStream) -> None:
+    def deserialize(self, bs: IBitStream, data: Any = None) -> None:
         self.magic = bs.read_dword()
         self.version = bs.read_dword()
         self.size = bs.read_dword()
         self.crc = bs.read_dword()
         self.weapon_set = bs.read_dword()
 
-        if self.version >= 0x69:
-            self._read_data_v69(bs)
-        else:
-            self._read_data_common(bs)
+        vd = data.for_version(self.version) if isinstance(data, GameData) else (data or self._data)
+        self._data = vd
 
-    def _read_data_v69(self, bs: IBitStream) -> None:
+        if self.version >= 0x69:
+            self._read_data_v69(bs, data=vd)
+        else:
+            self._read_data_common(bs, data=vd)
+
+    def _read_data_v69(self, bs: IBitStream, data: Any = None) -> None:
         self.char_flags = CharStatus(bs.read_dword())
         self.char_type = self.char_flags
         self.char_title = (self.char_flags >> 8) & 0x1F
@@ -570,20 +580,20 @@ class D2SStruct:
 
         self.skills.deserialize(bs)
 
-        self.item_list.deserialize(bs, self.version)
+        self.item_list.deserialize(bs, self.version, data=data)
 
-        self.corpse.deserialize(bs, self.version)
+        self.corpse.deserialize(bs, self.version, data=data)
 
         if self.is_expansion():
-            self.mercenary.deserialize(bs, self.has_mercenary(), self.version)
-            self.golem.deserialize(bs, self.version)
+            self.mercenary.deserialize(bs, self.has_mercenary(), self.version, data=data)
+            self.golem.deserialize(bs, self.version, data=data)
 
         if self.version >= 0x69 and self.game_version >= 3:
             self.demon.deserialize(bs)
 
         bs.align_byte()
 
-    def _read_data_common(self, bs: IBitStream) -> None:
+    def _read_data_common(self, bs: IBitStream, data: Any = None) -> None:
         self.name = bs.data[bs.bytes_pos : bs.bytes_pos + 16]
         bs.bytes_pos += 16
 
@@ -651,15 +661,15 @@ class D2SStruct:
         self.skills.deserialize(bs)
 
         # 读取物品列表
-        self.item_list.deserialize(bs, self.version)
+        self.item_list.deserialize(bs, self.version, data=data)
 
         # 读取尸体
-        self.corpse.deserialize(bs, self.version)
+        self.corpse.deserialize(bs, self.version, data=data)
 
         # 如果是扩展版，读取雇佣兵和石魔
         if self.is_expansion():
-            self.mercenary.deserialize(bs, self.has_mercenary(), self.version)
-            self.golem.deserialize(bs, self.version)
+            self.mercenary.deserialize(bs, self.has_mercenary(), self.version, data=data)
+            self.golem.deserialize(bs, self.version, data=data)
 
         bs.align_byte()
 
@@ -745,19 +755,21 @@ class D2SStruct:
         }
         return title_names.get(title, f"Unknown({title})")
 
-    def serialize(self, bs: OBitStream) -> None:
+    def serialize(self, bs: OBitStream, data: Any = None) -> None:
         bs.write_dword(self.magic)
         bs.write_dword(self.version)
         bs.write_dword(self.size)
         bs.write_dword(self.crc)
         bs.write_dword(self.weapon_set)
 
-        if self.version >= 0x69:
-            self._serialize_v69(bs)
-        else:
-            self._serialize_common(bs)
+        vd = data.for_version(self.version) if isinstance(data, GameData) else (data or self._data)
 
-    def _serialize_v69(self, bs: OBitStream) -> None:
+        if self.version >= 0x69:
+            self._serialize_v69(bs, data=vd)
+        else:
+            self._serialize_common(bs, data=vd)
+
+    def _serialize_v69(self, bs: OBitStream, data: Any = None) -> None:
         bs.write_dword(self.char_flags)
         bs.write_byte(self.char_class)
         bs.write_byte(self.num_stats)
@@ -795,19 +807,19 @@ class D2SStruct:
         bs.write_bytes(self.npc)
         self.player_stats.serialize(bs)
         self.skills.serialize(bs)
-        self.item_list.serialize(bs, self.version)
-        self.corpse.serialize(bs, self.version)
+        self.item_list.serialize(bs, self.version, data=data)
+        self.corpse.serialize(bs, self.version, data=data)
 
         if self.is_expansion():
-            self.mercenary.serialize(bs, self.has_mercenary(), self.version)
-            self.golem.serialize(bs, self.version)
+            self.mercenary.serialize(bs, self.has_mercenary(), self.version, data=data)
+            self.golem.serialize(bs, self.version, data=data)
 
         if self.version >= 0x69 and self.game_version >= 3:
             self.demon.serialize(bs)
 
         bs.align_byte()
 
-    def _serialize_common(self, bs: OBitStream) -> None:
+    def _serialize_common(self, bs: OBitStream, data: Any = None) -> None:
         bs.write_bytes(self.name)
         bs.write_byte(self.char_type)
         bs.write_byte(self.char_title)
@@ -850,12 +862,12 @@ class D2SStruct:
         bs.write_bytes(self.npc)
         self.player_stats.serialize(bs)
         self.skills.serialize(bs)
-        self.item_list.serialize(bs, self.version)
-        self.corpse.serialize(bs, self.version)
+        self.item_list.serialize(bs, self.version, data=data)
+        self.corpse.serialize(bs, self.version, data=data)
 
         if self.is_expansion():
-            self.mercenary.serialize(bs, self.has_mercenary(), self.version)
-            self.golem.serialize(bs, self.version)
+            self.mercenary.serialize(bs, self.has_mercenary(), self.version, data=data)
+            self.golem.serialize(bs, self.version, data=data)
 
         bs.align_byte()
 

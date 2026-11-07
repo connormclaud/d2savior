@@ -18,7 +18,7 @@ from d2savior.core.constants import (
     TAB_TYPE_NAMES,
     WAYPOINTS_BY_ACT,
 )
-from d2savior.core.d2data import GameDataResolver, get_d2data_manager, init_d2data
+from d2savior.core.d2data import GameDataResolver, get_game_data, init_d2data
 from d2savior.core.d2s_struct import CharStatus, D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
 from d2savior.core.item import ITEM_FLAG_LABELS
@@ -46,7 +46,7 @@ def ensure_data_loaded(
     lang_key: str | None = None, data_dir: str | None = None, force: bool = False
 ) -> None:
     """Ensure game and localization data are loaded into core managers."""
-    mgr = get_d2data_manager()
+    mgr = get_game_data()
     loc = get_localized_data()
 
     if not force and mgr is not None:
@@ -181,13 +181,17 @@ def _format_parsed_properties(
     prop_list: Any,
     version: int = 0x63,
     property_formatter: Callable[..., str | None] | None = None,
+    resolver: GameDataResolver | None = None,
 ) -> FormattedLines:
     """Format a property list into human-readable strings, falling back to raw IDs."""
     if not prop_list or not getattr(prop_list, "properties", None):
         return []
     format_func = property_formatter or format_property
     result = []
-    for prop_id, value, params in prop_list.get_parsed_properties(version):
+    data = resolver.data if resolver else None
+    parsed_props = prop_list.get_parsed_properties(version, data=data)
+
+    for prop_id, value, params in parsed_props:
         formatted = format_func(prop_id, params, version)
         if formatted:
             result.append(formatted)
@@ -246,7 +250,10 @@ def format_item_summary(
     if include_properties and tp:
         props.extend(
             _format_parsed_properties(
-                getattr(tp, "property_list", None), version, property_formatter=property_formatter
+                getattr(tp, "property_list", None),
+                version,
+                property_formatter=property_formatter,
+                resolver=resolver,
             )
         )
         props.extend(
@@ -254,6 +261,7 @@ def format_item_summary(
                 getattr(tp, "runeword_property_list", None),
                 version,
                 property_formatter=property_formatter,
+                resolver=resolver,
             )
         )
 
@@ -398,13 +406,15 @@ def _format_item_lines(
             if (sockets := tp.total_sockets()) > 0:
                 result.append(f"{indent}Sockets: {sockets}")
 
-            if props := _format_parsed_properties(getattr(tp, "property_list", None), version):
+            if props := _format_parsed_properties(
+                getattr(tp, "property_list", None), version, resolver=resolver
+            ):
                 result.append(f"{indent}Properties:")
                 for p in props:
                     result.append(f"{indent}  - {p}")
 
             if rw_props := _format_parsed_properties(
-                getattr(tp, "runeword_property_list", None), version
+                getattr(tp, "runeword_property_list", None), version, resolver=resolver
             ):
                 result.append(f"{indent}Rune Word Properties:")
                 for p in rw_props:
@@ -412,7 +422,9 @@ def _format_item_lines(
 
             if getattr(tp, "set_properties", None):
                 for idx, set_prop_list in enumerate(tp.set_properties):
-                    if set_props := _format_parsed_properties(set_prop_list, version):
+                    if set_props := _format_parsed_properties(
+                        set_prop_list, version, resolver=resolver
+                    ):
                         piece_count = idx + 2
                         result.append(f"{indent}Set Properties ({piece_count} Items):")
                         for p in set_props:

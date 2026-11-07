@@ -5,6 +5,16 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from d2savior.core.d2data import (
+    D2DataLoader,
+    ItemMetaData,
+    ItemMetaDataManager,
+    PropertyField,
+    PropertyMetaData,
+    PropertyMetaDataItem,
+    get_game_data,
+    init_d2data,
+)
 from d2savior.core.huffman import get_huffman
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import (
@@ -13,22 +23,12 @@ from d2savior.core.item import (
     ExtItemInfo,
     GoldQuantity,
     ItemInfo,
-    ItemMetaData,
-    ItemMetaDataManager,
     LongName,
-    PropertyField,
     PropertyList,
-    PropertyMetaData,
-    PropertyMetaDataItem,
     TypeSpecificInfo,
-    get_item_meta,
-    get_property_meta,
-    init_item_data,
     is_d2r,
     is_ptr24_and_above,
     is_valid_version,
-    parse_itemdata_txt,
-    parse_property_txt,
 )
 from d2savior.core.obitstream import OBitStream
 
@@ -211,6 +211,25 @@ class TestCTypeSpecificInfo:
         type_info.defence = 110
         assert type_info.get_defence() == 100
 
+    def test_type_specific_info_deserialize_requires_data(self, monkeypatch):
+        import d2savior.core.item as item_mod
+
+        monkeypatch.setattr(item_mod, "get_game_data", lambda: None)
+        type_info = TypeSpecificInfo()
+        bs = IBitStream(b"\x00" * 10)
+        with pytest.raises(ValueError, match="VersionData is required"):
+            type_info.deserialize(
+                bs,
+                version=0x63,
+                has_def=False,
+                has_dur=False,
+                is_socketed=False,
+                is_stacked=False,
+                is_set=False,
+                is_runeword=False,
+                data=None,
+            )
+
 
 class TestCItemInfo:
     def test_item_info_creation(self):
@@ -273,9 +292,8 @@ class TestCD2ItemVersionDifferences:
         data_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
-        from d2savior.core.d2data import init_d2data
-
         init_d2data(data_dir)
+        self.game_data = get_game_data()
         self._has_data = True
 
     def _build_simple_item_d2r(self, version, type_name=b"elx "):
@@ -304,8 +322,9 @@ class TestCD2ItemVersionDifferences:
         obs = self._build_simple_item_d2r(0x63, b"elx ")
         bs = IBitStream(obs.get_data())
         item = D2Item()
+        vd = self.game_data.for_version(0x63) if self.game_data else None
         try:
-            item.deserialize(bs, 0x63, True)
+            item.deserialize(bs, 0x63, True, data=vd)
             assert item.is_simple
         except ValueError, Exception:
             pytest.skip("Bitstream data insufficient for full item parse")
@@ -318,8 +337,9 @@ class TestCD2ItemVersionDifferences:
         obs = self._build_simple_item_d2r(0x69, b"elx ")
         bs = IBitStream(obs.get_data())
         item = D2Item()
+        vd = self.game_data.for_version(0x69) if self.game_data else None
         try:
-            item.deserialize(bs, 0x69, True)
+            item.deserialize(bs, 0x69, True, data=vd)
             assert item.is_simple
         except ValueError, Exception:
             pytest.skip("Bitstream data insufficient for full item parse")
@@ -338,8 +358,8 @@ class TestCD2ItemVersionDifferences:
 
     def test_item_version_0x69_quantity_flag(self):
         """测试 0x69 版本 quantity 使用 flag 而非 is_stacked"""
-
-        meta = get_item_meta(b"elx ", 0x69)
+        vd = self.game_data.for_version(0x69) if self.game_data else None
+        meta = vd.get_item_meta(b"elx ") if vd else None
         if meta:
             assert not meta.is_stacked
 
@@ -362,7 +382,7 @@ class TestCD2ItemVersionDifferences:
 
 class TestParseItemDataTxt:
     def test_parse_itemdata_txt_not_exists(self):
-        manager = parse_itemdata_txt("nonexistent_file.txt")
+        manager = D2DataLoader().load_itemdata("nonexistent_file.txt")
         assert manager is not None
         assert manager.get_item(b"test") is None
 
@@ -373,7 +393,7 @@ class TestParseItemDataTxt:
             "itemdata.txt",
         )
         if os.path.exists(itemdata_path):
-            manager = parse_itemdata_txt(itemdata_path)
+            manager = D2DataLoader().load_itemdata(itemdata_path)
             assert manager is not None
 
             item = manager.get_item(b"elx ")
@@ -388,7 +408,7 @@ class TestParseItemDataTxt:
 
 class TestParsePropertyTxt:
     def test_parse_property_txt_not_exists(self):
-        properties = parse_property_txt("nonexistent_file.txt")
+        properties = D2DataLoader().load_property_meta("nonexistent_file.txt")
         assert properties is not None
         assert len(properties) == 0
 
@@ -399,7 +419,7 @@ class TestParsePropertyTxt:
             "property.txt",
         )
         if os.path.exists(property_path):
-            properties = parse_property_txt(property_path)
+            properties = D2DataLoader().load_property_meta(property_path)
             assert properties is not None
             assert len(properties) > 0
 
@@ -412,16 +432,7 @@ class TestParsePropertyTxt:
 
 class TestPropertyParsing:
     def setup_method(self):
-        property_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "Generate Data",
-            "property.txt",
-        )
-        if os.path.exists(property_path):
-            init_item_data(None, property_path)
-            self._has_property_file = True
-        else:
-            self._has_property_file = False
+        self._has_property_file = False
 
     def test_property_parse_single_field(self):
         fields = [PropertyField(bits=8, base=-32, min_val=0, max_val=255)]
@@ -501,7 +512,10 @@ class TestPropertyParsing:
         if not self._has_property_file:
             pytest.skip("property.txt not found")
 
-        prop_meta = get_property_meta(0, 0x60)
+        from d2savior.core.d2data import get_game_data
+
+        gd = get_game_data()
+        prop_meta = gd.for_version(0x60).get_property_meta(0) if gd else None
         if prop_meta:
             params = prop_meta.parse(0)
             assert len(params) == 4
@@ -514,7 +528,10 @@ class TestPropertyParsing:
         if not self._has_property_file:
             pytest.skip("property.txt not found")
 
-        prop_meta = get_property_meta(0, 0x60)
+        from d2savior.core.d2data import get_game_data
+
+        gd = get_game_data()
+        prop_meta = gd.for_version(0x60).get_property_meta(0) if gd else None
         if prop_meta:
             assert prop_meta.bits_sum == 8
 
@@ -525,7 +542,10 @@ class TestPropertyParsing:
         if not self._has_property_file:
             pytest.skip("property.txt not found")
 
-        prop_meta = get_property_meta(2, 0x60)
+        from d2savior.core.d2data import get_game_data
+
+        gd = get_game_data()
+        prop_meta = gd.for_version(0x60).get_property_meta(2) if gd else None
         if prop_meta:
             assert prop_meta.bits_sum == 7
 
