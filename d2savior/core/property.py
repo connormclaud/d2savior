@@ -126,7 +126,7 @@ def init_item_modifiers(filepath: str, lang_key: str = "enUS") -> bool:
     import json
 
     if not os.path.exists(filepath):
-        return False
+        raise FileNotFoundError(f"Required item modifiers file not found: {filepath}")
 
     with open(filepath, encoding="utf-8-sig") as f:
         data = json.load(f)

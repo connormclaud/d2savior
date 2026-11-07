@@ -25,19 +25,15 @@ class LocalizedDataLoader:
 
     def load_json_file(self, filepath: str, lang_key: str = "enUS") -> bool:
         if not os.path.exists(filepath):
-            return False
+            raise FileNotFoundError(f"Required localized JSON file not found: {filepath}")
 
-        try:
-            with open(filepath, encoding="utf-8-sig") as f:
-                raw_data = json.load(f)
+        with open(filepath, encoding="utf-8-sig") as f:
+            raw_data = json.load(f)
 
-            file_key = os.path.basename(filepath)
-            self._raw[file_key] = raw_data
-            self._build_index(file_key, lang_key)
-            return True
-        except Exception as e:
-            print(f"Error loading {filepath}: {e}")
-            return False
+        file_key = os.path.basename(filepath)
+        self._raw[file_key] = raw_data
+        self._build_index(file_key, lang_key)
+        return True
 
     def _build_index(self, file_key: str, lang_key: str) -> None:
         self._data[file_key] = {}

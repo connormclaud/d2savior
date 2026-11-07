@@ -373,9 +373,8 @@ class TestCD2ItemVersionDifferences:
 
 class TestParseItemDataTxt:
     def test_parse_itemdata_txt_not_exists(self):
-        manager = D2DataLoader().load_itemdata("nonexistent_file.txt")
-        assert manager is not None
-        assert manager.get_item(b"test") is None
+        with pytest.raises(FileNotFoundError):
+            D2DataLoader().load_itemdata("nonexistent_file.txt")
 
     def test_parse_itemdata_txt_exists(self):
         itemdata_path = os.path.join(
@@ -399,9 +398,8 @@ class TestParseItemDataTxt:
 
 class TestParsePropertyTxt:
     def test_parse_property_txt_not_exists(self):
-        properties = D2DataLoader().load_property_meta("nonexistent_file.txt")
-        assert properties is not None
-        assert len(properties) == 0
+        with pytest.raises(FileNotFoundError):
+            D2DataLoader().load_property_meta("nonexistent_file.txt")
 
     def test_parse_property_txt_exists(self):
         property_path = os.path.join(

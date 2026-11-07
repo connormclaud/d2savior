@@ -476,7 +476,7 @@ class D2DataLoader:
         stats_by_name = {}
 
         if not os.path.exists(filepath):
-            return stats, stats_by_name
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -551,7 +551,7 @@ class D2DataLoader:
         properties_by_code = {}
 
         if not os.path.exists(filepath):
-            return properties, properties_by_code
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -641,7 +641,7 @@ class D2DataLoader:
         items = {}
 
         if not os.path.exists(filepath):
-            return items
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -750,7 +750,7 @@ class D2DataLoader:
         affix_dict = {}
 
         if not os.path.exists(filepath):
-            return affix_dict
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -802,7 +802,7 @@ class D2DataLoader:
         unique_items = {}
 
         if not os.path.exists(filepath):
-            return unique_items
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -853,40 +853,36 @@ class D2DataLoader:
         runewords = {}
 
         if not os.path.exists(filepath):
-            return runewords
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         import json
 
-        try:
-            with open(filepath, encoding="utf-8-sig") as f:
-                data = json.load(f)
+        with open(filepath, encoding="utf-8-sig") as f:
+            data = json.load(f)
 
-            for item in data:
-                key = item.get("Key", "")
-                if key.startswith("Runeword"):
-                    runeword_id = item.get("id", 0)
-                    name = item.get("enUS", "")
-                    if runeword_id > 0 and name:
-                        runewords[runeword_id] = RuneWordInfo(
-                            name=name, runeword_id=runeword_id, key=key
-                        )
-        except Exception:
-            pass
+        for item in data:
+            key = item.get("Key", "")
+            if key.startswith("Runeword"):
+                runeword_id = item.get("id", 0)
+                name = item.get("enUS", "")
+                if runeword_id > 0 and name:
+                    runewords[runeword_id] = RuneWordInfo(
+                        name=name, runeword_id=runeword_id, key=key
+                    )
 
         return runewords
 
     def load_runes_txt(self, filepath: str, runewords: dict[int, RuneWordInfo]) -> None:
         if not os.path.exists(filepath):
-            return
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         key_to_id = {}
         for rw_id, rw_info in runewords.items():
             if rw_info.key:
                 key_to_id[rw_info.key] = rw_id
 
-        try:
-            with open(filepath, encoding="utf-8-sig") as f:
-                lines = f.readlines()
+        with open(filepath, encoding="utf-8-sig") as f:
+            lines = f.readlines()
 
             if not lines:
                 return
@@ -915,28 +911,25 @@ class D2DataLoader:
 
                 if rune_codes and rw_id in runewords:
                     runewords[rw_id].rune_codes = rune_codes
-        except Exception:
-            pass
 
     def load_set_items(self, filepath: str) -> dict[int, SetItemInfo]:
         set_items = {}
 
         if not os.path.exists(filepath):
-            return set_items
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         import json
 
-        try:
-            with open(filepath, encoding="utf-8-sig") as f:
-                data = json.load(f)
+        with open(filepath, encoding="utf-8-sig") as f:
+            data = json.load(f)
 
-            name_to_id = {}
-            for item in data:
-                if isinstance(item, dict):
-                    key = item.get("Key", "")
-                    item_id = item.get("id", 0)
-                    if key and item_id:
-                        name_to_id[key] = item_id
+        name_to_id = {}
+        for item in data:
+            if isinstance(item, dict):
+                key = item.get("Key", "")
+                item_id = item.get("id", 0)
+                if key and item_id:
+                    name_to_id[key] = item_id
 
             set_item_names = [
                 "Civerb's Ward",
@@ -1084,8 +1077,6 @@ class D2DataLoader:
             for idx, name in enumerate(set_item_names):
                 item_id = name_to_id.get(name, 0)
                 set_items[idx] = SetItemInfo(name=name, set_id=item_id)
-        except Exception:
-            pass
 
         return set_items
 
@@ -1094,7 +1085,7 @@ class D2DataLoader:
         aura_skill_ids = set()
 
         if not os.path.exists(filepath):
-            return skills, aura_skill_ids
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -1162,7 +1153,7 @@ class D2DataLoader:
         beltable_codes = set()
 
         if not os.path.exists(filepath):
-            return type_ancestors, type_descendants, type_bodyloc, beltable_codes
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -1347,7 +1338,7 @@ class D2DataLoader:
     def load_property_meta(self, filepath: str) -> dict[int, PropertyMetaData]:
         properties: dict[int, PropertyMetaData] = {}
         if not os.path.exists(filepath):
-            return properties
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -1423,7 +1414,7 @@ class D2DataLoader:
     def load_itemdata(self, filepath: str) -> ItemMetaDataManager:
         manager = ItemMetaDataManager()
         if not os.path.exists(filepath):
-            return manager
+            raise FileNotFoundError(f"Required data file not found: {filepath}")
 
         with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -1543,7 +1534,7 @@ class GameData:
 
     def load_version(self, version: int, data_dir: str, fallback_dir: str | None = None) -> bool:
         if not os.path.exists(data_dir):
-            return False
+            raise FileNotFoundError(f"Version data directory not found: {data_dir}")
 
         loader = D2DataLoader()
         version_data = loader.load_version_data(data_dir, fallback_dir)
@@ -1552,6 +1543,9 @@ class GameData:
         return True
 
     def load_all_versions(self, base_data_dir: str) -> bool:
+        if not os.path.exists(base_data_dir):
+            raise FileNotFoundError(f"Base data directory not found: {base_data_dir}")
+
         success = True
 
         v63_dir = os.path.join(base_data_dir, "0x63")
