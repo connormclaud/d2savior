@@ -247,7 +247,7 @@ def classify_advanced_tab(items: list[Any]) -> int:
         ADVANCED_SUBTYPE_GEM: gem_count,
         ADVANCED_SUBTYPE_MATERIAL: material_count,
     }
-    return max(counts, key=counts.get)
+    return max(counts, key=lambda k: counts[k])
 
 
 def get_advanced_layout(subtype: int) -> tuple[int, int]:
