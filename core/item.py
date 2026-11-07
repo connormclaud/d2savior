@@ -557,7 +557,7 @@ class Ear:
             name_bytes.append(c)
         try:
             self.ear_name = bytes(name_bytes).decode("utf-8")
-        except:
+        except UnicodeDecodeError:
             self.ear_name = bytes(name_bytes).decode("latin-1", errors="replace")
 
     def is_valid(self) -> bool:
