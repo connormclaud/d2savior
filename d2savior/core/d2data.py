@@ -446,11 +446,11 @@ class VersionData:
     def is_descendant(self, item_type_code: str, ancestor_code: str) -> bool:
         if not item_type_code or not ancestor_code:
             return False
-        # 检查祖先集合中是否包含指定的祖先
+        # Check if ancestor set contains specified ancestor
         ancestors = self.type_ancestors.get(item_type_code.lower(), set())
         if ancestor_code.lower() in ancestors:
             return True
-        # 检查后代集合中是否包含指定的类型
+        # Check if descendant set contains specified type
         descendants = self.type_descendants.get(ancestor_code.lower(), set())
         return item_type_code.lower() in descendants
 
@@ -486,7 +486,7 @@ class VersionData:
 
 
 class D2DataLoader:
-    """加载单个版本的数据"""
+    """Load single version data."""
 
     def __init__(self) -> None:
         pass
@@ -1285,11 +1285,11 @@ class D2DataLoader:
                 if code:
                     beltable_codes.add(code.lower())
 
-        # 构建祖先关系
+        # Build ancestor relationships
         for key in all_codes:
             type_ancestors[key] = self._build_ancestors(key, type_equivs)
 
-        # 构建后代关系
+        # Build descendant relationships
         for key in all_codes:
             type_descendants[key] = {key}
         for code, ancestors in type_ancestors.items():
@@ -1366,7 +1366,7 @@ class D2DataLoader:
 
         version_data = VersionData()
 
-        # 加载itemtypes.txt（需要先加载，因为其他数据可能依赖它）
+        # Load itemtypes.txt (must be loaded first as other data may depend on it)
         itemtypes_path = self._resolve_path("itemtypes.txt", dirs)
         (
             version_data.type_ancestors,
@@ -1375,54 +1375,54 @@ class D2DataLoader:
             version_data.type_beltable,
         ) = self.load_itemtypes(itemtypes_path)
 
-        # 加载ItemStatCost.txt
+        # Load ItemStatCost.txt
         itemstatcost_path = self._resolve_path("ItemStatCost.txt", dirs)
         version_data.stats, version_data.stats_by_name = self.load_itemstatcost(itemstatcost_path)
 
-        # 加载Properties.txt
+        # Load Properties.txt
         properties_path = self._resolve_path("Properties.txt", dirs)
         version_data.properties, version_data.properties_by_code = self.load_properties(
             properties_path
         )
 
-        # 加载Armor.txt
+        # Load Armor.txt
         armor_path = self._resolve_path("Armor.txt", dirs)
         armor_items = self.load_items_txt(armor_path, "armor")
         version_data.items.update(armor_items)
 
-        # 加载Weapons.txt
+        # Load Weapons.txt
         weapons_path = self._resolve_path("Weapons.txt", dirs)
         weapons_items = self.load_items_txt(weapons_path, "weapon")
         version_data.items.update(weapons_items)
 
-        # 加载Misc.txt
+        # Load Misc.txt
         misc_path = self._resolve_path("Misc.txt", dirs)
         misc_items = self.load_items_txt(misc_path, "misc")
         version_data.items.update(misc_items)
 
-        # 加载magicprefix.txt
+        # Load magicprefix.txt
         magicprefix_path = self._resolve_path("magicprefix.txt", dirs)
         version_data.magic_prefixes = self.load_magic_affix(magicprefix_path, is_prefix=True)
 
-        # 加载magicsuffix.txt
+        # Load magicsuffix.txt
         magicsuffix_path = self._resolve_path("magicsuffix.txt", dirs)
         version_data.magic_suffixes = self.load_magic_affix(magicsuffix_path, is_prefix=False)
 
-        # 加载uniqueitems.txt
+        # Load uniqueitems.txt
         uniqueitems_path = self._resolve_path("uniqueitems.txt", dirs)
         version_data.unique_items = self.load_unique_items(uniqueitems_path)
 
-        # 加载set items: parse setitems.txt table, resolve translations from item-names.json
+        # Load set items: parse setitems.txt table, resolve translations from item-names.json
         setitems_txt_path = self._resolve_path("setitems.txt", dirs)
         setnames_path = self._resolve_path("local/item-names.json", dirs)
         version_data.set_items = self.load_set_items(setitems_txt_path, setnames_path)
 
-        # 加载runewords: parse runes.txt table, resolve translations from item-runes.json
+        # Load runewords: parse runes.txt table, resolve translations from item-runes.json
         runes_txt_path = self._resolve_path("runes.txt", dirs)
         runewords_path = self._resolve_path("local/item-runes.json", dirs)
         version_data.runewords = self.load_runewords(runes_txt_path, runewords_path)
 
-        # 加载skills.txt
+        # Load skills.txt
         skills_path = self._resolve_path("skills.txt", dirs)
         version_data.skills, version_data.aura_skill_ids = self.load_skills(skills_path)
 

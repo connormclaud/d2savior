@@ -297,7 +297,7 @@ class Corpse:
         self.count = io.word(self.count)
         if io.is_reading:
             if self.magic != ITEM_LIST_MAGIC:
-                # 不是CCorpse，回退并返回
+                # Not CCorpse, seek back and return
                 io.seek_back_bytes(4)
                 return
             if self.count > 0:
@@ -326,7 +326,7 @@ class Mercenary:
         self.magic = io.word(self.magic)
         if io.is_reading:
             if self.magic != MERCENARY_MAGIC:
-                # 不是CMercenary，回退并返回
+                # Not CMercenary, seek back and return
                 io.seek_back_bytes(2)
                 return
             if has_mercenary:
