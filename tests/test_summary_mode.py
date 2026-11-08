@@ -11,6 +11,7 @@ from d2savior.core.formatters import (
     format_char_summary,
     format_item_summary,
     format_stash_summary,
+    get_char_status_summary,
 )
 from d2savior.core.item import (
     D2Item,
@@ -271,7 +272,7 @@ class TestSummaryMode:
 
         assert "=== Diablo II Character Summary ===" in output
         assert "Name: Sork | Class: Sorceress | Level: 85" in output
-        assert "Status: Expansion | Hardcore" in output
+        assert "Status: Hardcore" in output
         assert "Attributes: Str: 156, Dex: 25, Vit: 300, Ene: 35" in output
         assert "Life: 900/900 | Mana: 450/450" in output
         assert "Gold: 12000 (Person), 2500000 (Stash)" in output
@@ -290,6 +291,39 @@ class TestSummaryMode:
         assert "=== Inventory & Stash ===" in output
         assert "- [Inventory] Grand Charm" in output
         assert "- [Belt] Super Healing Potion (x2)" in output
+
+    def test_char_status_summary_combinations(self):
+        # 1. Softcore, alive / not died before
+        char = D2SStruct()
+        char.char_flags = 0x20  # Expansion only, softcore
+        assert get_char_status_summary(char) == "Softcore"
+
+        # 2. Softcore, died before (e.g. sork in 0x69)
+        char_0x69 = D2SStruct()
+        char_0x69.version = 0x69
+        char_0x69.game_version = 3
+        char_0x69.char_flags = 0x08  # Died before
+        assert get_char_status_summary(char_0x69) == "Softcore | Died before"
+
+        # 3. Hardcore, died before
+        char_hc_dead = D2SStruct()
+        char_hc_dead.char_flags = 0x04 | 0x08  # Hardcore | Died
+        assert get_char_status_summary(char_hc_dead) == "Hardcore | Died before"
+
+        # 4. Hardcore, alive
+        char_hc_alive = D2SStruct()
+        char_hc_alive.char_flags = 0x04  # Hardcore
+        assert get_char_status_summary(char_hc_alive) == "Hardcore"
+
+        # 5. Ladder, Softcore, alive
+        char_ladder = D2SStruct()
+        char_ladder.char_flags = 0x40  # Ladder
+        assert get_char_status_summary(char_ladder) == "Ladder | Softcore"
+
+        # 6. Ladder, Hardcore, died before
+        char_ladder_hc_died = D2SStruct()
+        char_ladder_hc_died.char_flags = 0x40 | 0x04 | 0x08  # Ladder | Hardcore | Died
+        assert get_char_status_summary(char_ladder_hc_died) == "Ladder | Hardcore | Died before"
 
     def test_cli_argument_parsing(self):
         import argparse

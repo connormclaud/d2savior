@@ -35,6 +35,34 @@ def get_char_type_name(char_type: int) -> str:
     return " | ".join(flags) if flags else "Normal"
 
 
+def get_char_status_summary(char_data: D2SStruct) -> str:
+    status_parts = []
+    is_lad = (
+        char_data.is_ladder()
+        if hasattr(char_data, "is_ladder")
+        else bool(getattr(char_data, "char_flags", 0) & 0x40)
+    )
+    if is_lad:
+        status_parts.append("Ladder")
+
+    is_hc = (
+        char_data.is_hardcore()
+        if hasattr(char_data, "is_hardcore")
+        else bool(getattr(char_data, "char_flags", 0) & 0x04)
+    )
+    status_parts.append("Hardcore" if is_hc else "Softcore")
+
+    is_died = (
+        char_data.is_died_before()
+        if hasattr(char_data, "is_died_before")
+        else bool(getattr(char_data, "char_flags", 0) & 0x08)
+    )
+    if is_died:
+        status_parts.append("Died before")
+
+    return " | ".join(status_parts)
+
+
 def get_char_title_name(char_title: int, char_class: int) -> str:
     if char_title == 0:
         return "None"
@@ -691,7 +719,7 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     version = char_data.version if char_data.version else 0x63
     char_resolver = resolver.for_version(version)
     char_class = char_resolver.get_localized_class_name(char_data.char_class)
-    flags_str = get_char_type_name(char_data.char_flags)
+    flags_str = get_char_status_summary(char_data)
     char_title = getattr(char_data, "char_title", 0)
     title_str = get_char_title_name(char_title, char_data.char_class)
     weapon_set = "I" if char_data.weapon_set == 0 else "II"

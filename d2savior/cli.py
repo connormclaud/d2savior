@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import signal
 import sys
 from pathlib import Path
 from typing import Any
+
+if hasattr(signal, "SIGPIPE"):
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 from d2savior.config import load_save_dir, update_save_dir
 from d2savior.core.bitstream_debug import _run_bitstream_searches

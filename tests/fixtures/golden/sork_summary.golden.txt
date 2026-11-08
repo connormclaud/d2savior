@@ -1,6 +1,6 @@
 === Diablo II Character Summary ===
 Name: sork | Class: Sorceress | Level: 74 | Title: Champion
-Status: Died | Weapon Set: I
+Status: Softcore | Died before | Weapon Set: I
 Last Saved: 2026-11-06 17:31:34 UTC | Play Time: N/A
 Attributes: Str: 55, Dex: 25, Vit: 340, Ene: 35
 Life: 906/813 | Mana: 353/181 | Gold: 0 (Person), 532437 (Stash)
