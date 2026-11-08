@@ -183,6 +183,124 @@ def _format_parsed_properties(
     return result
 
 
+def _format_summary_properties(
+    parsed_props: list[tuple[int, int, list[int]]],
+    resolver: GameDataResolver,
+    version: int = 0x63,
+    property_formatter: Callable[..., str | None] | None = None,
+) -> FormattedLines:
+    """Format summary properties with numeric stat stacking and resistance collapsing."""
+    if not parsed_props:
+        return []
+
+    format_func = property_formatter or resolver.format_property
+
+    ordered_keys: list[Any] = []
+    aggregated: dict[Any, list[int]] = {}
+    prop_id_map: dict[Any, int] = {}
+    raw_val_map: dict[Any, int] = {}
+
+    for idx, (prop_id, value, params) in enumerate(parsed_props):
+        p_list = list(params) if params else [value]
+        stat = resolver.data.get_stat(prop_id)
+        if stat is None:
+            key = (prop_id, idx)
+            ordered_keys.append(key)
+            aggregated[key] = p_list
+            prop_id_map[key] = prop_id
+            raw_val_map[key] = value
+        elif prop_id in (83, 97, 107):
+            key = (prop_id, p_list[0])
+            if key not in aggregated:
+                ordered_keys.append(key)
+                aggregated[key] = p_list
+                prop_id_map[key] = prop_id
+                raw_val_map[key] = value
+            else:
+                aggregated[key][1] += p_list[1]
+        elif prop_id == 188:
+            key = (prop_id, p_list[0], p_list[1])
+            if key not in aggregated:
+                ordered_keys.append(key)
+                aggregated[key] = p_list
+                prop_id_map[key] = prop_id
+                raw_val_map[key] = value
+            else:
+                aggregated[key][2] += p_list[2]
+        elif prop_id in (179, 180):
+            key = (prop_id, p_list[0])
+            if key not in aggregated:
+                ordered_keys.append(key)
+                aggregated[key] = p_list
+                prop_id_map[key] = prop_id
+                raw_val_map[key] = value
+            else:
+                aggregated[key][1] += p_list[1]
+        elif prop_id in (98, 151, 155, 195, 196, 197, 198, 199, 201, 204):
+            key = (prop_id, idx)
+            ordered_keys.append(key)
+            aggregated[key] = p_list
+            prop_id_map[key] = prop_id
+            raw_val_map[key] = value
+        else:
+            val = p_list[0]
+            key = (prop_id,)
+            if key not in aggregated:
+                ordered_keys.append(key)
+                aggregated[key] = [val]
+                prop_id_map[key] = prop_id
+                raw_val_map[key] = value
+            else:
+                aggregated[key][0] += val
+
+    res_keys = [(39,), (41,), (43,), (45,)]
+    all_res_present = all(k in aggregated for k in res_keys)
+    min_res = 0
+    if all_res_present:
+        res_vals = [aggregated[k][0] for k in res_keys]
+        if all(v > 0 for v in res_vals):
+            min_res = min(res_vals)
+
+    result: list[str] = []
+    all_res_inserted = False
+
+    for key in ordered_keys:
+        if key not in aggregated:
+            continue
+
+        prop_id = prop_id_map[key]
+        params = aggregated[key]
+
+        if min_res > 0 and key in res_keys:
+            if not all_res_inserted:
+                all_res_inserted = True
+                tpl = resolver.get_item_modifier("strModAllResistances") or "All Resistances %+d"
+                all_res_str = tpl.replace("%+d", f"{min_res:+d}").replace("%d", str(min_res))
+                result.append(all_res_str)
+
+            val = params[0]
+            if val > min_res:
+                excess = val - min_res
+                formatted_excess = format_func(prop_id, [excess], version)
+                if formatted_excess:
+                    result.append(formatted_excess)
+            continue
+
+        formatted = format_func(prop_id, params, version)
+        if formatted:
+            result.append(formatted)
+        elif len(params) > 1:
+            raw_val = raw_val_map.get(key, params[0])
+            result.append(f"ID {prop_id}: raw={raw_val}, params={params}")
+        elif params:
+            result.append(f"ID {prop_id}: {params[0]}")
+        else:
+            raw_val = raw_val_map.get(key, 0)
+            result.append(f"ID {prop_id}: {raw_val}")
+
+    return result
+
+
 def format_item_summary(
     item: Any,
     resolver: GameDataResolver,
@@ -226,21 +344,22 @@ def format_item_summary(
 
     props = []
     if include_properties and tp:
-        props.extend(
-            _format_parsed_properties(
-                getattr(tp, "property_list", None),
-                resolver=resolver,
-                version=version,
-                property_formatter=property_formatter,
+        all_parsed: list[tuple[int, int, list[int]]] = []
+        if getattr(tp, "property_list", None):
+            all_parsed.extend(tp.property_list.get_parsed_properties(version, data=resolver.data))
+        if getattr(tp, "runeword_property_list", None):
+            all_parsed.extend(
+                tp.runeword_property_list.get_parsed_properties(version, data=resolver.data)
             )
-        )
-        props.extend(
-            _format_parsed_properties(
-                getattr(tp, "runeword_property_list", None),
-                resolver=resolver,
-                version=version,
-                property_formatter=property_formatter,
-            )
+        if getattr(item, "gem_items", None):
+            for gem in item.gem_items:
+                all_parsed.extend(resolver.get_socket_properties(item, gem))
+
+        props = _format_summary_properties(
+            all_parsed,
+            resolver=resolver,
+            version=version,
+            property_formatter=property_formatter,
         )
 
     return f"{title}{f' [{", ".join(meta_tags)}]' if meta_tags else ''}{f' ({", ".join(props)})' if props else ''}"

@@ -39,10 +39,10 @@ Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available
 Hell: Not started
 
 === Equipped Gear ===
-- Helmet: Lore (Cap) [Def: 6, Sockets: 2, Socketed: Ort Rune+Sol Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +10 to Energy, +2 to Light Radius, +1 to All Skills, +2 to Mana after each Kill)
-- Amulet: Scintillating Amulet of Warding (Magic Damage Reduced by 2, Fire Resist +18%, Lightning Resist +18%, Cold Resist +18%, Poison Resist +18%)
-- Armor: Stealth (Studded Leather) [Def: 36, Sockets: 2, Socketed: Tal Rune+Eth Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +6 to Dexterity, +15 Maximum Stamina, Magic Damage Reduced by 3, +25% Faster Run/Walk, +25% Faster Hit Recovery, +25% Faster Cast Rate)
-- Weapon I: Spirit (Broad Sword) [Sockets: 4, Socketed: Tal Rune+Thul Rune+Ort Rune+Amn Rune] (+22 to Vitality, +93 to Mana, +250 Defense vs. Missile, +55% Faster Hit Recovery, +34% Faster Cast Rate, +2 to All Skills, +6 Magic Absorb)
+- Helmet: Lore (Cap) [Def: 6, Sockets: 2, Socketed: Ort Rune+Sol Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +10 to Energy, +2 to Light Radius, +1 to All Skills, +2 to Mana after each Kill, Lightning Resist +30%, Damage Reduced by 7)
+- Amulet: Scintillating Amulet of Warding (Magic Damage Reduced by 2, All Resistances +18)
+- Armor: Stealth (Studded Leather) [Def: 36, Sockets: 2, Socketed: Tal Rune+Eth Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +6 to Dexterity, +15 Maximum Stamina, Magic Damage Reduced by 3, +25% Faster Run/Walk, +25% Faster Hit Recovery, +25% Faster Cast Rate, Poison Resist +30%, Regenerate Mana 15%)
+- Weapon I: Spirit (Broad Sword) [Sockets: 4, Socketed: Tal Rune+Thul Rune+Ort Rune+Amn Rune] (+22 to Vitality, +93 to Mana, +250 Defense vs. Missile, +55% Faster Hit Recovery, +34% Faster Cast Rate, +2 to All Skills, +6 Magic Absorb, +0 to Minimum Poison Damage, +154 to Maximum Poison Damage, 5 seconds poison duration, +3 to Minimum Cold Damage, +14 to Maximum Cold Damage, 3 seconds cold duration, +1 to Minimum Lightning Damage, +50 to Maximum Lightning Damage, 7% Life stolen per hit)
 - Shield I: Visceratuant (Defender) [Def: 50] (+116% Enhanced Defense, 30% Increased Chance of Blocking, +1 to Sorceress Skill Levels, +30% Faster Block Rate, Attacker Takes Lightning Damage of 10)
 - Ring (Right): Manald Heal (Ring) (+20 to Life, Regenerate Mana 20%, 6% Mana stolen per hit, Replenish Life +5, +10% Faster Cast Rate)
 - Ring (Left): Rare Ring (+2 to Strength, +9 to Energy, Fire Resist +17%, Lightning Resist +16%, Poison Resist +9%, Poison Length Reduced by 25%)
@@ -50,14 +50,14 @@ Hell: Not started
 - Boots: Rare Chain Boots [Def: 8] (+5 to Dexterity, Fire Resist +17%, Cold Resist +20%, +20% Faster Run/Walk, Repairs 20% durability per second)
 - Gloves: Rare Heavy Gloves [Def: 7] (+6 to Dexterity, +52% Enhanced Defense, Fire Resist +16%, Poison Resist +25%, 3% Mana stolen per hit, +5 to Light Radius, 5% Bonus to Attack Rating)
 - Weapon II: Bone Wand of Iron Golem (Level 1 Lower Resist (66/67 Charges))
-- Shield II: Rhyme (Kite Shield) [Def: 16, Sockets: 2, Socketed: Shael Rune+Eth Rune] (20% Increased Chance of Blocking, Fire Resist +25%, Lightning Resist +25%, Cold Resist +25%, Poison Resist +25%, 50% Extra Gold from Monsters, 25% Better Chance of Getting Magic Items, +20% Faster Block Rate, Cannot Be Frozen)
+- Shield II: Rhyme (Kite Shield) [Def: 16, Sockets: 2, Socketed: Shael Rune+Eth Rune] (20% Increased Chance of Blocking, All Resistances +25, 50% Extra Gold from Monsters, 25% Better Chance of Getting Magic Items, +40% Faster Block Rate, Cannot Be Frozen, Regenerate Mana 15%)
 
 === Mercenary ===
 Mercenary: Name Index 19, Type 10
 Equipped:
-  - Armor: Lionheart (Breast Plate) [Def: 69, Sockets: 3, Socketed: Hel Rune+Lum Rune+Fal Rune] (+11% Enhanced Defense, +15 to Strength, +15 to Dexterity, +20 to Vitality, +50 to Life, +20% Enhanced Maximum Damage, +20% Enhanced Minimum Damage, Fire Resist +30%, Lightning Resist +30%, Cold Resist +30%, Poison Resist +30%)
-  - Helmet: Tal Rasha's Horadric Crest (Death Mask) [Def: 86] (+60 to Life, +30 to Mana, +45 Defense, Fire Resist +15%, Lightning Resist +15%, Cold Resist +15%, Poison Resist +15%, 10% Life stolen per hit, 10% Mana stolen per hit)
-  - Weapon I: Insight (Bill) [Sockets: 4, Socketed: Ral Rune+Tir Rune+Tal Rune+Sol Rune] (+5 to Strength, +5 to Energy, +5 to Dexterity, +5 to Vitality, +235% Enhanced Maximum Damage, +235% Enhanced Minimum Damage, 23% Better Chance of Getting Magic Items, +5 to Critical Strike, +35% Faster Cast Rate, 229% Bonus to Attack Rating, Level 15 Meditation Aura When Equipped)
+  - Armor: Lionheart (Breast Plate) [Def: 69, Sockets: 3, Socketed: Hel Rune+Lum Rune+Fal Rune] (+11% Enhanced Defense, +25 to Strength, +15 to Dexterity, +20 to Vitality, +50 to Life, +20% Enhanced Maximum Damage, +20% Enhanced Minimum Damage, All Resistances +30, Requirements -15%, +10 to Energy)
+  - Helmet: Tal Rasha's Horadric Crest (Death Mask) [Def: 86] (+60 to Life, +30 to Mana, +45 Defense, All Resistances +15, 10% Life stolen per hit, 10% Mana stolen per hit)
+  - Weapon I: Insight (Bill) [Sockets: 4, Socketed: Ral Rune+Tir Rune+Tal Rune+Sol Rune] (+5 to Strength, +5 to Energy, +5 to Dexterity, +5 to Vitality, +235% Enhanced Maximum Damage, +235% Enhanced Minimum Damage, 23% Better Chance of Getting Magic Items, +5 to Critical Strike, +35% Faster Cast Rate, 229% Bonus to Attack Rating, Level 15 Meditation Aura When Equipped, +5 to Minimum Fire Damage, +30 to Maximum Fire Damage, +2 to Mana after each Kill, +0 to Minimum Poison Damage, +154 to Maximum Poison Damage, 5 seconds poison duration, +9 to Minimum Damage)
 
 === Inventory & Stash ===
 - [Inventory] Sapphire Grand Charm (Fire Resist +12%)
@@ -95,11 +95,11 @@ Equipped:
 - [Stash] Tal Rasha's Lidless Eye (Swirling Crystal) (+10 to Energy, +57 to Life, +77 to Mana, +20% Faster Cast Rate, +1 to Fire Mastery Fire Mastery, +1 to Lightning Mastery Lightning Mastery, +2 to Cold Mastery Cold Mastery)
 - [Stash] Peasant Crown (War Hat) [Def: 54] (+20 to Energy, +20 to Vitality, +100% Enhanced Defense, Replenish Life +6, +15% Faster Run/Walk, +1 to All Skills)
 - [Stash] Undead Crown (Crown) [Def: 46] (+52% Enhanced Defense, +40 Defense, Poison Resist +50%, 5% Life stolen per hit, +3 to Skeleton Mastery Skeleton Mastery, Half Freeze Duration, +50% Damage to Undead, +74 to Attack Rating against Undead)
-- [Stash] Ancients' Pledge (Large Shield) [Def: 14, Sockets: 3, Socketed: Ral Rune+Ort Rune+Tal Rune] (+50% Enhanced Defense, Fire Resist +13%, Lightning Resist +13%, Cold Resist +43%, Poison Resist +13%, +10% Damage Taken Goes To Mana)
+- [Stash] Ancients' Pledge (Large Shield) [Def: 14, Sockets: 3, Socketed: Ral Rune+Ort Rune+Tal Rune] (+50% Enhanced Defense, All Resistances +43, Fire Resist +5%, Lightning Resist +5%, Poison Resist +5%, +10% Damage Taken Goes To Mana)
 - [Stash] Ocher Chain Gloves of Greed [Def: 8] (Lightning Resist +24%, 43% Extra Gold from Monsters)
 - [Stash] Jade Ring of Deflecting (+10% Faster Cast Rate, +1 to Mana after each Kill)
 - [Stash] Coral Amulet of Health (Damage Reduced by 2, Lightning Resist +37%)
-- [Stash] Shimmering Amulet of Regeneration (Fire Resist +8%, Lightning Resist +8%, Cold Resist +8%, Poison Resist +8%, Replenish Life +10)
+- [Stash] Shimmering Amulet of Regeneration (All Resistances +8, Replenish Life +10)
 - [Stash] Crown [Def: 33, Sockets: 3]
 - [Belt] Full Rejuvenation Potion (x8)
 - [Belt] Super Healing Potion (x4)
