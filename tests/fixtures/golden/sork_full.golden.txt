@@ -834,7 +834,7 @@ Total items: 69
   Suffix: 594 (of Iron Golem Creation)
   Durability: 15/15
   Properties:
-    - Level 1 Lower Resist (0/17218 Charges)
+    - Level 1 Lower Resist (66/67 Charges)
 --- Item 51 ---
   Type: mgl  (Chain Gloves)
   Location: STORED, Position: 0

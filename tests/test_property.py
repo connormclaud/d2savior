@@ -142,6 +142,28 @@ class TestFormatPropertySpecialCases:
             result = format_property(83, [class_id, 1], resolver=game_data_resolver)
             assert expected_name in result, f"Class ID {class_id} should format to {expected_name}"
 
+    def test_format_property_charged_skill(self, game_data_resolver: GameDataResolver):
+        # Level 1 Lower Resist (91), 60 current charges, 67 max charges
+        result = format_property(204, [1, 91, 60, 67], resolver=game_data_resolver)
+        assert result == "Level 1 Lower Resist (60/67 Charges)"
+
+    def test_property_list_charged_skill_decoding(self, game_data_resolver: GameDataResolver):
+        # In D2R bitstream:
+        # layer = level | (skill << 6) -> 1 | (91 << 6) = 5825
+        # val = current_charges | (max_charges << 8) -> 66 | (67 << 8) = 17218
+        pl = PropertyList()
+        pl._version = 0x69
+        pl._use_stat_cost = True
+        pl._data = game_data_resolver.data
+        pl.properties = [(204, 5825, 17218)]
+        parsed = pl.get_parsed_properties()
+        assert len(parsed) == 1
+        prop_id, _val, params = parsed[0]
+        assert prop_id == 204
+        assert params == [1, 91, 66, 67]
+        formatted = format_property(prop_id, params, resolver=game_data_resolver)
+        assert formatted == "Level 1 Lower Resist (66/67 Charges)"
+
 
 class TestFormatItemInfoSetProperties:
     def test_format_item_info_with_set_properties(self, game_data_resolver: GameDataResolver):

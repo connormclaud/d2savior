@@ -890,7 +890,7 @@ Total items: 26
     - -4 to Light Radius
     - Cannot Be Frozen
     - 6% Chance to cast level 3 Dim Vision when struck
-    - Level 5 Cloak of Shadows (0/7702 Charges)
+    - Level 5 Cloak of Shadows (22/30 Charges)
     - +5.33 Defense (Based on Character Level)
 --- Item 15 ---
   Type: zvb  (Sharkskin Belt)
@@ -1237,7 +1237,7 @@ Total items: 17
     - 5 seconds cold duration
     - Freezes target
     - Cannot Be Frozen
-    - Level 9 Frozen Orb (0/12836 Charges)
+    - Level 9 Frozen Orb (36/50 Charges)
 --- Item 6 ---
   Type: ama  (Ceremonial Javelin)
   Required Level: 26

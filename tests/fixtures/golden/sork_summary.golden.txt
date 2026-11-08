@@ -49,7 +49,7 @@ Hell: Not started
 - Belt: Crafted Sharkskin Belt [Def: 32] (+7 to Life, +13 to Mana, Regenerate Mana 9%, Poison Resist +18%, +8% Faster Cast Rate)
 - Boots: Rare Chain Boots [Def: 8] (+5 to Dexterity, Fire Resist +17%, Cold Resist +20%, +20% Faster Run/Walk, Repairs 20% durability per second)
 - Gloves: Rare Heavy Gloves [Def: 7] (+6 to Dexterity, +52% Enhanced Defense, Fire Resist +16%, Poison Resist +25%, 3% Mana stolen per hit, +5 to Light Radius, 5% Bonus to Attack Rating)
-- Weapon II: Bone Wand of Iron Golem (Level 1 Lower Resist (0/17218 Charges))
+- Weapon II: Bone Wand of Iron Golem (Level 1 Lower Resist (66/67 Charges))
 - Shield II: Rhyme (Kite Shield) [Def: 16, Sockets: 2, Socketed: Shael Rune+Eth Rune] (20% Increased Chance of Blocking, Fire Resist +25%, Lightning Resist +25%, Cold Resist +25%, Poison Resist +25%, 50% Extra Gold from Monsters, 25% Better Chance of Getting Magic Items, +20% Faster Block Rate, Cannot Be Frozen)
 
 === Mercenary ===

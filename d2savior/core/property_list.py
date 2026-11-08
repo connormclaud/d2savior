@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, ClassVar
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 
 if TYPE_CHECKING:
-    from d2savior.core.d2data import VersionData
+    from d2savior.core.d2data import PropertyField, VersionData
     from d2savior.core.ibitstream import IBitStream
     from d2savior.core.obitstream import OBitStream
 
@@ -169,17 +169,29 @@ class PropertyList:
         if prop_meta.bits_sum > isc_bits and isc_bits > 0:
             return [display_value, 0, 0, 0]
 
-        param_fields = active_fields[:-1]
+        param_bits = stat_cost.save_param_bits if stat_cost else 0
+        return self._unpack_fields(active_fields, layer, display_value, param_bits)
 
+    def _unpack_fields(
+        self,
+        active_fields: list[PropertyField],
+        layer: int,
+        display_value: int,
+        param_bits: int,
+    ) -> list[int]:
         params = [0, 0, 0, 0]
         remaining_layer = layer
-        for i, f in enumerate(param_fields):
+        remaining_value = display_value
+        bits_acc = 0
+        for i, f in enumerate(active_fields):
             mask = (1 << f.bits) - 1
-            params[i] = remaining_layer & mask
-            remaining_layer >>= f.bits
-
-        params[len(param_fields)] = display_value
-
+            if bits_acc < param_bits:
+                params[i] = (remaining_layer & mask) + f.base
+                remaining_layer >>= f.bits
+                bits_acc += f.bits
+            else:
+                params[i] = (remaining_value & mask) + f.base
+                remaining_value >>= f.bits
         return params
 
     def _isc_layer_to_params(
@@ -190,15 +202,9 @@ class PropertyList:
         if base_meta:
             active_fields = [f for f in base_meta.fields if f.bits > 0]
             if len(active_fields) > 1:
-                param_fields = active_fields[:-1]
-                params = [0, 0, 0, 0]
-                remaining_layer = layer
-                for i, f in enumerate(param_fields):
-                    mask = (1 << f.bits) - 1
-                    params[i] = remaining_layer & mask
-                    remaining_layer >>= f.bits
-                params[len(param_fields)] = display_value
-                return params
+                stat_cost = data.get_stat(prop_id)
+                param_bits = stat_cost.save_param_bits if stat_cost else 0
+                return self._unpack_fields(active_fields, layer, display_value, param_bits)
         return [layer, display_value, 0, 0]
 
     def serialize(self, bs: OBitStream, version: int, data: VersionData | None = None) -> None:
