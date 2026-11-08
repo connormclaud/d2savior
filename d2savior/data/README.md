@@ -5,7 +5,7 @@ This directory contains packaged game data tables and localized strings bundled 
 ## Directory Structure
 
 - `d2r/`: Canonical base data extracted from Diablo II: Resurrected (Patch 2.7 / build 2.7.3.77443).
-  - Core game tables: `Armor.txt`, `Weapons.txt`, `Misc.txt`, `ItemStatCost.txt`, `Properties.txt`, `itemtypes.txt`, `magicprefix.txt`, `magicsuffix.txt`, `uniqueitems.txt`, `runes.txt`, `skills.txt`.
+  - Core game tables: `Armor.txt`, `Weapons.txt`, `Misc.txt`, `ItemStatCost.txt`, `Properties.txt`, `itemtypes.txt`, `magicprefix.txt`, `magicsuffix.txt`, `uniqueitems.txt`, `runes.txt`, `gems.txt`, `skills.txt`.
   - Generated parsing tables: `itemdata.txt`, `property.txt`.
   - `local/`: Localized JSON string tables (`item-modifiers.json`, `item-names.json`, `item-runes.json`, etc.).
 - `0x63/`: Overlay data specific to D2R Beta / v1.0.0 (patch version 0x63 / 99).

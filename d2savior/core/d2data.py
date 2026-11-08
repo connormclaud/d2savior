@@ -295,6 +295,23 @@ class RuneWordInfo:
 
 
 @dataclass(slots=True)
+class GemMod:
+    code: str = ""
+    param: int = 0
+    min_val: int = 0
+    max_val: int = 0
+
+
+@dataclass(slots=True)
+class GemInfo:
+    code: str = ""
+    name: str = ""
+    weapon_mods: list[GemMod] = field(default_factory=list)
+    helm_mods: list[GemMod] = field(default_factory=list)
+    shield_mods: list[GemMod] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class ItemTypeInfo:
     code: str = ""
     name: str = ""
@@ -351,6 +368,7 @@ class VersionData:
     unique_items: dict[int, UniqueItemInfo] = field(default_factory=dict)
     set_items: dict[int, SetItemInfo] = field(default_factory=dict)
     runewords: dict[int, RuneWordInfo] = field(default_factory=dict)
+    gems: dict[str, GemInfo] = field(default_factory=dict)
     skills: dict[int, str] = field(default_factory=dict)
     aura_skill_ids: set[int] = field(default_factory=set)
     type_ancestors: dict[str, set[str]] = field(default_factory=dict)
@@ -402,6 +420,11 @@ class VersionData:
 
     def get_runeword(self, runeword_id: int) -> RuneWordInfo | None:
         return self.runewords.get(runeword_id)
+
+    def get_gem_info(self, code: str) -> GemInfo | None:
+        if not code:
+            return None
+        return self.gems.get(code.lower().strip())
 
     def get_skill_name(self, skill_id: int) -> str:
         return self.skills.get(skill_id, "")
@@ -949,6 +972,87 @@ class D2DataLoader:
 
         return runewords
 
+    def load_gems(self, filepath: str | Traversable) -> dict[str, GemInfo]:
+        gems: dict[str, GemInfo] = {}
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+
+        if len(lines) < 1:
+            return gems
+
+        header = [h.strip() for h in lines[0].strip().split("\t")]
+        col_map = {col.lower(): i for i, col in enumerate(header)}
+
+        for line in lines[1:]:
+            line = line.strip()
+            if not line or line.startswith(("*", "Expansion")):
+                continue
+            parts = line.split("\t")
+
+            def get_col(name: str, default: str = "", _parts: list[str] = parts) -> str:
+                idx = col_map.get(name.lower(), -1)
+                return _parts[idx].strip() if 0 <= idx < len(_parts) else default
+
+            def to_int(val: str, default: int = 0) -> int:
+                try:
+                    return int(val)
+                except ValueError:
+                    return default
+
+            code = get_col("code").lower()
+            if not code:
+                continue
+
+            name = get_col("name")
+            weapon_mods = []
+            for i in range(1, 4):
+                mod_code = get_col(f"weaponmod{i}code")
+                if mod_code:
+                    weapon_mods.append(
+                        GemMod(
+                            code=mod_code,
+                            param=to_int(get_col(f"weaponmod{i}param")),
+                            min_val=to_int(get_col(f"weaponmod{i}min")),
+                            max_val=to_int(get_col(f"weaponmod{i}max")),
+                        )
+                    )
+
+            helm_mods = []
+            for i in range(1, 4):
+                mod_code = get_col(f"helmmod{i}code")
+                if mod_code:
+                    helm_mods.append(
+                        GemMod(
+                            code=mod_code,
+                            param=to_int(get_col(f"helmmod{i}param")),
+                            min_val=to_int(get_col(f"helmmod{i}min")),
+                            max_val=to_int(get_col(f"helmmod{i}max")),
+                        )
+                    )
+
+            shield_mods = []
+            for i in range(1, 4):
+                mod_code = get_col(f"shieldmod{i}code")
+                if mod_code:
+                    shield_mods.append(
+                        GemMod(
+                            code=mod_code,
+                            param=to_int(get_col(f"shieldmod{i}param")),
+                            min_val=to_int(get_col(f"shieldmod{i}min")),
+                            max_val=to_int(get_col(f"shieldmod{i}max")),
+                        )
+                    )
+
+            gems[code] = GemInfo(
+                code=code,
+                name=name,
+                weapon_mods=weapon_mods,
+                helm_mods=helm_mods,
+                shield_mods=shield_mods,
+            )
+
+        return gems
+
     @deprecated("Use load_runewords instead")
     def load_runes_txt(
         self, filepath: str | Traversable, runewords: dict[int, RuneWordInfo]
@@ -1421,6 +1525,10 @@ class D2DataLoader:
         runes_txt_path = self._resolve_path("runes.txt", dirs)
         runewords_path = self._resolve_path("local/item-runes.json", dirs)
         version_data.runewords = self.load_runewords(runes_txt_path, runewords_path)
+
+        # Load gems.txt
+        gems_path = self._resolve_path("gems.txt", dirs)
+        version_data.gems = self.load_gems(gems_path)
 
         # Load skills.txt
         skills_path = self._resolve_path("skills.txt", dirs)

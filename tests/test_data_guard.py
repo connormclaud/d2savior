@@ -46,6 +46,9 @@ class TestDataGuard:
             loader.load_set_items(bogus_path)
 
         with pytest.raises(FileNotFoundError):
+            loader.load_gems(bogus_path)
+
+        with pytest.raises(FileNotFoundError):
             loader.load_skills(bogus_path)
 
         with pytest.raises(FileNotFoundError):
@@ -73,6 +76,7 @@ class TestDataGuard:
             assert len(vd.magic_suffixes) > 0, f"version {version:#x} magic_suffixes is empty"
             assert len(vd.unique_items) > 0, f"version {version:#x} unique_items is empty"
             assert len(vd.runewords) > 0, f"version {version:#x} runewords is empty"
+            assert len(vd.gems) > 0, f"version {version:#x} gems is empty"
             assert len(vd.set_items) > 0, f"version {version:#x} set_items is empty"
             assert len(vd.skills) > 0, f"version {version:#x} skills is empty"
             assert len(vd.prop_meta) > 0, f"version {version:#x} prop_meta is empty"
@@ -100,6 +104,7 @@ class TestDataGuard:
             "d2r/Misc.txt",
             "d2r/Properties.txt",
             "d2r/Weapons.txt",
+            "d2r/gems.txt",
             "d2r/itemdata.txt",
             "d2r/itemtypes.txt",
             "d2r/magicprefix.txt",
@@ -181,6 +186,7 @@ class TestDataGuard:
             zf.writestr("d2r/itemdata.txt", "*ID\tVersionMin\n")
             zf.writestr("d2r/property.txt", "*ID\n")
             zf.writestr("d2r/runes.txt", "Name\t*Rune Name\n")
+            zf.writestr("d2r/gems.txt", "name\tcode\n")
             zf.writestr("d2r/setitems.txt", "index\t*ID\n")
             zf.writestr("d2r/local/item-names.json", "[]")
             zf.writestr("d2r/local/item-runes.json", "[]")
