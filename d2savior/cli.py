@@ -167,7 +167,7 @@ def find_saves_in_dir(dir_path: Path) -> list[str]:
 def resolve_target_files(
     input_paths: list[str], no_config: bool = False
 ) -> tuple[list[str], Path | None]:
-    """Resolve file paths and determine if a directory should be saved to config.
+    """Resolve file paths and determine if a directory should be saved to config (if empty).
 
     Returns (files_to_process, dir_to_save).
     """
@@ -201,10 +201,12 @@ def resolve_target_files(
                 print(f"Error: No .d2s or .d2i files found in '{raw_path}'", file=sys.stderr)
             else:
                 resolved_files.extend(dir_files)
-                dir_to_save = p.resolve()
+                if configured_dir is None and not no_config and dir_to_save is None:
+                    dir_to_save = p.resolve()
         elif p.is_file():
             resolved_files.append(str(p))
-            dir_to_save = p.resolve().parent
+            if configured_dir is None and not no_config and dir_to_save is None:
+                dir_to_save = p.resolve().parent
         else:
             found_in_config = False
             if configured_dir and configured_dir.is_dir():
@@ -307,7 +309,7 @@ def cmd_list(argv: list[str]) -> int:
     files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
 
     if not args.no_config and dir_to_save:
-        update_save_dir(dir_to_save)
+        update_save_dir(dir_to_save, if_empty=True)
 
     if not files_to_process:
         return 1
@@ -343,7 +345,7 @@ def cmd_stash(argv: list[str]) -> int:
     files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
 
     if not args.no_config and dir_to_save:
-        update_save_dir(dir_to_save)
+        update_save_dir(dir_to_save, if_empty=True)
 
     if not files_to_process:
         return 1
@@ -428,7 +430,7 @@ Examples:
     files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
 
     if not args.no_config and dir_to_save:
-        update_save_dir(dir_to_save)
+        update_save_dir(dir_to_save, if_empty=True)
 
     if not files_to_process:
         sys.exit(1)

@@ -66,9 +66,10 @@ def test_resolve_target_files_with_existing_file(tmp_path: Path):
     char = saves_dir / "sork.d2s"
     char.touch()
 
-    files, to_save = resolve_target_files([str(char)], no_config=False)
-    assert files == [str(char)]
-    assert to_save == saves_dir.resolve()
+    with patch("d2savior.cli.load_save_dir", return_value=None):
+        files, to_save = resolve_target_files([str(char)], no_config=False)
+        assert files == [str(char)]
+        assert to_save == saves_dir.resolve()
 
 
 def test_resolve_target_files_with_directory(tmp_path: Path):
@@ -79,10 +80,39 @@ def test_resolve_target_files_with_directory(tmp_path: Path):
     char.touch()
     stash.touch()
 
-    files, to_save = resolve_target_files([str(saves_dir)], no_config=False)
-    # Characters first, then stashes
-    assert files == [str(char), str(stash)]
-    assert to_save == saves_dir.resolve()
+    with patch("d2savior.cli.load_save_dir", return_value=None):
+        files, to_save = resolve_target_files([str(saves_dir)], no_config=False)
+        # Characters first, then stashes
+        assert files == [str(char), str(stash)]
+        assert to_save == saves_dir.resolve()
+
+
+def test_resolve_target_files_with_existing_file_when_config_exists(tmp_path: Path):
+    configured_dir = tmp_path / "configured"
+    configured_dir.mkdir()
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    char = other_dir / "sork.d2s"
+    char.touch()
+
+    with patch("d2savior.cli.load_save_dir", return_value=configured_dir):
+        files, to_save = resolve_target_files([str(char)], no_config=False)
+        assert files == [str(char)]
+        assert to_save is None
+
+
+def test_resolve_target_files_with_directory_when_config_exists(tmp_path: Path):
+    configured_dir = tmp_path / "configured"
+    configured_dir.mkdir()
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    char = other_dir / "sork.d2s"
+    char.touch()
+
+    with patch("d2savior.cli.load_save_dir", return_value=configured_dir):
+        files, to_save = resolve_target_files([str(other_dir)], no_config=False)
+        assert files == [str(char)]
+        assert to_save is None
 
 
 def test_resolve_target_files_lookup_by_name_in_config(tmp_path: Path):
@@ -175,3 +205,69 @@ def test_main_exits_with_error_code_on_missing_file(capsys):
     assert exc_info.value.code == 1
     captured = capsys.readouterr()
     assert "Error: File 'nonexistent_file.d2s' does not exist" in captured.err
+
+
+def test_main_does_not_overwrite_existing_config(tmp_path: Path, capsys):
+    cfg_file = tmp_path / "config.toml"
+    initial_dir = tmp_path / "initial_saves"
+    initial_dir.mkdir()
+    other_dir = tmp_path / "other_saves"
+    other_dir.mkdir()
+    char_file = other_dir / "sork.d2s"
+    shutil.copy("tests/fixtures/sork.d2s", char_file)
+
+    cfg_file.write_text(f'save_dir = "{initial_dir}"\n', encoding="utf-8")
+
+    with (
+        patch("d2savior.config.get_config_path", return_value=cfg_file),
+        patch("sys.argv", ["d2savior", "--summary", str(char_file)]),
+    ):
+        main()
+        assert load_save_dir(cfg_file) == initial_dir.resolve()
+
+    captured = capsys.readouterr()
+    assert "Saved save_dir" not in captured.err
+
+
+def test_cmd_list_does_not_overwrite_existing_config(tmp_path: Path, capsys):
+    from d2savior.cli import cmd_list
+
+    cfg_file = tmp_path / "config.toml"
+    initial_dir = tmp_path / "initial_saves"
+    initial_dir.mkdir()
+    other_dir = tmp_path / "other_saves"
+    other_dir.mkdir()
+    char_file = other_dir / "sork.d2s"
+    shutil.copy("tests/fixtures/sork.d2s", char_file)
+
+    cfg_file.write_text(f'save_dir = "{initial_dir}"\n', encoding="utf-8")
+
+    with patch("d2savior.config.get_config_path", return_value=cfg_file):
+        code = cmd_list([str(other_dir)])
+        assert code == 0
+        assert load_save_dir(cfg_file) == initial_dir.resolve()
+
+    captured = capsys.readouterr()
+    assert "Saved save_dir" not in captured.err
+
+
+def test_cmd_stash_does_not_overwrite_existing_config(tmp_path: Path, capsys):
+    from d2savior.cli import cmd_stash
+
+    cfg_file = tmp_path / "config.toml"
+    initial_dir = tmp_path / "initial_saves"
+    initial_dir.mkdir()
+    other_dir = tmp_path / "other_saves"
+    other_dir.mkdir()
+    stash_file = other_dir / "ModernSharedStashSoftCoreV2.d2i"
+    shutil.copy("tests/fixtures/ModernSharedStashSoftCoreV2.d2i", stash_file)
+
+    cfg_file.write_text(f'save_dir = "{initial_dir}"\n', encoding="utf-8")
+
+    with patch("d2savior.config.get_config_path", return_value=cfg_file):
+        code = cmd_stash(["--summary", str(stash_file)])
+        assert code == 0
+        assert load_save_dir(cfg_file) == initial_dir.resolve()
+
+    captured = capsys.readouterr()
+    assert "Saved save_dir" not in captured.err

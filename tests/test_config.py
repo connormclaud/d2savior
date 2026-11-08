@@ -89,3 +89,23 @@ def test_update_save_dir_noop_when_unchanged(tmp_path: Path, capsys):
     assert mtime_first == mtime_second
     captured_second = capsys.readouterr()
     assert "Saved save_dir" not in captured_second.err
+
+
+def test_update_save_dir_if_empty_when_empty(tmp_path: Path, capsys):
+    cfg_file = tmp_path / "config.toml"
+    res = update_save_dir("/first/path", config_path=cfg_file, if_empty=True)
+    assert res is True
+    assert load_save_dir(cfg_file) == Path("/first/path")
+    captured = capsys.readouterr()
+    assert "Saved save_dir" in captured.err
+
+
+def test_update_save_dir_if_empty_when_already_set(tmp_path: Path, capsys):
+    cfg_file = tmp_path / "config.toml"
+    cfg_file.write_text('save_dir = "/initial/path"\n', encoding="utf-8")
+
+    res = update_save_dir("/second/path", config_path=cfg_file, if_empty=True)
+    assert res is False
+    assert load_save_dir(cfg_file) == Path("/initial/path")
+    captured = capsys.readouterr()
+    assert "Saved save_dir" not in captured.err
