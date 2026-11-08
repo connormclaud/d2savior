@@ -320,6 +320,8 @@ Total items: 69
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Poison Resist +30%
   Socketed Item [1]:
     Type: r05  (Eth Rune)
     Required Level: 15
@@ -327,6 +329,8 @@ Total items: 69
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Regenerate Mana 15%
 --- Item 16 ---
   Type: brs  (Breast Plate)
   Location: STORED, Position: 0
@@ -587,6 +591,8 @@ Total items: 69
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Lightning Resist +30%
   Socketed Item [1]:
     Type: r12  (Sol Rune)
     Required Level: 27
@@ -594,6 +600,8 @@ Total items: 69
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Damage Reduced by 7
 --- Item 36 ---
   Type: zvb  (Sharkskin Belt)
   Required Level: 25
@@ -754,6 +762,8 @@ Total items: 69
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Fire Resist +35%
   Socketed Item [1]:
     Type: r09  (Ort Rune)
     Required Level: 21
@@ -761,6 +771,8 @@ Total items: 69
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Lightning Resist +35%
   Socketed Item [2]:
     Type: r07  (Tal Rune)
     Required Level: 17
@@ -768,6 +780,8 @@ Total items: 69
     Column: 2, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Poison Resist +35%
 --- Item 46 ---
   Type: rvl  (Full Rejuvenation Potion)
   Location: BELT, Position: 0
@@ -816,6 +830,8 @@ Total items: 69
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +20% Faster Block Rate
   Socketed Item [1]:
     Type: r05  (Eth Rune)
     Required Level: 15
@@ -823,6 +839,8 @@ Total items: 69
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Regenerate Mana 15%
 --- Item 50 ---
   Type: bwn  (Bone Wand)
   Location: EQUIPPED, Position: 11 (Weapon II)
@@ -1001,6 +1019,10 @@ Total items: 69
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +0 to Minimum Poison Damage
+      - +154 to Maximum Poison Damage
+      - 5 seconds poison duration
   Socketed Item [1]:
     Type: r10  (Thul Rune)
     Required Level: 23
@@ -1008,6 +1030,10 @@ Total items: 69
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +3 to Minimum Cold Damage
+      - +14 to Maximum Cold Damage
+      - 3 seconds cold duration
   Socketed Item [2]:
     Type: r09  (Ort Rune)
     Required Level: 21
@@ -1015,6 +1041,9 @@ Total items: 69
     Column: 2, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +1 to Minimum Lightning Damage
+      - +50 to Maximum Lightning Damage
   Socketed Item [3]:
     Type: r11  (Amn Rune)
     Required Level: 25
@@ -1022,6 +1051,8 @@ Total items: 69
     Column: 3, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - 7% Life stolen per hit
 --- Item 68 ---
   Type: xuc  (Defender)
   Required Level: 22
@@ -1082,6 +1113,8 @@ Mercenary items: 3
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Requirements -15%
   Socketed Item [1]:
     Type: r17  (Lum Rune)
     Required Level: 37
@@ -1089,6 +1122,8 @@ Mercenary items: 3
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +10 to Energy
   Socketed Item [2]:
     Type: r19  (Fal Rune)
     Required Level: 41
@@ -1096,6 +1131,8 @@ Mercenary items: 3
     Column: 2, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +10 to Strength
 --- Mercenary Item 1 ---
   Type: xsk  (Death Mask)
   Required Level: 25
@@ -1150,6 +1187,9 @@ Mercenary items: 3
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +5 to Minimum Fire Damage
+      - +30 to Maximum Fire Damage
   Socketed Item [1]:
     Type: r03  (Tir Rune)
     Required Level: 13
@@ -1157,6 +1197,8 @@ Mercenary items: 3
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +2 to Mana after each Kill
   Socketed Item [2]:
     Type: r07  (Tal Rune)
     Required Level: 17
@@ -1164,6 +1206,10 @@ Mercenary items: 3
     Column: 2, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +0 to Minimum Poison Damage
+      - +154 to Maximum Poison Damage
+      - 5 seconds poison duration
   Socketed Item [3]:
     Type: r12  (Sol Rune)
     Required Level: 27
@@ -1171,6 +1217,8 @@ Mercenary items: 3
     Column: 3, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +9 to Minimum Damage
 
 === Golem ===
 No golem

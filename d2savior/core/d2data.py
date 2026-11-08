@@ -1957,6 +1957,118 @@ class GameDataResolver:
 
         return _format_property(prop_id, params, resolver=self, version=version or self.version)
 
+    def get_gem_info(self, code: str) -> GemInfo | None:
+        return self.data.get_gem_info(code)
+
+    def get_socket_properties(
+        self, parent_item: Any, socket_item: Any
+    ) -> list[tuple[int, int, list[int]]]:
+        """Return parsed properties (prop_id, value, params) granted by socket_item to parent_item."""
+        if socket_item is None:
+            return []
+
+        # If it's a Jewel with its own property_list:
+        tp = getattr(getattr(socket_item, "item_info", None), "type_specific_info", None)
+        if tp and getattr(tp, "property_list", None):
+            props = tp.property_list.get_parsed_properties(self.version, data=self.data)
+            if props:
+                return props
+
+        code = (
+            socket_item.type_name.decode("ascii", errors="replace").strip().lower()
+            if getattr(socket_item, "type_name", None)
+            else ""
+        )
+        if not code:
+            return []
+
+        gem_info = self.data.get_gem_info(code)
+        if not gem_info:
+            return []
+
+        parent_code = (
+            parent_item.type_name.decode("ascii", errors="replace").strip().lower()
+            if getattr(parent_item, "type_name", None)
+            else ""
+        )
+        parent_info = self.data.items.get(parent_code)
+        parent_type = (
+            (getattr(parent_info, "type", "") or getattr(parent_info, "item_type", ""))
+            .lower()
+            .strip()
+            if parent_info
+            else ""
+        )
+
+        if self.data.is_descendant(parent_type, "shld"):
+            mods = gem_info.shield_mods
+        elif self.data.is_descendant(parent_type, "weap"):
+            mods = gem_info.weapon_mods
+        else:
+            mods = gem_info.helm_mods
+
+        result: list[tuple[int, int, list[int]]] = []
+        for mod in mods:
+            result.extend(self._gem_mod_to_properties(mod))
+
+        return result
+
+    def _gem_mod_to_properties(self, mod: GemMod) -> list[tuple[int, int, list[int]]]:
+        code = mod.code
+        min_val = mod.min_val
+        max_val = mod.max_val
+        param = mod.param
+
+        if code in ("dmg-fire", "dmg-ltng"):
+            prop = self.data.get_property_by_code(code)
+            if prop and prop.stat1 and prop.stat2:
+                s_min = self.data.get_stat_by_name(prop.stat1)
+                s_max = self.data.get_stat_by_name(prop.stat2)
+                if s_min and s_max:
+                    return [
+                        (s_min.stat_id, min_val, [min_val]),
+                        (s_max.stat_id, max_val, [max_val]),
+                    ]
+        elif code in ("dmg-cold", "dmg-pois"):
+            prop = self.data.get_property_by_code(code)
+            if prop and prop.stat1 and prop.stat2 and prop.stat3:
+                s_min = self.data.get_stat_by_name(prop.stat1)
+                s_max = self.data.get_stat_by_name(prop.stat2)
+                s_len = self.data.get_stat_by_name(prop.stat3)
+                if s_min and s_max and s_len:
+                    return [
+                        (s_min.stat_id, min_val, [min_val]),
+                        (s_max.stat_id, max_val, [max_val]),
+                        (s_len.stat_id, param, [param]),
+                    ]
+        elif code == "dmg%":
+            return [(17, min_val, [min_val])]
+        elif code == "dmg-min":
+            return [(21, min_val, [min_val])]
+        elif code == "dmg-max":
+            return [(22, min_val, [min_val])]
+        elif code == "indestruct":
+            return [(152, 1, [1])]
+
+        prop = self.data.get_property_by_code(code)
+        if prop:
+            res = []
+            for i in range(1, 6):
+                stat_name = getattr(prop, f"stat{i}")
+                if stat_name:
+                    stat_info = self.data.get_stat_by_name(stat_name)
+                    if stat_info:
+                        params = [param, min_val] if param else [min_val]
+                        res.append((stat_info.stat_id, min_val, params))
+            if res:
+                return res
+
+        stat_info = self.data.get_stat_by_name(code)
+        if stat_info:
+            return [(stat_info.stat_id, min_val, [min_val])]
+
+        return []
+
     def get_localized_skill_tab_name(self, tab: int, class_id: int) -> str:
         if self.loc:
             name = self.loc.get_skill_tab_name(tab, class_id)

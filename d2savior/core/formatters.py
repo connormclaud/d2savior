@@ -251,6 +251,7 @@ def _format_item_lines(
     resolver: GameDataResolver,
     indent: str = "  ",
     version: int | None = None,
+    parent_item: Any | None = None,
 ) -> FormattedLines:
     result = []
     type_name = item.type_name.decode("ascii", errors="replace") if item.type_name else "Unknown"
@@ -411,12 +412,25 @@ def _format_item_lines(
         if info.gold:
             result.append(f"{indent}Gold: {info.gold.quantity}")
 
+    if parent_item and not (tp and getattr(tp, "property_list", None)):
+        socket_props = item_resolver.get_socket_properties(parent_item, item)
+        if socket_props:
+            result.append(f"{indent}Properties:")
+            for prop_id, _val, params in socket_props:
+                formatted = item_resolver.format_property(prop_id, params, version)
+                if formatted:
+                    result.append(f"{indent}  - {formatted}")
+
     if item.gem_items:
         for j, gem in enumerate(item.gem_items):
             result.append(f"{indent}Socketed Item [{j}]:")
             result.extend(
                 _format_item_lines(
-                    gem, resolver=item_resolver, indent=indent + "  ", version=version
+                    gem,
+                    resolver=item_resolver,
+                    indent=indent + "  ",
+                    version=version,
+                    parent_item=item,
                 )
             )
 

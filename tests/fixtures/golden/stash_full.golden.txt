@@ -34,6 +34,8 @@ Total items: 31
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Fire Resist +30%
   Socketed Item [1]:
     Type: r08  (Ral Rune)
     Required Level: 19
@@ -41,6 +43,8 @@ Total items: 31
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Fire Resist +30%
 --- Item 2 ---
   Type: cap  (Cap)
   Location: STORED, Position: 0
@@ -59,6 +63,8 @@ Total items: 31
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +2 to Mana after each Kill
   Socketed Item [1]:
     Type: r03  (Tir Rune)
     Required Level: 13
@@ -66,6 +72,8 @@ Total items: 31
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +2 to Mana after each Kill
 --- Item 3 ---
   Type: lgl  (Leather Gloves)
   Location: STORED, Position: 0
@@ -144,6 +152,8 @@ Total items: 31
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Fire Resist +30%
   Socketed Item [1]:
     Type: r09  (Ort Rune)
     Required Level: 21
@@ -151,6 +161,8 @@ Total items: 31
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Lightning Resist +30%
 --- Item 7 ---
   Type: gpl  (Strangling Gas Potion)
   Required Level: 6
@@ -256,6 +268,8 @@ Total items: 31
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Lightning Resist +30%
   Socketed Item [1]:
     Type: r08  (Ral Rune)
     Required Level: 19
@@ -263,6 +277,8 @@ Total items: 31
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Fire Resist +30%
   Socketed Item [2]:
     Type: r10  (Thul Rune)
     Required Level: 23
@@ -270,6 +286,8 @@ Total items: 31
     Column: 2, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Cold Resist +30%
 --- Item 13 ---
   Type: vbt  (Heavy Boots)
   Location: STORED, Position: 0
@@ -398,6 +416,8 @@ Total items: 31
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - 7% Life stolen per hit
   Socketed Item [1]:
     Type: r03  (Tir Rune)
     Required Level: 13
@@ -405,6 +425,8 @@ Total items: 31
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +2 to Mana after each Kill
 --- Item 20 ---
   Type: amu  (Amulet)
   Location: STORED, Position: 0
@@ -448,6 +470,10 @@ Total items: 31
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +0 to Minimum Poison Damage
+      - +154 to Maximum Poison Damage
+      - 5 seconds poison duration
   Socketed Item [1]:
     Type: r10  (Thul Rune)
     Required Level: 23
@@ -455,6 +481,10 @@ Total items: 31
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +3 to Minimum Cold Damage
+      - +14 to Maximum Cold Damage
+      - 3 seconds cold duration
   Socketed Item [2]:
     Type: r09  (Ort Rune)
     Required Level: 21
@@ -462,6 +492,9 @@ Total items: 31
     Column: 2, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +1 to Minimum Lightning Damage
+      - +50 to Maximum Lightning Damage
   Socketed Item [3]:
     Type: r11  (Amn Rune)
     Required Level: 25
@@ -469,6 +502,8 @@ Total items: 31
     Column: 3, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - 7% Life stolen per hit
 --- Item 22 ---
   Type: gth  (Gothic Plate)
   Location: STORED, Position: 0
@@ -487,6 +522,8 @@ Total items: 31
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +31 to Life
   Socketed Item [1]:
     Type: r09  (Ort Rune)
     Required Level: 21
@@ -494,6 +531,8 @@ Total items: 31
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Lightning Resist +30%
   Socketed Item [2]:
     Type: r08  (Ral Rune)
     Required Level: 19
@@ -501,6 +540,8 @@ Total items: 31
     Column: 2, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Fire Resist +30%
   Socketed Item [3]:
     Type: r10  (Thul Rune)
     Required Level: 23
@@ -508,6 +549,8 @@ Total items: 31
     Column: 3, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Cold Resist +30%
 --- Item 23 ---
   Type: ci0  (Circlet)
   Required Level: 16
@@ -855,6 +898,8 @@ Total items: 26
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Poison Resist +30%
   Socketed Item [1]:
     Type: r05  (Eth Rune)
     Required Level: 15
@@ -862,6 +907,8 @@ Total items: 26
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Regenerate Mana 15%
 --- Item 13 ---
   Type: fla  (Flail)
   Location: STORED, Position: 0
@@ -971,6 +1018,8 @@ Total items: 26
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +20% Faster Hit Recovery
   Socketed Item [1]:
     Type: r16  (Io Rune)
     Required Level: 35
@@ -978,6 +1027,8 @@ Total items: 26
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +10 to Vitality
   Socketed Item [2]:
     Type: r07  (Tal Rune)
     Required Level: 17
@@ -985,6 +1036,8 @@ Total items: 26
     Column: 2, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - Poison Resist +30%
 --- Item 19 ---
   Type: 9mt  (Jagged Star)
   Required Level: 25
@@ -1477,6 +1530,9 @@ Total items: 17
     Column: 0, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +5 to Minimum Fire Damage
+      - +30 to Maximum Fire Damage
   Socketed Item [1]:
     Type: r03  (Tir Rune)
     Required Level: 13
@@ -1484,6 +1540,8 @@ Total items: 17
     Column: 1, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +2 to Mana after each Kill
   Socketed Item [2]:
     Type: r07  (Tal Rune)
     Required Level: 17
@@ -1491,6 +1549,10 @@ Total items: 17
     Column: 2, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +0 to Minimum Poison Damage
+      - +154 to Maximum Poison Damage
+      - 5 seconds poison duration
   Socketed Item [3]:
     Type: r12  (Sol Rune)
     Required Level: 27
@@ -1498,6 +1560,8 @@ Total items: 17
     Column: 3, Row: 0, StoredIn: Unknown(-1)
     Quality: NORMAL
     Flags: Identified, JustSaved
+    Properties:
+      - +9 to Minimum Damage
 
 === Tab 4 (Normal) ===
 Total items: 24
