@@ -25,8 +25,10 @@ STASH_D2I = os.path.join(FIXTURES_DIR, "ModernSharedStashSoftCoreV2.d2i")
 
 SORK_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "sork_summary.golden.txt")
 SORK_FULL_GOLDEN = os.path.join(GOLDEN_DIR, "sork_full.golden.txt")
+SORK_FULL_RURU_GOLDEN = os.path.join(GOLDEN_DIR, "sork_full_ruRU.golden.txt")
 STASH_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_summary.golden.txt")
 STASH_FULL_GOLDEN = os.path.join(GOLDEN_DIR, "stash_full.golden.txt")
+STASH_FULL_RURU_GOLDEN = os.path.join(GOLDEN_DIR, "stash_full_ruRU.golden.txt")
 
 CLI_SCRIPT = os.path.join(REPO_ROOT, "d2s_parse.py")
 
@@ -84,6 +86,20 @@ class TestSmokeAPI:
         output = format_stash_info(data, resolver=game_data_resolver) + "\n"
         assert_matches_golden(output, STASH_FULL_GOLDEN, "stash_full_api")
 
+    def test_sork_full_ru(self, game_data_resolver_ru):
+        kind, data, _ = parse_file(SORK_D2S, resolver=game_data_resolver_ru)
+        assert kind == "char"
+        assert data is not None
+        output = format_char_info(data, resolver=game_data_resolver_ru) + "\n"
+        assert_matches_golden(output, SORK_FULL_RURU_GOLDEN, "sork_full_ru_api")
+
+    def test_stash_full_ru(self, game_data_resolver_ru):
+        kind, data, _ = parse_file(STASH_D2I, resolver=game_data_resolver_ru)
+        assert kind == "stash"
+        assert data is not None
+        output = format_stash_info(data, resolver=game_data_resolver_ru) + "\n"
+        assert_matches_golden(output, STASH_FULL_RURU_GOLDEN, "stash_full_ru_api")
+
 
 class TestSmokeCLI:
     """Smoke tests validating end-to-end command-line interface execution."""
@@ -108,6 +124,16 @@ class TestSmokeCLI:
         )
         assert_matches_golden(res.stdout, SORK_FULL_GOLDEN, "cli_sork_full")
 
+    def test_cli_sork_full_ru(self):
+        res = subprocess.run(
+            [sys.executable, CLI_SCRIPT, "--lang", "ruRU", SORK_D2S],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=REPO_ROOT,
+        )
+        assert_matches_golden(res.stdout, SORK_FULL_RURU_GOLDEN, "cli_sork_full_ru")
+
     def test_cli_stash_summary(self):
         res = subprocess.run(
             [sys.executable, CLI_SCRIPT, "--summary", STASH_D2I],
@@ -127,6 +153,16 @@ class TestSmokeCLI:
             cwd=REPO_ROOT,
         )
         assert_matches_golden(res.stdout, STASH_FULL_GOLDEN, "cli_stash_full")
+
+    def test_cli_stash_full_ru(self):
+        res = subprocess.run(
+            [sys.executable, CLI_SCRIPT, "--lang", "ruRU", STASH_D2I],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=REPO_ROOT,
+        )
+        assert_matches_golden(res.stdout, STASH_FULL_RURU_GOLDEN, "cli_stash_full_ru")
 
     def test_cli_multi_file_summary(self):
         res = subprocess.run(

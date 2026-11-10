@@ -1,0 +1,1227 @@
+=== Diablo II Character Info ===
+Name: sork
+Class: Волшебница
+Level: 74
+Version: 0x69
+Hardcore: No
+Ladder: No
+Expansion: Yes
+Died before: Yes
+Character Flags: 0xA08 (Died)
+Character Title: 0xA (Champion)
+Weapon Set: I
+Create Time: N/A
+Last Save Time: 2026-11-06 17:31:34 UTC
+Play Time: N/A
+Game Version: 3
+
+=== Player Stats ===
+Strength: 55
+Energy: 35
+Dexterity: 25
+Vitality: 340
+Stat Points Remaining: 0
+Skill Points Remaining: 0
+Current Life: 906
+Maximum Life: 813
+Current Mana: 353
+Maximum Mana: 181
+Current Stamina: 514
+Maximum Stamina: 477
+Level: 74
+Experience: 415133942
+Gold on Person: 0
+Gold in Stash: 532437
+
+=== Skills ===
+Skill levels:
+Skill 1 (Тепло): 1
+Skill 3 (Стрела льда): 1
+Skill 4 (Ледяной доспех): 1
+Skill 6 (Статическое поле): 1
+Skill 7 (Телекинез): 1
+Skill 8 (Кольцо льда): 1
+Skill 9 (Ледяной удар): 14
+Skill 18 (Телепортация): 1
+Skill 19 (Ледяной шип): 20
+Skill 23 (Снежная буря): 20
+Skill 29 (Мастер льда): 20
+
+=== Waypoints ===
+Normal (36/39 unlocked, 3 missing):
+  Act I (9/9): All unlocked
+  Act II (7/9): Missing Дворцовый погреб: 1-й уровень, Каньон волхвов
+  Act III (8/9): Missing Верхний Кураст
+  Act IV (3/3): All unlocked
+  Act V (9/9): All unlocked
+Nightmare (36/39 unlocked, 3 missing):
+  Act I (9/9): All unlocked
+  Act II (8/9): Missing Чертоги Мертвых: 2-й уровень
+  Act III (8/9): Missing Болотина
+  Act IV (3/3): All unlocked
+  Act V (8/9): Missing Чертоги Боли
+Hell: Not started
+
+=== Quests ===
+Normal (27/27 completed) — Akara Reset: Used
+  Act I: [x] [x] [x] [x] [x] [x]
+  Act II: [x] [x] [x] [x] [x] [x]
+  Act III: [x] [x] [x] [x] [x] [x]
+  Act IV: [x] [x] [x]
+  Act V: [x] [x] [x] [x] [x] [x]
+Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available
+  Act I: [x] [x] [x] [x] [!] Инструменты мастера (reward unclaimed) [x]
+  Act II: [x] [x] [x] [x] [x] [x]
+  Act III: [x] [x] [x] [x] [x] [x]
+  Act IV: [x] [x] [x]
+  Act V: [!] Осада Харрогата (reward unclaimed) [x] [x] [ ] Предательство Харрогата [x] [x]
+Hell: Not started
+
+=== Items ===
+Total items: 69
+--- Item 0 ---
+  Type: vgl  (Heavy Gloves)
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xBD9021F2
+  Drop Level: 20
+  Prefix: 370 (Рубин)
+  Suffix: 182 (холодности)
+  Defence: 6
+  Durability: 14/14
+  Properties:
+    - +18% к сопротивлению огню
+    - Вдвое уменьшает время заморозки
+--- Item 1 ---
+  Type: mbt  (Chain Boots)
+  Location: STORED, Position: 0
+  Column: 5, Row: 2, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xC4055D54
+  Drop Level: 38
+  Prefix: 355 (кобальтовый)
+  Suffix: 182 (холодности)
+  Defence: 8
+  Durability: 16/16
+  Properties:
+    - +36% к сопротивлению льду
+    - Вдвое уменьшает время заморозки
+--- Item 2 ---
+  Type: cap  (Cap)
+  Location: STORED, Position: 0
+  Column: 5, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0xA8F331E7
+  Drop Level: 12
+  Defence: 4
+  Durability: 12/12
+  Sockets: 2
+--- Item 3 ---
+  Type: cm3  (Grand Charm)
+  Location: STORED, Position: 0
+  Column: 9, Row: 0, StoredIn: INVENTORY
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x3FD08071
+  Drop Level: 7
+  Prefix: 358 (Сапфир)
+  Properties:
+    - +12% к сопротивлению огню
+--- Item 4 ---
+  Type: bsd  (Broad Sword)
+  Location: STORED, Position: 0
+  Column: 3, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0xDD6D5FBB
+  Drop Level: 42
+  Durability: 17/32
+  Sockets: 4
+--- Item 5 ---
+  Type: rin  (Ring)
+  Location: STORED, Position: 0
+  Column: 9, Row: 9, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x62D271BA
+  Drop Level: 10
+  Prefix: 267 (блестящий)
+  Suffix: 174 (уклонения)
+  Properties:
+    - +2 к радиусу обзора
+    - +10% к скорости применения умений
+--- Item 6 ---
+  Type: ob2  (Sacred Globe)
+  Location: STORED, Position: 0
+  Column: 0, Row: 0, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x85F456FD
+  Drop Level: 28
+  Rare Name: 158-53
+  Durability: 30/30
+  Properties:
+    - +8 к энергии
+    - +13 к здоровью
+    - +31 к мане
+    - +38% к сопротивлению огню
+    - +20% к скорости применения умений
+    - +1 к умению «Огненная стена» Огненная стена
+    - 12% Chance to cast level 4 Кольцо молний on striking
+--- Item 7 ---
+  Type: tgl  (Light Gauntlets)
+  Location: STORED, Position: 0
+  Column: 5, Row: 4, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0xECFA2199
+  Drop Level: 40
+  Rare Name: 158-99
+  Defence: 12
+  Durability: 18/18
+  Properties:
+    - +1 к ловкости
+    - +55% к защите
+    - +25% к сопротивлению льду
+    - +76% к золоту за убийство монстров
+    - +1 to Луки и арбалеты
+    - Восполняет 33% ед. прочности в секунду
+--- Item 8 ---
+  Type: lgl  (Leather Gloves)
+  Location: STORED, Position: 0
+  Column: 5, Row: 6, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x6CAF5693
+  Drop Level: 20
+  Prefix: 370 (Рубин)
+  Suffix: 286 (алчности)
+  Defence: 3
+  Durability: 12/12
+  Properties:
+    - +18% к сопротивлению огню
+    - +11% к вероятности найти магический предмет
+--- Item 9 ---
+  Type: rin  (Ring)
+  Location: EQUIPPED, Position: 6 (Ring (Right))
+  Column: 6, Row: 0, StoredIn: Unknown(-1)
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0xE16FCDB8
+  Drop Level: 49
+  Unique ID: 121 (Исцеление Манальда)
+  Properties:
+    - +20 к здоровью
+    - Восполняет 20% маны
+    - Похищает 6% маны за удар
+    - Восполняет +5 здоровья
+    - +10% к скорости применения умений
+--- Item 10 ---
+  Type: mbt  (Chain Boots)
+  Location: EQUIPPED, Position: 9 (Boots)
+  Column: 9, Row: 0, StoredIn: Unknown(-1)
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x34CB12DF
+  Drop Level: 55
+  Rare Name: 170-106
+  Defence: 8
+  Durability: 16/16
+  Properties:
+    - +5 к ловкости
+    - +17% к сопротивлению огню
+    - +20% к сопротивлению льду
+    - +20% к скорости ходьбы и бега
+    - Восполняет 20% ед. прочности в секунду
+--- Item 11 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 0, Row: 9, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x478226F4
+  Drop Level: 50
+  Prefix: 409 (Изумруд)
+  Suffix: 289 (богатства)
+  Properties:
+    - +6% к сопротивлению яду
+    - +34% к вероятности найти магический предмет
+--- Item 12 ---
+  Type: cm2  (Large Charm)
+  Location: STORED, Position: 0
+  Column: 0, Row: 7, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x9E1AF43F
+  Drop Level: 59
+  Suffix: 388 (силы)
+  Properties:
+    - +3 к силе
+--- Item 13 ---
+  Type: xrs  (Cuirass)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x2000EE2F
+  Drop Level: 69
+  Defence: 191
+  Durability: 29/50
+  Sockets: 3
+--- Item 14 ---
+  Type: mbl  (Belt)
+  Location: STORED, Position: 0
+  Column: 8, Row: 4, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x97A72696
+  Drop Level: 49
+  Rare Name: 194-112
+  Defence: 5
+  Durability: 8/16
+  Properties:
+    - +41 к здоровью
+    - +16% к сопротивлению огню
+    - +7% к сопротивлению яду
+    - +58% к золоту за убийство монстров
+    - +17% к ускоренному восстановлению от удара
+--- Item 15 ---
+  Type: stu  (Studded Leather )
+  Location: EQUIPPED, Position: 3 (Armor)
+  Column: 3, Row: 0, StoredIn: Unknown(-1)
+  Quality: HIGH
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0x654C993D
+  Drop Level: 58
+  Rune Word ID: 20638 (Незаметность)
+  Runes: Tal Rune(7)+Eth Rune(5)
+  Defence: 36
+  Durability: 30/32
+  Sockets: 2
+  Properties:
+    - +13% к защите
+    - +11% к максимальной прочности
+  Rune Word Properties:
+    - +6 к ловкости
+    - +15 к максимальной выносливости
+    - –3 к магическому урону
+    - +25% к скорости ходьбы и бега
+    - +25% к ускоренному восстановлению от удара
+    - +25% к скорости применения умений
+  Socketed Item [0]:
+    Type: r07  (Tal Rune)
+    Required Level: 17
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению яду
+  Socketed Item [1]:
+    Type: r05  (Eth Rune)
+    Required Level: 15
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - Восполняет 15% маны
+--- Item 16 ---
+  Type: brs  (Breast Plate)
+  Location: STORED, Position: 0
+  Column: 8, Row: 6, StoredIn: STASH
+  Quality: HIGH
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x0B832F7A
+  Drop Level: 64
+  Defence: 69
+  Durability: 33/50
+  Sockets: 3
+  Properties:
+    - +6% к защите
+--- Item 17 ---
+  Type: mbl  (Belt)
+  Location: STORED, Position: 0
+  Column: 8, Row: 5, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x6AE1A925
+  Drop Level: 36
+  Prefix: 392 (охряный)
+  Suffix: 317 (со знаком тигра)
+  Defence: 5
+  Durability: 16/16
+  Properties:
+    - +36 к здоровью
+    - +27% к сопротивлению молнии
+--- Item 18 ---
+  Type: rin  (Ring)
+  Location: EQUIPPED, Position: 7 (Ring (Left))
+  Column: 7, Row: 0, StoredIn: Unknown(-1)
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x1B6EE0C8
+  Drop Level: 30
+  Rare Name: 195-98
+  Properties:
+    - +2 к силе
+    - +9 к энергии
+    - +17% к сопротивлению огню
+    - +16% к сопротивлению молнии
+    - +9% к сопротивлению яду
+    - Сокращает время действия яда на 25%
+--- Item 19 ---
+  Type: cm2  (Large Charm)
+  Location: STORED, Position: 0
+  Column: 8, Row: 0, StoredIn: INVENTORY
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x0257D686
+  Drop Level: 64
+  Prefix: 298 (змеиный)
+  Suffix: 400 (инерции)
+  Properties:
+    - +28 к мане
+    - +5% к скорости ходьбы и бега
+--- Item 20 ---
+  Type: rvl  (Full Rejuvenation Potion)
+  Location: BELT, Position: 0
+  Column: 1, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 21 ---
+  Type: cm3  (Grand Charm)
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: INVENTORY
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xB7291E0D
+  Drop Level: 74
+  Prefix: 338 (искрометный)
+  Properties:
+    - +8% к сопротивлению льду
+--- Item 22 ---
+  Type: cm3  (Grand Charm)
+  Location: STORED, Position: 0
+  Column: 6, Row: 0, StoredIn: INVENTORY
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x6BA930FA
+  Drop Level: 74
+  Prefix: 377 (Рубин)
+  Properties:
+    - +14% к сопротивлению молнии
+--- Item 23 ---
+  Type: amu  (Amulet)
+  Location: EQUIPPED, Position: 2 (Amulet)
+  Column: 2, Row: 0, StoredIn: Unknown(-1)
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x2A60D599
+  Drop Level: 50
+  Prefix: 331 (искрометный)
+  Suffix: 125 (охраны)
+  Properties:
+    - –2 к магическому урону
+    - +18% к сопротивлению огню
+    - +18% к сопротивлению молнии
+    - +18% к сопротивлению льду
+    - +18% к сопротивлению яду
+--- Item 24 ---
+  Type: cm1  (Small Charm)
+  Location: STORED, Position: 0
+  Column: 7, Row: 3, StoredIn: INVENTORY
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x74A62C4E
+  Drop Level: 21
+  Prefix: 386 (мандариновый)
+  Properties:
+    - +6% к сопротивлению молнии
+--- Item 25 ---
+  Type: cm1  (Small Charm)
+  Location: STORED, Position: 0
+  Column: 6, Row: 3, StoredIn: INVENTORY
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xCEE373D6
+  Drop Level: 45
+  Prefix: 386 (мандариновый)
+  Suffix: 348 (жизни)
+  Properties:
+    - +11 к здоровью
+    - +7% к сопротивлению молнии
+--- Item 26 ---
+  Type: cm2  (Large Charm)
+  Location: STORED, Position: 0
+  Column: 8, Row: 2, StoredIn: INVENTORY
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x669E6DE0
+  Drop Level: 59
+  Prefix: 382 (мандариновый)
+  Suffix: 342 (жизни)
+  Properties:
+    - +11 к здоровью
+    - +8% к сопротивлению молнии
+--- Item 27 ---
+  Type: mp4  (Greater Mana Potion)
+  Location: STORED, Position: 0
+  Column: 0, Row: 2, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 28 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 8, Row: 9, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xB4C42404
+  Drop Level: 28
+  Suffix: 174 (уклонения)
+  Properties:
+    - +10% к скорости применения умений
+--- Item 29 ---
+  Type: vgl  (Heavy Gloves)
+  Location: EQUIPPED, Position: 10 (Gloves)
+  Column: 10, Row: 0, StoredIn: Unknown(-1)
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x4BD2B0EF
+  Drop Level: 49
+  Rare Name: 168-92
+  Defence: 7
+  Durability: 10/14
+  Properties:
+    - +6 к ловкости
+    - +52% к защите
+    - +16% к сопротивлению огню
+    - +25% к сопротивлению яду
+    - Похищает 3% маны за удар
+    - +5 к радиусу обзора
+    - +5% к рейтингу атаки
+--- Item 30 ---
+  Type: key  (Key)
+  Location: STORED, Position: 0
+  Column: 9, Row: 3, StoredIn: INVENTORY
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  GUID: 0xD690CB98
+  Drop Level: 64
+  Quantity: 5
+--- Item 31 ---
+  Type: cm3  (Grand Charm)
+  Location: STORED, Position: 0
+  Column: 5, Row: 0, StoredIn: INVENTORY
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x6CE4908E
+  Drop Level: 64
+  Prefix: 359 (багровый)
+  Properties:
+    - +20% к сопротивлению огню
+--- Item 32 ---
+  Type: cm1  (Small Charm)
+  Location: STORED, Position: 0
+  Column: 5, Row: 3, StoredIn: INVENTORY
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xF007ED2E
+  Drop Level: 64
+  Prefix: 407 (малахитовый)
+  Properties:
+    - +8% к сопротивлению яду
+--- Item 33 ---
+  Type: xrs  (Cuirass)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 3, Row: 7, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0xEAEC2598
+  Drop Level: 64
+  Defence: 196
+  Durability: 38/50
+  Sockets: 3
+--- Item 34 ---
+  Type: mgl  (Chain Gloves)
+  Location: STORED, Position: 0
+  Column: 1, Row: 8, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x78A6E1B9
+  Drop Level: 49
+  Prefix: 392 (охряный)
+  Suffix: 246 (нирваны)
+  Defence: 8
+  Durability: 16/16
+  Properties:
+    - +2 к ловкости
+    - +27% к сопротивлению молнии
+--- Item 35 ---
+  Type: cap  (Cap)
+  Location: EQUIPPED, Position: 1 (Helmet)
+  Column: 1, Row: 0, StoredIn: Unknown(-1)
+  Quality: HIGH
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0xFAD1AA1B
+  Drop Level: 12
+  Rune Word ID: 20581 (История)
+  Runes: Ort Rune(9)+Sol Rune(12)
+  Defence: 6
+  Durability: 10/12
+  Sockets: 2
+  Properties:
+    - +13% к защите
+    - +11% к максимальной прочности
+  Rune Word Properties:
+    - +10 к энергии
+    - +2 к радиусу обзора
+    - +1 ко всем умениям
+    - +2 к мане при убийстве
+  Socketed Item [0]:
+    Type: r09  (Ort Rune)
+    Required Level: 21
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению молнии
+  Socketed Item [1]:
+    Type: r12  (Sol Rune)
+    Required Level: 27
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - –7 к урону
+--- Item 36 ---
+  Type: zvb  (Sharkskin Belt)
+  Required Level: 25
+  Location: EQUIPPED, Position: 8 (Belt)
+  Column: 8, Row: 0, StoredIn: Unknown(-1)
+  Quality: CRAFTED
+  Flags: Identified, JustSaved
+  GUID: 0x397D11C4
+  Drop Level: 46
+  Craft Name: 176-111
+  Defence: 32
+  Durability: 11/14
+  Properties:
+    - +7 к здоровью
+    - +13 к мане
+    - Восполняет 9% маны
+    - +18% к сопротивлению яду
+    - +8% к скорости применения умений
+--- Item 37 ---
+  Type: zmb  (Mesh Belt)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 0, Row: 6, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xE9A6F3F0
+  Drop Level: 74
+  Set ID: 76 (Тонкотканный кушак Тал Раши)
+  Defence: 36
+  Durability: 10/16
+  Properties:
+    - +20 к ловкости
+    - +30 к мане
+    - +13% к вероятности найти магический предмет
+    - Требования: -20%
+    - +37% к урону, приходящемуся на ману
+  Set Properties (2 Items):
+    - +60 к защите
+  Set Properties (3 Items):
+    - +10% к скорости применения умений
+--- Item 38 ---
+  Type: oba  (Swirling Crystal)
+  Required Level: 37
+  Location: STORED, Position: 0
+  Column: 0, Row: 3, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xBFDD59DA
+  Drop Level: 59
+  Set ID: 78 (Глазное яблоко Тал Раши)
+  Durability: 44/50
+  Properties:
+    - +10 к энергии
+    - +57 к здоровью
+    - +77 к мане
+    - +20% к скорости применения умений
+    - +1 к умению «Мастер огня» Мастер огня
+    - +1 к умению «Мастер молнии» Мастер молнии
+    - +2 к умению «Мастер льда» Мастер льда
+  Set Properties (2 Items):
+    - +1 к уровню умений волшебницы
+  Set Properties (3 Items):
+    - –-15% к сопротивлению огню у врага
+  Set Properties (4 Items):
+    - –-15% к сопротивлению молнии у врага
+  Set Properties (5 Items):
+    - +15% к урону от умений льда
+--- Item 39 ---
+  Type: rvl  (Full Rejuvenation Potion)
+  Location: BELT, Position: 0
+  Column: 5, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 40 ---
+  Type: rvl  (Full Rejuvenation Potion)
+  Location: BELT, Position: 0
+  Column: 9, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 41 ---
+  Type: rvl  (Full Rejuvenation Potion)
+  Location: BELT, Position: 0
+  Column: 13, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 42 ---
+  Type: tbk  (Tome of Town Portal)
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: INVENTORY
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  GUID: 0xD97E6722
+  Drop Level: 8
+  Quantity: 20
+--- Item 43 ---
+  Type: xap  (War Hat)
+  Required Level: 22
+  Location: STORED, Position: 0
+  Column: 3, Row: 3, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x1E8282AD
+  Drop Level: 59
+  Unique ID: 201 (Корона бедняка)
+  Defence: 54
+  Durability: 11/12
+  Properties:
+    - +20 к энергии
+    - +20 к живучести
+    - +100% к защите
+    - Восполняет +6 здоровья
+    - +15% к скорости ходьбы и бега
+    - +1 ко всем умениям
+--- Item 44 ---
+  Type: crn  (Crown)
+  Location: STORED, Position: 0
+  Column: 3, Row: 5, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0xA9F50F6D
+  Drop Level: 59
+  Unique ID: 77 (Корона нежити)
+  Defence: 46
+  Durability: 49/50
+  Properties:
+    - +52% к защите
+    - +40 к защите
+    - +50% к сопротивлению яду
+    - Похищает 5% здоровья за удар
+    - +3 к умению «Мастер скелетов» Мастер скелетов
+    - Вдвое уменьшает время заморозки
+    - +50% урона по нежити
+    - +74 к рейтингу атаки против нежити
+--- Item 45 ---
+  Type: lrg  (Large Shield)
+  Location: STORED, Position: 0
+  Column: 1, Row: 3, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0x78DD576D
+  Drop Level: 20
+  Rune Word ID: 20507 (Клятва Древних)
+  Runes: Ral Rune(8)+Ort Rune(9)+Tal Rune(7)
+  Defence: 14
+  Durability: 23/24
+  Sockets: 3
+  Rune Word Properties:
+    - +50% к защите
+    - +13% к сопротивлению огню
+    - +13% к сопротивлению молнии
+    - +43% к сопротивлению льду
+    - +13% к сопротивлению яду
+    - +10% к урону, приходящемуся на ману
+  Socketed Item [0]:
+    Type: r08  (Ral Rune)
+    Required Level: 19
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +35% к сопротивлению огню
+  Socketed Item [1]:
+    Type: r09  (Ort Rune)
+    Required Level: 21
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +35% к сопротивлению молнии
+  Socketed Item [2]:
+    Type: r07  (Tal Rune)
+    Required Level: 17
+    Location: SOCKET, Position: 0
+    Column: 2, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +35% к сопротивлению яду
+--- Item 46 ---
+  Type: rvl  (Full Rejuvenation Potion)
+  Location: BELT, Position: 0
+  Column: 2, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 47 ---
+  Type: rvl  (Full Rejuvenation Potion)
+  Location: BELT, Position: 0
+  Column: 6, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 48 ---
+  Type: rvl  (Full Rejuvenation Potion)
+  Location: BELT, Position: 0
+  Column: 10, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 49 ---
+  Type: kit  (Kite Shield)
+  Location: EQUIPPED, Position: 12 (Shield II)
+  Column: 12, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0xDFE3621B
+  Drop Level: 28
+  Rune Word ID: 20625 (Рифма)
+  Runes: Shael Rune(13)+Eth Rune(5)
+  Defence: 16
+  Durability: 26/30
+  Sockets: 2
+  Rune Word Properties:
+    - Вероятность 20% заблокировать удар
+    - +25% к сопротивлению огню
+    - +25% к сопротивлению молнии
+    - +25% к сопротивлению льду
+    - +25% к сопротивлению яду
+    - +50% к золоту за убийство монстров
+    - +25% к вероятности найти магический предмет
+    - +20% к скорости блока
+    - Нельзя заморозить
+  Socketed Item [0]:
+    Type: r13  (Shael Rune)
+    Required Level: 29
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +20% к скорости блока
+  Socketed Item [1]:
+    Type: r05  (Eth Rune)
+    Required Level: 15
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - Восполняет 15% маны
+--- Item 50 ---
+  Type: bwn  (Bone Wand)
+  Location: EQUIPPED, Position: 11 (Weapon II)
+  Column: 11, Row: 0, StoredIn: Unknown(-1)
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x3C42F9A7
+  Drop Level: 36
+  Suffix: 594 (железного голема)
+  Durability: 15/15
+  Properties:
+    - Level 1 Снижение сопротивления (66/67 Charges)
+--- Item 51 ---
+  Type: mgl  (Chain Gloves)
+  Location: STORED, Position: 0
+  Column: 7, Row: 2, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x4C18DAE0
+  Drop Level: 37
+  Prefix: 392 (охряный)
+  Suffix: 278 (жадности)
+  Defence: 8
+  Durability: 16/16
+  Properties:
+    - +24% к сопротивлению молнии
+    - +43% к золоту за убийство монстров
+--- Item 52 ---
+  Type: rin  (Ring)
+  Location: STORED, Position: 0
+  Column: 2, Row: 7, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x5B7170E1
+  Drop Level: 5
+  Prefix: 417 (нефрит)
+  Suffix: 174 (уклонения)
+  Properties:
+    - +10% к скорости применения умений
+    - +1 к мане при убийстве
+--- Item 53 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 1, Row: 7, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xA6632041
+  Drop Level: 62
+  Prefix: 394 (коралловый)
+  Suffix: 116 (здоровья)
+  Properties:
+    - –2 к урону
+    - +37% к сопротивлению молнии
+--- Item 54 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 2, Row: 6, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x4017AFC1
+  Drop Level: 47
+  Prefix: 329 (мерцающий)
+  Suffix: 272 (регенерации)
+  Properties:
+    - +8% к сопротивлению огню
+    - +8% к сопротивлению молнии
+    - +8% к сопротивлению льду
+    - +8% к сопротивлению яду
+    - Восполняет +10 здоровья
+--- Item 55 ---
+  Type: crn  (Crown)
+  Location: STORED, Position: 0
+  Column: 5, Row: 8, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0xA586C43A
+  Drop Level: 64
+  Defence: 33
+  Durability: 41/50
+  Sockets: 3
+--- Item 56 ---
+  Type: rvl  (Full Rejuvenation Potion)
+  Location: BELT, Position: 0
+  Column: 14, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 57 ---
+  Type: hp5  (Super Healing Potion)
+  Location: BELT, Position: 0
+  Column: 0, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 58 ---
+  Type: hp5  (Super Healing Potion)
+  Location: BELT, Position: 0
+  Column: 4, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 59 ---
+  Type: hp5  (Super Healing Potion)
+  Location: BELT, Position: 0
+  Column: 8, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 60 ---
+  Type: hp5  (Super Healing Potion)
+  Location: BELT, Position: 0
+  Column: 12, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 61 ---
+  Type: mp5  (Super Mana Potion)
+  Location: BELT, Position: 0
+  Column: 3, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 62 ---
+  Type: mp5  (Super Mana Potion)
+  Location: BELT, Position: 0
+  Column: 7, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 63 ---
+  Type: mp5  (Super Mana Potion)
+  Location: BELT, Position: 0
+  Column: 11, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 64 ---
+  Type: mp5  (Super Mana Potion)
+  Location: BELT, Position: 0
+  Column: 15, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+--- Item 65 ---
+  Type: ibk  (Tome of Identify)
+  Location: STORED, Position: 0
+  Column: 0, Row: 0, StoredIn: INVENTORY
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  GUID: 0xBC6FBAA7
+  Drop Level: 8
+  Quantity: 14
+--- Item 66 ---
+  Type: box  (Horadric Cube)
+  Location: STORED, Position: 0
+  Column: 0, Row: 2, StoredIn: INVENTORY
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  GUID: 0x66D70492
+  Drop Level: 13
+--- Item 67 ---
+  Type: bsd  (Broad Sword)
+  Location: EQUIPPED, Position: 4 (Weapon I)
+  Column: 4, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0x7C326EBD
+  Drop Level: 46
+  Rune Word ID: 20635 (Дух)
+  Runes: Tal Rune(7)+Thul Rune(10)+Ort Rune(9)+Amn Rune(11)
+  Durability: 32/32
+  Sockets: 4
+  Rune Word Properties:
+    - +22 к живучести
+    - +93 к мане
+    - +250 к защите от снарядов
+    - +55% к ускоренному восстановлению от удара
+    - +34% к скорости применения умений
+    - +2 ко всем умениям
+    - +6 поглощаемого магического урона
+  Socketed Item [0]:
+    Type: r07  (Tal Rune)
+    Required Level: 17
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +0 к минимальному урону от яда
+      - +154 к максимальному урону от яда
+      - 5 seconds poison duration
+  Socketed Item [1]:
+    Type: r10  (Thul Rune)
+    Required Level: 23
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +3 к минимальному урону от льда
+      - +14 к максимальному урону от льда
+      - 3 seconds cold duration
+  Socketed Item [2]:
+    Type: r09  (Ort Rune)
+    Required Level: 21
+    Location: SOCKET, Position: 0
+    Column: 2, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +1 к минимальному урону от молнии
+      - +50 к максимальному урону от молнии
+  Socketed Item [3]:
+    Type: r11  (Amn Rune)
+    Required Level: 25
+    Location: SOCKET, Position: 0
+    Column: 3, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - Похищает 7% здоровья за удар
+--- Item 68 ---
+  Type: xuc  (Defender)
+  Required Level: 22
+  Location: EQUIPPED, Position: 5 (Shield I)
+  Column: 5, Row: 0, StoredIn: Unknown(-1)
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0xE04DB47B
+  Drop Level: 67
+  Unique ID: 224 (Щит потрошения)
+  Defence: 50
+  Durability: 41/68
+  Properties:
+    - +116% к защите
+    - Вероятность 30% заблокировать удар
+    - +1 к уровню умений волшебницы
+    - +30% к скорости блока
+    - Атакующий получает 10 урона от молнии
+
+=== Corpse ===
+No corpse
+
+=== Mercenary ===
+Has mercenary (Name: 19, Type: 10)
+Mercenary Seed: 0x418DFA6C
+Mercenary Exp: 49287024
+Mercenary Flags: 0x00000000
+Mercenary items: 3
+--- Mercenary Item 0 ---
+  Type: brs  (Breast Plate)
+  Location: EQUIPPED, Position: 3 (Armor)
+  Column: 3, Row: 0, StoredIn: Unknown(-1)
+  Quality: HIGH
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0xE48CC3DB
+  Drop Level: 21
+  Rune Word ID: 20580 (Львиное сердце)
+  Runes: Hel Rune(15)+Lum Rune(17)+Fal Rune(19)
+  Defence: 69
+  Durability: 45/50
+  Sockets: 3
+  Properties:
+    - +11% к защите
+  Rune Word Properties:
+    - +15 к силе
+    - +15 к ловкости
+    - +20 к живучести
+    - +50 к здоровью
+    - +20% к максимальному урону
+    - +20% к минимальному урону
+    - +30% к сопротивлению огню
+    - +30% к сопротивлению молнии
+    - +30% к сопротивлению льду
+    - +30% к сопротивлению яду
+  Socketed Item [0]:
+    Type: r15  (Hel Rune)
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - Требования: -15%
+  Socketed Item [1]:
+    Type: r17  (Lum Rune)
+    Required Level: 37
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +10 к энергии
+  Socketed Item [2]:
+    Type: r19  (Fal Rune)
+    Required Level: 41
+    Location: SOCKET, Position: 0
+    Column: 2, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +10 к силе
+--- Mercenary Item 1 ---
+  Type: xsk  (Death Mask)
+  Required Level: 25
+  Location: EQUIPPED, Position: 1 (Helmet)
+  Column: 1, Row: 0, StoredIn: Unknown(-1)
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xEBC99131
+  Drop Level: 59
+  Set ID: 80 (Хорадримский плюмаж Тал Раши)
+  Defence: 86
+  Durability: 13/20
+  Properties:
+    - +60 к здоровью
+    - +30 к мане
+    - +45 к защите
+    - +15% к сопротивлению огню
+    - +15% к сопротивлению молнии
+    - +15% к сопротивлению льду
+    - +15% к сопротивлению яду
+    - Похищает 10% здоровья за удар
+    - Похищает 10% маны за удар
+--- Mercenary Item 2 ---
+  Type: 9vo  (Bill)
+  Required Level: 25
+  Location: EQUIPPED, Position: 4 (Weapon I)
+  Column: 4, Row: 0, StoredIn: Unknown(-1)
+  Quality: NORMAL
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0x46BACA05
+  Drop Level: 67
+  Rune Word ID: 20568 (Прозрение)
+  Runes: Ral Rune(8)+Tir Rune(3)+Tal Rune(7)+Sol Rune(12)
+  Durability: 48/50
+  Sockets: 4
+  Rune Word Properties:
+    - +5 к силе
+    - +5 к энергии
+    - +5 к ловкости
+    - +5 к живучести
+    - +235% к максимальному урону
+    - +235% к минимальному урону
+    - +23% к вероятности найти магический предмет
+    - +5 к умению «Критический удар»
+    - +35% к скорости применения умений
+    - +229% к рейтингу атаки
+    - Level 15 Медитация Aura When Equipped
+  Socketed Item [0]:
+    Type: r08  (Ral Rune)
+    Required Level: 19
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +5 к минимальному урону от огня
+      - +30 к максимальному урону от огня
+  Socketed Item [1]:
+    Type: r03  (Tir Rune)
+    Required Level: 13
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +2 к мане при убийстве
+  Socketed Item [2]:
+    Type: r07  (Tal Rune)
+    Required Level: 17
+    Location: SOCKET, Position: 0
+    Column: 2, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +0 к минимальному урону от яда
+      - +154 к максимальному урону от яда
+      - 5 seconds poison duration
+  Socketed Item [3]:
+    Type: r12  (Sol Rune)
+    Required Level: 27
+    Location: SOCKET, Position: 0
+    Column: 3, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +9 к минимальному урону
+
+=== Golem ===
+No golem
+
+=== Demon ===
+No demon

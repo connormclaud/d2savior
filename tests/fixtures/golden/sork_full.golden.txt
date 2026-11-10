@@ -629,7 +629,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xE9A6F3F0
   Drop Level: 74
-  Set ID: 76 (Tal Rasha's Fire-Spun Cloth)
+  Set ID: 76 (Tal Rasha's Fine-Spun Cloth)
   Defence: 36
   Durability: 10/16
   Properties:
@@ -705,7 +705,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x1E8282AD
   Drop Level: 59
-  Unique ID: 201 (Peasent Crown)
+  Unique ID: 201 (Peasant Crown)
   Defence: 54
   Durability: 11/12
   Properties:
@@ -849,7 +849,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x3C42F9A7
   Drop Level: 36
-  Suffix: 594 (of Iron Golem Creation)
+  Suffix: 594 (of Iron Golem)
   Durability: 15/15
   Properties:
     - Level 1 Lower Resist (66/67 Charges)

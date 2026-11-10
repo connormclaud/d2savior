@@ -579,3 +579,36 @@ class TestSummaryMode:
         char.char_level = 80
         char_out = format_char_summary(char, resolver=resolver)
         assert "Волшебница" in char_out
+
+    def test_detailed_mode_localization(self):
+        from d2savior.core.formatters import format_item_info
+        from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo
+
+        resolver_en = GameDataResolver.load(lang_key="enUS")
+        resolver_zh = GameDataResolver.load(lang_key="zhCN")
+
+        # Unique Bonesnap (id 23)
+        item = D2Item()
+        item.type_name = b"mau "
+        item.item_info = ItemInfo()
+        item.item_info.ext_info = ExtItemInfo()
+        item.item_info.ext_info.unique_id = 23
+
+        lines_en = format_item_info(item, resolver=resolver_en)
+        assert "Unique ID: 23 (Bonesnap)" in lines_en
+
+        lines_zh = format_item_info(item, resolver=resolver_zh)
+        assert "Unique ID: 23 (碎骨)" in lines_zh
+
+        # Set item (Aldur's Rhythm, id 68)
+        item_set = D2Item()
+        item_set.type_name = b"9mt "
+        item_set.item_info = ItemInfo()
+        item_set.item_info.ext_info = ExtItemInfo()
+        item_set.item_info.ext_info.set_id = 68
+
+        set_en = format_item_info(item_set, resolver=resolver_en)
+        assert "Set ID: 68 (Aldur's Rhythm)" in set_en
+
+        set_zh = format_item_info(item_set, resolver=resolver_zh)
+        assert "Set ID: 68 (艾尔多的律动)" in set_zh

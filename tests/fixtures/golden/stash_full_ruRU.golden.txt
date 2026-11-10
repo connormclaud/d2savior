@@ -1,0 +1,2383 @@
+=== Diablo II Shared Stash ===
+Total Tabs: 7
+
+=== Tab 1 (Normal) ===
+Total items: 31
+--- Item 0 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 0, Row: 0, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x86AF9965
+  Drop Level: 23
+  Prefix: 472 (украшенный розой)
+  Suffix: 286 (алчности)
+  Properties:
+    - +13% к вероятности найти магический предмет
+    - +1 to Боевые ауры
+--- Item 1 ---
+  Type: cap  (Cap)
+  Location: STORED, Position: 0
+  Column: 3, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x7AC9AB7D
+  Drop Level: 12
+  Defence: 4
+  Durability: 9/12
+  Sockets: 2
+  Socketed Item [0]:
+    Type: r08  (Ral Rune)
+    Required Level: 19
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению огню
+  Socketed Item [1]:
+    Type: r08  (Ral Rune)
+    Required Level: 19
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению огню
+--- Item 2 ---
+  Type: cap  (Cap)
+  Location: STORED, Position: 0
+  Column: 5, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x63E56784
+  Drop Level: 12
+  Defence: 3
+  Durability: 12/12
+  Sockets: 2
+  Socketed Item [0]:
+    Type: r03  (Tir Rune)
+    Required Level: 13
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +2 к мане при убийстве
+  Socketed Item [1]:
+    Type: r03  (Tir Rune)
+    Required Level: 13
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +2 к мане при убийстве
+--- Item 3 ---
+  Type: lgl  (Leather Gloves)
+  Location: STORED, Position: 0
+  Column: 8, Row: 0, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x9F5CDE80
+  Drop Level: 34
+  Rare Name: 194-99
+  Defence: 3
+  Durability: 12/12
+  Properties:
+    - +4 к силе
+    - +5 к ловкости
+    - +12% к сопротивлению огню
+    - Сокращает время действия яда на 25%
+    - +1 to Дротики и копья
+--- Item 4 ---
+  Type: rin  (Ring)
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xEB72ECBF
+  Drop Level: 39
+  Set ID: 52 (Ангельский нимб)
+  Properties:
+    - +20 к здоровью
+    - Восполняет +6 здоровья
+  Set Properties (2 Items):
+    - +24 к рейтингу атаки (зависит от уровня персонажа)
+  Set Properties (3 Items):
+    - +50% к вероятности найти магический предмет
+--- Item 5 ---
+  Type: 9mt  (Jagged Star)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 0, Row: 6, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x1E4A41AC
+  Drop Level: 41
+  Set ID: 68 (Ритм Альдура)
+  Durability: 70/72
+  Sockets: 3
+  Properties:
+    - +40 к минимальному урону
+    - +62 к максимальному урону
+    - +50 к минимальному урону от молнии
+    - +75 к максимальному урону от молнии
+    - Похищает 10% здоровья за удар
+    - Похищает 5% маны за удар
+    - +30% к скорости атаки
+    - +200% к урону по демонам
+  Set Properties (2 Items):
+    - +15 к силе
+  Set Properties (3 Items):
+    - +15 к силе
+  Set Properties (4 Items):
+    - +15 к силе
+--- Item 6 ---
+  Type: msk  (Mask)
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x89809C50
+  Drop Level: 23
+  Defence: 25
+  Durability: 10/20
+  Sockets: 2
+  Socketed Item [0]:
+    Type: r08  (Ral Rune)
+    Required Level: 19
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению огню
+  Socketed Item [1]:
+    Type: r09  (Ort Rune)
+    Required Level: 21
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению молнии
+--- Item 7 ---
+  Type: gpl  (Strangling Gas Potion)
+  Required Level: 6
+  Location: STORED, Position: 0
+  Column: 7, Row: 1, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  GUID: 0x7FB2B10C
+  Drop Level: 7
+  Durability: 1/2
+  Quantity: 7
+--- Item 8 ---
+  Type: ci0  (Circlet)
+  Required Level: 16
+  Location: STORED, Position: 0
+  Column: 2, Row: 2, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x33EE2E8C
+  Drop Level: 29
+  Rare Name: 180-64
+  Defence: 25
+  Durability: 35/35
+  Properties:
+    - +12 к энергии
+    - +59 к мане
+    - +41 к рейтингу атаки
+    - +8 к максимальному урону
+    - +8 к максимальному урону
+    - +21% к сопротивлению огню
+    - +8 to Maximum Throw Damage
+--- Item 9 ---
+  Type: 8bs  (Gothic Staff)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 9, Row: 6, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x1102EDC7
+  Drop Level: 49
+  Unique ID: 186 (Жезл искажения)
+  Durability: 29/40
+  Properties:
+    - +250 к защите от снарядов
+    - +3 к уровню умений волшебницы
+    - +3 к умению «Телекинез» Телекинез
+    - +3 к умению «Телепортация» Телепортация
+    - +3 к умению «Энергетический щит» Энергетический щит
+    - Игнорирует защиту цели
+--- Item 10 ---
+  Type: msk  (Mask)
+  Location: STORED, Position: 0
+  Column: 4, Row: 2, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x36504915
+  Drop Level: 60
+  Unique ID: 78 (Лик ужаса)
+  Defence: 17
+  Durability: 19/20
+  Properties:
+    - +20 к силе
+    - +25 к защите
+    - +10% к сопротивлению огню
+    - +10% к сопротивлению молнии
+    - +10% к сопротивлению льду
+    - +10% к сопротивлению яду
+    - +50%% к вероятности обратить монстра в бегство при ударе
+    - +50% урона по нежити
+--- Item 11 ---
+  Type: mbt  (Chain Boots)
+  Location: STORED, Position: 0
+  Column: 6, Row: 2, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0xCCF610EE
+  Drop Level: 49
+  Unique ID: 109 (Крепкоступы Ктона)
+  Defence: 10
+  Durability: 8/16
+  Properties:
+    - +10 к здоровью
+    - +37% к защите
+    - +12 к защите
+    - +50 к защите от снарядов
+    - +30% к скорости ходьбы и бега
+    - Выносливость снижается на 50% медленнее
+--- Item 12 ---
+  Type: brs  (Breast Plate)
+  Location: STORED, Position: 0
+  Column: 4, Row: 4, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x648D3E64
+  Drop Level: 46
+  Defence: 67
+  Durability: 44/50
+  Sockets: 3
+  Socketed Item [0]:
+    Type: r09  (Ort Rune)
+    Required Level: 21
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению молнии
+  Socketed Item [1]:
+    Type: r08  (Ral Rune)
+    Required Level: 19
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению огню
+  Socketed Item [2]:
+    Type: r10  (Thul Rune)
+    Required Level: 23
+    Location: SOCKET, Position: 0
+    Column: 2, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению льду
+--- Item 13 ---
+  Type: vbt  (Heavy Boots)
+  Location: STORED, Position: 0
+  Column: 6, Row: 4, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xBDFE8BB5
+  Drop Level: 49
+  Prefix: 394 (коралловый)
+  Suffix: 395 (ритма)
+  Defence: 6
+  Durability: 14/14
+  Properties:
+    - +39% к сопротивлению молнии
+    - +20% к скорости ходьбы и бега
+--- Item 14 ---
+  Type: mbl  (Belt)
+  Location: STORED, Position: 0
+  Column: 0, Row: 9, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0xCC7527A2
+  Drop Level: 49
+  Rare Name: 157-113
+  Defence: 5
+  Durability: 12/16
+  Properties:
+    - +7 к силе
+    - +25 к здоровью
+    - +8% к сопротивлению огню
+    - +28% к сопротивлению яду
+    - +10% к ускоренному восстановлению от удара
+--- Item 15 ---
+  Type: lea  (Leather Armor)
+  Location: STORED, Position: 0
+  Column: 2, Row: 4, StoredIn: STASH
+  Quality: HIGH
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0xFE640CF0
+  Drop Level: 1
+  Defence: 18
+  Durability: 27/24
+  Sockets: 2
+  Properties:
+    - +12% к защите
+    - +14% к максимальной прочности
+--- Item 16 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 0, Row: 2, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x731A50DC
+  Drop Level: 49
+  Prefix: 470 (украшенный львом)
+  Properties:
+    - +2 to Боевые навыки
+--- Item 17 ---
+  Type: gts  (Gothic Shield)
+  Location: STORED, Position: 0
+  Column: 8, Row: 2, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x28D9E3A9
+  Drop Level: 60
+  Unique ID: 101 (Охранитель)
+  Defence: 36
+  Durability: 31/40
+  Sockets: 1
+  Properties:
+    - +10 к силе
+    - +100% к защите
+    - Вероятность 10% заблокировать удар
+    - +40 к защите
+    - –2 к магическому урону
+    - +39% к сопротивлению огню
+    - +39% к сопротивлению молнии
+    - +39% к сопротивлению льду
+    - +39% к сопротивлению яду
+--- Item 18 ---
+  Type: 9ss  (Gladius)
+  Required Level: 18
+  Location: STORED, Position: 0
+  Column: 8, Row: 6, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x064B733F
+  Drop Level: 49
+  Unique ID: 154 (Кровопускатель)
+  Durability: 17/24
+  Properties:
+    - +140% к максимальному урону
+    - +140% к минимальному урону
+    - +90 к рейтингу атаки
+    - +12 к минимальному урону
+    - +45 к максимальному урону
+    - Похищает 8% здоровья за удар
+    - +30 to Maximum Durability
+    - +20% к скорости атаки
+    - +20% к скорости ходьбы и бега
+    - +2 к умению «Мастер клинка» Мастер клинка
+    - +1 к умению «Вихрь» Вихрь
+    - Выносливость снижается на 10% медленнее
+--- Item 19 ---
+  Type: spt  (Spetum)
+  Location: STORED, Position: 0
+  Column: 6, Row: 6, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0x0C46F4D3
+  Drop Level: 20
+  Rune Word ID: 20644 (Сила)
+  Runes: Amn Rune(11)+Tir Rune(3)
+  Durability: 28/28
+  Sockets: 2
+  Rune Word Properties:
+    - +20 к силе
+    - +10 к живучести
+    - +35% к максимальному урону
+    - +35% к минимальному урону
+    - +25% к вероятности нанести сокрушительный удар
+  Socketed Item [0]:
+    Type: r11  (Amn Rune)
+    Required Level: 25
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - Похищает 7% здоровья за удар
+  Socketed Item [1]:
+    Type: r03  (Tir Rune)
+    Required Level: 13
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +2 к мане при убийстве
+--- Item 20 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 8, Row: 9, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x55207853
+  Drop Level: 47
+  Rare Name: 169-136
+  Properties:
+    - +16% к сопротивлению огню
+    - +16% к сопротивлению молнии
+    - +16% к сопротивлению льду
+    - +42% к сопротивлению яду
+    - Восполняет +5 здоровья
+    - +2 to Боевые навыки
+--- Item 21 ---
+  Type: crs  (Crystal Sword)
+  Location: STORED, Position: 0
+  Column: 4, Row: 7, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0x43D8068F
+  Drop Level: 28
+  Rune Word ID: 20635 (Дух)
+  Runes: Tal Rune(7)+Thul Rune(10)+Ort Rune(9)+Amn Rune(11)
+  Durability: 20/20
+  Sockets: 4
+  Rune Word Properties:
+    - +22 к живучести
+    - +103 к мане
+    - +250 к защите от снарядов
+    - +55% к ускоренному восстановлению от удара
+    - +25% к скорости применения умений
+    - +2 ко всем умениям
+    - +8 поглощаемого магического урона
+  Socketed Item [0]:
+    Type: r07  (Tal Rune)
+    Required Level: 17
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +0 к минимальному урону от яда
+      - +154 к максимальному урону от яда
+      - 5 seconds poison duration
+  Socketed Item [1]:
+    Type: r10  (Thul Rune)
+    Required Level: 23
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +3 к минимальному урону от льда
+      - +14 к максимальному урону от льда
+      - 3 seconds cold duration
+  Socketed Item [2]:
+    Type: r09  (Ort Rune)
+    Required Level: 21
+    Location: SOCKET, Position: 0
+    Column: 2, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +1 к минимальному урону от молнии
+      - +50 к максимальному урону от молнии
+  Socketed Item [3]:
+    Type: r11  (Amn Rune)
+    Required Level: 25
+    Location: SOCKET, Position: 0
+    Column: 3, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - Похищает 7% здоровья за удар
+--- Item 22 ---
+  Type: gth  (Gothic Plate)
+  Location: STORED, Position: 0
+  Column: 2, Row: 7, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x2A895694
+  Drop Level: 47
+  Defence: 134
+  Durability: 40/55
+  Sockets: 4
+  Socketed Item [0]:
+    Type: glr  (Flawless Ruby)
+    Required Level: 15
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +31 к здоровью
+  Socketed Item [1]:
+    Type: r09  (Ort Rune)
+    Required Level: 21
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению молнии
+  Socketed Item [2]:
+    Type: r08  (Ral Rune)
+    Required Level: 19
+    Location: SOCKET, Position: 0
+    Column: 2, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению огню
+  Socketed Item [3]:
+    Type: r10  (Thul Rune)
+    Required Level: 23
+    Location: SOCKET, Position: 0
+    Column: 3, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению льду
+--- Item 23 ---
+  Type: ci0  (Circlet)
+  Required Level: 16
+  Location: STORED, Position: 0
+  Column: 0, Row: 4, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x03FC5E08
+  Drop Level: 55
+  Prefix: 500 (природный)
+  Suffix: 278 (жадности)
+  Defence: 24
+  Durability: 28/35
+  Properties:
+    - +58% к золоту за убийство монстров
+    - +2 to Спутники
+--- Item 24 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 1, Row: 3, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xC6BF3B5E
+  Drop Level: 60
+  Prefix: 570 (жреческий)
+  Properties:
+    - +1 к уровню умений некроманта
+--- Item 25 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 1, Row: 6, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0xE289EEB1
+  Drop Level: 73
+  Rare Name: 173-137
+  Properties:
+    - +3 к ловкости
+    - +46 к здоровью
+    - +26% к сопротивлению огню
+    - +9% к вероятности найти магический предмет
+    - +1 к умениям чернокнижника
+--- Item 26 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 1, Row: 7, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x1E4DBB3D
+  Drop Level: 64
+  Prefix: 474 (командирский)
+  Properties:
+    - +3 to Боевые ауры
+--- Item 27 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 1, Row: 8, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x8EFD337A
+  Drop Level: 63
+  Rare Name: 166-138
+  Properties:
+    - +14 к силе
+    - +5 к минимальному урону
+    - +5 к минимальному урону
+    - +7% к сопротивлению огню
+    - +7% к сопротивлению молнии
+    - +7% к сопротивлению льду
+    - +7% к сопротивлению яду
+    - +5 to Minimum Throw Damage
+--- Item 28 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 0, Row: 1, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x0835FFCA
+  Drop Level: 59
+  Rare Name: 167-139
+  Properties:
+    - +51 к мане
+    - –2 к магическому урону
+    - +33% к сопротивлению льду
+    - +1 to Теневые навыки
+--- Item 29 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 0, Row: 3, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x1E1BF2AA
+  Drop Level: 64
+  Prefix: 331 (искрометный)
+  Suffix: 375 (со знаком быка)
+  Properties:
+    - +15 к силе
+    - +17% к сопротивлению огню
+    - +17% к сопротивлению молнии
+    - +17% к сопротивлению льду
+    - +17% к сопротивлению яду
+--- Item 30 ---
+  Type: amu  (Amulet)
+  Location: STORED, Position: 0
+  Column: 1, Row: 2, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xC6C413D9
+  Drop Level: 64
+  Prefix: 588 (отшельнический)
+  Suffix: 310 (со знаком медведя)
+  Properties:
+    - +15 к рейтингу атаки
+    - +1 к уровню умений ассасина
+    - +1 к радиусу обзора
+
+=== Tab 2 (Normal) ===
+Total items: 26
+--- Item 0 ---
+  Type: hgl  (Gauntlets)
+  Location: STORED, Position: 0
+  Column: 0, Row: 2, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xF78BAE22
+  Drop Level: 49
+  Set ID: 35 (Вызов Сигона)
+  Defence: 15
+  Durability: 16/24
+  Properties:
+    - +10 к силе
+    - +20 к рейтингу атаки
+  Set Properties (2 Items):
+    - +30% к скорости атаки
+--- Item 1 ---
+  Type: hbl  (Plated Belt)
+  Location: STORED, Position: 0
+  Column: 0, Row: 4, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x7FD657DB
+  Drop Level: 59
+  Set ID: 39 (Опоясь Сигона)
+  Defence: 8
+  Durability: 17/24
+  Properties:
+    - +20 к здоровью
+    - +20% к сопротивлению огню
+  Set Properties (2 Items):
+    - +5.33 к защите (зависит от уровня персонажа)
+--- Item 2 ---
+  Type: brs  (Breast Plate)
+  Location: STORED, Position: 0
+  Column: 8, Row: 0, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xF16496A7
+  Drop Level: 59
+  Set ID: 15 (Нагрудник Изенхарта)
+  Defence: 66
+  Durability: 30/50
+  Properties:
+    - +40 к защите
+    - –2 к магическому урону
+  Set Properties (2 Items):
+    - +5.33 к защите (зависит от уровня персонажа)
+--- Item 3 ---
+  Type: swb  (Short War Bow)
+  Location: STORED, Position: 0
+  Column: 0, Row: 7, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x05B315DB
+  Drop Level: 59
+  Set ID: 54 (Арктический рог)
+  Durability: 33/48
+  Properties:
+    - +50% к максимальному урону
+    - +50% к минимальному урону
+    - +20% к рейтингу атаки
+  Set Properties (2 Items):
+    - +16 к рейтингу атаки (зависит от уровня персонажа)
+  Set Properties (3 Items):
+    - +20 к минимальному урону от льда
+    - +30 к максимальному урону от льда
+    - 3 seconds cold duration
+--- Item 4 ---
+  Type: vbl  (Light Belt)
+  Location: STORED, Position: 0
+  Column: 2, Row: 9, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x454293EE
+  Drop Level: 11
+  Set ID: 56 (Арктический пояс)
+  Defence: 3
+  Durability: 10/14
+  Properties:
+    - +30 к защите
+    - +40% к сопротивлению льду
+  Set Properties (2 Items):
+    - +40% к вероятности найти магический предмет
+  Set Properties (3 Items):
+    - +10% к сопротивлению льду
+--- Item 5 ---
+  Type: lbl  (Sash)
+  Location: STORED, Position: 0
+  Column: 8, Row: 9, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0xD34CE8A0
+  Drop Level: 49
+  Unique ID: 112 (Ленимо)
+  Defence: 2
+  Durability: 10/12
+  Properties:
+    - +15 к мане
+    - Восполняет 30% маны
+    - +5% к сопротивлению огню
+    - +5% к сопротивлению молнии
+    - +5% к сопротивлению льду
+    - +5% к сопротивлению яду
+    - +1 к радиусу обзора
+--- Item 6 ---
+  Type: hlm  (Helm)
+  Location: STORED, Position: 0
+  Column: 0, Row: 0, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x47021E78
+  Drop Level: 59
+  Set ID: 44 (Головной убор берсерка)
+  Defence: 18
+  Durability: 14/24
+  Properties:
+    - +15 к защите
+    - +25% к сопротивлению огню
+  Set Properties (2 Items):
+    - +16 к рейтингу атаки (зависит от уровня персонажа)
+--- Item 7 ---
+  Type: bwn  (Bone Wand)
+  Location: STORED, Position: 0
+  Column: 2, Row: 5, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x8E88B620
+  Drop Level: 59
+  Set ID: 126 (Суеверие Сандера)
+  Durability: 9/15
+  Properties:
+    - +25 к мане
+    - +75% к максимальному урону
+    - +75% к минимальному урону
+    - +25 к минимальному урону от льда
+    - +75 к максимальному урону от льда
+    - 2 seconds cold duration
+    - Похищает 8% маны за удар
+    - +20% к скорости применения умений
+--- Item 8 ---
+  Type: zvb  (Sharkskin Belt)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 4, Row: 9, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xD06D89F2
+  Drop Level: 59
+  Set ID: 93 (Сети М'авины)
+  Defence: 35
+  Durability: 9/14
+  Properties:
+    - +50 к защите
+    - Похищает 5% маны за удар
+    - +5 к радиусу обзора
+    - +20% к скорости ходьбы и бега
+  Set Properties (4 Items):
+    - +25% к сопротивлению огню
+    - +25% к сопротивлению молнии
+    - +25% к сопротивлению льду
+    - +25% к сопротивлению яду
+--- Item 9 ---
+  Type: vbt  (Heavy Boots)
+  Location: STORED, Position: 0
+  Column: 0, Row: 5, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x57F48525
+  Drop Level: 22
+  Set ID: 124 (Добротные сапоги Сандера)
+  Defence: 5
+  Durability: 14/14
+  Properties:
+    - +5 к силе
+    - +10 к ловкости
+    - +100 к рейтингу атаки
+    - +40% к скорости ходьбы и бега
+--- Item 10 ---
+  Type: fla  (Flail)
+  Location: STORED, Position: 0
+  Column: 2, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x42121391
+  Drop Level: 62
+  Durability: 16/30
+  Sockets: 3
+--- Item 11 ---
+  Type: ba4  (Assault Helmet)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 4, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0xA7038A7E
+  Drop Level: 69
+  Defence: 31
+  Durability: 46/50
+  Sockets: 3
+  Properties:
+    - +3 к умению «Поиск предметов» Поиск предметов
+--- Item 12 ---
+  Type: qui  (Quilted Armor)
+  Location: STORED, Position: 0
+  Column: 6, Row: 2, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, RuneWord, Personalized, JustSaved
+  GUID: 0x344B1807
+  Drop Level: 10
+  Rune Word ID: 20638 (Незаметность)
+  Runes: Tal Rune(7)+Eth Rune(5)
+  Defence: 10
+  Durability: 19/20
+  Sockets: 2
+  Rune Word Properties:
+    - +6 к ловкости
+    - +15 к максимальной выносливости
+    - –3 к магическому урону
+    - +25% к скорости ходьбы и бега
+    - +25% к ускоренному восстановлению от удара
+    - +25% к скорости применения умений
+  Socketed Item [0]:
+    Type: r07  (Tal Rune)
+    Required Level: 17
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению яду
+  Socketed Item [1]:
+    Type: r05  (Eth Rune)
+    Required Level: 15
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - Восполняет 15% маны
+--- Item 13 ---
+  Type: fla  (Flail)
+  Location: STORED, Position: 0
+  Column: 4, Row: 2, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0xE3614EE4
+  Drop Level: 64
+  Durability: 29/30
+  Sockets: 4
+--- Item 14 ---
+  Type: xhl  (Basinet)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 6, Row: 0, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x6BD5C9FC
+  Drop Level: 59
+  Unique ID: 204 (Шлем темного зрения)
+  Defence: 82
+  Durability: 24/30
+  Properties:
+    - +24% к сопротивлению огню
+    - Похищает 5% маны за удар
+    - -4 к радиусу обзора
+    - Нельзя заморозить
+    - 6% Chance to cast level 3 Лишение зрения when struck
+    - Level 5 Cloak of Shadows (22/30 Charges)
+    - +5.33 к защите (зависит от уровня персонажа)
+--- Item 15 ---
+  Type: zvb  (Sharkskin Belt)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 8, Row: 3, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x0E50FD57
+  Drop Level: 59
+  Unique ID: 243 (Острый хвост)
+  Defence: 37
+  Durability: 11/14
+  Properties:
+    - +15 к ловкости
+    - +141% к защите
+    - +10 к максимальному урону
+    - +10 к максимальному урону
+    - +15 к защите
+    - +33% к пробивающей атаке
+    - +10 to Maximum Throw Damage
+    - Атакующий получает 2.67 урона (зависит от уровня персонажа)
+--- Item 16 ---
+  Type: mbl  (Belt)
+  Location: STORED, Position: 0
+  Column: 6, Row: 9, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x5B584E8A
+  Drop Level: 59
+  Set ID: 5 (Железный пояс Хсаруса)
+  Defence: 5
+  Durability: 12/16
+  Properties:
+    - +20 к здоровью
+    - +20% к сопротивлению льду
+  Set Properties (2 Items):
+    - +6.67 к защите (зависит от уровня персонажа)
+--- Item 17 ---
+  Type: tgl  (Light Gauntlets)
+  Location: STORED, Position: 0
+  Column: 4, Row: 7, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xF9F68405
+  Drop Level: 59
+  Set ID: 10 (Наручи Ираты)
+  Defence: 10
+  Durability: 12/18
+  Properties:
+    - +30% к сопротивлению льду
+    - Вдвое уменьшает время заморозки
+  Set Properties (2 Items):
+    - +20% к скорости атаки
+--- Item 18 ---
+  Type: crn  (Crown)
+  Location: STORED, Position: 0
+  Column: 2, Row: 3, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0xC244DC61
+  Drop Level: 43
+  Rune Word ID: 27367 (Лекарство)
+  Runes: Shael Rune(13)+Io Rune(16)+Tal Rune(7)
+  Defence: 25
+  Durability: 49/50
+  Sockets: 3
+  Rune Word Properties:
+    - +92% к защите
+    - +18% к сопротивлению яду
+    - +5% к максимальному запасу здоровья
+    - Сокращает время действия яда на 50%
+    - Level 1 Очищение Aura When Equipped
+  Socketed Item [0]:
+    Type: r13  (Shael Rune)
+    Required Level: 29
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +20% к ускоренному восстановлению от удара
+  Socketed Item [1]:
+    Type: r16  (Io Rune)
+    Required Level: 35
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +10 к живучести
+  Socketed Item [2]:
+    Type: r07  (Tal Rune)
+    Required Level: 17
+    Location: SOCKET, Position: 0
+    Column: 2, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +30% к сопротивлению яду
+--- Item 19 ---
+  Type: 9mt  (Jagged Star)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 9, Row: 4, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0xE5E7CB38
+  Drop Level: 59
+  Set ID: 68 (Ритм Альдура)
+  Durability: 50/72
+  Sockets: 3
+  Properties:
+    - +40 к минимальному урону
+    - +62 к максимальному урону
+    - +50 к минимальному урону от молнии
+    - +75 к максимальному урону от молнии
+    - Похищает 10% здоровья за удар
+    - Похищает 5% маны за удар
+    - +30% к скорости атаки
+    - +200% к урону по демонам
+  Set Properties (2 Items):
+    - +15 к силе
+  Set Properties (3 Items):
+    - +15 к силе
+  Set Properties (4 Items):
+    - +15 к силе
+--- Item 20 ---
+  Type: crn  (Crown)
+  Location: STORED, Position: 0
+  Column: 6, Row: 7, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xCE8D6EB0
+  Drop Level: 59
+  Set ID: 11 (Змеевик Ираты)
+  Defence: 42
+  Durability: 48/50
+  Properties:
+    - +30% к сопротивлению огню
+    - +30% к сопротивлению молнии
+  Set Properties (2 Items):
+    - +5.33 к защите (зависит от уровня персонажа)
+--- Item 21 ---
+  Type: skp  (Skull Cap)
+  Location: STORED, Position: 0
+  Column: 8, Row: 7, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x425E6863
+  Drop Level: 59
+  Set ID: 60 (Голова Арканны)
+  Defence: 10
+  Durability: 12/18
+  Properties:
+    - Восполняет +4 здоровья
+    - Атакующий получает 2 урона
+  Set Properties (2 Items):
+    - +8 к защите (зависит от уровня персонажа)
+  Set Properties (3 Items):
+    - +15% к сопротивлению молнии
+--- Item 22 ---
+  Type: kri  (Kriss)
+  Location: STORED, Position: 0
+  Column: 8, Row: 4, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xCA33464E
+  Drop Level: 67
+  Set ID: 132 (Клятвенник проклятого)
+  Durability: 12/24
+  Properties:
+    - +20% к скорости ходьбы и бега
+    - +2.67 к максимальному урону (зависит от уровня персонажа)
+  Set Properties (2 Items):
+    - +3 к мане при убийстве
+  Set Properties (3 Items):
+    - +30% к вероятности нанести смертельный удар
+--- Item 23 ---
+  Type: tgl  (Light Gauntlets)
+  Location: STORED, Position: 0
+  Column: 4, Row: 5, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xBEDCBCFA
+  Drop Level: 49
+  Set ID: 57 (Арктические рукавицы)
+  Defence: 11
+  Durability: 16/18
+  Properties:
+    - +20 к здоровью
+    - +10% к скорости атаки
+  Set Properties (2 Items):
+    - +50 к рейтингу атаки
+  Set Properties (3 Items):
+    - +10 к ловкости
+--- Item 24 ---
+  Type: rin  (Ring)
+  Location: STORED, Position: 0
+  Column: 2, Row: 7, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x561543E0
+  Drop Level: 59
+  Set ID: 29 (Печать Катана)
+  Properties:
+    - –2 к урону
+    - Похищает 6% здоровья за удар
+  Set Properties (2 Items):
+    - +10 к силе
+--- Item 25 ---
+  Type: wsd  (War Sword)
+  Location: STORED, Position: 0
+  Column: 3, Row: 5, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xDA9FBE34
+  Drop Level: 59
+  Set ID: 49 (Касание смерти)
+  Durability: 36/44
+  Properties:
+    - +25% к максимальному урону
+    - +25% к минимальному урону
+    - Похищает 4% здоровья за удар
+  Set Properties (2 Items):
+    - +25 к минимальному урону от льда
+    - +75 к максимальному урону от льда
+    - 3 seconds cold duration
+
+=== Tab 3 (Normal) ===
+Total items: 17
+--- Item 0 ---
+  Type: 8lx  (Arbalest)
+  Required Level: 22
+  Location: STORED, Position: 0
+  Column: 0, Row: 0, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x52BEACB4
+  Drop Level: 59
+  Unique ID: 196 (Лангебризер)
+  Durability: 29/30
+  Properties:
+    - +30 к здоровью
+    - +181% к максимальному урону
+    - +181% к минимальному урону
+    - +25 к максимальному урону
+    - +1 к минимальному урону от молнии
+    - +212 к максимальному урону от молнии
+    - +54% к вероятности найти магический предмет
+    - Отбрасывает врагов
+    - +33% к вероятности нанести открытую рану
+--- Item 1 ---
+  Type: 8cb  (Double Bow)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 2, Row: 0, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x3177FABA
+  Drop Level: 59
+  Unique ID: 191 (Бесконечный град)
+  Durability: 34/36
+  Properties:
+    - +40 к мане
+    - +201% к максимальному урону
+    - +201% к минимальному урону
+    - +50 к защите от снарядов
+    - +35% к сопротивлению льду
+    - +15 к минимальному урону от льда
+    - +30 к максимальному урону от льда
+    - 3 seconds cold duration
+    - +3 к умению «Обстрел» Обстрел
+--- Item 2 ---
+  Type: 9wn  (Burnt Wand)
+  Required Level: 19
+  Location: STORED, Position: 0
+  Column: 4, Row: 0, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x7C2E3381
+  Drop Level: 59
+  Unique ID: 139 (Ветвь самоубийства)
+  Durability: 10/15
+  Properties:
+    - +40 к здоровью
+    - +10% к сопротивлению огню
+    - +10% к сопротивлению молнии
+    - +10% к сопротивлению льду
+    - +10% к сопротивлению яду
+    - +10% к максимальному запасу маны
+    - Атакующий получает 25 урона
+    - +50% к скорости применения умений
+    - +1 ко всем умениям
+--- Item 3 ---
+  Type: tbt  (Light Plated Boots)
+  Location: STORED, Position: 0
+  Column: 5, Row: 0, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x2EC167A1
+  Drop Level: 59
+  Unique ID: 110 (Пальцы гоблина)
+  Defence: 12
+  Durability: 9/18
+  Properties:
+    - +60% к защите
+    - +15 к защите
+    - –1 к урону
+    - –1 к магическому урону
+    - -1 к радиусу обзора
+    - +25% к вероятности нанести сокрушительный удар
+--- Item 4 ---
+  Type: xlm  (Casque)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0xCD1B188B
+  Drop Level: 59
+  Unique ID: 203 (Череп похитителя)
+  Defence: 73
+  Durability: 17/24
+  Properties:
+    - +211% к защите
+    - Похищает 5% здоровья за удар
+    - Похищает 5% маны за удар
+    - +46% к вероятности найти магический предмет
+    - +10% к скорости атаки
+    - +10% к ускоренному восстановлению от удара
+--- Item 5 ---
+  Type: 9ma  (Flanged Mace)
+  Required Level: 23
+  Location: STORED, Position: 0
+  Column: 9, Row: 0, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x1254E5F5
+  Drop Level: 59
+  Unique ID: 148 (Колючая стужа)
+  Durability: 51/60
+  Properties:
+    - +160% к максимальному урону
+    - +160% к минимальному урону
+    - +5 к минимальному урону
+    - +10 к максимальному урону
+    - +63 к минимальному урону от льда
+    - +112 к максимальному урону от льда
+    - 5 seconds cold duration
+    - Замораживает цель
+    - Нельзя заморозить
+    - Level 9 Морозная сфера (36/50 Charges)
+--- Item 6 ---
+  Type: ama  (Ceremonial Javelin)
+  Required Level: 26
+  Location: STORED, Position: 0
+  Column: 4, Row: 2, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0xBDE51512
+  Drop Level: 59
+  Unique ID: 281 (Возмездие титана)
+  Durability: 5/6
+  Quantity: 180
+  Properties:
+    - +20 к силе
+    - +20 к ловкости
+    - +172% к максимальному урону
+    - +172% к минимальному урону
+    - +25 к минимальному урону
+    - +50 к максимальному урону
+    - Похищает 7% здоровья за удар
+    - +2 к уровню умений амазонки
+    - +30% к скорости ходьбы и бега
+    - +25 to Minimum Throw Damage
+    - +50 to Maximum Throw Damage
+    - +2 to Дротики и копья
+    - Восполняет снаряды
+    - Больше снарядов
+--- Item 7 ---
+  Type: mgl  (Chain Gloves)
+  Location: STORED, Position: 0
+  Column: 8, Row: 8, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x6A547753
+  Drop Level: 41
+  Set ID: 8 (Клешни Клеглава)
+  Defence: 8
+  Durability: 9/16
+  Properties:
+    - Отбрасывает врагов
+    - Замедляет цель на 25%
+  Set Properties (2 Items):
+    - +20 к рейтингу атаки (зависит от уровня персонажа)
+--- Item 8 ---
+  Type: 9wd  (Ancient Sword)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 5, Row: 2, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x0F7B60D6
+  Drop Level: 59
+  Unique ID: 161 (Атлант)
+  Durability: 38/44
+  Properties:
+    - +16 к силе
+    - +12 к ловкости
+    - +8 к живучести
+    - +228% к максимальному урону
+    - +228% к минимальному урону
+    - +75 к защите
+    - +100 to Maximum Durability
+    - +2 к уровню умений паладина
+    - +50% к рейтингу атаки
+--- Item 9 ---
+  Type: xml  (Round Shield)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 6, Row: 2, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0xCB6D50AF
+  Drop Level: 59
+  Unique ID: 225 (Священный круг Мозера)
+  Defence: 56
+  Durability: 37/64
+  Sockets: 2
+  Properties:
+    - +193% к защите
+    - Вероятность 25% заблокировать удар
+    - +25% к сопротивлению огню
+    - +25% к сопротивлению молнии
+    - +25% к сопротивлению льду
+    - +25% к сопротивлению яду
+    - +30% к скорости блока
+--- Item 10 ---
+  Type: 8l8  (Long Siege Bow)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 2, Row: 6, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x6A194311
+  Drop Level: 59
+  Unique ID: 193 (Апофета)
+  Durability: 33/44
+  Properties:
+    - +50 к здоровью
+    - +214% к максимальному урону
+    - +214% к минимальному урону
+    - +9 к минимальному урону
+    - +30 к максимальному урону
+    - +80 к защите от снарядов
+    - Отбрасывает врагов
+    - +2 к уровню умений амазонки
+--- Item 11 ---
+  Type: 8lb  (Cedar Bow)
+  Required Level: 23
+  Location: STORED, Position: 0
+  Column: 0, Row: 3, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0xB3E9F0F0
+  Drop Level: 59
+  Unique ID: 190 (Куко шакаку)
+  Durability: 18/28
+  Properties:
+    - +159% к максимальному урону
+    - +159% к минимальному урону
+    - +40 к минимальному урону от огня
+    - +180 к максимальному урону от огня
+    - +3 к умению «Обжигающая стрела» Обжигающая стрела
+    - +50% к пробивающей атаке
+    - Взрывные стрелы или болты
+    - +3 to Луки и арбалеты
+--- Item 12 ---
+  Type: 8hb  (Razor Bow)
+  Required Level: 21
+  Location: STORED, Position: 0
+  Column: 0, Row: 7, StoredIn: STASH
+  Quality: UNIQUE
+  Flags: Identified, JustSaved
+  GUID: 0x9BDB271C
+  Drop Level: 59
+  Unique ID: 189 (Смертоносный крюк)
+  Durability: 22/32
+  Properties:
+    - +35 к мане
+    - +214% к максимальному урону
+    - +214% к минимальному урону
+    - Похищает 8% здоровья за удар
+    - +30% к скорости атаки
+    - +30% к вероятности нанести открытую рану
+    - Замедляет цель на 30%
+--- Item 13 ---
+  Type: xpl  (Russet Armor)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 8, Row: 5, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0x30961661
+  Drop Level: 59
+  Set ID: 136 (Господство Хоразона)
+  Defence: 244
+  Durability: 21/30
+  Properties:
+    - +100 к мане
+    - +84% к защите
+    - +23% к сопротивлению огню
+    - +24% к сопротивлению молнии
+    - +22% к сопротивлению льду
+    - +2 to Демонология
+  Set Properties (2 Items):
+    - +25% к сопротивлению яду
+  Set Properties (4 Items):
+    - +15 к живучести
+  Set Properties (6 Items):
+    - Получаемый физический урон уменьшен на 15%
+--- Item 14 ---
+  Type: xlg  (Demonhide Gloves)
+  Required Level: 21
+  Location: STORED, Position: 0
+  Column: 8, Row: 3, StoredIn: STASH
+  Quality: SET
+  Flags: Identified, JustSaved
+  GUID: 0xA19F08FA
+  Drop Level: 59
+  Set ID: 137 (Хватка Хоразона)
+  Defence: 30
+  Durability: 8/12
+  Properties:
+    - +11 к ловкости
+    - +35 к здоровью
+    - +104 к рейтингу атаки
+    - +140 к минимальному урону от огня
+    - +270 к максимальному урону от огня
+    - +10% к вероятности нанести сокрушительный удар
+  Set Properties (2 Items):
+    - +30% к скорости атаки
+  Set Properties (3 Items):
+    - Похищает 7% маны за удар
+  Set Properties (4 Items):
+    - Похищает 7% здоровья за удар
+--- Item 15 ---
+  Type: am6  (Ashwood Bow)
+  Required Level: 29
+  Location: STORED, Position: 0
+  Column: 4, Row: 6, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x4FC8D215
+  Drop Level: 64
+  Durability: 27/48
+  Sockets: 4
+  Properties:
+    - +2 to Луки и арбалеты
+--- Item 16 ---
+  Type: 9vo  (Bill)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 6, Row: 6, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, RuneWord, JustSaved
+  GUID: 0x277F1813
+  Drop Level: 49
+  Rune Word ID: 20568 (Прозрение)
+  Runes: Ral Rune(8)+Tir Rune(3)+Tal Rune(7)+Sol Rune(12)
+  Durability: 29/50
+  Sockets: 4
+  Rune Word Properties:
+    - +5 к силе
+    - +5 к энергии
+    - +5 к ловкости
+    - +5 к живучести
+    - +254% к максимальному урону
+    - +254% к минимальному урону
+    - +23% к вероятности найти магический предмет
+    - +1 к умению «Критический удар»
+    - +35% к скорости применения умений
+    - +247% к рейтингу атаки
+    - Level 13 Медитация Aura When Equipped
+  Socketed Item [0]:
+    Type: r08  (Ral Rune)
+    Required Level: 19
+    Location: SOCKET, Position: 0
+    Column: 0, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +5 к минимальному урону от огня
+      - +30 к максимальному урону от огня
+  Socketed Item [1]:
+    Type: r03  (Tir Rune)
+    Required Level: 13
+    Location: SOCKET, Position: 0
+    Column: 1, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +2 к мане при убийстве
+  Socketed Item [2]:
+    Type: r07  (Tal Rune)
+    Required Level: 17
+    Location: SOCKET, Position: 0
+    Column: 2, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +0 к минимальному урону от яда
+      - +154 к максимальному урону от яда
+      - 5 seconds poison duration
+  Socketed Item [3]:
+    Type: r12  (Sol Rune)
+    Required Level: 27
+    Location: SOCKET, Position: 0
+    Column: 3, Row: 0, StoredIn: Unknown(-1)
+    Quality: NORMAL
+    Flags: Identified, JustSaved
+    Properties:
+      - +9 к минимальному урону
+
+=== Tab 4 (Normal) ===
+Total items: 24
+--- Item 0 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 9, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x3D808F84
+  Drop Level: 43
+  Suffix: 670 (дерзости)
+  Properties:
+    - +8 к ловкости
+--- Item 1 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 8, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xA54DD1F5
+  Drop Level: 5
+  Suffix: 350 (жизненной силы)
+  Properties:
+    - +3 к здоровью
+--- Item 2 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 7, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x9273716D
+  Drop Level: 25
+  Prefix: 283 (благодатный)
+  Properties:
+    - +3% к вероятности найти магический предмет
+--- Item 3 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 6, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x7AF8819C
+  Drop Level: 40
+  Prefix: 167 (алый)
+  Properties:
+    - +6 к минимальному урону
+    - +6 к минимальному урону
+    - +6 to Minimum Throw Damage
+--- Item 4 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 5, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x8A58BA2C
+  Drop Level: 28
+  Prefix: 356 (Сапфир)
+  Suffix: 669 (грома)
+  Properties:
+    - +5 к ловкости
+    - +7% к сопротивлению льду
+--- Item 5 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 4, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x2A6EA88C
+  Drop Level: 55
+  Suffix: 393 (силы)
+  Properties:
+    - +4 к силе
+--- Item 6 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 3, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x54454592
+  Drop Level: 49
+  Rare Name: 168-139
+  Properties:
+    - +5 к силе
+    - +16 к максимальной выносливости
+    - +52 к рейтингу атаки
+    - +15 к защите
+--- Item 7 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 2, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x1A9C4863
+  Drop Level: 45
+  Suffix: 671 (дерзости)
+  Properties:
+    - +4 к энергии
+--- Item 8 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 1, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x0DE27D28
+  Drop Level: 62
+  Prefix: 376 (гранатовый)
+  Suffix: 671 (дерзости)
+  Properties:
+    - +6 к энергии
+    - +30% к сопротивлению огню
+--- Item 9 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 9, Row: 0, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x7E380118
+  Drop Level: 59
+  Suffix: 673 (знания)
+  Properties:
+    - +6 к силе
+--- Item 10 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 9, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xF1F10A8C
+  Drop Level: 62
+  Prefix: 429 (неземной)
+  Properties:
+    - +33% к урону по демонам
+    - +50 к рейтингу атаки против демонов
+--- Item 11 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 8, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x1F0650C4
+  Drop Level: 64
+  Suffix: 165 (мечей)
+  Properties:
+    - Атакующий получает 4 урона
+--- Item 12 ---
+  Type: xtp  (Mage Plate)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 0, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x06116F36
+  Drop Level: 66
+  Defence: 253
+  Durability: 32/60
+  Sockets: 3
+--- Item 13 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 7, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x5DF1963A
+  Drop Level: 64
+  Prefix: 415 (Изумруд)
+  Properties:
+    - +15% к сопротивлению яду
+--- Item 14 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 6, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x2196CDCE
+  Drop Level: 59
+  Prefix: 217 (ореховый)
+  Properties:
+    - +22 к максимальной выносливости
+--- Item 15 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 5, StoredIn: STASH
+  Quality: RARE
+  Flags: Identified, JustSaved
+  GUID: 0x0B7C1DF3
+  Drop Level: 59
+  Rare Name: 168-124
+  Properties:
+    - +8 к силе
+    - +8 к максимальному урону
+    - +8 к максимальному урону
+    - +25% к сопротивлению льду
+    - +12 к минимальному урону от огня
+    - +33 к максимальному урону от огня
+    - +8 to Maximum Throw Damage
+--- Item 16 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 4, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xACE7DBE0
+  Drop Level: 64
+  Suffix: 275 (возрождения)
+  Properties:
+    - Восполняет +3 здоровья
+--- Item 17 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 3, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x95DCF1A6
+  Drop Level: 67
+  Prefix: 336 (искрометный)
+  Suffix: 668 (молнии)
+  Properties:
+    - +8% к сопротивлению огню
+    - +8% к сопротивлению молнии
+    - +8% к сопротивлению льду
+    - +8% к сопротивлению яду
+    - +1 к минимальному урону от молнии
+    - +92 к максимальному урону от молнии
+--- Item 18 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 2, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x365436B0
+  Drop Level: 64
+  Suffix: 665 (ледника)
+  Properties:
+    - +6 к минимальному урону от огня
+    - +24 к максимальному урону от огня
+--- Item 19 ---
+  Type: pax  (Poleaxe)
+  Location: STORED, Position: 0
+  Column: 0, Row: 3, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, Socketed, JustSaved
+  GUID: 0x9CA1E86D
+  Drop Level: 64
+  Durability: 59/65
+  Sockets: 4
+--- Item 20 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 1, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x9D2E32B1
+  Drop Level: 64
+  Prefix: 166 (залитый кровью)
+  Suffix: 670 (дерзости)
+  Properties:
+    - +8 к ловкости
+    - +2 к минимальному урону
+    - +2 к минимальному урону
+    - +2 to Minimum Throw Damage
+--- Item 21 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 8, Row: 0, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x0CABE369
+  Drop Level: 64
+  Prefix: 142 (костяной)
+  Properties:
+    - +54 к защите
+--- Item 22 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 7, Row: 9, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x88130EA0
+  Drop Level: 64
+  Prefix: 249 (оловянный)
+  Properties:
+    - +58 к рейтингу атаки
+--- Item 23 ---
+  Type: jew  (Jewel)
+  Location: STORED, Position: 0
+  Column: 7, Row: 8, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x1D23A0CA
+  Drop Level: 64
+  Suffix: 674 (мужественности)
+  Properties:
+    - +9 к силе
+
+=== Tab 5 (Normal) ===
+Total items: 11
+--- Item 0 ---
+  Type: cm3  (Grand Charm)
+  Location: STORED, Position: 0
+  Column: 0, Row: 0, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x2ECC09CD
+  Drop Level: 74
+  Prefix: 223 (железный)
+  Suffix: 281 (жадности)
+  Properties:
+    - +77 к рейтингу атаки
+    - +40% к золоту за убийство монстров
+--- Item 1 ---
+  Type: cm1  (Small Charm)
+  Location: STORED, Position: 0
+  Column: 9, Row: 9, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xF0689689
+  Drop Level: 64
+  Prefix: 137 (основательный)
+  Suffix: 392 (силы)
+  Properties:
+    - +2 к силе
+    - +18 к защите
+--- Item 2 ---
+  Type: cm1  (Small Charm)
+  Location: STORED, Position: 0
+  Column: 9, Row: 8, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x1368E131
+  Drop Level: 64
+  Suffix: 389 (силы)
+  Properties:
+    - +1 к силе
+--- Item 3 ---
+  Type: cm1  (Small Charm)
+  Location: STORED, Position: 0
+  Column: 0, Row: 3, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x983D04C6
+  Drop Level: 64
+  Prefix: 235 (бронзовый)
+  Suffix: 267 (баланса)
+  Properties:
+    - +6 к рейтингу атаки
+    - +5% к ускоренному восстановлению от удара
+--- Item 4 ---
+  Type: cm2  (Large Charm)
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xD5CC683E
+  Drop Level: 64
+  Prefix: 230 (бронзовый)
+  Suffix: 344 (поддержки)
+  Properties:
+    - +22 к здоровью
+    - +37 к рейтингу атаки
+--- Item 5 ---
+  Type: cm3  (Grand Charm)
+  Location: STORED, Position: 0
+  Column: 0, Row: 4, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x89D6D0A2
+  Drop Level: 64
+  Suffix: 399 (ускорения)
+  Properties:
+    - +7% к скорости ходьбы и бега
+--- Item 6 ---
+  Type: cm1  (Small Charm)
+  Location: STORED, Position: 0
+  Column: 1, Row: 2, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x3F3DA262
+  Drop Level: 64
+  Suffix: 284 (жадности)
+  Properties:
+    - +10% к золоту за убийство монстров
+--- Item 7 ---
+  Type: cm3  (Grand Charm)
+  Location: STORED, Position: 0
+  Column: 0, Row: 7, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x2EC520E0
+  Drop Level: 64
+  Prefix: 252 (изящный)
+  Properties:
+    - +33 к рейтингу атаки
+    - +6 к максимальному урону
+    - +6 к максимальному урону
+    - +6 to Maximum Throw Damage
+--- Item 8 ---
+  Type: cm1  (Small Charm)
+  Location: STORED, Position: 0
+  Column: 9, Row: 7, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xFF62829B
+  Drop Level: 64
+  Prefix: 256 (острый)
+  Properties:
+    - +18 к рейтингу атаки
+    - +3 к максимальному урону
+    - +3 к максимальному урону
+    - +3 to Maximum Throw Damage
+--- Item 9 ---
+  Type: cm2  (Large Charm)
+  Location: STORED, Position: 0
+  Column: 2, Row: 0, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0x3EC246C1
+  Drop Level: 67
+  Suffix: 266 (баланса)
+  Properties:
+    - +8% к ускоренному восстановлению от удара
+--- Item 10 ---
+  Type: cm1  (Small Charm)
+  Location: STORED, Position: 0
+  Column: 9, Row: 6, StoredIn: STASH
+  Quality: MAGIC
+  Flags: Identified, JustSaved
+  GUID: 0xADE2A67B
+  Drop Level: 64
+  Suffix: 290 (удачи)
+  Properties:
+    - +3% к вероятности найти магический предмет
+
+=== Tab 6 (Advanced (Currency)) ===
+Total items: 48
+--- Item 0 ---
+  Type: gcg  (Chipped Emerald)
+  Required Level: 1
+  Location: STORED, Position: 0
+  Column: 5, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 5
+--- Item 1 ---
+  Type: gcb  (Chipped Sapphire)
+  Required Level: 1
+  Location: STORED, Position: 0
+  Column: 4, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 4
+--- Item 2 ---
+  Type: r08  (Ral Rune)
+  Required Level: 19
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 7
+--- Item 3 ---
+  Type: skc  (Chipped Skull)
+  Required Level: 1
+  Location: STORED, Position: 0
+  Column: 3, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 3
+--- Item 4 ---
+  Type: rvs  (Rejuvenation Potion)
+  Location: STORED, Position: 0
+  Column: 5, Row: 1, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 21
+--- Item 5 ---
+  Type: r05  (Eth Rune)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 8, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 8
+--- Item 6 ---
+  Type: r04  (Nef Rune)
+  Required Level: 13
+  Location: STORED, Position: 0
+  Column: 5, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 5
+--- Item 7 ---
+  Type: r03  (Tir Rune)
+  Required Level: 13
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 1
+--- Item 8 ---
+  Type: r07  (Tal Rune)
+  Required Level: 17
+  Location: STORED, Position: 0
+  Column: 15, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 15
+--- Item 9 ---
+  Type: gcr  (Chipped Ruby)
+  Required Level: 1
+  Location: STORED, Position: 0
+  Column: 2, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 2
+--- Item 10 ---
+  Type: gcv  (Chipped Amethyst)
+  Required Level: 1
+  Location: STORED, Position: 0
+  Column: 4, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 4
+--- Item 11 ---
+  Type: gsg  (Emerald)
+  Required Level: 12
+  Location: STORED, Position: 0
+  Column: 5, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 5
+--- Item 12 ---
+  Type: gfv  (Flawed Amethyst)
+  Required Level: 5
+  Location: STORED, Position: 0
+  Column: 3, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 3
+--- Item 13 ---
+  Type: gcy  (Chipped Topaz)
+  Required Level: 1
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 7
+--- Item 14 ---
+  Type: skf  (Flawed Skull)
+  Required Level: 5
+  Location: STORED, Position: 0
+  Column: 2, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 2
+--- Item 15 ---
+  Type: gfw  (Flawed Diamond)
+  Required Level: 5
+  Location: STORED, Position: 0
+  Column: 10, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 10
+--- Item 16 ---
+  Type: rvl  (Full Rejuvenation Potion)
+  Location: STORED, Position: 0
+  Column: 0, Row: 1, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 16
+--- Item 17 ---
+  Type: r06  (Ith Rune)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 11, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 11
+--- Item 18 ---
+  Type: r01  (El Rune)
+  Required Level: 11
+  Location: STORED, Position: 0
+  Column: 3, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 3
+--- Item 19 ---
+  Type: r09  (Ort Rune)
+  Required Level: 21
+  Location: STORED, Position: 0
+  Column: 10, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 10
+--- Item 20 ---
+  Type: r02  (Eld Rune)
+  Required Level: 11
+  Location: STORED, Position: 0
+  Column: 3, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 3
+--- Item 21 ---
+  Type: gfy  (Flawed Topaz)
+  Required Level: 5
+  Location: STORED, Position: 0
+  Column: 9, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 9
+--- Item 22 ---
+  Type: r11  (Amn Rune)
+  Required Level: 25
+  Location: STORED, Position: 0
+  Column: 9, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 9
+--- Item 23 ---
+  Type: gzv  (Flawless Amethyst)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 7
+--- Item 24 ---
+  Type: glb  (Flawless Sapphire)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 0, Row: 1, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 16
+--- Item 25 ---
+  Type: skz  (Perfect Skull)
+  Required Level: 18
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 1
+--- Item 26 ---
+  Type: gsr  (Ruby)
+  Required Level: 12
+  Location: STORED, Position: 0
+  Column: 10, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 10
+--- Item 27 ---
+  Type: gfg  (Flawed Emerald)
+  Required Level: 5
+  Location: STORED, Position: 0
+  Column: 6, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 6
+--- Item 28 ---
+  Type: gsb  (Sapphire)
+  Required Level: 12
+  Location: STORED, Position: 0
+  Column: 13, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 13
+--- Item 29 ---
+  Type: gsv  (Amethyst)
+  Required Level: 12
+  Location: STORED, Position: 0
+  Column: 6, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 6
+--- Item 30 ---
+  Type: gsw  (Diamond)
+  Required Level: 12
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 7
+--- Item 31 ---
+  Type: skl  (Flawless Skull)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 7
+--- Item 32 ---
+  Type: r12  (Sol Rune)
+  Required Level: 27
+  Location: STORED, Position: 0
+  Column: 3, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 3
+--- Item 33 ---
+  Type: r14  (Dol Rune)
+  Required Level: 31
+  Location: STORED, Position: 0
+  Column: 4, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 4
+--- Item 34 ---
+  Type: r16  (Io Rune)
+  Required Level: 35
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 1
+--- Item 35 ---
+  Type: r10  (Thul Rune)
+  Required Level: 23
+  Location: STORED, Position: 0
+  Column: 7, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 7
+--- Item 36 ---
+  Type: r13  (Shael Rune)
+  Required Level: 29
+  Location: STORED, Position: 0
+  Column: 2, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 2
+--- Item 37 ---
+  Type: glr  (Flawless Ruby)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 6, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 6
+--- Item 38 ---
+  Type: glw  (Flawless Diamond)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 6, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 6
+--- Item 39 ---
+  Type: gfb  (Flawed Sapphire)
+  Required Level: 5
+  Location: STORED, Position: 0
+  Column: 4, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 4
+--- Item 40 ---
+  Type: glg  (Flawless Emerald)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 8, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 8
+--- Item 41 ---
+  Type: gfr  (Flawed Ruby)
+  Required Level: 5
+  Location: STORED, Position: 0
+  Column: 5, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 5
+--- Item 42 ---
+  Type: gsy  (Topaz)
+  Required Level: 12
+  Location: STORED, Position: 0
+  Column: 6, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 6
+--- Item 43 ---
+  Type: gpb  (Perfect Sapphire)
+  Required Level: 18
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 1
+--- Item 44 ---
+  Type: gly  (Flawless Topaz)
+  Required Level: 15
+  Location: STORED, Position: 0
+  Column: 8, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 8
+--- Item 45 ---
+  Type: r15  (Hel Rune)
+  Location: STORED, Position: 0
+  Column: 3, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 3
+--- Item 46 ---
+  Type: sku  (Skull)
+  Required Level: 12
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 1
+--- Item 47 ---
+  Type: r21  (Pul Rune)
+  Required Level: 45
+  Location: STORED, Position: 0
+  Column: 1, Row: 0, StoredIn: STASH
+  Quality: NORMAL
+  Flags: Identified, JustSaved
+  Stack Size: 1
+
+=== Tab 7 (Chronicle) ===
+Total items: 0

@@ -33,3 +33,8 @@ def version_data_69(game_data: GameData) -> VersionData:
 @pytest.fixture(scope="session")
 def game_data_resolver() -> GameDataResolver:
     return GameDataResolver.load(lang_key="enUS")
+
+
+@pytest.fixture(scope="session")
+def game_data_resolver_ru() -> GameDataResolver:
+    return GameDataResolver.load(lang_key="ruRU")

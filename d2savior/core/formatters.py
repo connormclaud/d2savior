@@ -418,45 +418,29 @@ def _format_item_lines(
                 result.append(f"{indent}Drop Level: {ext.drop_level}")
             if ext.magic_prefix:
                 prefix_id = ext.magic_prefix
-                prefix_name = (
-                    prefix_info.name
-                    if (prefix_info := resolver.get_magic_prefix(prefix_id))
-                    else ""
-                )
+                prefix_name = item_resolver.get_localized_magic_prefix(prefix_id)
                 result.append(
                     f"{indent}Prefix: {prefix_id}{f' ({prefix_name})' if prefix_name else ''}"
                 )
             if ext.magic_suffix:
                 suffix_id = ext.magic_suffix
-                suffix_name = (
-                    suffix_info.name
-                    if (suffix_info := resolver.get_magic_suffix(suffix_id))
-                    else ""
-                )
+                suffix_name = item_resolver.get_localized_magic_suffix(suffix_id)
                 result.append(
                     f"{indent}Suffix: {suffix_id}{f' ({suffix_name})' if suffix_name else ''}"
                 )
             if ext.set_id is not None:
                 set_id = ext.set_id
-                set_name = set_info.name if (set_info := resolver.get_set_item(set_id)) else ""
+                set_name = item_resolver.get_localized_set_name(set_id)
                 result.append(f"{indent}Set ID: {set_id}{f' ({set_name})' if set_name else ''}")
             if ext.unique_id is not None:
                 unique_id = ext.unique_id
-                unique_idx = (
-                    unique_info.index
-                    if (unique_info := resolver.get_unique_item(unique_id))
-                    else ""
-                )
+                unique_name = item_resolver.get_localized_unique_name(unique_id)
                 result.append(
-                    f"{indent}Unique ID: {unique_id}{f' ({unique_idx})' if unique_idx else ''}"
+                    f"{indent}Unique ID: {unique_id}{f' ({unique_name})' if unique_name else ''}"
                 )
             if ext.rune_id is not None:
                 runeword_id = ext.rune_word_id()
-                rw_name = (
-                    runeword_info.name
-                    if (runeword_info := resolver.get_runeword(runeword_id))
-                    else ""
-                )
+                rw_name = item_resolver.get_localized_runeword_name(runeword_id)
                 result.append(
                     f"{indent}Rune Word ID: {runeword_id}{f' ({rw_name})' if rw_name else ''}"
                 )

@@ -116,7 +116,7 @@ Total items: 31
   Flags: Identified, Socketed, JustSaved
   GUID: 0x1E4A41AC
   Drop Level: 41
-  Set ID: 68 (Aldur's Gauntlet)
+  Set ID: 68 (Aldur's Rhythm)
   Durability: 70/72
   Sockets: 3
   Properties:
@@ -560,7 +560,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x03FC5E08
   Drop Level: 55
-  Prefix: 500 (Nature's)
+  Prefix: 500 (Natural)
   Suffix: 278 (of Greed)
   Defence: 24
   Durability: 28/35
@@ -763,7 +763,7 @@ Total items: 26
   Flags: Identified, JustSaved
   GUID: 0xD34CE8A0
   Drop Level: 49
-  Unique ID: 112 (Lenyms Cord)
+  Unique ID: 112 (Lenymo)
   Defence: 2
   Durability: 10/12
   Properties:
@@ -798,7 +798,7 @@ Total items: 26
   Flags: Identified, JustSaved
   GUID: 0x8E88B620
   Drop Level: 59
-  Set ID: 126 (McAuley's Superstition)
+  Set ID: 126 (Sander's Superstition)
   Durability: 9/15
   Properties:
     - +25 to Mana
@@ -839,7 +839,7 @@ Total items: 26
   Flags: Identified, JustSaved
   GUID: 0x57F48525
   Drop Level: 22
-  Set ID: 124 (McAuley's Riprap)
+  Set ID: 124 (Sander's Riprap)
   Defence: 5
   Durability: 14/14
   Properties:
@@ -1047,7 +1047,7 @@ Total items: 26
   Flags: Identified, Socketed, JustSaved
   GUID: 0xE5E7CB38
   Drop Level: 59
-  Set ID: 68 (Aldur's Gauntlet)
+  Set ID: 68 (Aldur's Rhythm)
   Durability: 50/72
   Sockets: 3
   Properties:
@@ -1343,7 +1343,7 @@ Total items: 17
   Flags: Identified, JustSaved
   GUID: 0x0F7B60D6
   Drop Level: 59
-  Unique ID: 161 (The Atlantian)
+  Unique ID: 161 (The Atlantean)
   Durability: 38/44
   Properties:
     - +16 to Strength
@@ -1364,7 +1364,7 @@ Total items: 17
   Flags: Identified, Socketed, JustSaved
   GUID: 0xCB6D50AF
   Drop Level: 59
-  Unique ID: 225 (Mosers Blessed Circle)
+  Unique ID: 225 (Moser's Blessed Circle)
   Defence: 56
   Durability: 37/64
   Sockets: 2
@@ -1918,7 +1918,7 @@ Total items: 11
   GUID: 0xD5CC683E
   Drop Level: 64
   Prefix: 230 (Bronze)
-  Suffix: 344 (of Substinence)
+  Suffix: 344 (of Sustenance)
   Properties:
     - +22 to Life
     - +37 to Attack Rating
