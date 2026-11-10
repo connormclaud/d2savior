@@ -170,7 +170,7 @@ Total items: 69
     - +31 to Mana
     - Fire Resist +38%
     - +20% Faster Cast Rate
-    - +1 to Fire Wall Fire Wall
+    - +1 to Fire Wall (Sorceress Only)
     - 12% Chance to cast level 4 Nova on striking
 --- Item 7 ---
   Type: tgl  (Light Gauntlets)
@@ -658,9 +658,9 @@ Total items: 69
     - +57 to Life
     - +77 to Mana
     - +20% Faster Cast Rate
-    - +1 to Fire Mastery Fire Mastery
-    - +1 to Lightning Mastery Lightning Mastery
-    - +2 to Cold Mastery Cold Mastery
+    - +1 to Fire Mastery (Sorceress Only)
+    - +1 to Lightning Mastery (Sorceress Only)
+    - +2 to Cold Mastery (Sorceress Only)
   Set Properties (2 Items):
     - +1 to Sorceress Skill Levels
   Set Properties (3 Items):
@@ -731,7 +731,7 @@ Total items: 69
     - +40 Defense
     - Poison Resist +50%
     - 5% Life stolen per hit
-    - +3 to Skeleton Mastery Skeleton Mastery
+    - +3 to Skeleton Mastery (Necromancer Only)
     - Half Freeze Duration
     - +50% Damage to Undead
     - +74 to Attack Rating against Undead

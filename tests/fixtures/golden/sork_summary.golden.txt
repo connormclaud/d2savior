@@ -78,7 +78,7 @@ Equipped:
 - [Stash] Cap [Def: 4, Sockets: 2]
 - [Stash] Broad Sword [Sockets: 4]
 - [Stash] Glowing Ring of the Apprentice (+2 to Light Radius, +10% Faster Cast Rate)
-- [Stash] Raven Song (Rare Sacred Globe) (+8 to Energy, +13 to Life, +31 to Mana, Fire Resist +38%, +20% Faster Cast Rate, +1 to Fire Wall Fire Wall, 12% Chance to cast level 4 Nova on striking)
+- [Stash] Raven Song (Rare Sacred Globe) (+8 to Energy, +13 to Life, +31 to Mana, Fire Resist +38%, +20% Faster Cast Rate, +1 to Fire Wall (Sorceress Only), 12% Chance to cast level 4 Nova on striking)
 - [Stash] Raven Knuckle (Rare Light Gauntlets) [Def: 12] (+1 to Dexterity, +55% Enhanced Defense, Cold Resist +25%, 76% Extra Gold from Monsters, +1 to Bow and Crossbow, Repairs 33% durability per second)
 - [Stash] Russet Leather Gloves of Chance [Def: 3] (Fire Resist +18%, 11% Better Chance of Getting Magic Items)
 - [Stash] Beryl Amulet of Luck (Poison Resist +6%, 34% Better Chance of Getting Magic Items)
@@ -92,9 +92,9 @@ Equipped:
 - [Stash] Cuirass [Def: 196, Sockets: 3]
 - [Stash] Coral Chain Gloves of Dexterity [Def: 8] (+2 to Dexterity, Lightning Resist +27%)
 - [Stash] Tal Rasha's Fine-Spun Cloth (Mesh Belt) [Def: 36] (+20 to Dexterity, +30 to Mana, 13% Better Chance of Getting Magic Items, Requirements -20%, +37% Damage Taken Goes To Mana)
-- [Stash] Tal Rasha's Lidless Eye (Swirling Crystal) (+10 to Energy, +57 to Life, +77 to Mana, +20% Faster Cast Rate, +1 to Fire Mastery Fire Mastery, +1 to Lightning Mastery Lightning Mastery, +2 to Cold Mastery Cold Mastery)
+- [Stash] Tal Rasha's Lidless Eye (Swirling Crystal) (+10 to Energy, +57 to Life, +77 to Mana, +20% Faster Cast Rate, +1 to Fire Mastery (Sorceress Only), +1 to Lightning Mastery (Sorceress Only), +2 to Cold Mastery (Sorceress Only))
 - [Stash] Peasant Crown (War Hat) [Def: 54] (+20 to Energy, +20 to Vitality, +100% Enhanced Defense, Replenish Life +6, +15% Faster Run/Walk, +1 to All Skills)
-- [Stash] Undead Crown (Crown) [Def: 46] (+52% Enhanced Defense, +40 Defense, Poison Resist +50%, 5% Life stolen per hit, +3 to Skeleton Mastery Skeleton Mastery, Half Freeze Duration, +50% Damage to Undead, +74 to Attack Rating against Undead)
+- [Stash] Undead Crown (Crown) [Def: 46] (+52% Enhanced Defense, +40 Defense, Poison Resist +50%, 5% Life stolen per hit, +3 to Skeleton Mastery (Necromancer Only), Half Freeze Duration, +50% Damage to Undead, +74 to Attack Rating against Undead)
 - [Stash] Ancients' Pledge (Large Shield) [Def: 14, Sockets: 3, Socketed: Ral Rune+Ort Rune+Tal Rune] (+50% Enhanced Defense, All Resistances +43, Fire Resist +5%, Lightning Resist +5%, Poison Resist +5%, +10% Damage Taken Goes To Mana)
 - [Stash] Coral Chain Gloves of Wealth [Def: 8] (Lightning Resist +24%, 43% Extra Gold from Monsters)
 - [Stash] Triumphant Ring of the Apprentice (+10% Faster Cast Rate, +1 to Mana after each Kill)

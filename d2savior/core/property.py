@@ -15,6 +15,17 @@ _CLASS_SKILL_LEVEL_KEYS = {
     7: "ModStrge9",  # Warlock
 }
 
+_CLASS_ONLY_KEYS = {
+    0: "AmaOnly",  # (Amazon Only)
+    1: "SorOnly",  # (Sorceress Only)
+    2: "NecOnly",  # (Necromancer Only)
+    3: "PalOnly",  # (Paladin Only)
+    4: "BarOnly",  # (Barbarian Only)
+    5: "DruOnly",  # (Druid Only)
+    6: "AssOnly",  # (Assassin Only)
+    7: "WarOnly",  # (Warlock Only)
+}
+
 _CHANCE_CAST_KEYS = {
     195: "ItemExpansiveChancX",
     196: "ModitemskonKill",
@@ -30,6 +41,8 @@ def get_skill_class_id(skill_id: int) -> int:
         return (skill_id - 6) // 30
     elif 221 <= skill_id < 281:
         return (skill_id - 221) // 30 + 5
+    elif 373 <= skill_id < 403:
+        return 7
     return -1
 
 
@@ -124,11 +137,22 @@ def format_property(
             if stat and stat.descstrpos:
                 tpl = resolver.get_item_modifier(stat.descstrpos)
                 if tpl and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
-                    return (
-                        tpl.replace("%+d", f"{a[1]:+d}")
-                        .replace("%d", str(a[1]))
-                        .replace("%s", skill_name)
+                    class_only_key = _CLASS_ONLY_KEYS.get(class_id)
+                    class_only_str = (
+                        resolver.get_item_modifier(class_only_key) if class_only_key else ""
                     )
+                    if not class_only_str:
+                        class_only_str = f"({class_name} Only)" if class_name else ""
+                    if (
+                        "(%s)" in tpl
+                        and class_only_str.startswith("(")
+                        and class_only_str.endswith(")")
+                    ):
+                        class_only_str = class_only_str[1:-1]
+                    res = tpl.replace("%+d", f"{a[1]:+d}").replace("%d", str(a[1]))
+                    res = res.replace("%s", skill_name, 1)
+                    res = res.replace("%s", class_only_str, 1)
+                    return res.strip()
             if class_name:
                 return f"+{a[1]} to {skill_name} ({class_name} Only)"
             return f"+{a[1]} to {skill_name}"

@@ -142,6 +142,18 @@ class TestFormatPropertySpecialCases:
             result = format_property(83, [class_id, 1], resolver=game_data_resolver)
             assert expected_name in result, f"Class ID {class_id} should format to {expected_name}"
 
+    def test_format_property_class_only_skill(self, game_data_resolver: GameDataResolver):
+        # Stat 107: +4 to Fire Claws (Druid Only)
+        result = format_property(107, [239, 4], resolver=game_data_resolver)
+        assert result == "+4 to Fire Claws (Druid Only)"
+
+        # Stat 107 in Russian
+        from d2savior.core.d2data import GameDataResolver as GResolver
+
+        resolver_ru = GResolver.load(lang_key="ruRU")
+        result_ru = format_property(107, [239, 4], resolver=resolver_ru)
+        assert result_ru == "+4 к умению «Огненные когти» (только для друидов)"
+
     def test_format_property_charged_skill(self, game_data_resolver: GameDataResolver):
         # Level 1 Lower Resist (91), 60 current charges, 67 max charges
         result = format_property(204, [1, 91, 60, 67], resolver=game_data_resolver)

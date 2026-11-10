@@ -208,9 +208,9 @@ Total items: 31
   Properties:
     - +250 Defense vs. Missile
     - +3 to Sorceress Skill Levels
-    - +3 to Telekinesis Telekinesis
-    - +3 to Teleport Teleport
-    - +3 to Energy Shield Energy Shield
+    - +3 to Telekinesis (Sorceress Only)
+    - +3 to Teleport (Sorceress Only)
+    - +3 to Energy Shield (Sorceress Only)
     - Ignore Target's Defense
 --- Item 10 ---
   Type: msk  (Mask)
@@ -388,8 +388,8 @@ Total items: 31
     - +30 to Maximum Durability
     - +20% Increased Attack Speed
     - +20% Faster Run/Walk
-    - +2 to Blade Mastery Blade Mastery
-    - +1 to Whirlwind Whirlwind
+    - +2 to Blade Mastery (Barbarian Only)
+    - +1 to Whirlwind (Barbarian Only)
     - 10% Slower Stamina Drain
 --- Item 19 ---
   Type: spt  (Spetum)
@@ -870,7 +870,7 @@ Total items: 26
   Durability: 46/50
   Sockets: 3
   Properties:
-    - +3 to Find Item Find Item
+    - +3 to Find Item (Barbarian Only)
 --- Item 12 ---
   Type: qui  (Quilted Armor)
   Location: STORED, Position: 0
@@ -1210,7 +1210,7 @@ Total items: 17
     - +15 to Minimum Cold Damage
     - +30 to Maximum Cold Damage
     - 3 seconds cold duration
-    - +3 to Strafe Strafe
+    - +3 to Strafe (Amazon Only)
 --- Item 2 ---
   Type: 9wn  (Burnt Wand)
   Required Level: 19
@@ -1412,7 +1412,7 @@ Total items: 17
     - +159% Enhanced Minimum Damage
     - +40 to Minimum Fire Damage
     - +180 to Maximum Fire Damage
-    - +3 to Immolation Arrow Immolation Arrow
+    - +3 to Immolation Arrow (Amazon Only)
     - +50% Piercing Attack
     - Fires Explosive Arrows or Bolts
     - +3 to Bow and Crossbow
