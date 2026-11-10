@@ -107,6 +107,21 @@ class TestLocalizedDataLoader:
         assert self.loader.get_quest_name("Den of Evil") == "Логово зла"
         assert self.loader.get_level_name("Rogue Encampment") == "Лагерь разбойниц"
 
+    def test_druid_skill_tab_names(self):
+        self.loader.load_all_localized_data(self.data_dir, lang_key="enUS")
+        assert self.loader.get_skill_tab_name(0, 5) == "Summoning"
+        assert self.loader.get_skill_tab_name(1, 5) == "Shape Shifting"
+        assert self.loader.get_skill_tab_name(2, 5) == "Elemental"
+
+    def test_expansion_skill_names_by_id(self):
+        self.loader.load_all_localized_data(self.data_dir, lang_key="enUS")
+        assert self.loader.get_skill_name_by_id(6) == "Magic Arrow"
+        assert self.loader.get_skill_name_by_id(221) == "Raven"
+        assert self.loader.get_skill_name_by_id(234) == "Fissure"
+        assert self.loader.get_skill_name_by_id(239) == "Fire Claws"
+        assert self.loader.get_skill_name_by_id(251) == "Fire Blast"
+        assert self.loader.get_skill_name_by_id(280) == "Phoenix Strike"
+
 
 class TestLocalizedDataLoaderFactory:
     def setup_method(self):

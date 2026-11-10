@@ -566,7 +566,7 @@ Total items: 31
   Durability: 28/35
   Properties:
     - +58% к золоту за убийство монстров
-    - +2 to Спутники
+    - +2 to Сила стихий
 --- Item 24 ---
   Type: amu  (Amulet)
   Location: STORED, Position: 0
@@ -937,7 +937,7 @@ Total items: 26
     - -4 к радиусу обзора
     - Нельзя заморозить
     - 6% Chance to cast level 3 Лишение зрения when struck
-    - Level 5 Cloak of Shadows (22/30 Charges)
+    - Level 5 Покров теней (22/30 Charges)
     - +5.33 к защите (зависит от уровня персонажа)
 --- Item 15 ---
   Type: zvb  (Sharkskin Belt)

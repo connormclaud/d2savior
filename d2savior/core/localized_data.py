@@ -217,14 +217,24 @@ class LocalizedDataLoader:
         return ""
 
     def get_skill_name_by_id(self, skill_id: int) -> str:
-        key = f"skillname{skill_id}"
-        result = self.get_skill_name(key)
-        if result and result != key:
-            return result
-        key2 = f"skillan{skill_id}"
-        result2 = self.get_skill_name(key2)
-        if result2 and result2 != key2:
-            return result2
+        if 221 <= skill_id <= 280:
+            candidates = [
+                f"Skillname{skill_id + 1}",
+                f"Skillan{skill_id + 1}",
+                f"skillname{skill_id + 1}",
+                f"skillan{skill_id + 1}",
+            ]
+        else:
+            candidates = [
+                f"skillname{skill_id}",
+                f"Skillname{skill_id}",
+                f"skillan{skill_id}",
+                f"Skillan{skill_id}",
+            ]
+        for key in candidates:
+            result = self.get_skill_name(key)
+            if result and result != key:
+                return result
         return ""
 
     _SKILL_TAB_KEYS: ClassVar[dict[tuple[int, int], str]] = {
@@ -243,9 +253,9 @@ class LocalizedDataLoader:
         (4, 0): "SkillCategoryBa3",
         (4, 1): "SkillCategoryBa2",
         (4, 2): "SkillCategoryBa1",
-        (5, 0): "SkillCategoryDr2",
-        (5, 1): "SkillCategoryDr1",
-        (5, 2): "SkillCategoryDr3",
+        (5, 0): "SkillCategoryDr3",
+        (5, 1): "SkillCategoryDr2",
+        (5, 2): "SkillCategoryDr1",
         (6, 0): "SkillCategoryAs3",
         (6, 1): "SkillCategoryAs2",
         (6, 2): "SkillCategoryAs1",

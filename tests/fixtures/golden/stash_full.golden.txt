@@ -566,7 +566,7 @@ Total items: 31
   Durability: 28/35
   Properties:
     - 58% Extra Gold from Monsters
-    - +2 to Summoning
+    - +2 to Elemental
 --- Item 24 ---
   Type: amu  (Amulet)
   Location: STORED, Position: 0
