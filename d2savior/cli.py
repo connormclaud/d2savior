@@ -14,11 +14,14 @@ from d2savior.core.bitstream_debug import _run_bitstream_searches
 from d2savior.core.d2data import GameDataResolver
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.formatters import (
+    format_char_find,
     format_char_info,
     format_char_list,
     format_char_summary,
+    format_item_find,
     format_item_info,
     format_item_summary,
+    format_stash_find,
     format_stash_info,
     format_stash_summary,
     format_timestamp,
@@ -127,7 +130,21 @@ FORMATTERS = {
 }
 
 
-def format_output(kind: str, data: Any, summary: bool, resolver: GameDataResolver) -> str | None:
+def format_output(
+    kind: str,
+    data: Any,
+    summary: bool,
+    resolver: GameDataResolver,
+    find_pattern: str | None = None,
+) -> str | None:
+    if find_pattern:
+        if kind == "char":
+            return format_char_find(data, find_pattern, resolver=resolver, summary=summary)
+        elif kind == "stash":
+            return format_stash_find(data, find_pattern, resolver=resolver, summary=summary)
+        elif kind == "item":
+            return format_item_find(data, find_pattern, resolver=resolver, summary=summary)
+        return None
     formatter = FORMATTERS.get((kind, summary))
     if formatter:
         return formatter(data, resolver)
@@ -149,7 +166,13 @@ def process_file(file_path: str, args: Any, resolver: GameDataResolver) -> bool:
 
     _run_bitstream_searches(bs, args)
 
-    output = format_output(kind, data, getattr(args, "summary", False), resolver=resolver)
+    output = format_output(
+        kind,
+        data,
+        getattr(args, "summary", False),
+        resolver=resolver,
+        find_pattern=getattr(args, "find", None),
+    )
     if output:
         print(output)
     return True
@@ -297,6 +320,12 @@ _common_parser.add_argument(
     metavar="LANG_KEY",
     help="Set language (e.g. enUS, zhCN, zhTW)",
 )
+_common_parser.add_argument(
+    "-f",
+    "--find",
+    metavar="PATTERN",
+    help="Find items matching pattern in name or type",
+)
 
 
 def cmd_list(argv: list[str]) -> int:
@@ -357,7 +386,41 @@ def cmd_stash(argv: list[str]) -> int:
 
     resolver = GameDataResolver.load(lang_key=args.lang or "enUS")
 
+    find_pattern = getattr(args, "find", None)
     has_error = False
+
+    if find_pattern:
+        printed_count = 0
+        for path in stash_files:
+            if not os.path.exists(path):
+                print(f"Error: File '{path}' does not exist", file=sys.stderr)
+                has_error = True
+                continue
+            kind, data, bs = parse_file(
+                path, resolver=resolver, debug=getattr(args, "debug", False)
+            )
+            if not kind or not data:
+                has_error = True
+                continue
+            _run_bitstream_searches(bs, args)
+            output = format_output(
+                kind,
+                data,
+                getattr(args, "summary", False),
+                resolver=resolver,
+                find_pattern=find_pattern,
+            )
+            if output:
+                if len(stash_files) > 1:
+                    if printed_count > 0:
+                        print()
+                    print(f"=== File: {path} ===")
+                print(output)
+                printed_count += 1
+        if printed_count == 0 and not has_error:
+            print("No matching items found")
+        return 1 if has_error else 0
+
     for idx, path in enumerate(stash_files):
         if len(stash_files) > 1:
             if idx > 0:
@@ -404,8 +467,11 @@ Examples:
   %(prog)s list /path/to/saves
   %(prog)s stash
   %(prog)s stash --summary
+  %(prog)s stash --find "hold"
   %(prog)s character.d2s
   %(prog)s --summary character.d2s
+  %(prog)s --find "hold"
+  %(prog)s --find "hold" --summary
   %(prog)s ModernSharedStashSoftCoreV2.d2i
   %(prog)s --summary *.d2s ModernSharedStashSoftCoreV2.d2i
   %(prog)s --debug character.d2s
@@ -437,7 +503,47 @@ Examples:
 
     resolver = GameDataResolver.load(lang_key=args.lang or "enUS")
 
+    find_pattern = getattr(args, "find", None)
     has_error = False
+
+    if find_pattern:
+        printed_count = 0
+        for path in files_to_process:
+            if not os.path.exists(path):
+                print(f"Error: File '{path}' does not exist", file=sys.stderr)
+                has_error = True
+                continue
+            if not path.lower().endswith((".d2s", ".d2i")):
+                print(f"Error: File '{path}' is not a .d2s or .d2i file", file=sys.stderr)
+                has_error = True
+                continue
+            kind, data, bs = parse_file(
+                path, resolver=resolver, debug=getattr(args, "debug", False)
+            )
+            if not kind or not data:
+                has_error = True
+                continue
+            _run_bitstream_searches(bs, args)
+            output = format_output(
+                kind,
+                data,
+                getattr(args, "summary", False),
+                resolver=resolver,
+                find_pattern=find_pattern,
+            )
+            if output:
+                if len(files_to_process) > 1:
+                    if printed_count > 0:
+                        print()
+                    print(f"=== File: {path} ===")
+                print(output)
+                printed_count += 1
+        if printed_count == 0 and not has_error:
+            print("No matching items found")
+        if has_error:
+            sys.exit(1)
+        return
+
     for idx, path in enumerate(files_to_process):
         if len(files_to_process) > 1:
             if idx > 0:

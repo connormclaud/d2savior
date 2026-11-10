@@ -158,6 +158,27 @@ def get_item_display_name(item: Any, resolver: GameDataResolver, version: int = 
     return base_item_name
 
 
+def item_matches_pattern(
+    item: Any, pattern: str, resolver: GameDataResolver, version: int = 0x63
+) -> bool:
+    """Return True if the item or any of its socketed items match the search pattern."""
+    norm = pattern.strip().lower()
+    if not norm:
+        return False
+
+    title = get_item_display_name(item, resolver=resolver, version=version)
+    if norm in title.lower():
+        return True
+
+    if getattr(item, "gem_items", None):
+        for gem in item.gem_items:
+            gem_title = get_item_display_name(gem, resolver=resolver, version=version)
+            if norm in gem_title.lower():
+                return True
+
+    return False
+
+
 def _format_parsed_properties(
     prop_list: Any,
     resolver: GameDataResolver,
@@ -1168,3 +1189,225 @@ def format_stash_summary(stash: SharedStash, resolver: GameDataResolver) -> str:
         result.append("")
 
     return "\n".join(result).rstrip()
+
+
+def format_char_find(
+    char_data: D2SStruct,
+    pattern: str,
+    resolver: GameDataResolver,
+    summary: bool = True,
+) -> str | None:
+    """Format matching items found in a character save file."""
+    version = char_data.version
+    char_resolver = resolver.for_version(version)
+
+    equipped_matches: list[tuple[EquipSlot, Any]] = []
+    merc_matches: list[tuple[str, Any]] = []
+    corpse_matches: list[Any] = []
+    stored_matches: list[tuple[str, Any]] = []
+
+    item_list = getattr(char_data, "item_list", None)
+    if item_list and getattr(item_list, "magic", None) == 0x4D4A:
+        for it in getattr(item_list, "items", []):
+            if not item_matches_pattern(it, pattern, resolver=char_resolver, version=version):
+                continue
+            loc = ItemLocation(it.location)
+            match (loc, it.stored_in):
+                case (ItemLocation.EQUIPPED, _):
+                    if it.position in EquipSlot:
+                        equipped_matches.append((EquipSlot(it.position), it))
+                case (ItemLocation.STORED, StoredIn.INVENTORY):
+                    stored_matches.append(("[Inventory]", it))
+                case (ItemLocation.STORED, StoredIn.STASH):
+                    stored_matches.append(("[Stash]", it))
+                case (ItemLocation.STORED, StoredIn.CUBE):
+                    stored_matches.append(("[Cube]", it))
+                case (ItemLocation.STORED, _):
+                    stored_matches.append(("[Inventory]", it))
+                case (ItemLocation.BELT, _):
+                    stored_matches.append(("[Belt]", it))
+                case (ItemLocation.CURSOR, _):
+                    stored_matches.append(("[Cursor]", it))
+
+    slot_order = {slot: idx for idx, slot in enumerate(EquipSlot)}
+    equipped_matches.sort(key=lambda pair: slot_order.get(pair[0], 999))
+
+    if (
+        char_data.is_expansion()
+        and char_data.has_mercenary()
+        and char_data.mercenary.items
+        and char_data.mercenary.items.items
+    ):
+        for m_item in char_data.mercenary.items.items:
+            if item_matches_pattern(m_item, pattern, resolver=char_resolver, version=version):
+                loc = ItemLocation(m_item.location)
+                slot_str = ""
+                if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot:
+                    slot_str = f"{EquipSlot(m_item.position).display_name}: "
+                merc_matches.append((slot_str, m_item))
+
+    if (
+        char_data.corpse.has_corpse()
+        and char_data.corpse.corpse_data
+        and char_data.corpse.corpse_data.items
+    ):
+        for c_item in char_data.corpse.corpse_data.items.items:
+            if item_matches_pattern(c_item, pattern, resolver=char_resolver, version=version):
+                corpse_matches.append(c_item)
+
+    if not equipped_matches and not merc_matches and not corpse_matches and not stored_matches:
+        return None
+
+    char_name = char_data.get_char_name().strip() or "Unknown"
+    char_class = char_resolver.get_localized_class_name(char_data.char_class)
+    char_level = char_data.char_level
+
+    result = []
+    header_mode = "Summary" if summary else "Info"
+    result.append(
+        f"=== Diablo II Character {header_mode}: {char_name} ({char_class}, Level {char_level}) ==="
+    )
+
+    if summary:
+        if equipped_matches:
+            result.append("=== Equipped Gear ===")
+            for slot, it in equipped_matches:
+                result.append(
+                    f"- {slot.display_name}: {format_item_summary(it, resolver=char_resolver, version=version)}"
+                )
+        if merc_matches:
+            result.append("=== Mercenary ===")
+            result.append("Equipped:")
+            for slot_str, m_it in merc_matches:
+                result.append(
+                    f"  - {slot_str}{format_item_summary(m_it, resolver=char_resolver, version=version)}"
+                )
+        if corpse_matches:
+            result.append("=== Corpse ===")
+            for c_it in corpse_matches:
+                result.append(
+                    f"- [Corpse] {format_item_summary(c_it, resolver=char_resolver, version=version)}"
+                )
+        if stored_matches:
+            result.append("=== Inventory & Stash ===")
+            for label, it in stored_matches:
+                result.append(
+                    f"- {label} {format_item_summary(it, resolver=char_resolver, version=version)}"
+                )
+    else:
+        if equipped_matches:
+            result.append("=== Equipped Gear ===")
+            for slot, it in equipped_matches:
+                result.append(f"--- Equipped: {slot.display_name} ---")
+                result.extend(_format_item_lines(it, resolver=char_resolver, version=version))
+        if merc_matches:
+            result.append("=== Mercenary ===")
+            for slot_str, m_it in merc_matches:
+                slot_label = slot_str.rstrip(": ") or "Item"
+                result.append(f"--- Mercenary: {slot_label} ---")
+                result.extend(_format_item_lines(m_it, resolver=char_resolver, version=version))
+        if corpse_matches:
+            result.append("=== Corpse ===")
+            for c_it in corpse_matches:
+                result.append("--- Corpse Item ---")
+                result.extend(_format_item_lines(c_it, resolver=char_resolver, version=version))
+        if stored_matches:
+            result.append("=== Inventory & Stash ===")
+            for label, it in stored_matches:
+                result.append(f"--- {label} ---")
+                result.extend(_format_item_lines(it, resolver=char_resolver, version=version))
+
+    return "\n".join(result).rstrip()
+
+
+def format_stash_find(
+    stash: SharedStash,
+    pattern: str,
+    resolver: GameDataResolver,
+    summary: bool = True,
+) -> str | None:
+    """Format matching items found in a shared stash file."""
+    tab_results: list[list[str]] = []
+
+    for tab_idx, tab in enumerate(stash.tabs):
+        version = tab.item_format if tab.item_format else 0x63
+        tab_resolver = resolver.for_version(version)
+        items = tab.items.items if tab.items else []
+        is_advanced = tab.tab_type == STASH_TAB_TYPE_ADVANCED
+
+        if is_advanced:
+            items = [
+                it
+                for it in items
+                if getattr(getattr(it, "item_info", None), "stash_stack_size", 0) > 0
+            ]
+
+        matching = [
+            it
+            for it in items
+            if item_matches_pattern(it, pattern, resolver=tab_resolver, version=version)
+        ]
+        if not matching:
+            continue
+
+        lines: list[str] = []
+        tab_name = TAB_TYPE_NAMES.get(tab.tab_type, f"Unknown({tab.tab_type})")
+        lines.append(f"=== Tab {tab_idx + 1} ({tab_name}) ===")
+
+        if summary:
+            if is_advanced:
+                for it in matching:
+                    lines.append(
+                        f"  - {format_item_summary(it, resolver=tab_resolver, version=version, include_properties=True)}"
+                    )
+            else:
+                item_counts: dict[str, int] = {}
+                item_order: list[str] = []
+                for it in matching:
+                    s = format_item_summary(
+                        it, resolver=tab_resolver, version=version, include_properties=True
+                    )
+                    if s not in item_counts:
+                        item_counts[s] = 0
+                        item_order.append(s)
+                    item_counts[s] += 1
+                for s in item_order:
+                    count = item_counts[s]
+                    if count > 1:
+                        plural = "Jewels" if s == "Jewel" else s
+                        lines.append(f"  - {count}x {plural}")
+                    else:
+                        lines.append(f"  - {s}")
+        else:
+            for item_idx, it in enumerate(matching):
+                lines.append(f"--- Item {item_idx} ---")
+                lines.extend(_format_item_lines(it, resolver=tab_resolver, version=version))
+
+        tab_results.append(lines)
+
+    if not tab_results:
+        return None
+
+    result = []
+    header_mode = "Summary" if summary else ""
+    header = f"=== Diablo II Shared Stash {header_mode} ===".replace("  ", " ").strip()
+    result.append(header)
+    for t_lines in tab_results:
+        result.extend(t_lines)
+        result.append("")
+
+    return "\n".join(result).rstrip()
+
+
+def format_item_find(
+    item: Any,
+    pattern: str,
+    resolver: GameDataResolver,
+    summary: bool = True,
+) -> str | None:
+    """Format single standalone item if it matches pattern."""
+    if not item_matches_pattern(item, pattern, resolver=resolver):
+        return None
+    if summary:
+        return f"=== Item Summary ===\n- {format_item_summary(item, resolver=resolver)}"
+    return f"=== Item Info ===\n{format_item_info(item, resolver=resolver)}"
