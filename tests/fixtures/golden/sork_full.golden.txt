@@ -87,8 +87,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xBD9021F2
   Drop Level: 20
-  Prefix: 370 (Ruby)
-  Suffix: 182 (of Frigidity)
+  Prefix: 370 (Russet)
+  Suffix: 182 (of Thawing)
   Defence: 6
   Durability: 14/14
   Properties:
@@ -102,8 +102,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xC4055D54
   Drop Level: 38
-  Prefix: 355 (Cobalt)
-  Suffix: 182 (of Frigidity)
+  Prefix: 355 (Sapphire)
+  Suffix: 182 (of Thawing)
   Defence: 8
   Durability: 16/16
   Properties:
@@ -128,7 +128,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x3FD08071
   Drop Level: 7
-  Prefix: 358 (Sapphire)
+  Prefix: 358 (Crimson)
   Properties:
     - Fire Resist +12%
 --- Item 4 ---
@@ -149,8 +149,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x62D271BA
   Drop Level: 10
-  Prefix: 267 (Glimmering)
-  Suffix: 174 (of Deflecting)
+  Prefix: 267 (Glowing)
+  Suffix: 174 (of the Apprentice)
   Properties:
     - +2 to Light Radius
     - +10% Faster Cast Rate
@@ -198,8 +198,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x6CAF5693
   Drop Level: 20
-  Prefix: 370 (Ruby)
-  Suffix: 286 (of Avarice)
+  Prefix: 370 (Russet)
+  Suffix: 286 (of Chance)
   Defence: 3
   Durability: 12/12
   Properties:
@@ -245,8 +245,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x478226F4
   Drop Level: 50
-  Prefix: 409 (Emerald)
-  Suffix: 289 (of Fortune)
+  Prefix: 409 (Beryl)
+  Suffix: 289 (of Luck)
   Properties:
     - Poison Resist +6%
     - 34% Better Chance of Getting Magic Items
@@ -352,8 +352,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x6AE1A925
   Drop Level: 36
-  Prefix: 392 (Ocher)
-  Suffix: 317 (of the Tiger)
+  Prefix: 392 (Coral)
+  Suffix: 317 (of the Mammoth)
   Defence: 5
   Durability: 16/16
   Properties:
@@ -383,7 +383,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x0257D686
   Drop Level: 64
-  Prefix: 298 (Snake's)
+  Prefix: 298 (Serpent's)
   Suffix: 400 (of Inertia)
   Properties:
     - +28 to Mana
@@ -402,7 +402,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xB7291E0D
   Drop Level: 74
-  Prefix: 338 (Scintillating)
+  Prefix: 338 (Azure)
   Properties:
     - Cold Resist +8%
 --- Item 22 ---
@@ -413,7 +413,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x6BA930FA
   Drop Level: 74
-  Prefix: 377 (Ruby)
+  Prefix: 377 (Tangerine)
   Properties:
     - Lightning Resist +14%
 --- Item 23 ---
@@ -424,8 +424,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x2A60D599
   Drop Level: 50
-  Prefix: 331 (Scintillating)
-  Suffix: 125 (of Warding)
+  Prefix: 331 (Prismatic)
+  Suffix: 125 (of the Sentinel)
   Properties:
     - Magic Damage Reduced by 2
     - Fire Resist +18%
@@ -440,7 +440,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x74A62C4E
   Drop Level: 21
-  Prefix: 386 (Tangerine)
+  Prefix: 386 (Ocher)
   Properties:
     - Lightning Resist +6%
 --- Item 25 ---
@@ -451,8 +451,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xCEE373D6
   Drop Level: 45
-  Prefix: 386 (Tangerine)
-  Suffix: 348 (of Life)
+  Prefix: 386 (Ocher)
+  Suffix: 348 (of Sustenance)
   Properties:
     - +11 to Life
     - Lightning Resist +7%
@@ -464,7 +464,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x669E6DE0
   Drop Level: 59
-  Prefix: 382 (Tangerine)
+  Prefix: 382 (Ocher)
   Suffix: 342 (of Life)
   Properties:
     - +11 to Life
@@ -483,7 +483,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xB4C42404
   Drop Level: 28
-  Suffix: 174 (of Deflecting)
+  Suffix: 174 (of the Apprentice)
   Properties:
     - +10% Faster Cast Rate
 --- Item 29 ---
@@ -522,7 +522,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x6CE4908E
   Drop Level: 64
-  Prefix: 359 (Crimson)
+  Prefix: 359 (Russet)
   Properties:
     - Fire Resist +20%
 --- Item 32 ---
@@ -533,7 +533,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xF007ED2E
   Drop Level: 64
-  Prefix: 407 (Viridian)
+  Prefix: 407 (Jade)
   Properties:
     - Poison Resist +8%
 --- Item 33 ---
@@ -556,8 +556,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x78A6E1B9
   Drop Level: 49
-  Prefix: 392 (Ocher)
-  Suffix: 246 (of Nirvana)
+  Prefix: 392 (Coral)
+  Suffix: 246 (of Dexterity)
   Defence: 8
   Durability: 16/16
   Properties:
@@ -849,7 +849,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x3C42F9A7
   Drop Level: 36
-  Suffix: 594 (of Iron Golem)
+  Suffix: 594 (of Lower Resistance)
   Durability: 15/15
   Properties:
     - Level 1 Lower Resist (66/67 Charges)
@@ -861,8 +861,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x4C18DAE0
   Drop Level: 37
-  Prefix: 392 (Ocher)
-  Suffix: 278 (of Greed)
+  Prefix: 392 (Coral)
+  Suffix: 278 (of Wealth)
   Defence: 8
   Durability: 16/16
   Properties:
@@ -876,8 +876,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x5B7170E1
   Drop Level: 5
-  Prefix: 417 (Jade)
-  Suffix: 174 (of Deflecting)
+  Prefix: 417 (Triumphant)
+  Suffix: 174 (of the Apprentice)
   Properties:
     - +10% Faster Cast Rate
     - +1 to Mana after each Kill
@@ -889,8 +889,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xA6632041
   Drop Level: 62
-  Prefix: 394 (Coral)
-  Suffix: 116 (of Health)
+  Prefix: 394 (Amber)
+  Suffix: 116 (of Protection)
   Properties:
     - Damage Reduced by 2
     - Lightning Resist +37%
@@ -902,8 +902,8 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x4017AFC1
   Drop Level: 47
-  Prefix: 329 (Shimmering)
-  Suffix: 272 (of Regeneration)
+  Prefix: 329 (Rainbow)
+  Suffix: 272 (of Regrowth)
   Properties:
     - Fire Resist +8%
     - Lightning Resist +8%

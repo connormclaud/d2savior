@@ -9,13 +9,13 @@ from d2savior.core.d2data import (
 
 
 class TestD2DataManager:
-    """测试多版本数据管理功能"""
+    """Test multi-version game data management."""
 
     manager: GameData
     default_data: VersionData
 
     def setup_method(self):
-        """设置测试环境"""
+        """Set up test environment."""
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "d2savior", "data")
         self.manager = GameData.load(self.data_dir)
         default_data = self.manager.for_version(0x63)
@@ -23,36 +23,38 @@ class TestD2DataManager:
         self.default_data = default_data
 
     def test_manager_initialization(self):
-        """测试数据管理器初始化"""
-        assert self.manager is not None, "数据管理器初始化失败"
-        assert self.default_data is not None, "版本数据初始化失败"
+        """Test data manager initialization."""
+        assert self.manager is not None, "Data manager initialization failed"
+        assert self.default_data is not None, "Version data initialization failed"
 
     def test_version_data_loading(self):
-        """测试版本数据加载"""
+        """Test version data loading."""
         default_data = self.manager.for_version(0x63)
-        assert default_data is not None, "默认版本数据加载失败"
+        assert default_data is not None, "Default version data loading failed"
 
         item = default_data.get_item("gsw")
-        assert item is not None, "物品数据加载失败"
-        assert item.name == "Diamond", "物品名称不正确"
+        assert item is not None, "Item data loading failed"
+        assert item.name == "Diamond", "Item name incorrect"
 
     def test_version_specific_access(self):
-        """测试版本特定的数据访问"""
+        """Test version-specific data access."""
         item_v63 = self.manager.for_version(0x63).get_item("gsw")
-        assert item_v63 is not None, "0x63版本物品数据加载失败"
+        assert item_v63 is not None, "Version 0x63 item data loading failed"
 
         item_v69 = self.manager.for_version(0x69).get_item("gsw")
-        assert item_v69 is not None, "0x69版本物品数据加载失败"
+        assert item_v69 is not None, "Version 0x69 item data loading failed"
 
     def test_version_data_isolation(self):
-        """测试版本数据隔离：0x63和0x69的物品数量应该不同"""
+        """Test version data isolation: 0x63 and 0x69 item counts should differ."""
         v63 = self.manager.for_version(0x63)
         v69 = self.manager.for_version(0x69)
         assert v63 is not None
         assert v69 is not None
-        assert len(v63.items) != len(v69.items), "0x63和0x69的物品数量应该不同（0x69应该更多）"
-        assert len(v69.items) > len(v63.items), "0x69版本应该有更多物品"
-        assert len(v69.stats) > len(v63.stats), "0x69版本应该有更多属性"
+        assert len(v63.items) != len(v69.items), (
+            "0x63 and 0x69 item counts should differ (0x69 should have more)"
+        )
+        assert len(v69.items) > len(v63.items), "Version 0x69 should have more items"
+        assert len(v69.stats) > len(v63.stats), "Version 0x69 should have more stats"
 
     def test_version_data_stat_cost_property_and_setter(self):
         v63 = self.manager.for_version(0x63)
@@ -67,18 +69,18 @@ class TestD2DataManager:
             v63.stats = original_stats
 
     def test_fallback_mechanism(self):
-        """测试回退机制：0x63缺失的文件应从根目录加载"""
+        """Test fallback mechanism: missing files in 0x63 should load from root directory."""
         v63 = self.manager.for_version(0x63)
         assert v63 is not None
-        # 0x63目录没有Properties.txt，应该从根目录回退加载
-        assert len(v63.properties) > 0, "0x63属性数据应通过回退机制加载"
-        assert len(v63.magic_prefixes) > 0, "0x63魔法前缀应通过回退机制加载"
-        assert len(v63.magic_suffixes) > 0, "0x63魔法后缀应通过回退机制加载"
-        assert len(v63.unique_items) > 0, "0x63唯一物品应通过回退机制加载"
-        assert len(v63.skills) > 0, "0x63技能数据应通过回退机制加载"
+        # Directory 0x63 does not have Properties.txt, should fall back to base directory
+        assert len(v63.properties) > 0, "0x63 properties should be loaded via fallback"
+        assert len(v63.magic_prefixes) > 0, "0x63 magic prefixes should be loaded via fallback"
+        assert len(v63.magic_suffixes) > 0, "0x63 magic suffixes should be loaded via fallback"
+        assert len(v63.unique_items) > 0, "0x63 unique items should be loaded via fallback"
+        assert len(v63.skills) > 0, "0x63 skills should be loaded via fallback"
 
     def test_resolve_path_fallback(self):
-        """测试_resolve_path覆盖链回退逻辑"""
+        """Test _resolve_path search chain fallback logic."""
         from importlib.resources.abc import Traversable
 
         loader = D2DataLoader()
@@ -87,15 +89,15 @@ class TestD2DataManager:
         d2r_dir = os.path.join(self.data_dir, "d2r")
         search_dirs = [v63_dir, d2r_dir]
 
-        # 0x63目录中存在的文件优先
+        # File existing in 0x63 takes priority
         path = loader._resolve_path("Armor.txt", search_dirs)
         assert isinstance(path, Traversable)
-        assert str(path).startswith(v63_dir), "应优先从0x63目录加载"
+        assert str(path).startswith(v63_dir), "Should prioritize loading from 0x63 directory"
 
-        # 0x63中不存在但在d2r中存在的文件
+        # File missing in 0x63 but existing in d2r
         path = loader._resolve_path("Properties.txt", search_dirs)
         assert isinstance(path, Traversable)
-        assert str(path).startswith(d2r_dir), "缺失文件应从d2r基础目录回退加载"
+        assert str(path).startswith(d2r_dir), "Missing file should fall back to d2r base directory"
         assert "0x63" not in str(path)
 
         # Sequence search_dirs with explicit fallback_dir
@@ -103,52 +105,62 @@ class TestD2DataManager:
         assert isinstance(path, Traversable)
         assert str(path).startswith(d2r_dir)
 
-        # 都不存在的文件抛出FileNotFoundError
+        # File not existing anywhere raises FileNotFoundError
         import pytest
 
         with pytest.raises(FileNotFoundError):
             loader._resolve_path("nonexistent.txt", search_dirs)
 
     def test_backward_compatibility(self):
-        """测试向后兼容性"""
+        """Test backward compatibility."""
         item = self.default_data.get_item("gsw")
-        assert item is not None, "物品数据加载失败"
-        assert item.name == "Diamond", "物品名称不正确"
+        assert item is not None, "Item data loading failed"
+        assert item.name == "Diamond", "Item name incorrect"
 
     def test_stat_access(self):
-        """测试属性数据访问"""
+        """Test stat data access."""
         stat = self.manager.for_version(0x63).get_stat(1)
-        assert stat is not None, "属性数据加载失败"
+        assert stat is not None, "Stat data loading failed"
 
     def test_property_access(self):
-        """测试属性数据访问"""
+        """Test property data access."""
         prop = self.manager.for_version(0x63).get_property(1)
-        assert prop is not None, "属性数据加载失败"
+        assert prop is not None, "Property data loading failed"
 
     def test_magic_affix_access(self):
-        """测试魔法前缀后缀数据访问"""
-        prefix = self.manager.for_version(0x63).get_magic_prefix(1)
-        suffix = self.manager.for_version(0x63).get_magic_suffix(1)
-        assert prefix is not None, "魔法前缀数据加载失败"
-        assert suffix is not None, "魔法后缀数据加载失败"
+        """Test magic prefix and suffix data access (0-based index)."""
+        prefix_0 = self.manager.for_version(0x63).get_magic_prefix(0)
+        prefix_1 = self.manager.for_version(0x63).get_magic_prefix(1)
+        suffix_0 = self.manager.for_version(0x63).get_magic_suffix(0)
+        suffix_1 = self.manager.for_version(0x63).get_magic_suffix(1)
+
+        # Row 0 in magicprefix.txt is empty; row 1 is Sturdy
+        assert prefix_0 is None
+        assert prefix_1 is not None
+        assert prefix_1.name == "Sturdy"
+        # Row 0 in magicsuffix.txt is of Health; row 1 is of Protection
+        assert suffix_0 is not None
+        assert suffix_0.name == "of Health"
+        assert suffix_1 is not None
+        assert suffix_1.name == "of Protection"
 
     def test_unique_item_access(self):
-        """测试唯一物品数据访问"""
+        """Test unique item data access."""
         unique = self.manager.for_version(0x63).get_unique_item(1)
-        assert unique is not None, "唯一物品数据加载失败"
+        assert unique is not None, "Unique item data loading failed"
 
     def test_skill_name_access(self):
-        """测试技能名称访问"""
+        """Test skill name access."""
         skill_name = self.manager.for_version(0x63).get_skill_name(1)
-        assert isinstance(skill_name, str), "技能名称返回类型不正确"
+        assert isinstance(skill_name, str), "Skill name return type incorrect"
 
     def test_is_descendant(self):
-        """测试类型继承关系"""
+        """Test type inheritance relationship."""
         is_armor = self.manager.for_version(0x63).is_descendant("shie", "armo")
-        assert is_armor, "类型继承关系判断错误"
+        assert is_armor, "Type inheritance check failed"
 
     def test_warlock_set_items_0x69(self):
-        """测试0x69版本术士套装物品数据"""
+        """Test version 0x69 warlock set item data."""
         expected = {
             76: ("Tal Rasha's Fire-Spun Cloth", 21816),
             79: ("Tal Rasha's Howling Wind", 21818),
@@ -184,7 +196,7 @@ class TestD2DataManager:
         assert resolver.get_localized_set_name(126) == "Sander's Superstition"
 
     def test_runeword_resolution_by_d2r_and_classic_id(self):
-        """测试通过D2R字符串ID (20635) 和经典runes.txt索引 (130) 解析符文之语Spirit"""
+        """Test resolving Spirit runeword via D2R string ID (20635) and classic runes.txt index (130)."""
         v69 = self.manager.for_version(0x69)
         rw_by_d2r = v69.get_runeword(20635)
         assert rw_by_d2r is not None
@@ -193,7 +205,7 @@ class TestD2DataManager:
         assert rw_by_d2r.rune_codes == ["r07", "r10", "r09", "r11"]
 
     def test_load_runes_txt_deprecated(self):
-        """测试load_runes_txt发出DeprecationWarning"""
+        """Test that load_runes_txt emits DeprecationWarning."""
         import pytest
 
         loader = D2DataLoader()

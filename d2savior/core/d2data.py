@@ -801,7 +801,7 @@ class D2DataLoader:
             col_map[col] = i
 
         for idx, line in enumerate(lines[1:]):
-            line = line.strip()
+            line = line.rstrip("\r\n")
             if not line or line.startswith("*"):
                 continue
 
@@ -827,11 +827,11 @@ class D2DataLoader:
 
             affix = MagicAffixInfo(
                 name=name,
-                affix_id=idx + 1,
+                affix_id=idx,
                 level=get_int("level"),
                 levelreq=get_int("levelreq"),
             )
-            affix_dict[idx + 1] = affix
+            affix_dict[idx] = affix
 
         return affix_dict
 

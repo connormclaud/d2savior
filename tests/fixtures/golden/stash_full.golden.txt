@@ -11,8 +11,8 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x86AF9965
   Drop Level: 23
-  Prefix: 472 (Rose Branded)
-  Suffix: 286 (of Avarice)
+  Prefix: 472 (Captain's)
+  Suffix: 286 (of Chance)
   Properties:
     - 13% Better Chance of Getting Magic Items
     - +1 to Offensive Auras
@@ -296,8 +296,8 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0xBDFE8BB5
   Drop Level: 49
-  Prefix: 394 (Coral)
-  Suffix: 395 (of Pacing)
+  Prefix: 394 (Amber)
+  Suffix: 395 (of Haste)
   Defence: 6
   Durability: 14/14
   Properties:
@@ -342,7 +342,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x731A50DC
   Drop Level: 49
-  Prefix: 470 (Lion Branded)
+  Prefix: 470 (Hawk Branded)
   Properties:
     - +2 to Combat Skills
 --- Item 17 ---
@@ -560,8 +560,8 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x03FC5E08
   Drop Level: 55
-  Prefix: 500 (Natural)
-  Suffix: 278 (of Greed)
+  Prefix: 500 (Terrene)
+  Suffix: 278 (of Wealth)
   Defence: 24
   Durability: 28/35
   Properties:
@@ -575,7 +575,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0xC6BF3B5E
   Drop Level: 60
-  Prefix: 570 (Priest's)
+  Prefix: 570 (Summoner's)
   Properties:
     - +1 to Necromancer Skill Levels
 --- Item 25 ---
@@ -601,7 +601,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x1E4DBB3D
   Drop Level: 64
-  Prefix: 474 (Commander's)
+  Prefix: 474 (Marshal's)
   Properties:
     - +3 to Offensive Auras
 --- Item 27 ---
@@ -644,8 +644,8 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x1E1BF2AA
   Drop Level: 64
-  Prefix: 331 (Scintillating)
-  Suffix: 375 (of the Ox)
+  Prefix: 331 (Prismatic)
+  Suffix: 375 (of the Giant)
   Properties:
     - +15 to Strength
     - Fire Resist +17%
@@ -660,8 +660,8 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0xC6C413D9
   Drop Level: 64
-  Prefix: 588 (Hierophant's)
-  Suffix: 310 (of the Bear)
+  Prefix: 588 (Magekiller's)
+  Suffix: 310 (of Light)
   Properties:
     - +15 to Attack Rating
     - +1 to Assassin Skill Levels
@@ -1584,7 +1584,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0xA54DD1F5
   Drop Level: 5
-  Suffix: 350 (of Vita)
+  Suffix: 350 (of Spirit)
   Properties:
     - +3 to Life
 --- Item 2 ---
@@ -1595,7 +1595,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x9273716D
   Drop Level: 25
-  Prefix: 283 (Fortuitous)
+  Prefix: 283 (Emerald)
   Properties:
     - 3% Better Chance of Getting Magic Items
 --- Item 3 ---
@@ -1606,7 +1606,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x7AF8819C
   Drop Level: 40
-  Prefix: 167 (Scarlet)
+  Prefix: 167 (Crimson)
   Properties:
     - +6 to Minimum Damage
     - +6 to Minimum Damage
@@ -1619,8 +1619,8 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x8A58BA2C
   Drop Level: 28
-  Prefix: 356 (Sapphire)
-  Suffix: 669 (of Thunder)
+  Prefix: 356 (Lapis Lazuli)
+  Suffix: 669 (of Daring)
   Properties:
     - +5 to Dexterity
     - Cold Resist +7%
@@ -1632,7 +1632,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x2A6EA88C
   Drop Level: 55
-  Suffix: 393 (of Strength)
+  Suffix: 393 (of Virility)
   Properties:
     - +4 to Strength
 --- Item 6 ---
@@ -1657,7 +1657,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x1A9C4863
   Drop Level: 45
-  Suffix: 671 (of Daring)
+  Suffix: 671 (of Knowledge)
   Properties:
     - +4 to Energy
 --- Item 8 ---
@@ -1668,8 +1668,8 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x0DE27D28
   Drop Level: 62
-  Prefix: 376 (Garnet)
-  Suffix: 671 (of Daring)
+  Prefix: 376 (Ruby)
+  Suffix: 671 (of Knowledge)
   Properties:
     - +6 to Energy
     - Fire Resist +30%
@@ -1681,7 +1681,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x7E380118
   Drop Level: 59
-  Suffix: 673 (of Knowledge)
+  Suffix: 673 (of Virility)
   Properties:
     - +6 to Strength
 --- Item 10 ---
@@ -1692,7 +1692,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0xF1F10A8C
   Drop Level: 62
-  Prefix: 429 (Celestial)
+  Prefix: 429 (Diamond)
   Properties:
     - +33% Damage to Demons
     - +50 to Attack Rating against Demons
@@ -1704,7 +1704,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x1F0650C4
   Drop Level: 64
-  Suffix: 165 (of Swords)
+  Suffix: 165 (of Malice)
   Properties:
     - Attacker Takes Damage of 4
 --- Item 12 ---
@@ -1727,7 +1727,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x5DF1963A
   Drop Level: 64
-  Prefix: 415 (Emerald)
+  Prefix: 415 (Beryl)
   Properties:
     - Poison Resist +15%
 --- Item 14 ---
@@ -1738,7 +1738,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x2196CDCE
   Drop Level: 59
-  Prefix: 217 (Chestnut)
+  Prefix: 217 (Maroon)
   Properties:
     - +22 Maximum Stamina
 --- Item 15 ---
@@ -1766,7 +1766,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0xACE7DBE0
   Drop Level: 64
-  Suffix: 275 (of Revivification)
+  Suffix: 275 (of Honor)
   Properties:
     - Replenish Life +3
 --- Item 17 ---
@@ -1777,8 +1777,8 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x95DCF1A6
   Drop Level: 67
-  Prefix: 336 (Scintillating)
-  Suffix: 668 (of Lightning)
+  Prefix: 336 (Shimmering)
+  Suffix: 668 (of Thunder)
   Properties:
     - Fire Resist +8%
     - Lightning Resist +8%
@@ -1794,7 +1794,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x365436B0
   Drop Level: 64
-  Suffix: 665 (of the Glacier)
+  Suffix: 665 (of Fire)
   Properties:
     - +6 to Minimum Fire Damage
     - +24 to Maximum Fire Damage
@@ -1816,7 +1816,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x9D2E32B1
   Drop Level: 64
-  Prefix: 166 (Bloody)
+  Prefix: 166 (Scarlet)
   Suffix: 670 (of Daring)
   Properties:
     - +8 to Dexterity
@@ -1831,7 +1831,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x0CABE369
   Drop Level: 64
-  Prefix: 142 (Bone)
+  Prefix: 142 (Ivory)
   Properties:
     - +54 Defense
 --- Item 22 ---
@@ -1842,7 +1842,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x88130EA0
   Drop Level: 64
-  Prefix: 249 (Tin)
+  Prefix: 249 (Silver)
   Properties:
     - +58 to Attack Rating
 --- Item 23 ---
@@ -1880,7 +1880,7 @@ Total items: 11
   Flags: Identified, JustSaved
   GUID: 0xF0689689
   Drop Level: 64
-  Prefix: 137 (Stout)
+  Prefix: 137 (Burly)
   Suffix: 392 (of Strength)
   Properties:
     - +2 to Strength
@@ -1917,7 +1917,7 @@ Total items: 11
   Flags: Identified, JustSaved
   GUID: 0xD5CC683E
   Drop Level: 64
-  Prefix: 230 (Bronze)
+  Prefix: 230 (Iron)
   Suffix: 344 (of Sustenance)
   Properties:
     - +22 to Life
@@ -1930,7 +1930,7 @@ Total items: 11
   Flags: Identified, JustSaved
   GUID: 0x89D6D0A2
   Drop Level: 64
-  Suffix: 399 (of Acceleration)
+  Suffix: 399 (of Inertia)
   Properties:
     - +7% Faster Run/Walk
 --- Item 6 ---
@@ -1966,7 +1966,7 @@ Total items: 11
   Flags: Identified, JustSaved
   GUID: 0xFF62829B
   Drop Level: 64
-  Prefix: 256 (Sharp)
+  Prefix: 256 (Fine)
   Properties:
     - +18 to Attack Rating
     - +3 to Maximum Damage
@@ -1991,7 +1991,7 @@ Total items: 11
   Flags: Identified, JustSaved
   GUID: 0xADE2A67B
   Drop Level: 64
-  Suffix: 290 (of Luck)
+  Suffix: 290 (of Fortune)
   Properties:
     - 3% Better Chance of Getting Magic Items
 

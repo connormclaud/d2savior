@@ -3,7 +3,7 @@ Total Tabs: 7
 Tabs: Tab 1: Normal, Tab 2: Normal, Tab 3: Normal, Tab 4: Normal, Tab 5: Normal, Tab 6: Advanced (Currency), Tab 7: Chronicle
 
 === Tab 1 (Normal) ===
-  - Rose Branded Amulet of Avarice
+  - Captain's Amulet of Chance
   - Cap [Def: 4, Sockets: 2, Socketed: Ral Rune+Ral Rune]
   - Cap [Def: 3, Sockets: 2, Socketed: Tir Rune+Tir Rune]
   - Rare Leather Gloves [Def: 3]
@@ -16,21 +16,21 @@ Tabs: Tab 1: Normal, Tab 2: Normal, Tab 3: Normal, Tab 4: Normal, Tab 5: Normal,
   - The Face of Horror (Mask) [Def: 17]
   - Treads of Cthon (Chain Boots) [Def: 10]
   - Breast Plate [Def: 67, Sockets: 3, Socketed: Ort Rune+Ral Rune+Thul Rune]
-  - Coral Heavy Boots of Pacing [Def: 6]
+  - Amber Heavy Boots of Haste [Def: 6]
   - Rare Belt [Def: 5]
   - Superior Leather Armor [Def: 18, Sockets: 2]
-  - Lion Branded Amulet
+  - Hawk Branded Amulet
   - The Ward (Gothic Shield) [Def: 36, Sockets: 1]
   - Bloodletter (Gladius)
   - Strength (Spetum) [Sockets: 2, Socketed: Amn Rune+Tir Rune]
   - 4x Rare Amulet
   - Spirit (Crystal Sword) [Sockets: 4, Socketed: Tal Rune+Thul Rune+Ort Rune+Amn Rune]
   - Gothic Plate [Def: 134, Sockets: 4, Socketed: Flawless Ruby+Ort Rune+Ral Rune+Thul Rune]
-  - Natural Circlet of Greed [Def: 24]
-  - Priest's Amulet
-  - Commander's Amulet
-  - Scintillating Amulet of the Ox
-  - Hierophant's Amulet of the Bear
+  - Terrene Circlet of Wealth [Def: 24]
+  - Summoner's Amulet
+  - Marshal's Amulet
+  - Prismatic Amulet of the Giant
+  - Magekiller's Amulet of Light
 
 === Tab 2 (Normal) ===
   - Sigon's Gage (Gauntlets) [Def: 15]
@@ -80,41 +80,40 @@ Tabs: Tab 1: Normal, Tab 2: Normal, Tab 3: Normal, Tab 4: Normal, Tab 5: Normal,
   - Insight (Bill) [Sockets: 4, Socketed: Ral Rune+Tir Rune+Tal Rune+Sol Rune]
 
 === Tab 4 (Normal) ===
-  - 2x Jewel of Daring
-  - Jewel of Vita
-  - Fortuitous Jewel
-  - Scarlet Jewel
-  - Sapphire Jewel of Thunder
-  - Jewel of Strength
-  - 2x Rare Jewel
-  - Garnet Jewel of Daring
-  - Jewel of Knowledge
-  - Celestial Jewel
-  - Jewel of Swords
-  - Mage Plate [Def: 253, Sockets: 3]
+  - Jewel of Daring
+  - Jewel of Spirit
   - Emerald Jewel
-  - Chestnut Jewel
-  - Jewel of Revivification
-  - Scintillating Jewel of Lightning
-  - Jewel of the Glacier
+  - Crimson Jewel
+  - Lapis Lazuli Jewel of Daring
+  - 3x Jewel of Virility
+  - 2x Rare Jewel
+  - Jewel of Knowledge
+  - Ruby Jewel of Knowledge
+  - Diamond Jewel
+  - Jewel of Malice
+  - Mage Plate [Def: 253, Sockets: 3]
+  - Beryl Jewel
+  - Maroon Jewel
+  - Jewel of Honor
+  - Shimmering Jewel of Thunder
+  - Jewel of Fire
   - Poleaxe [Sockets: 4]
-  - Bloody Jewel of Daring
-  - Bone Jewel
-  - Tin Jewel
-  - Jewel of Virility
+  - Scarlet Jewel of Daring
+  - Ivory Jewel
+  - Silver Jewel
 
 === Tab 5 (Normal) ===
   - Iron Grand Charm of Greed
-  - Stout Small Charm of Strength
+  - Burly Small Charm of Strength
   - Small Charm of Strength
   - Bronze Small Charm of Balance
-  - Bronze Large Charm of Sustenance
-  - Grand Charm of Acceleration
+  - Iron Large Charm of Sustenance
+  - Grand Charm of Inertia
   - Small Charm of Greed
   - Fine Grand Charm
-  - Sharp Small Charm
+  - Fine Small Charm
   - Large Charm of Balance
-  - Small Charm of Luck
+  - Small Charm of Fortune
 
 === Tab 6 (Advanced (Currency)) ===
   Runes: El: 3, Eld: 3, Tir: 1, Nef: 5, Eth: 8, Ith: 11, Tal: 15, Ral: 7, Ort: 10, Thul: 7, Amn: 9, Sol: 3, Shael: 2, Dol: 4, Hel: 3, Io: 1, Pul: 1
