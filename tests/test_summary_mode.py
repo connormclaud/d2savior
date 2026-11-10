@@ -9,6 +9,7 @@ from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
 from d2savior.core.formatters import (
     format_char_summary,
+    format_item_info,
     format_item_summary,
     format_stash_summary,
     get_char_status_summary,
@@ -20,7 +21,7 @@ from d2savior.core.item import (
     ItemList,
     TypeSpecificInfo,
 )
-from d2savior.core.item_name import GoldQuantity
+from d2savior.core.item_name import GoldQuantity, LongName
 from d2savior.core.property_list import PropertyList
 from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
@@ -59,6 +60,44 @@ class TestSummaryMode:
         assert "Harlequin Crest" in summary
         assert "Shako" in summary
         assert "Def: 120" in summary
+
+    def test_item_summary_rare_and_crafted(self, game_data_resolver):
+        # Rare belt: Bitter Buckle (Rare Belt)
+        item = D2Item()
+        item.is_simple = False
+        item.type_name = b"mbl "  # Belt
+        item.item_info = ItemInfo()
+        item.item_info.ext_info = ExtItemInfo()
+        item.item_info.ext_info.quality = 6  # RARE
+        item.item_info.ext_info.rare_name = LongName()
+        item.item_info.ext_info.rare_name.name_1 = 194  # Bitter
+        item.item_info.ext_info.rare_name.name_2 = 112  # buckle
+        item.item_info.type_specific_info = TypeSpecificInfo()
+        item.item_info.type_specific_info.defence = 15
+
+        summary = format_item_summary(item, resolver=game_data_resolver)
+        assert "Bitter Buckle (Rare Belt)" in summary
+
+        # Detailed view
+        detailed = format_item_info(item, resolver=game_data_resolver)
+        assert "Rare Name: 194-112 (Bitter Buckle)" in detailed
+
+        # Crafted belt: Demon Clasp (Crafted Sharkskin Belt)
+        crafted_item = D2Item()
+        crafted_item.is_simple = False
+        crafted_item.type_name = b"zvb "  # Sharkskin Belt
+        crafted_item.item_info = ItemInfo()
+        crafted_item.item_info.ext_info = ExtItemInfo()
+        crafted_item.item_info.ext_info.quality = 8  # CRAFTED
+        crafted_item.item_info.ext_info.craft_name = LongName()
+        crafted_item.item_info.ext_info.craft_name.name_1 = 176  # Demon
+        crafted_item.item_info.ext_info.craft_name.name_2 = 111  # clasp
+        crafted_item.item_info.type_specific_info = TypeSpecificInfo()
+
+        c_summary = format_item_summary(crafted_item, resolver=game_data_resolver)
+        assert "Demon Clasp (Crafted Sharkskin Belt)" in c_summary
+        c_detailed = format_item_info(crafted_item, resolver=game_data_resolver)
+        assert "Craft Name: 176-111 (Demon Clasp)" in c_detailed
 
     def test_item_summary_unmapped_property_fallback(self, game_data_resolver):
         item = D2Item()

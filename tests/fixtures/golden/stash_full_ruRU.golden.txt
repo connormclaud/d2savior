@@ -82,7 +82,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x9F5CDE80
   Drop Level: 34
-  Rare Name: 194-99
+  Rare Name: 194-99 (горестный накулачники)
   Defence: 3
   Durability: 12/12
   Properties:
@@ -183,7 +183,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x33EE2E8C
   Drop Level: 29
-  Rare Name: 180-64
+  Rare Name: 180-64 (причиняющий боль капюшон)
   Defence: 25
   Durability: 35/35
   Properties:
@@ -311,7 +311,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0xCC7527A2
   Drop Level: 49
-  Rare Name: 157-113
+  Rare Name: 157-113 (орлиный сбруя)
   Defence: 5
   Durability: 12/16
   Properties:
@@ -435,7 +435,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x55207853
   Drop Level: 47
-  Rare Name: 169-136
+  Rare Name: 169-136 (штормовой бусы)
   Properties:
     - +16% к сопротивлению огню
     - +16% к сопротивлению молнии
@@ -586,7 +586,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0xE289EEB1
   Drop Level: 73
-  Rare Name: 173-137
+  Rare Name: 173-137 (фантомный торквес)
   Properties:
     - +3 к ловкости
     - +46 к здоровью
@@ -612,7 +612,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x8EFD337A
   Drop Level: 63
-  Rare Name: 166-138
+  Rare Name: 166-138 (костяной горжет)
   Properties:
     - +14 к силе
     - +5 к минимальному урону
@@ -630,7 +630,7 @@ Total items: 31
   Flags: Identified, JustSaved
   GUID: 0x0835FFCA
   Drop Level: 59
-  Rare Name: 167-139
+  Rare Name: 167-139 (смертельный Скарабей)
   Properties:
     - +51 к мане
     - –2 к магическому урону
@@ -1643,7 +1643,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x54454592
   Drop Level: 49
-  Rare Name: 168-139
+  Rare Name: 168-139 (Тень Скарабей)
   Properties:
     - +5 к силе
     - +16 к максимальной выносливости
@@ -1749,7 +1749,7 @@ Total items: 24
   Flags: Identified, JustSaved
   GUID: 0x0B7C1DF3
   Drop Level: 59
-  Rare Name: 168-124
+  Rare Name: 168-124 (Тень глаз)
   Properties:
     - +8 к силе
     - +8 к максимальному урону

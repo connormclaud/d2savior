@@ -144,9 +144,21 @@ def get_item_display_name(item: Any, resolver: GameDataResolver, version: int = 
                     return " ".join(parts)
             case ItemQuality.RARE:
                 rare_pfx = resolver.get_localized_quality_name("Rare")
+                if ext.rare_name and (
+                    rare_name := resolver.get_localized_rare_name(
+                        ext.rare_name.name_1, ext.rare_name.name_2
+                    )
+                ):
+                    return f"{rare_name} ({rare_pfx} {base_item_name})"
                 return f"{rare_pfx} {base_item_name}"
             case ItemQuality.CRAFTED:
                 crafted_pfx = resolver.get_localized_quality_name("Crafted")
+                if ext.craft_name and (
+                    craft_name := resolver.get_localized_rare_name(
+                        ext.craft_name.name_1, ext.craft_name.name_2
+                    )
+                ):
+                    return f"{craft_name} ({crafted_pfx} {base_item_name})"
                 return f"{crafted_pfx} {base_item_name}"
             case ItemQuality.HIGH:
                 sup_pfx = resolver.get_localized_quality_name("Superior")
@@ -487,10 +499,18 @@ def _format_item_lines(
                     if rune_names:
                         result.append(f"{indent}Runes: {'+'.join(rune_names)}")
             if ext.rare_name:
-                result.append(f"{indent}Rare Name: {ext.rare_name.name_1}-{ext.rare_name.name_2}")
-            if ext.craft_name:
+                rare_name = item_resolver.get_localized_rare_name(
+                    ext.rare_name.name_1, ext.rare_name.name_2
+                )
                 result.append(
-                    f"{indent}Craft Name: {ext.craft_name.name_1}-{ext.craft_name.name_2}"
+                    f"{indent}Rare Name: {ext.rare_name.name_1}-{ext.rare_name.name_2}{f' ({rare_name})' if rare_name else ''}"
+                )
+            if ext.craft_name:
+                craft_name = item_resolver.get_localized_rare_name(
+                    ext.craft_name.name_1, ext.craft_name.name_2
+                )
+                result.append(
+                    f"{indent}Craft Name: {ext.craft_name.name_1}-{ext.craft_name.name_2}{f' ({craft_name})' if craft_name else ''}"
                 )
 
         if tp := info.type_specific_info:

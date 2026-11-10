@@ -107,3 +107,29 @@ class TestGameDataResolver:
 
         assert resolver.get_property(7) == "mock_prop"
         mock_data.get_property.assert_called_once_with(7)
+
+    def test_rare_name_resolution(self):
+        r_en = GameDataResolver.load(lang_key="enUS")
+        assert r_en.get_rare_prefix(156) == "Beast"
+        assert r_en.get_rare_prefix(164) == "Doom"
+        assert r_en.get_rare_prefix(167) == "Death"
+        assert r_en.get_rare_suffix(1) == "bite"
+        assert r_en.get_rare_suffix(128) == "gyre"
+        assert r_en.get_rare_suffix(132) == "heart"
+
+        assert r_en.get_localized_rare_name(164, 128) == "Doom Gyre"
+        assert r_en.get_localized_rare_name(167, 132) == "Death Heart"
+
+        r_ru = GameDataResolver.load(lang_key="ruRU")
+        assert r_ru.get_localized_rare_name(164, 128) == "роковой завиток"
+        assert r_ru.get_localized_rare_name(167, 132) == "смертельный сердце"
+
+        r_zh = GameDataResolver.load(lang_key="zhCN")
+        assert r_zh.get_localized_rare_name(164, 128) == "厄运 环带"
+        assert r_zh.get_localized_rare_name(167, 132) == "死亡 之心"
+
+        assert r_en.get_rare_prefix(9999) is None
+        assert r_en.get_rare_suffix(9999) is None
+        assert r_en.get_localized_rare_name(9999, 9999) == ""
+        assert r_en.get_localized_rare_name(164, 9999) == "Doom"
+        assert r_en.get_localized_rare_name(9999, 128) == "Gyre"

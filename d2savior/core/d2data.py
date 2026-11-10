@@ -365,6 +365,8 @@ class VersionData:
     items: dict[str, ItemTypeInfo] = field(default_factory=dict)
     magic_prefixes: dict[int, MagicAffixInfo] = field(default_factory=dict)
     magic_suffixes: dict[int, MagicAffixInfo] = field(default_factory=dict)
+    rare_prefixes: dict[int, str] = field(default_factory=dict)
+    rare_suffixes: dict[int, str] = field(default_factory=dict)
     unique_items: dict[int, UniqueItemInfo] = field(default_factory=dict)
     set_items: dict[int, SetItemInfo] = field(default_factory=dict)
     runewords: dict[int, RuneWordInfo] = field(default_factory=dict)
@@ -411,6 +413,16 @@ class VersionData:
 
     def get_magic_suffix(self, suffix_id: int) -> MagicAffixInfo | None:
         return self.magic_suffixes.get(suffix_id)
+
+    def get_rare_prefix(self, prefix_id: int) -> str | None:
+        if prefix_id in self.rare_prefixes:
+            return self.rare_prefixes[prefix_id]
+        if (prefix_id + 155) in self.rare_prefixes:
+            return self.rare_prefixes[prefix_id + 155]
+        return None
+
+    def get_rare_suffix(self, suffix_id: int) -> str | None:
+        return self.rare_suffixes.get(suffix_id)
 
     def get_unique_item(self, unique_id: int) -> UniqueItemInfo | None:
         return self.unique_items.get(unique_id)
@@ -832,6 +844,32 @@ class D2DataLoader:
                 levelreq=get_int("levelreq"),
             )
             affix_dict[idx] = affix
+
+        return affix_dict
+
+    def load_rare_affix(self, filepath: str | Traversable, offset: int = 0) -> dict[int, str]:
+        affix_dict = {}
+
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+
+        if len(lines) < 1:
+            return affix_dict
+
+        header = lines[0].strip().split("\t")
+        col_map = {col: i for i, col in enumerate(header)}
+        name_col = col_map.get("name", 0)
+
+        for idx, line in enumerate(lines[1:]):
+            line = line.rstrip("\r\n")
+            if not line or line.startswith("*"):
+                continue
+
+            parts = line.split("\t")
+            if name_col < len(parts):
+                name = parts[name_col].strip()
+                if name:
+                    affix_dict[offset + idx + 1] = name
 
         return affix_dict
 
@@ -1512,6 +1550,14 @@ class D2DataLoader:
         magicsuffix_path = self._resolve_path("magicsuffix.txt", dirs)
         version_data.magic_suffixes = self.load_magic_affix(magicsuffix_path, is_prefix=False)
 
+        # Load rareprefix.txt
+        rareprefix_path = self._resolve_path("rareprefix.txt", dirs)
+        version_data.rare_prefixes = self.load_rare_affix(rareprefix_path, offset=155)
+
+        # Load raresuffix.txt
+        raresuffix_path = self._resolve_path("raresuffix.txt", dirs)
+        version_data.rare_suffixes = self.load_rare_affix(raresuffix_path, offset=0)
+
         # Load uniqueitems.txt
         uniqueitems_path = self._resolve_path("uniqueitems.txt", dirs)
         version_data.unique_items = self.load_unique_items(uniqueitems_path)
@@ -1926,6 +1972,12 @@ class GameDataResolver:
     def get_magic_suffix(self, suffix_id: int) -> MagicAffixInfo | None:
         return self.data.get_magic_suffix(suffix_id)
 
+    def get_rare_prefix(self, prefix_id: int) -> str | None:
+        return self.data.get_rare_prefix(prefix_id)
+
+    def get_rare_suffix(self, suffix_id: int) -> str | None:
+        return self.data.get_rare_suffix(suffix_id)
+
     def get_stat(self, stat_id: int) -> StatInfo | None:
         return self.data.get_stat(stat_id)
 
@@ -2163,6 +2215,33 @@ class GameDataResolver:
             if name and name != s_info.name:
                 return name
         return s_info.name
+
+    def get_localized_rare_prefix(self, prefix_id: int) -> str:
+        key = self.get_rare_prefix(prefix_id)
+        if not key:
+            return ""
+        if self.loc:
+            name = self.loc.get_rare_affix_name(key)
+            if name:
+                return name
+        return key
+
+    def get_localized_rare_suffix(self, suffix_id: int) -> str:
+        key = self.get_rare_suffix(suffix_id)
+        if not key:
+            return ""
+        if self.loc:
+            name = self.loc.get_rare_affix_name(key)
+            if name:
+                return name
+        return key
+
+    def get_localized_rare_name(self, name_1: int, name_2: int) -> str:
+        prefix = self.get_localized_rare_prefix(name_1)
+        suffix = self.get_localized_rare_suffix(name_2)
+        if prefix and suffix:
+            return f"{prefix} {suffix}"
+        return prefix or suffix
 
     def get_localized_quality_name(self, quality_name: str) -> str:
         if not self.loc or self.loc.current_lang == "enUS":

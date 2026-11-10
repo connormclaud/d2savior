@@ -147,6 +147,19 @@ class LocalizedDataLoader:
         s = self.get_string("item-nameaffixes.json", key)
         return clean_d2_text(s) if clean else s
 
+    def get_rare_affix_name(self, key: str, clean: bool = True) -> str:
+        """Resolve a rare affix key from item-nameaffixes, item-names, monsters, or ui tables."""
+        for file_key in (
+            "item-nameaffixes.json",
+            "item-names.json",
+            "monsters.json",
+            "ui.json",
+        ):
+            if file_key in self._data and key in self._data[file_key]:
+                s = self._data[file_key][key]
+                return clean_d2_text(s) if clean else s
+        return key
+
     def get_rune_name(self, key: str, clean: bool = True) -> str:
         s = self.get_string("item-runes.json", key)
         return clean_d2_text(s) if clean else s

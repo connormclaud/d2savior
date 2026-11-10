@@ -45,10 +45,10 @@ Hell: Not started
 - Weapon I: Spirit (Broad Sword) [Sockets: 4, Socketed: Tal Rune+Thul Rune+Ort Rune+Amn Rune] (+22 to Vitality, +93 to Mana, +250 Defense vs. Missile, +55% Faster Hit Recovery, +34% Faster Cast Rate, +2 to All Skills, +6 Magic Absorb, +0 to Minimum Poison Damage, +154 to Maximum Poison Damage, 5 seconds poison duration, +3 to Minimum Cold Damage, +14 to Maximum Cold Damage, 3 seconds cold duration, +1 to Minimum Lightning Damage, +50 to Maximum Lightning Damage, 7% Life stolen per hit)
 - Shield I: Visceratuant (Defender) [Def: 50] (+116% Enhanced Defense, 30% Increased Chance of Blocking, +1 to Sorceress Skill Levels, +30% Faster Block Rate, Attacker Takes Lightning Damage of 10)
 - Ring (Right): Manald Heal (Ring) (+20 to Life, Regenerate Mana 20%, 6% Mana stolen per hit, Replenish Life +5, +10% Faster Cast Rate)
-- Ring (Left): Rare Ring (+2 to Strength, +9 to Energy, Fire Resist +17%, Lightning Resist +16%, Poison Resist +9%, Poison Length Reduced by 25%)
-- Belt: Crafted Sharkskin Belt [Def: 32] (+7 to Life, +13 to Mana, Regenerate Mana 9%, Poison Resist +18%, +8% Faster Cast Rate)
-- Boots: Rare Chain Boots [Def: 8] (+5 to Dexterity, Fire Resist +17%, Cold Resist +20%, +20% Faster Run/Walk, Repairs 20% durability per second)
-- Gloves: Rare Heavy Gloves [Def: 7] (+6 to Dexterity, +52% Enhanced Defense, Fire Resist +16%, Poison Resist +25%, 3% Mana stolen per hit, +5 to Light Radius, 5% Bonus to Attack Rating)
+- Ring (Left): Entropy Finger (Rare Ring) (+2 to Strength, +9 to Energy, Fire Resist +17%, Lightning Resist +16%, Poison Resist +9%, Poison Length Reduced by 25%)
+- Belt: Demon Clasp (Crafted Sharkskin Belt) [Def: 32] (+7 to Life, +13 to Mana, Regenerate Mana 9%, Poison Resist +18%, +8% Faster Cast Rate)
+- Boots: Rune Nails (Rare Chain Boots) [Def: 8] (+5 to Dexterity, Fire Resist +17%, Cold Resist +20%, +20% Faster Run/Walk, Repairs 20% durability per second)
+- Gloves: Shadow Claw (Rare Heavy Gloves) [Def: 7] (+6 to Dexterity, +52% Enhanced Defense, Fire Resist +16%, Poison Resist +25%, 3% Mana stolen per hit, +5 to Light Radius, 5% Bonus to Attack Rating)
 - Weapon II: Bone Wand of Lower Resistance (Level 1 Lower Resist (66/67 Charges))
 - Shield II: Rhyme (Kite Shield) [Def: 16, Sockets: 2, Socketed: Shael Rune+Eth Rune] (20% Increased Chance of Blocking, All Resistances +25, 50% Extra Gold from Monsters, 25% Better Chance of Getting Magic Items, +40% Faster Block Rate, Cannot Be Frozen, Regenerate Mana 15%)
 
@@ -78,13 +78,13 @@ Equipped:
 - [Stash] Cap [Def: 4, Sockets: 2]
 - [Stash] Broad Sword [Sockets: 4]
 - [Stash] Glowing Ring of the Apprentice (+2 to Light Radius, +10% Faster Cast Rate)
-- [Stash] Rare Sacred Globe (+8 to Energy, +13 to Life, +31 to Mana, Fire Resist +38%, +20% Faster Cast Rate, +1 to Fire Wall Fire Wall, 12% Chance to cast level 4 Nova on striking)
-- [Stash] Rare Light Gauntlets [Def: 12] (+1 to Dexterity, +55% Enhanced Defense, Cold Resist +25%, 76% Extra Gold from Monsters, +1 to Bow and Crossbow, Repairs 33% durability per second)
+- [Stash] Raven Song (Rare Sacred Globe) (+8 to Energy, +13 to Life, +31 to Mana, Fire Resist +38%, +20% Faster Cast Rate, +1 to Fire Wall Fire Wall, 12% Chance to cast level 4 Nova on striking)
+- [Stash] Raven Knuckle (Rare Light Gauntlets) [Def: 12] (+1 to Dexterity, +55% Enhanced Defense, Cold Resist +25%, 76% Extra Gold from Monsters, +1 to Bow and Crossbow, Repairs 33% durability per second)
 - [Stash] Russet Leather Gloves of Chance [Def: 3] (Fire Resist +18%, 11% Better Chance of Getting Magic Items)
 - [Stash] Beryl Amulet of Luck (Poison Resist +6%, 34% Better Chance of Getting Magic Items)
 - [Stash] Large Charm of Strength (+3 to Strength)
 - [Stash] Cuirass [Def: 191, Sockets: 3]
-- [Stash] Rare Belt [Def: 5] (+41 to Life, Fire Resist +16%, Poison Resist +7%, 58% Extra Gold from Monsters, +17% Faster Hit Recovery)
+- [Stash] Bitter Buckle (Rare Belt) [Def: 5] (+41 to Life, Fire Resist +16%, Poison Resist +7%, 58% Extra Gold from Monsters, +17% Faster Hit Recovery)
 - [Stash] Superior Breast Plate [Def: 69, Sockets: 3] (+6% Enhanced Defense)
 - [Stash] Coral Belt of the Mammoth [Def: 5] (+36 to Life, Lightning Resist +27%)
 - [Stash] Greater Mana Potion

@@ -6,29 +6,32 @@ Tabs: Tab 1: Normal, Tab 2: Normal, Tab 3: Normal, Tab 4: Normal, Tab 5: Normal,
   - Captain's Amulet of Chance
   - Cap [Def: 4, Sockets: 2, Socketed: Ral Rune+Ral Rune]
   - Cap [Def: 3, Sockets: 2, Socketed: Tir Rune+Tir Rune]
-  - Rare Leather Gloves [Def: 3]
+  - Bitter Knuckle (Rare Leather Gloves) [Def: 3]
   - Angelic Halo (Ring)
   - Aldur's Rhythm (Jagged Star) [Sockets: 3]
   - Mask [Def: 25, Sockets: 2, Socketed: Ral Rune+Ort Rune]
   - Strangling Gas Potion [Qty: 7]
-  - Rare Circlet [Def: 25]
+  - Pain Hood (Rare Circlet) [Def: 25]
   - Warpspear (Gothic Staff)
   - The Face of Horror (Mask) [Def: 17]
   - Treads of Cthon (Chain Boots) [Def: 10]
   - Breast Plate [Def: 67, Sockets: 3, Socketed: Ort Rune+Ral Rune+Thul Rune]
   - Amber Heavy Boots of Haste [Def: 6]
-  - Rare Belt [Def: 5]
+  - Eagle Harness (Rare Belt) [Def: 5]
   - Superior Leather Armor [Def: 18, Sockets: 2]
   - Hawk Branded Amulet
   - The Ward (Gothic Shield) [Def: 36, Sockets: 1]
   - Bloodletter (Gladius)
   - Strength (Spetum) [Sockets: 2, Socketed: Amn Rune+Tir Rune]
-  - 4x Rare Amulet
+  - Storm Beads (Rare Amulet)
   - Spirit (Crystal Sword) [Sockets: 4, Socketed: Tal Rune+Thul Rune+Ort Rune+Amn Rune]
   - Gothic Plate [Def: 134, Sockets: 4, Socketed: Flawless Ruby+Ort Rune+Ral Rune+Thul Rune]
   - Terrene Circlet of Wealth [Def: 24]
   - Summoner's Amulet
+  - Wraith Torc (Rare Amulet)
   - Marshal's Amulet
+  - Bone Gorget (Rare Amulet)
+  - Death Scarab (Rare Amulet)
   - Prismatic Amulet of the Giant
   - Magekiller's Amulet of Light
 
@@ -86,7 +89,7 @@ Tabs: Tab 1: Normal, Tab 2: Normal, Tab 3: Normal, Tab 4: Normal, Tab 5: Normal,
   - Crimson Jewel
   - Lapis Lazuli Jewel of Daring
   - 3x Jewel of Virility
-  - 2x Rare Jewel
+  - Shadow Scarab (Rare Jewel)
   - Jewel of Knowledge
   - Ruby Jewel of Knowledge
   - Diamond Jewel
@@ -94,6 +97,7 @@ Tabs: Tab 1: Normal, Tab 2: Normal, Tab 3: Normal, Tab 4: Normal, Tab 5: Normal,
   - Mage Plate [Def: 253, Sockets: 3]
   - Beryl Jewel
   - Maroon Jewel
+  - Shadow Eye (Rare Jewel)
   - Jewel of Honor
   - Shimmering Jewel of Thunder
   - Jewel of Fire

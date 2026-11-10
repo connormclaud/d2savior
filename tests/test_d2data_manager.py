@@ -144,6 +144,35 @@ class TestD2DataManager:
         assert suffix_1 is not None
         assert suffix_1.name == "of Protection"
 
+    def test_rare_affix_access(self):
+        """Test rare prefix and suffix data access with Diablo II unified indexing."""
+        vd_63 = self.manager.for_version(0x63)
+        vd_69 = self.manager.for_version(0x69)
+
+        for vd in (vd_63, vd_69):
+            # Prefixes start at 156 (offset by 155 entries of raresuffix.txt)
+            assert vd.get_rare_prefix(156) == "Beast"
+            assert vd.get_rare_prefix(164) == "Doom"
+            assert vd.get_rare_prefix(167) == "Death"
+            assert vd.get_rare_prefix(201) == "Corruption"
+
+            # 1-based row index fallback
+            assert vd.get_rare_prefix(1) == "Beast"
+            assert vd.get_rare_prefix(9) == "Doom"
+            assert vd.get_rare_prefix(12) == "Death"
+
+            # Suffixes are 1-based (1..155)
+            assert vd.get_rare_suffix(1) == "bite"
+            assert vd.get_rare_suffix(128) == "gyre"
+            assert vd.get_rare_suffix(132) == "heart"
+            assert vd.get_rare_suffix(155) == "flange"
+
+            # Out of bounds
+            assert vd.get_rare_prefix(0) is None
+            assert vd.get_rare_prefix(999) is None
+            assert vd.get_rare_suffix(0) is None
+            assert vd.get_rare_suffix(999) is None
+
     def test_unique_item_access(self):
         """Test unique item data access."""
         unique = self.manager.for_version(0x63).get_unique_item(1)

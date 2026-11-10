@@ -34,6 +34,9 @@ class TestDataGuard:
             loader.load_magic_affix(bogus_path, is_prefix=True)
 
         with pytest.raises(FileNotFoundError):
+            loader.load_rare_affix(bogus_path)
+
+        with pytest.raises(FileNotFoundError):
             loader.load_unique_items(bogus_path)
 
         with pytest.raises(FileNotFoundError):
@@ -74,6 +77,8 @@ class TestDataGuard:
             assert len(vd.properties) > 0, f"version {version:#x} properties table is empty"
             assert len(vd.magic_prefixes) > 0, f"version {version:#x} magic_prefixes is empty"
             assert len(vd.magic_suffixes) > 0, f"version {version:#x} magic_suffixes is empty"
+            assert len(vd.rare_prefixes) > 0, f"version {version:#x} rare_prefixes is empty"
+            assert len(vd.rare_suffixes) > 0, f"version {version:#x} rare_suffixes is empty"
             assert len(vd.unique_items) > 0, f"version {version:#x} unique_items is empty"
             assert len(vd.runewords) > 0, f"version {version:#x} runewords is empty"
             assert len(vd.gems) > 0, f"version {version:#x} gems is empty"
@@ -109,6 +114,8 @@ class TestDataGuard:
             "d2r/itemtypes.txt",
             "d2r/magicprefix.txt",
             "d2r/magicsuffix.txt",
+            "d2r/rareprefix.txt",
+            "d2r/raresuffix.txt",
             "d2r/property.txt",
             "d2r/runes.txt",
             "d2r/setitems.txt",
@@ -181,6 +188,8 @@ class TestDataGuard:
             zf.writestr("d2r/Misc.txt", "name\tcode\n")
             zf.writestr("d2r/magicprefix.txt", "Name\n")
             zf.writestr("d2r/magicsuffix.txt", "Name\n")
+            zf.writestr("d2r/rareprefix.txt", "name\n")
+            zf.writestr("d2r/raresuffix.txt", "name\n")
             zf.writestr("d2r/uniqueitems.txt", "index\t*ID\n")
             zf.writestr("d2r/skills.txt", "skill\t*Id\n")
             zf.writestr("d2r/itemdata.txt", "*ID\tVersionMin\n")

@@ -162,7 +162,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x85F456FD
   Drop Level: 28
-  Rare Name: 158-53
+  Rare Name: 158-53 (Raven Song)
   Durability: 30/30
   Properties:
     - +8 to Energy
@@ -180,7 +180,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0xECFA2199
   Drop Level: 40
-  Rare Name: 158-99
+  Rare Name: 158-99 (Raven Knuckle)
   Defence: 12
   Durability: 18/18
   Properties:
@@ -228,7 +228,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x34CB12DF
   Drop Level: 55
-  Rare Name: 170-106
+  Rare Name: 170-106 (Rune Nails)
   Defence: 8
   Durability: 16/16
   Properties:
@@ -281,7 +281,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x97A72696
   Drop Level: 49
-  Rare Name: 194-112
+  Rare Name: 194-112 (Bitter Buckle)
   Defence: 5
   Durability: 8/16
   Properties:
@@ -367,7 +367,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x1B6EE0C8
   Drop Level: 30
-  Rare Name: 195-98
+  Rare Name: 195-98 (Entropy Finger)
   Properties:
     - +2 to Strength
     - +9 to Energy
@@ -494,7 +494,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x4BD2B0EF
   Drop Level: 49
-  Rare Name: 168-92
+  Rare Name: 168-92 (Shadow Claw)
   Defence: 7
   Durability: 10/14
   Properties:
@@ -611,7 +611,7 @@ Total items: 69
   Flags: Identified, JustSaved
   GUID: 0x397D11C4
   Drop Level: 46
-  Craft Name: 176-111
+  Craft Name: 176-111 (Demon Clasp)
   Defence: 32
   Durability: 11/14
   Properties:
