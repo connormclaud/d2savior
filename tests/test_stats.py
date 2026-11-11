@@ -23,15 +23,15 @@ def test_sork_advanced_stats(game_data_resolver: GameDataResolver):
     assert isinstance(stats, AdvancedStats)
 
     # In sork save (weapon set I active):
-    # Resistances:
-    # Fire: 18 (amulet) + 17 (ring) + 17 (boots) + 16 (gloves) + 12 (grand charm) + 20 (grand charm) = 100
-    assert stats.resistances.fire == 100
+    # Resistances (gear + charms + 2x Anya quest = +20 to all):
+    # Fire: 18 (amulet) + 17 (ring) + 17 (boots) + 16 (gloves) + 12 (grand charm) + 20 (grand charm) + 20 (Anya) = 120
+    assert stats.resistances.fire == 120
     # Cold: 18 (amulet) + 20 (boots) + 8 (grand charm) = 46
-    assert stats.resistances.cold == 46
+    assert stats.resistances.cold == 66
     # Lightning: 30 (Lore) + 18 (amulet) + 16 (ring) + 14 (grand charm) + 6 (small charm) + 7 (small charm) + 8 (large charm) = 99
-    assert stats.resistances.lightning == 99
+    assert stats.resistances.lightning == 119
     # Poison: 30 (Stealth) + 18 (amulet) + 9 (ring) + 18 (belt) + 25 (gloves) + 8 (small charm) = 108
-    assert stats.resistances.poison == 108
+    assert stats.resistances.poison == 128
 
     # FHR: 25 (Stealth) + 55 (Spirit) = 80
     assert stats.fhr == 80
@@ -65,10 +65,10 @@ def test_weapon_set_switch(game_data_resolver: GameDataResolver):
 
     # Rhyme adds All Resistances +25
     # Bone wand removes Spirit (+55 FHR, +34 FCR)
-    assert stats.resistances.fire == 125
-    assert stats.resistances.cold == 71
-    assert stats.resistances.lightning == 124
-    assert stats.resistances.poison == 133
+    assert stats.resistances.fire == 145
+    assert stats.resistances.cold == 91
+    assert stats.resistances.lightning == 144
+    assert stats.resistances.poison == 153
 
     assert stats.fhr == 25  # Only Stealth remains
     assert stats.fcr == 43  # 77 - 34 = 43
@@ -176,15 +176,42 @@ def test_inventory_charm_filtering(game_data_resolver: GameDataResolver):
     assert stats.fcr == 0
 
 
+def test_quest_resistances_anya(game_data_resolver: GameDataResolver):
+    """Test that Prison of Ice (Anya) completion in Act V awards +10 to all resistances per difficulty."""
+    from d2savior.core.d2s_struct import QuestInfo, QuestInfoData
+
+    char = D2SStruct()
+    char.version = 0x63
+    char.weapon_set = 0
+    char.quests = QuestInfo()
+    char.quests.magic = 0x216F6F57
+
+    # 3 difficulties: Normal, Nightmare, Hell
+    norm_qd = QuestInfoData()
+    norm_qd.act_5 = [0, 0, 0x1, 0, 0, 0]  # Quest 2 (Prison of Ice) completed
+    nm_qd = QuestInfoData()
+    nm_qd.act_5 = [0, 0, 0x1, 0, 0, 0]  # Quest 2 completed
+    hell_qd = QuestInfoData()
+    hell_qd.act_5 = [0, 0, 0x0, 0, 0, 0]  # Quest 2 not completed
+
+    char.quests.qi_data = [norm_qd, nm_qd, hell_qd]
+
+    stats = calculate_advanced_stats(char, resolver=game_data_resolver)
+    assert stats.resistances.fire == 20
+    assert stats.resistances.cold == 20
+    assert stats.resistances.lightning == 20
+    assert stats.resistances.poison == 20
+
+
 def test_format_char_advanced_stats_section(game_data_resolver: GameDataResolver):
     _kind, char, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
     summary = format_char_summary(char, resolver=game_data_resolver)
     info = format_char_info(char, resolver=game_data_resolver)
 
     assert "=== Advanced Stats ===" in summary
-    assert "Gear Resistances: Fire: +100%, Cold: +46%, Lightning: +99%, Poison: +108%" in summary
+    assert "Resistances: Fire: +120%, Cold: +66%, Lightning: +119%, Poison: +128%" in summary
     assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77%" in summary
 
     assert "=== Advanced Stats ===" in info
-    assert "Gear Resistances: Fire: +100%, Cold: +46%, Lightning: +99%, Poison: +108%" in info
+    assert "Resistances: Fire: +120%, Cold: +66%, Lightning: +119%, Poison: +128%" in info
     assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77%" in info

@@ -810,7 +810,7 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     result.append("")
     adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
     result.append("=== Advanced Stats ===")
-    result.append(f"Gear Resistances: {adv_stats.resistances.format_summary()}")
+    result.append(f"Resistances: {adv_stats.resistances.format_summary()}")
     result.append(f"Faster Hit Recovery: +{adv_stats.fhr}% | Faster Cast Rate: +{adv_stats.fcr}%")
     result.append("")
     result.append("=== Items ===")
@@ -935,7 +935,7 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     result.append("")
     adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
     result.append("=== Advanced Stats ===")
-    result.append(f"Gear Resistances: {adv_stats.resistances.format_summary()}")
+    result.append(f"Resistances: {adv_stats.resistances.format_summary()}")
     result.append(f"Faster Hit Recovery: +{adv_stats.fhr}% | Faster Cast Rate: +{adv_stats.fcr}%")
     result.append("")
 
