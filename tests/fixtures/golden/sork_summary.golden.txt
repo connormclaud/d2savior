@@ -41,7 +41,6 @@ Hell: Not started
 === Advanced Stats ===
 Resistances: Fire: +100%, Cold: +46%, Lightning: +99%, Poison: +108%
 Faster Hit Recovery: +80% | Faster Cast Rate: +77%
-Damage: Physical: 7-14, Lightning: 1-50, Cold: 3-14, Poison: 154
 
 === Equipped Gear ===
 - Helmet: Lore (Cap) [Def: 6, Sockets: 2, Socketed: Ort Rune+Sol Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +10 to Energy, +2 to Light Radius, +1 to All Skills, +2 to Mana after each Kill, Lightning Resist +30%, Damage Reduced by 7)
