@@ -77,6 +77,10 @@ Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available
   Act V: [!] Осада Харрогата (reward unclaimed) [x] [x] [ ] Предательство Харрогата [x] [x]
 Hell: Not started
 
+=== Advanced Stats ===
+Gear Resistances: Fire: +100%, Cold: +46%, Lightning: +99%, Poison: +108%
+Faster Hit Recovery: +80% | Faster Cast Rate: +77%
+
 === Items ===
 Total items: 69
 --- Item 0 ---

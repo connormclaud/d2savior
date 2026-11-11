@@ -24,6 +24,7 @@ from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     SharedStash,
 )
+from d2savior.core.stats import calculate_advanced_stats
 
 type SkillInfo = tuple[int, str, int]
 type FormattedLines = list[str]
@@ -807,6 +808,11 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     result.append("")
     result.extend(_format_quests_lines(char_data, char_resolver))
     result.append("")
+    adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
+    result.append("=== Advanced Stats ===")
+    result.append(f"Gear Resistances: {adv_stats.resistances.format_summary()}")
+    result.append(f"Faster Hit Recovery: +{adv_stats.fhr}% | Faster Cast Rate: +{adv_stats.fcr}%")
+    result.append("")
     result.append("=== Items ===")
     item_list = getattr(char_data, "item_list", None)
     if item_list and getattr(item_list, "magic", None) == 0x4D4A:
@@ -926,6 +932,11 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     result.extend(_format_waypoints_lines(char_data, char_resolver))
     result.append("")
     result.extend(_format_quests_lines(char_data, char_resolver))
+    result.append("")
+    adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
+    result.append("=== Advanced Stats ===")
+    result.append(f"Gear Resistances: {adv_stats.resistances.format_summary()}")
+    result.append(f"Faster Hit Recovery: +{adv_stats.fhr}% | Faster Cast Rate: +{adv_stats.fcr}%")
     result.append("")
 
     result.append("=== Equipped Gear ===")
