@@ -39,24 +39,6 @@ def test_sork_advanced_stats(game_data_resolver: GameDataResolver):
     # FCR: 25 (Stealth) + 34 (Spirit) + 10 (Manald) + 8 (Demon Clasp) = 77
     assert stats.fcr == 77
 
-    # Damage: Broad sword (7-14) base physical
-    assert stats.damage.physical_min == 7
-    assert stats.damage.physical_max == 14
-    # Elemental damage from Spirit socketed runes:
-    # Ort: 1-50 lightning
-    assert stats.damage.lightning.min_damage == 1
-    assert stats.damage.lightning.max_damage == 50
-    # Thul: 3-14 cold (75 frames = 3.0s)
-    assert stats.damage.cold.min_damage == 3
-    assert stats.damage.cold.max_damage == 14
-    assert stats.damage.cold.duration == 75
-    assert stats.damage.cold.duration_seconds == 3.0
-    # Tal: 154 poison (125 frames = 5.0s)
-    assert stats.damage.poison.min_damage == 154
-    assert stats.damage.poison.max_damage == 154
-    assert stats.damage.poison.duration == 125
-    assert stats.damage.poison.duration_seconds == 5.0
-
 
 def test_d2s_0x69_sorc_advanced_stats(game_data_resolver: GameDataResolver):
     """Test advanced stats calculation on 0x69 save file (Sorc.d2s)."""
@@ -67,11 +49,9 @@ def test_d2s_0x69_sorc_advanced_stats(game_data_resolver: GameDataResolver):
 
     stats = calculate_advanced_stats(char, resolver=game_data_resolver)
     assert isinstance(stats, AdvancedStats)
-    # Check that stats calculation executes safely and returns populated or zero values
     assert isinstance(stats.resistances.fire, int)
     assert isinstance(stats.fhr, int)
     assert isinstance(stats.fcr, int)
-    assert isinstance(stats.damage.physical_min, int)
 
 
 def test_weapon_set_switch(game_data_resolver: GameDataResolver):
@@ -84,7 +64,7 @@ def test_weapon_set_switch(game_data_resolver: GameDataResolver):
     stats = calculate_advanced_stats(char, resolver=game_data_resolver)
 
     # Rhyme adds All Resistances +25
-    # Bone wand removes Spirit (+55 FHR, +34 FCR, and runes)
+    # Bone wand removes Spirit (+55 FHR, +34 FCR)
     assert stats.resistances.fire == 125
     assert stats.resistances.cold == 71
     assert stats.resistances.lightning == 124
@@ -92,89 +72,6 @@ def test_weapon_set_switch(game_data_resolver: GameDataResolver):
 
     assert stats.fhr == 25  # Only Stealth remains
     assert stats.fcr == 43  # 77 - 34 = 43
-
-    # Bone wand base damage is 3-7
-    assert stats.damage.physical_min == 3
-    assert stats.damage.physical_max == 7
-    # Spirit socketables are unequipped in weapon set II
-    assert stats.damage.lightning.max_damage == 0
-    assert stats.damage.cold.max_damage == 0
-    assert stats.damage.poison.max_damage == 0
-
-
-def test_advanced_stats_weapon_and_offweapon_ed(game_data_resolver: GameDataResolver):
-    """Test damage formula: D = (Base * (1 + Weapon_ED) + Flat) * (1 + OffWeapon_ED)."""
-    char = D2SStruct()
-    char.version = 0x63
-    char.weapon_set = 0
-    char.item_list = ItemList()
-
-    # Weapon: Broad Sword (base 7-14) with +100% Weapon ED (stat 25)
-    sword = D2Item()
-    sword.location = ItemLocation.EQUIPPED.value
-    sword.position = EquipSlot.WEAPON_I.value
-    sword.type_name = b"bsd "
-    sword.item_info = ItemInfo()
-    tp_s = TypeSpecificInfo()
-    pl_s = PropertyList()
-    pl_s.properties = [(25, 0, 100)]  # 100% weapon ED -> 14-28
-    tp_s.property_list = pl_s
-    sword.item_info.type_specific_info = tp_s
-    char.item_list.items.append(sword)
-
-    # Ring: +10 min and +10 max flat damage (stats 21, 22)
-    ring = D2Item()
-    ring.location = ItemLocation.EQUIPPED.value
-    ring.position = EquipSlot.RING_RIGHT.value
-    ring.type_name = b"rin "
-    ring.item_info = ItemInfo()
-    tp_r = TypeSpecificInfo()
-    pl_r = PropertyList()
-    pl_r.properties = [(21, 0, 10), (22, 0, 10)]
-    tp_r.property_list = pl_r
-    ring.item_info.type_specific_info = tp_r
-    char.item_list.items.append(ring)
-
-    # Armor: Lionheart (+20% off-weapon ED on stat 25)
-    armor = D2Item()
-    armor.location = ItemLocation.EQUIPPED.value
-    armor.position = EquipSlot.ARMOR.value
-    armor.type_name = b"stu "
-    armor.item_info = ItemInfo()
-    tp_a = TypeSpecificInfo()
-    pl_a = PropertyList()
-    pl_a.properties = [(25, 0, 20)]
-    tp_a.property_list = pl_a
-    armor.item_info.type_specific_info = tp_a
-    char.item_list.items.append(armor)
-
-    # Formula check:
-    # Min: (7 * (1 + 1.0) + 10) * (1 + 0.20) = (14 + 10) * 1.2 = 24 * 1.2 = 28
-    # Max: (14 * (1 + 1.0) + 10) * (1 + 0.20) = (28 + 10) * 1.2 = 38 * 1.2 = 45
-    stats = calculate_advanced_stats(char, resolver=game_data_resolver)
-    assert stats.damage.physical_min == 28
-    assert stats.damage.physical_max == 45
-
-
-def test_advanced_stats_bow_and_ethereal(game_data_resolver: GameDataResolver):
-    """Test ranged bow base damage and ethereal bonus (+50%)."""
-    char = D2SStruct()
-    char.version = 0x63
-    char.weapon_set = 0
-    char.item_list = ItemList()
-
-    # Short Bow: 2handmindam=1, 2handmaxdam=4
-    bow = D2Item()
-    bow.location = ItemLocation.EQUIPPED.value
-    bow.position = EquipSlot.WEAPON_I.value
-    bow.type_name = b"sbw "
-    bow.is_ethereal = True
-    char.item_list.items.append(bow)
-
-    # Ethereal bonus (+50%): 1 * 1.5 = 1, 4 * 1.5 = 6
-    stats = calculate_advanced_stats(char, resolver=game_data_resolver)
-    assert stats.damage.physical_min == 1
-    assert stats.damage.physical_max == 6
 
 
 def test_set_properties_activated(game_data_resolver: GameDataResolver):
@@ -287,14 +184,7 @@ def test_format_char_advanced_stats_section(game_data_resolver: GameDataResolver
     assert "=== Advanced Stats ===" in summary
     assert "Gear Resistances: Fire: +100%, Cold: +46%, Lightning: +99%, Poison: +108%" in summary
     assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77%" in summary
-    assert (
-        "Damage: Physical: 7-14, Lightning: 1-50, Cold: 3-14 (3.0s), Poison: 154 over 5.0s"
-        in summary
-    )
 
     assert "=== Advanced Stats ===" in info
     assert "Gear Resistances: Fire: +100%, Cold: +46%, Lightning: +99%, Poison: +108%" in info
     assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77%" in info
-    assert (
-        "Damage: Physical: 7-14, Lightning: 1-50, Cold: 3-14 (3.0s), Poison: 154 over 5.0s" in info
-    )
