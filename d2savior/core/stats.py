@@ -1,7 +1,7 @@
 """Advanced stats calculation for Diablo II characters.
 
-Calculates aggregated stats from active equipped gear and inventory charms:
-- Gear resistances (Fire, Lightning, Cold, Poison)
+Calculates aggregated stats from active equipped gear, inventory charms, and quest rewards:
+- Resistances (Fire, Lightning, Cold, Poison)
 - Faster Hit Recovery (FHR)
 - Faster Cast Rate (FCR)
 - Supports active partial and full set bonuses from equipped set items
@@ -74,7 +74,7 @@ def _get_item_properties(
 def calculate_advanced_stats(
     char_data: D2SStruct, resolver: GameDataResolver | None = None
 ) -> AdvancedStats:
-    """Calculate advanced stats (resistances, FHR, FCR) from active gear and inventory charms."""
+    """Calculate advanced stats (resistances, FHR, FCR) from active gear, inventory charms, and quest rewards."""
     if resolver is None:
         resolver = GameDataResolver.load()
 
@@ -143,6 +143,20 @@ def calculate_advanced_stats(
                     fhr += param_val
                 case 105:  # Faster Cast Rate
                     fcr += param_val
+
+    # Add quest resistance bonuses:
+    # In Diablo II, completing the "Prison of Ice" quest (Anya, Act V quest index 2)
+    # awards the Scroll of Resistance, which grants +10 to all resistances permanently.
+    if (
+        getattr(char_data, "quests", None)
+        and getattr(char_data.quests, "magic", None) == 0x216F6F57
+    ):
+        for qd in getattr(char_data.quests, "qi_data", []):
+            if len(qd.act_5) > 2 and (qd.act_5[2] & 1):
+                res.fire += 10
+                res.cold += 10
+                res.lightning += 10
+                res.poison += 10
 
     return AdvancedStats(
         resistances=res,

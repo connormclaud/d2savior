@@ -78,7 +78,7 @@ Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available
 Hell: Not started
 
 === Advanced Stats ===
-Gear Resistances: Fire: +100%, Cold: +46%, Lightning: +99%, Poison: +108%
+Resistances: Fire: +120%, Cold: +66%, Lightning: +119%, Poison: +128%
 Faster Hit Recovery: +80% | Faster Cast Rate: +77%
 
 === Items ===
