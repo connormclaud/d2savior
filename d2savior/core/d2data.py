@@ -334,6 +334,8 @@ class ItemTypeInfo:
     maxdam: int = 0
     minmisdam: int = 0
     maxmisdam: int = 0
+    twohandmindam: int = 0
+    twohandmaxdam: int = 0
     speed: int = 0
     reqstr: int = 0
     reqdex: int = 0
@@ -761,6 +763,8 @@ class D2DataLoader:
                 maxdam=get_int("maxdam"),
                 minmisdam=get_int("minmisdam"),
                 maxmisdam=get_int("maxmisdam"),
+                twohandmindam=get_int("2handmindam"),
+                twohandmaxdam=get_int("2handmaxdam"),
                 speed=get_int("speed"),
                 reqstr=get_int("reqstr"),
                 reqdex=get_int("reqdex"),
