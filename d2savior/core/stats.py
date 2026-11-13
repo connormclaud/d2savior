@@ -4,6 +4,7 @@ Calculates aggregated stats from active equipped gear, inventory charms, and que
 - Resistances (Fire, Lightning, Cold, Poison)
 - Faster Hit Recovery (FHR)
 - Faster Cast Rate (FCR)
+- Magic Find (MF)
 - Supports active partial and full set bonuses from equipped set items
 """
 
@@ -35,6 +36,7 @@ class AdvancedStats:
     resistances: ResistanceStats = field(default_factory=ResistanceStats)
     fhr: int = 0
     fcr: int = 0
+    mf: int = 0
 
 
 def _get_item_properties(
@@ -74,7 +76,7 @@ def _get_item_properties(
 def calculate_advanced_stats(
     char_data: D2SStruct, resolver: GameDataResolver | None = None
 ) -> AdvancedStats:
-    """Calculate advanced stats (resistances, FHR, FCR) from active gear, inventory charms, and quest rewards."""
+    """Calculate advanced stats (resistances, FHR, FCR, MF) from active gear, inventory charms, and quest rewards."""
     if resolver is None:
         resolver = GameDataResolver.load()
 
@@ -118,6 +120,14 @@ def calculate_advanced_stats(
     res = ResistanceStats()
     fhr = 0
     fcr = 0
+    mf = 0
+    mf_per_level = 0
+
+    char_level = getattr(char_data, "char_level", 0)
+    if not char_level:
+        p_stats = getattr(char_data, "player_stats", None)
+        if p_stats and getattr(p_stats, "is_valid", False):
+            char_level = getattr(p_stats, "level", 0)
 
     all_source_items: list[Any] = equipped_items + inventory_items
 
@@ -138,11 +148,17 @@ def calculate_advanced_stats(
                 case 45:  # Poison Resist
                     res.poison += param_val
 
-                # FHR / FCR
+                # FHR / FCR / MF
                 case 99:  # Faster Hit Recovery
                     fhr += param_val
                 case 105:  # Faster Cast Rate
                     fcr += param_val
+                case 80:  # Better Chance of Getting Magic Items
+                    mf += param_val
+                case 240:  # Magic Find per level (eighths per level)
+                    mf_per_level += param_val
+
+    mf += (mf_per_level * char_level) // 8
 
     # Add quest resistance bonuses:
     # In Diablo II, completing the "Prison of Ice" quest (Anya, Act V quest index 2)
@@ -162,4 +178,5 @@ def calculate_advanced_stats(
         resistances=res,
         fhr=fhr,
         fcr=fcr,
+        mf=mf,
     )

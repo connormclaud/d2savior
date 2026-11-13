@@ -79,7 +79,7 @@ Hell: Not started
 
 === Advanced Stats ===
 Resistances: Fire: +120%, Cold: +66%, Lightning: +119%, Poison: +128%
-Faster Hit Recovery: +80% | Faster Cast Rate: +77%
+Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%
 
 === Items ===
 Total items: 69

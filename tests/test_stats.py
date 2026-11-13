@@ -39,6 +39,9 @@ def test_sork_advanced_stats(game_data_resolver: GameDataResolver):
     # FCR: 25 (Stealth) + 34 (Spirit) + 10 (Manald) + 8 (Demon Clasp) = 77
     assert stats.fcr == 77
 
+    # MF: 0 on Weapon Set I
+    assert stats.mf == 0
+
 
 def test_d2s_0x69_sorc_advanced_stats(game_data_resolver: GameDataResolver):
     """Test advanced stats calculation on 0x69 save file (Sorc.d2s)."""
@@ -52,6 +55,7 @@ def test_d2s_0x69_sorc_advanced_stats(game_data_resolver: GameDataResolver):
     assert isinstance(stats.resistances.fire, int)
     assert isinstance(stats.fhr, int)
     assert isinstance(stats.fcr, int)
+    assert isinstance(stats.mf, int)
 
 
 def test_weapon_set_switch(game_data_resolver: GameDataResolver):
@@ -72,6 +76,7 @@ def test_weapon_set_switch(game_data_resolver: GameDataResolver):
 
     assert stats.fhr == 25  # Only Stealth remains
     assert stats.fcr == 43  # 77 - 34 = 43
+    assert stats.mf == 25  # Rhyme shield adds +25% Magic Find
 
 
 def test_set_properties_activated(game_data_resolver: GameDataResolver):
@@ -210,8 +215,47 @@ def test_format_char_advanced_stats_section(game_data_resolver: GameDataResolver
 
     assert "=== Advanced Stats ===" in summary
     assert "Resistances: Fire: +120%, Cold: +66%, Lightning: +119%, Poison: +128%" in summary
-    assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77%" in summary
+    assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%" in summary
 
     assert "=== Advanced Stats ===" in info
     assert "Resistances: Fire: +120%, Cold: +66%, Lightning: +119%, Poison: +128%" in info
-    assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77%" in info
+    assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%" in info
+
+
+def test_magic_find_flat_and_per_level(game_data_resolver: GameDataResolver):
+    """Test flat Magic Find (stat 80) and per-level Magic Find (stat 240)."""
+    char = D2SStruct()
+    char.version = 0x63
+    char.weapon_set = 0
+    char.char_level = 80
+    char.item_list = ItemList()
+
+    # Equipped armor with +50% MF (stat 80, save_add=100 -> 150) and +1%/lvl MF (stat 240, 8/8 per level)
+    armor = D2Item()
+    armor.location = ItemLocation.EQUIPPED.value
+    armor.position = EquipSlot.ARMOR.value
+    armor.type_name = b"xpl "
+    armor.item_info = ItemInfo()
+    tp_a = TypeSpecificInfo()
+    pl_a = PropertyList()
+    pl_a.properties = [(80, 0, 150), (240, 0, 8)]
+    tp_a.property_list = pl_a
+    armor.item_info.type_specific_info = tp_a
+    char.item_list.items.append(armor)
+
+    # Small charm in inventory with +7% MF (stat 80, save_add=100 -> 107)
+    charm = D2Item()
+    charm.location = ItemLocation.STORED.value
+    charm.stored_in = StoredIn.INVENTORY.value
+    charm.type_name = b"cm1 "
+    charm.item_info = ItemInfo()
+    tp_c = TypeSpecificInfo()
+    pl_c = PropertyList()
+    pl_c.properties = [(80, 0, 107)]
+    tp_c.property_list = pl_c
+    charm.item_info.type_specific_info = tp_c
+    char.item_list.items.append(charm)
+
+    stats = calculate_advanced_stats(char, resolver=game_data_resolver)
+    # 50 (armor flat) + (8 * 80 // 8 = 80) (armor per-level) + 7 (charm) = 137
+    assert stats.mf == 137
