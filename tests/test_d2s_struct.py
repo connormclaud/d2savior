@@ -434,11 +434,34 @@ class TestD2SStruct:
         assert "Normal (27/27 completed) — Akara Reset: Used" in output
         assert "Act I: [x] [x] [x] [x] [x] [x]" in output
         assert "Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available" in output
-        assert "Act I: [x] [x] [x] [x] [!] Tools of the Trade (reward unclaimed) [x]" in output
+        assert "Act I: [x] [x] [x] [x] [!] Tools of the Trade (Imbue unclaimed) [x]" in output
         assert (
-            "Act V: [!] Siege on Harrogath (reward unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]"
+            "Act V: [!] Siege on Harrogath (Socket unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]"
             in output
         )
+
+    def test_quest_reward_labels_and_fallback(self, game_data_resolver):
+        from d2savior.core.constants import QUEST_REWARDS, QUESTS_BY_ACT
+        from d2savior.core.d2s_struct import D2SStruct
+        from d2savior.core.formatters import format_quests_info
+
+        all_quest_names = {name for _, quests in QUESTS_BY_ACT for name, _ in quests}
+        assert set(QUEST_REWARDS.keys()).issubset(all_quest_names)
+
+        char = D2SStruct()
+        assert char.quests is not None
+        char.quests.magic = 0x216F6F57
+        # Normal: Betrayal of Harrogath (index 3) unclaimed, Rite of Passage (index 4) unclaimed (progression fallback)
+        char.quests.qi_data[0].reset_stats = 1
+        char.quests.qi_data[0].act_1 = [1] * 6
+        char.quests.qi_data[0].act_2 = [1] * 6
+        char.quests.qi_data[0].act_3 = [1] * 6
+        char.quests.qi_data[0].act_4 = [1] * 3
+        char.quests.qi_data[0].act_5 = [1, 1, 1, 2, 2, 1]
+
+        output = format_quests_info(char, resolver=game_data_resolver)
+        assert "[!] Betrayal of Harrogath (Personalize unclaimed)" in output
+        assert "[!] Rite of Passage (reward unclaimed)" in output
 
     def test_player_stats_properties(self):
         from d2savior.core.d2s_struct import PLAYER_STATS_MAGIC, PlayerStats

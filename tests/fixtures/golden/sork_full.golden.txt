@@ -70,11 +70,11 @@ Normal (27/27 completed) — Akara Reset: Used
   Act IV: [x] [x] [x]
   Act V: [x] [x] [x] [x] [x] [x]
 Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available
-  Act I: [x] [x] [x] [x] [!] Tools of the Trade (reward unclaimed) [x]
+  Act I: [x] [x] [x] [x] [!] Tools of the Trade (Imbue unclaimed) [x]
   Act II: [x] [x] [x] [x] [x] [x]
   Act III: [x] [x] [x] [x] [x] [x]
   Act IV: [x] [x] [x]
-  Act V: [!] Siege on Harrogath (reward unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]
+  Act V: [!] Siege on Harrogath (Socket unclaimed) [x] [x] [ ] Betrayal of Harrogath [x] [x]
 Hell: Not started
 
 === Advanced Stats ===

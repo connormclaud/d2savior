@@ -195,3 +195,19 @@ QUESTS_BY_ACT = [
         ],
     ),
 ]
+
+QUEST_REWARDS: dict[str, str] = {
+    "Den of Evil": "+1 Skill & Reset",
+    "Sisters' Burial Grounds": "Rogue Merc",
+    "The Search for Cain": "Rare Ring",
+    "Tools of the Trade": "Imbue",
+    "Radament's Lair": "+1 Skill",
+    "The Golden Bird": "+20 Life",
+    "Blade of the Old Religion": "Rare Ring",
+    "Lam Esen's Tome": "+5 Stats",
+    "The Fallen Angel": "+2 Skills",
+    "Siege on Harrogath": "Socket",
+    "Rescue on Mount Arreat": "Ral+Ort+Tal",
+    "Prison of Ice": "+10 All Res",
+    "Betrayal of Harrogath": "Personalize",
+}

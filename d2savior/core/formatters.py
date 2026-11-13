@@ -11,6 +11,7 @@ from d2savior.core.constants import (
     GEM_CODE_MAP,
     GEM_TYPE_NAMES,
     MATERIAL_CODES_STRIPPED,
+    QUEST_REWARDS,
     QUESTS_BY_ACT,
     RUNE_CODES_STRIPPED,
     TAB_TYPE_NAMES,
@@ -707,7 +708,8 @@ def _format_quests_lines(char_data: D2SStruct, resolver: GameDataResolver) -> Fo
                         if w & 1:
                             parts.append("[x]")
                         elif w & 2:
-                            parts.append(f"[!] {loc_qname} (reward unclaimed)")
+                            reward = QUEST_REWARDS.get(name, "reward")
+                            parts.append(f"[!] {loc_qname} ({reward} unclaimed)")
                         else:
                             parts.append(f"[ ] {loc_qname}")
                     result.append(f"  {act_name}: {' '.join(parts)}")
