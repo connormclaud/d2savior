@@ -469,7 +469,38 @@ class ItemInfo:
         return 0
 
     def _is_stackable_for_stash(self) -> bool:
-        return self.type_name in self.STACKABLE_FOR_STASH
+        type_name = (
+            self.type_name if self.type_name.strip() or not self._meta else self._meta.type_id
+        )
+        return type_name in self.STACKABLE_FOR_STASH
+
+    def _codec_realm_data(self, io: BitIO, version: int) -> None:
+        realm_count = 4 if version > 96 else (3 if version > 93 else 2)
+        if io.is_reading:
+            self.realm_data = [io.bits(32) for _ in range(realm_count)]
+        else:
+            for i in range(realm_count):
+                val = self.realm_data[i] if i < len(self.realm_data) else 0
+                io.bits(32, val)
+
+    def _codec_optional_realm_data(self, io: BitIO, version: int) -> None:
+        if io.bit(bool(self.realm_data)):
+            self._codec_realm_data(io, version)
+        elif io.is_reading:
+            self.realm_data = []
+
+    def _codec_stash_stack_size(self, io: BitIO, version: int) -> None:
+        if not is_d2r(version) or version <= 99:
+            return
+        if version <= 101:
+            if self._is_stackable_for_stash():
+                self.stash_stack_size = io.bits(8, self.stash_stack_size)
+                self.has_stash_stack_size = True
+        else:
+            has_stash = io.bit(self.has_stash_stack_size)
+            self.has_stash_stack_size = has_stash
+            if has_stash:
+                self.stash_stack_size = io.bits(8, self.stash_stack_size)
 
     def codec(
         self,
@@ -522,13 +553,7 @@ class ItemInfo:
         self.has_rand = has_rand
         if has_rand:
             if is_d2r_ and version > 86:
-                realm_count = 4 if version > 96 else (3 if version > 93 else 2)
-                if io.is_reading:
-                    self.realm_data = [io.bits(32) for _ in range(realm_count)]
-                else:
-                    for i in range(realm_count):
-                        val = self.realm_data[i] if i < len(self.realm_data) else 0
-                        io.bits(32, val)
+                self._codec_realm_data(io, version)
             elif not is_simple:
                 if io.is_reading:
                     self.timestamp_flag = [io.bits(32) for _ in range(4)]
@@ -536,16 +561,7 @@ class ItemInfo:
                     for ts in self.timestamp_flag:
                         io.bits(32, ts)
 
-        if is_d2r_ and version > 99:
-            if version <= 101:
-                if self._is_stackable_for_stash():
-                    self.stash_stack_size = io.bits(8, self.stash_stack_size)
-                    self.has_stash_stack_size = True
-            else:
-                has_stash = io.bit(self.has_stash_stack_size)
-                self.has_stash_stack_size = has_stash
-                if has_stash:
-                    self.stash_stack_size = io.bits(8, self.stash_stack_size)
+        self._codec_stash_stack_size(io, version)
 
         if not is_simple and meta:
             if io.is_reading:
@@ -768,13 +784,13 @@ class D2Item:
     ) -> None:
         self.codec(BitWriter(bs), version, write_magic, data=data)
 
-    def _codec_d2r(
+    def _codec_header(
         self,
         io: BitIO,
         version: int,
-        magic_flag: bool = True,
-        data: VersionData | GameData | None = None,
-    ) -> None:
+        magic_flag: bool,
+        data: VersionData | GameData | None,
+    ) -> VersionData | None:
         if io.is_reading:
             if magic_flag:
                 io.align_byte()
@@ -796,12 +812,41 @@ class D2Item:
                 else (data or self._data)
             )
             self._data = d
+            return d
+
+        d = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
+        if magic_flag:
+            io.align_byte()
+            io.word(self.magic)
+            io.dword(self.version)
+        return d
+
+    def _codec_gem_items(
+        self,
+        io: BitIO,
+        *,
+        magic_flag: bool,
+        data: VersionData | None,
+    ) -> None:
+        io.align_byte()
+        if io.is_reading:
+            self.gem_items = []
+            for _ in range(self.gems()):
+                item = D2Item()
+                item.codec(io, self.version, magic_flag=magic_flag, data=data)
+                self.gem_items.append(item)
         else:
-            d = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
-            if magic_flag:
-                io.align_byte()
-                io.word(self.magic)
-                io.dword(self.version)
+            for gem_item in self.gem_items:
+                gem_item.codec(io, self.version, magic_flag=magic_flag, data=data)
+
+    def _codec_d2r(
+        self,
+        io: BitIO,
+        version: int,
+        magic_flag: bool = True,
+        data: VersionData | GameData | None = None,
+    ) -> None:
+        d = self._codec_header(io, version, magic_flag, data)
 
         if io.is_writing:
 
@@ -886,18 +931,7 @@ class D2Item:
         else:
             self._codec_complete_d2r(io, item_ver, data=d)
 
-        io.align_byte()
-
-        gem_count = self.gems()
-        if io.is_reading:
-            self.gem_items = []
-            for _ in range(gem_count):
-                item = D2Item()
-                item.codec(io, self.version, magic_flag=self.version <= 96, data=d)
-                self.gem_items.append(item)
-        else:
-            for gem_item in self.gem_items:
-                gem_item.codec(io, self.version, magic_flag=self.version <= 96, data=d)
+        self._codec_gem_items(io, magic_flag=self.version <= 96, data=d)
 
     def _codec_compact_d2r(
         self,
@@ -926,18 +960,8 @@ class D2Item:
                             raw - quest_diff_stat.save_add
                         ) << quest_diff_stat.val_shift
 
-        realm_flag = bool(self.item_info.realm_data)
-        realm_flag = io.bit(realm_flag)
-        if realm_flag:
-            realm_count = 4 if version > 96 else (3 if version > 93 else 2)
-            if io.is_reading:
-                self.item_info.realm_data = [io.bits(32) for _ in range(realm_count)]
-            else:
-                for i in range(realm_count):
-                    val = self.item_info.realm_data[i] if i < len(self.item_info.realm_data) else 0
-                    io.bits(32, val)
-
-        self._codec_advanced_stash_size(io, version)
+        self.item_info._codec_optional_realm_data(io, version)
+        self.item_info._codec_stash_stack_size(io, version)
 
     def _codec_complete_d2r(
         self,
@@ -961,16 +985,7 @@ class D2Item:
                 is_personalized=self.is_personalized,
             )
 
-        realm_flag = bool(self.item_info.realm_data)
-        realm_flag = io.bit(realm_flag)
-        if realm_flag:
-            realm_count = 4 if version > 96 else (3 if version > 93 else 2)
-            if io.is_reading:
-                self.item_info.realm_data = [io.bits(32) for _ in range(realm_count)]
-            else:
-                for i in range(realm_count):
-                    val = self.item_info.realm_data[i] if i < len(self.item_info.realm_data) else 0
-                    io.bits(32, val)
+        self.item_info._codec_optional_realm_data(io, version)
 
         if self.item_info.is_gold():
             if io.is_reading or self.item_info.gold is None:
@@ -1002,20 +1017,7 @@ class D2Item:
                     for entry in self.chronicle_entries:
                         io.qword(entry)
 
-        self._codec_advanced_stash_size(io, version)
-
-    def _codec_advanced_stash_size(self, io: BitIO, version: int) -> None:
-        if version <= 99 or not self.item_info:
-            return
-        if version <= 101:
-            if self.type_name in ItemInfo.STACKABLE_FOR_STASH:
-                self.item_info.stash_stack_size = io.bits(8, self.item_info.stash_stack_size)
-                self.item_info.has_stash_stack_size = True
-        else:
-            has_stash = io.bit(self.item_info.has_stash_stack_size)
-            self.item_info.has_stash_stack_size = has_stash
-            if has_stash:
-                self.item_info.stash_stack_size = io.bits(8, self.item_info.stash_stack_size)
+        self.item_info._codec_stash_stack_size(io, version)
 
     def _codec_classic(
         self,
@@ -1024,33 +1026,7 @@ class D2Item:
         magic_flag: bool = True,
         data: VersionData | GameData | None = None,
     ) -> None:
-        if io.is_reading:
-            if magic_flag:
-                io.align_byte()
-                self.magic = io.word()
-                if self.magic != ITEM_LIST_MAGIC:
-                    io.seek_back_bytes(2)
-                    self.magic = ITEM_LIST_MAGIC
-                self.version = io.dword()
-                if not is_valid_version(self.version):
-                    io.seek_back_bytes(4)
-                    self.version = version
-            else:
-                self.magic = ITEM_LIST_MAGIC
-                self.version = version
-
-            d = (
-                data.for_version(self.version)
-                if isinstance(data, GameData)
-                else (data or self._data)
-            )
-            self._data = d
-        else:
-            d = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
-            if magic_flag:
-                io.align_byte()
-                io.word(self.magic)
-                io.dword(self.version)
+        d = self._codec_header(io, version, magic_flag, data)
 
         self.is_quest = io.bit(self.is_quest)
         self.target_del_flags = io.bits(3, self.target_del_flags)
@@ -1104,18 +1080,7 @@ class D2Item:
                 if io.is_reading and meta is not None:
                     self._meta = meta
 
-        io.align_byte()
-
-        gem_count = self.gems()
-        if io.is_reading:
-            self.gem_items = []
-            for _ in range(gem_count):
-                item = D2Item()
-                item.codec(io, self.version, magic_flag=True, data=d)
-                self.gem_items.append(item)
-        else:
-            for gem_item in self.gem_items:
-                gem_item.codec(io, self.version, magic_flag=True, data=d)
+        self._codec_gem_items(io, magic_flag=True, data=d)
 
 
 class ItemList:
