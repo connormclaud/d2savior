@@ -526,20 +526,7 @@ class D2SStruct:
     def deserialize(self, bs: IBitStream, data: Any = None) -> None:
         self.codec(BitReader(bs), data=data)
 
-    def _codec_v69(self, io: BitIO, data: Any = None) -> None:
-        self.char_flags = CharStatus(io.dword(int(self.char_flags)))
-        if io.is_reading:
-            self.char_type = self.char_flags
-            self.char_title = (self.char_flags >> 8) & 0x1F
-
-        self.char_class = io.byte(self.char_class)
-        self.num_stats = io.byte(self.num_stats)
-        self.num_skills = io.byte(self.num_skills)
-        self.char_level = io.byte(self.char_level)
-        self.create_time = io.dword(self.create_time)
-        self.last_save_time = io.dword(self.last_save_time)
-        self.play_time = io.dword(self.play_time)
-
+    def _codec_hotkeys_and_appearance(self, io: BitIO) -> None:
         for i in range(16):
             self.skill_keys[i] = io.dword(self.skill_keys[i])
 
@@ -554,20 +541,7 @@ class D2SStruct:
 
         self.map_seed = io.dword(self.map_seed)
 
-        self.merc_flags = io.dword(self.merc_flags)
-        self.merc_seed = io.dword(self.merc_seed)
-        self.merc_name_index = io.word(self.merc_name_index)
-        self.merc_hireling_id = io.word(self.merc_hireling_id)
-        self._merc_experience = io.dword(self._merc_experience)
-
-        self.preview_data = io.bytes(228, self.preview_data)
-
-        if io.is_reading:
-            self.game_version = self.preview_data[73]
-            name_offset = 0x7C
-            name_bytes = self.preview_data[name_offset : name_offset + 96]
-            self.name = name_bytes.split(b"\x00")[0]
-
+    def _codec_sections(self, io: BitIO, data: Any = None) -> None:
         if self.quests is not None:
             self.quests.codec(io)
 
@@ -592,6 +566,38 @@ class D2SStruct:
 
         io.align_byte()
 
+    def _codec_v69(self, io: BitIO, data: Any = None) -> None:
+        self.char_flags = CharStatus(io.dword(int(self.char_flags)))
+        if io.is_reading:
+            self.char_type = self.char_flags
+            self.char_title = (self.char_flags >> 8) & 0x1F
+
+        self.char_class = io.byte(self.char_class)
+        self.num_stats = io.byte(self.num_stats)
+        self.num_skills = io.byte(self.num_skills)
+        self.char_level = io.byte(self.char_level)
+        self.create_time = io.dword(self.create_time)
+        self.last_save_time = io.dword(self.last_save_time)
+        self.play_time = io.dword(self.play_time)
+
+        self._codec_hotkeys_and_appearance(io)
+
+        self.merc_flags = io.dword(self.merc_flags)
+        self.merc_seed = io.dword(self.merc_seed)
+        self.merc_name_index = io.word(self.merc_name_index)
+        self.merc_hireling_id = io.word(self.merc_hireling_id)
+        self._merc_experience = io.dword(self._merc_experience)
+
+        self.preview_data = io.bytes(228, self.preview_data)
+
+        if io.is_reading:
+            self.game_version = self.preview_data[73]
+            name_offset = 0x7C
+            name_bytes = self.preview_data[name_offset : name_offset + 96]
+            self.name = name_bytes.split(b"\x00")[0]
+
+        self._codec_sections(io, data=data)
+
     def _read_data_v69(self, bs: IBitStream, data: Any = None) -> None:
         self._codec_v69(BitReader(bs), data=data)
 
@@ -614,19 +620,8 @@ class D2SStruct:
         self.dw_time = io.dword(self.dw_time)
         self.play_time = io.dword(self.play_time)
 
-        for i in range(16):
-            self.skill_keys[i] = io.dword(self.skill_keys[i])
+        self._codec_hotkeys_and_appearance(io)
 
-        self.left_skill_1 = io.dword(self.left_skill_1)
-        self.right_skill_1 = io.dword(self.right_skill_1)
-        self.left_skill_2 = io.dword(self.left_skill_2)
-        self.right_skill_2 = io.dword(self.right_skill_2)
-
-        self.outfit = io.bytes(16, self.outfit)
-        self.colors = io.bytes(16, self.colors)
-        self.town = io.bytes(3, self.town)
-
-        self.map_seed = io.dword(self.map_seed)
         self.merc_flags_low = io.word(self.merc_flags_low)
         self.merc_dead = io.byte(self.merc_dead)
         self.merc_flags_high = io.byte(self.merc_flags_high)
@@ -639,26 +634,7 @@ class D2SStruct:
         self.name_ptr = io.bytes(0x40, self.name_ptr)
         self.preview_suffix = io.dword(self.preview_suffix)
 
-        if self.quests is not None:
-            self.quests.codec(io)
-
-        self.waypoints.codec(io)
-
-        self.npc = io.bytes(0x34, self.npc)
-
-        self.player_stats.codec(io)
-
-        self.skills.codec(io)
-
-        self.item_list.codec(io, self.version, data=data)
-
-        self.corpse.codec(io, self.version, data=data)
-
-        if self.is_expansion():
-            self.mercenary.codec(io, self.has_mercenary(), self.version, data=data)
-            self.golem.codec(io, self.version, data=data)
-
-        io.align_byte()
+        self._codec_sections(io, data=data)
 
     def _read_data_common(self, bs: IBitStream, data: Any = None) -> None:
         self._codec_common(BitReader(bs), data=data)
