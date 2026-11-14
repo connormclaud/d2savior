@@ -683,8 +683,10 @@ class D2Item:
         io: BitIO,
         version: int = 0x63,
         magic_flag: bool = True,
-        data: VersionData | GameData | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
     ) -> None:
+        if isinstance(data, GameDataResolver):
+            data = data.game_data
         if io.is_writing and not is_valid_version(self.version):
             self.version = version
         vd = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
@@ -699,7 +701,7 @@ class D2Item:
         bs: IBitStream,
         version: int = 0x63,
         read_magic: bool = True,
-        data: VersionData | GameData | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
     ) -> None:
         self.codec(BitReader(bs), version, read_magic, data=data)
 
@@ -708,7 +710,7 @@ class D2Item:
         bs: OBitStream,
         version: int,
         write_magic: bool = True,
-        data: VersionData | GameData | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
     ) -> None:
         self.codec(BitWriter(bs), version, write_magic, data=data)
 
@@ -1028,7 +1030,12 @@ class ItemList:
     def __getitem__(self, index: int) -> D2Item:
         return self.items[index]
 
-    def codec(self, io: BitIO, version: int, data: VersionData | GameData | None = None) -> None:
+    def codec(
+        self,
+        io: BitIO,
+        version: int,
+        data: VersionData | GameData | GameDataResolver | None = None,
+    ) -> None:
         if io.is_writing:
             io.align_byte()
             self.magic = io.word(self.magic)
@@ -1058,12 +1065,18 @@ class ItemList:
                 self.items.append(item)
 
     def deserialize(
-        self, bs: IBitStream, version: int, data: VersionData | GameData | None = None
+        self,
+        bs: IBitStream,
+        version: int,
+        data: VersionData | GameData | GameDataResolver | None = None,
     ) -> None:
         self.codec(BitReader(bs), version, data=data)
 
     def serialize(
-        self, bs: OBitStream, version: int, data: VersionData | GameData | None = None
+        self,
+        bs: OBitStream,
+        version: int,
+        data: VersionData | GameData | GameDataResolver | None = None,
     ) -> None:
         self.codec(BitWriter(bs), version, data=data)
 
