@@ -81,6 +81,11 @@ class BitIO(ABC):
         """Seek stream position to absolute byte_offset."""
         ...
 
+    @abstractmethod
+    def remaining_bits(self) -> int:
+        """Return the number of bits remaining in the stream."""
+        ...
+
     def opt_bits(self, count: int, value: int | None = None) -> int | None:
         """Read/write a 1-bit presence flag followed by count bits if present."""
         if self.is_writing:
@@ -156,6 +161,9 @@ class BitReader(BitIO):
     def seek_bytes(self, byte_offset: int) -> None:
         self.bs.seek_bytes(byte_offset)
 
+    def remaining_bits(self) -> int:
+        return self.bs.remaining()
+
 
 class BitWriter(BitIO):
     """BitIO writer wrapping an OBitStream."""
@@ -222,3 +230,6 @@ class BitWriter(BitIO):
 
     def seek_bytes(self, byte_offset: int) -> None:
         raise NotImplementedError("Cannot seek in BitWriter")
+
+    def remaining_bits(self) -> int:
+        raise NotImplementedError("BitWriter has no fixed remaining bit count")

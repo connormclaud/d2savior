@@ -423,9 +423,8 @@ class SharedStash:
                 struct.pack_into("<H", tab_data, 16, tab_size)
                 io.bytes(len(tab_data), tab_data)
         else:
-            assert isinstance(io, BitReader)
             self.tabs = []
-            while io.bs.remaining() >= STASH_TAB_HEADER_SIZE * 8:
+            while io.remaining_bits() >= STASH_TAB_HEADER_SIZE * 8:
                 try:
                     tab = StashTab()
                     tab.codec(io, version, data=data)

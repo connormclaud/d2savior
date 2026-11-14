@@ -27,6 +27,7 @@ PAIRED_STATS = {
     54: [55, 56],
     57: [58, 59],
 }
+_PAIRED_STAT_IDS = {pid for paired in PAIRED_STATS.values() for pid in paired}
 
 
 class PropertyList:
@@ -40,55 +41,63 @@ class PropertyList:
         self._data: VersionData | None = None
 
     def codec(self, io: BitIO, version: int, data: VersionData | None = None) -> None:
-        """Serialize or deserialize magical properties using BitIO.
-
-        Reading and writing have distinct control flows because reading unpacks
-        variable-length bitfields from the stream into list elements until the 0x1FF
-        terminator is reached, whereas writing iterates through the in-memory list
-        while handling paired stats.
-        """
-        if io.is_reading:
-            if data is None:
-                raise ValueError(
-                    f"VersionData is required to parse item properties for version {version:#x}"
-                )
-            assert isinstance(io, BitReader)
-            self.deserialize(io.bs, version, data)
-        else:
-            assert isinstance(io, BitWriter)
-            self.serialize(io.bs, version, data)
-
-    def deserialize(self, bs: IBitStream, version: int, data: VersionData) -> None:
-        self._version = version
-        self._data = data
-        self.properties = []
+        """Serialize or deserialize magical properties using BitIO."""
+        d = data or self._data
+        if d is None:
+            action = "parse" if io.is_reading else "serialize"
+            raise ValueError(
+                f"VersionData is required to {action} item properties for version {version:#x}"
+            )
         self._use_stat_cost = is_d2r(version)
 
-        trace_props = logger.isEnabledFor(logging.DEBUG)
-        while True:
-            bit_pos = bs.get_offset() if trace_props else 0
-            self.end_flag = bs.read_bits(9)
-            if self.end_flag >= 0x1FF:
-                break
-
-            if self._use_stat_cost:
-                stat_cost = data.get_stat(self.end_flag)
-                if stat_cost is None or stat_cost.save_bits == 0:
+        if io.is_reading:
+            self._version = version
+            self._data = d
+            self.properties = []
+            trace = logger.isEnabledFor(logging.DEBUG)
+            while True:
+                bit_pos = io.get_offset() if trace else 0
+                self.end_flag = io.bits(9)
+                if self.end_flag >= 0x1FF:
+                    break
+                self._codec_property(io, self.end_flag, 0, 0, d, trace=trace, bit_pos=bit_pos)
+        else:
+            for prop_id, layer, value in self.properties:
+                if prop_id in _PAIRED_STAT_IDS:
                     continue
+                io.bits(9, prop_id)
+                self._codec_property(io, prop_id, layer, value, d)
+            io.bits(9, 0x1FF)
 
-                layer = 0
-                if stat_cost.save_param_bits > 0:
-                    layer = bs.read_bits(stat_cost.save_param_bits)
+    def _codec_property(
+        self,
+        io: BitIO,
+        prop_id: int,
+        layer: int,
+        value: int,
+        data: VersionData,
+        *,
+        trace: bool = False,
+        bit_pos: int = 0,
+    ) -> None:
+        if self._use_stat_cost:
+            stat_cost = data.get_stat(prop_id)
+            if stat_cost is None or stat_cost.save_bits == 0:
+                return
 
-                raw_value = bs.read_bits(stat_cost.save_bits)
+            if stat_cost.save_param_bits > 0:
+                layer = io.bits(stat_cost.save_param_bits, layer)
+
+            raw_value = 0 if io.is_reading else (value >> stat_cost.val_shift) + stat_cost.save_add
+            raw_value = io.bits(stat_cost.save_bits, raw_value)
+            if io.is_reading:
                 value = (raw_value - stat_cost.save_add) << stat_cost.val_shift
-                self.properties.append((self.end_flag, layer, value))
-
-                if trace_props:
+                self.properties.append((prop_id, layer, value))
+                if trace:
                     logger.debug(
                         "  stat %s: bit_pos=%s, layer=%s, raw_value=%s, value=%s, "
                         "save_bits=%s, save_param_bits=%s",
-                        self.end_flag,
+                        prop_id,
                         bit_pos,
                         layer,
                         raw_value,
@@ -97,24 +106,41 @@ class PropertyList:
                         stat_cost.save_param_bits,
                     )
 
-                for paired_id in PAIRED_STATS.get(self.end_flag, []):
-                    paired_cost = data.get_stat(paired_id)
-                    if paired_cost and paired_cost.save_bits > 0:
-                        paired_raw = bs.read_bits(paired_cost.save_bits)
+            for paired_id in PAIRED_STATS.get(prop_id, []):
+                paired_cost = data.get_stat(paired_id)
+                if paired_cost and paired_cost.save_bits > 0:
+                    if io.is_writing:
+                        paired_val = next(
+                            (pv for pid, _pl, pv in self.properties if pid == paired_id),
+                            None,
+                        )
+                        paired_raw = (
+                            (paired_val >> paired_cost.val_shift) + paired_cost.save_add
+                            if paired_val is not None
+                            else 0
+                        )
+                    else:
+                        paired_raw = 0
+                    paired_raw = io.bits(paired_cost.save_bits, paired_raw)
+                    if io.is_reading:
                         paired_value = (paired_raw - paired_cost.save_add) << paired_cost.val_shift
                         self.properties.append((paired_id, 0, paired_value))
-                        if trace_props:
+                        if trace:
                             logger.debug(
                                 "    paired stat %s: raw=%s, value=%s",
                                 paired_id,
                                 paired_raw,
                                 paired_value,
                             )
-            else:
-                prop_meta = data.get_property_meta(self.end_flag)
-                if prop_meta and prop_meta.bits_sum > 0:
-                    value = bs.read_bits(prop_meta.bits_sum)
-                    self.properties.append((self.end_flag, 0, value))
+        else:
+            prop_meta = data.get_property_meta(prop_id)
+            if prop_meta and prop_meta.bits_sum > 0:
+                value = io.bits(prop_meta.bits_sum, value)
+                if io.is_reading:
+                    self.properties.append((prop_id, 0, value))
+
+    def deserialize(self, bs: IBitStream, version: int, data: VersionData | None = None) -> None:
+        self.codec(BitReader(bs), version, data)
 
     def ext_sockets(self) -> int:
         r = 0
@@ -216,47 +242,4 @@ class PropertyList:
         return [layer, display_value, 0, 0]
 
     def serialize(self, bs: OBitStream, version: int, data: VersionData | None = None) -> None:
-        d = data or self._data
-        if d is None:
-            raise ValueError("VersionData required for PropertyList serialization")
-        self._use_stat_cost = is_d2r(version)
-
-        all_paired_ids = set()
-        for paired_list in PAIRED_STATS.values():
-            all_paired_ids.update(paired_list)
-
-        for prop_id, layer, value in self.properties:
-            if prop_id in all_paired_ids:
-                continue
-
-            bs.write_bits(9, prop_id)
-
-            if self._use_stat_cost:
-                stat_cost = d.get_stat(prop_id)
-                if stat_cost is None or stat_cost.save_bits == 0:
-                    continue
-
-                if stat_cost.save_param_bits > 0:
-                    bs.write_bits(stat_cost.save_param_bits, layer)
-
-                raw_value = (value >> stat_cost.val_shift) + stat_cost.save_add
-                bs.write_bits(stat_cost.save_bits, raw_value)
-
-                for paired_id in PAIRED_STATS.get(prop_id, []):
-                    paired_cost = d.get_stat(paired_id)
-                    if paired_cost and paired_cost.save_bits > 0:
-                        paired_found = False
-                        for pid, _pl, pv in self.properties:
-                            if pid == paired_id:
-                                paired_raw = (pv >> paired_cost.val_shift) + paired_cost.save_add
-                                bs.write_bits(paired_cost.save_bits, paired_raw)
-                                paired_found = True
-                                break
-                        if not paired_found:
-                            bs.write_bits(paired_cost.save_bits, 0)
-            else:
-                prop_meta = d.get_property_meta(prop_id)
-                if prop_meta and prop_meta.bits_sum > 0:
-                    bs.write_bits(prop_meta.bits_sum, value)
-
-        bs.write_bits(9, 0x1FF)
+        self.codec(BitWriter(bs), version, data)

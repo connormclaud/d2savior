@@ -1050,10 +1050,7 @@ class ItemList:
 
             self.items = []
             for _ in range(self.count):
-                assert isinstance(io, BitReader)
-                if io.bs.is_end():
-                    break
-                if io.bs.remaining() < 16 * 8:
+                if io.remaining_bits() < 16 * 8:
                     break
                 item = D2Item()
                 start_offset = io.get_offset()

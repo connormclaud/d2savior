@@ -227,8 +227,11 @@ class TestIBitStreamNewInterface:
 
         stream = IBitStream(b"\x10\x20\x30\x40")
         reader = BitReader(stream)
+        assert reader.remaining_bits() == 32
         reader.bits(5)
+        assert reader.remaining_bits() == 27
         reader.seek_bytes(2)
+        assert reader.remaining_bits() == 16
         assert reader.get_offset() == 16
         assert reader.byte() == 0x30
 
@@ -238,6 +241,7 @@ class TestIBitStreamNewInterface:
 
         # Seeking to exact EOF is allowed
         reader.seek_bytes(4)
+        assert reader.remaining_bits() == 0
         assert stream.is_end()
 
         with pytest.raises(ValueError, match="out of range"):
@@ -250,6 +254,8 @@ class TestIBitStreamNewInterface:
             writer.seek_bits(0)
         with pytest.raises(NotImplementedError):
             writer.seek_bytes(0)
+        with pytest.raises(NotImplementedError):
+            writer.remaining_bits()
 
     def test_snake_case_aliases(self):
         stream = IBitStream(b"v\x01")
