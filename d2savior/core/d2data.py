@@ -1,7 +1,7 @@
 import copy
 import importlib.resources
 import json
-from collections.abc import Buffer, Sequence
+from collections.abc import Buffer, Iterator, Sequence
 from dataclasses import dataclass, field
 from importlib.resources.abc import Traversable
 from itertools import batched
@@ -26,6 +26,92 @@ def open_resource(
 
 
 _open_resource = open_resource
+
+
+class TsvRow:
+    """Single row from a tab-separated D2 game table."""
+
+    __slots__ = ("_col_map", "_parts", "_strip_cells", "index")
+
+    def __init__(
+        self,
+        index: int,
+        col_map: dict[str, int],
+        parts: list[str],
+        *,
+        strip_cells: bool = True,
+    ) -> None:
+        self.index = index
+        self._col_map = col_map
+        self._parts = parts
+        self._strip_cells = strip_cells
+
+    def get(self, col_name: str, default: str = "") -> str:
+        """Return cell value by case-insensitive column name, or default if missing."""
+        idx = self._col_map.get(col_name.strip().lower(), -1)
+        if 0 <= idx < len(self._parts):
+            val = self._parts[idx]
+            return val.strip() if self._strip_cells else val
+        return default
+
+    def get_int(self, col_name: str, default: int = 0) -> int:
+        """Return cell value parsed as int, or default if empty or non-numeric."""
+        raw = self.get(col_name).strip()
+        if not raw:
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            return default
+
+    def get_bool(self, col_name: str) -> bool:
+        """Return True if cell equals '1'."""
+        return self.get(col_name) == "1"
+
+
+class TsvReader:
+    """Reader for tab-separated D2 game tables with normalized case-insensitive headers."""
+
+    def __init__(
+        self,
+        filepath: str | Traversable,
+        *,
+        skip_expansion: bool = True,
+        strip_cells: bool = True,
+    ) -> None:
+        self._skip_expansion = skip_expansion
+        self._strip_cells = strip_cells
+
+        with _open_resource(filepath, encoding="utf-8-sig", errors="replace") as f:
+            lines = f.readlines()
+
+        if not lines:
+            self._col_map: dict[str, int] = {}
+            self._data_lines: list[str] = []
+            return
+
+        header = lines[0].rstrip("\r\n").split("\t")
+        self._col_map = {col.strip().lower(): i for i, col in enumerate(header)}
+        self._data_lines = lines[1:]
+
+    def has_columns(self, *col_names: str) -> bool:
+        """Return True if all specified column names exist in the table header."""
+        return all(name.strip().lower() in self._col_map for name in col_names)
+
+    def __iter__(self) -> Iterator[TsvRow]:
+        for idx, line in enumerate(self._data_lines):
+            raw_line = line.rstrip("\r\n")
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("*"):
+                continue
+            if self._skip_expansion and stripped.startswith("Expansion"):
+                continue
+            yield TsvRow(
+                idx,
+                self._col_map,
+                raw_line.split("\t"),
+                strip_cells=self._strip_cells,
+            )
 
 
 @dataclass(slots=True)
@@ -581,67 +667,36 @@ class D2DataLoader:
     def load_itemstatcost(
         self, filepath: str | Traversable
     ) -> tuple[dict[int, StatInfo], dict[str, StatInfo]]:
-        stats = {}
-        stats_by_name = {}
+        stats: dict[int, StatInfo] = {}
+        stats_by_name: dict[str, StatInfo] = {}
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if len(lines) < 1:
-            return stats, stats_by_name
-
-        header = lines[0].strip().split("\t")
-        col_map = {col.strip().lower(): i for i, col in enumerate(header)}
-
-        for line in lines[1:]:
-            line = line.strip()
-            if not line or line.startswith("*"):
-                continue
-
-            parts = line.split("\t")
-
-            def get_col(col_name: str, default: str = "", _parts: list[str] = parts) -> str:
-                idx = col_map.get(col_name.strip().lower(), -1)
-                if 0 <= idx < len(_parts):
-                    return _parts[idx].strip()
-                return default
-
-            def get_int(col_name: str, default: int = 0) -> int:
-                val = get_col(col_name)
-                if val:
-                    try:
-                        return int(val)
-                    except ValueError:
-                        return default
-                return default
-
-            stat_name = get_col("Stat")
-            stat_id = get_int("*ID")
-
+        for row in TsvReader(filepath):
+            stat_name = row.get("Stat")
+            stat_id = row.get_int("*ID", -1)
             if stat_id < 0:
                 continue
 
             stat = StatInfo(
                 stat_id=stat_id,
                 stat_name=stat_name,
-                send_bits=get_int("Send Bits"),
-                send_param_bits=get_int("Send Param Bits"),
-                save_bits=get_int("Save Bits"),
-                save_add=get_int("Save Add"),
-                save_param_bits=get_int("Save Param Bits"),
-                val_shift=get_int("ValShift"),
-                op=get_int("op"),
-                op_param=get_int("op param"),
-                op_base=get_int("op base"),
-                op_stat1=get_int("op stat1"),
-                op_stat2=get_int("op stat2"),
-                op_stat3=get_int("op stat3"),
-                descpriority=get_int("descpriority"),
-                descfunc=get_int("descfunc"),
-                descval=get_int("descval"),
-                descstrpos=get_col("descstrpos"),
-                descstrneg=get_col("descstrneg"),
-                descstr2=get_col("descstr2"),
+                send_bits=row.get_int("Send Bits"),
+                send_param_bits=row.get_int("Send Param Bits"),
+                save_bits=row.get_int("Save Bits"),
+                save_add=row.get_int("Save Add"),
+                save_param_bits=row.get_int("Save Param Bits"),
+                val_shift=row.get_int("ValShift"),
+                op=row.get_int("op"),
+                op_param=row.get_int("op param"),
+                op_base=row.get_int("op base"),
+                op_stat1=row.get_int("op stat1"),
+                op_stat2=row.get_int("op stat2"),
+                op_stat3=row.get_int("op stat3"),
+                descpriority=row.get_int("descpriority"),
+                descfunc=row.get_int("descfunc"),
+                descval=row.get_int("descval"),
+                descstrpos=row.get("descstrpos"),
+                descstrneg=row.get("descstrneg"),
+                descstr2=row.get("descstr2"),
             )
 
             stats[stat_id] = stat
@@ -653,86 +708,46 @@ class D2DataLoader:
     def load_properties(
         self, filepath: str | Traversable
     ) -> tuple[dict[int, PropertyInfo], dict[str, PropertyInfo]]:
-        properties = {}
-        properties_by_code = {}
+        properties: dict[int, PropertyInfo] = {}
+        properties_by_code: dict[str, PropertyInfo] = {}
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if len(lines) < 1:
-            return properties, properties_by_code
-
-        header = lines[0].strip().split("\t")
-        col_map = {}
-        for i, col in enumerate(header):
-            col_map[col] = i
-
-        for line in lines[1:]:
-            line = line.strip()
-            if not line or line.startswith("*"):
-                continue
-
-            parts = line.split("\t")
-
-            def get_col(col_name: str, default: str = "", _parts: list[str] = parts) -> str:
-                if col_name in col_map and col_map[col_name] < len(_parts):
-                    return _parts[col_map[col_name]]
-                return default
-
-            def get_int(col_name: str, default: int = 0) -> int:
-                val = get_col(col_name)
-                if val:
-                    try:
-                        return int(val)
-                    except ValueError:
-                        return default
-                return default
-
-            code = get_col("code")
-            prop_id_str = get_col("*Id")
-
-            if not prop_id_str or not code:
-                continue
-
-            try:
-                prop_id = int(prop_id_str)
-            except ValueError:
-                continue
-
-            if prop_id < 0:
+        for row in TsvReader(filepath):
+            code = row.get("code")
+            prop_id = row.get_int("*Id", -1)
+            if not code or prop_id < 0:
                 continue
 
             prop = PropertyInfo(
                 prop_id=prop_id,
                 code=code,
-                func1=get_int("func1"),
-                stat1=get_col("stat1"),
-                set1=get_int("set1"),
-                val1=get_int("val1"),
-                func2=get_int("func2"),
-                stat2=get_col("stat2"),
-                set2=get_int("set2"),
-                val2=get_int("val2"),
-                func3=get_int("func3"),
-                stat3=get_col("stat3"),
-                set3=get_int("set3"),
-                val3=get_int("val3"),
-                func4=get_int("func4"),
-                stat4=get_col("stat4"),
-                set4=get_int("set4"),
-                val4=get_int("val4"),
-                func5=get_int("func5"),
-                stat5=get_col("stat5"),
-                set5=get_int("set5"),
-                val5=get_int("val5"),
-                func6=get_int("func6"),
-                stat6=get_col("stat6"),
-                set6=get_int("set6"),
-                val6=get_int("val6"),
-                func7=get_int("func7"),
-                stat7=get_col("stat7"),
-                set7=get_int("set7"),
-                val7=get_int("val7"),
+                func1=row.get_int("func1"),
+                stat1=row.get("stat1"),
+                set1=row.get_int("set1"),
+                val1=row.get_int("val1"),
+                func2=row.get_int("func2"),
+                stat2=row.get("stat2"),
+                set2=row.get_int("set2"),
+                val2=row.get_int("val2"),
+                func3=row.get_int("func3"),
+                stat3=row.get("stat3"),
+                set3=row.get_int("set3"),
+                val3=row.get_int("val3"),
+                func4=row.get_int("func4"),
+                stat4=row.get("stat4"),
+                set4=row.get_int("set4"),
+                val4=row.get_int("val4"),
+                func5=row.get_int("func5"),
+                stat5=row.get("stat5"),
+                set5=row.get_int("set5"),
+                val5=row.get_int("val5"),
+                func6=row.get_int("func6"),
+                stat6=row.get("stat6"),
+                set6=row.get_int("set6"),
+                val6=row.get_int("val6"),
+                func7=row.get_int("func7"),
+                stat7=row.get("stat7"),
+                set7=row.get_int("set7"),
+                val7=row.get_int("val7"),
             )
 
             properties[prop_id] = prop
@@ -743,233 +758,111 @@ class D2DataLoader:
     def load_items_txt(
         self, filepath: str | Traversable, item_category: str
     ) -> dict[str, ItemTypeInfo]:
-        items = {}
+        items: dict[str, ItemTypeInfo] = {}
+        belt_col_to_rows = {0: 3, 1: 2, 3: 4, 4: 2, 5: 3, 6: 4}
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if len(lines) < 1:
-            return items
-
-        header = lines[0].strip().split("\t")
-        col_map = {}
-        for i, col in enumerate(header):
-            col_map[col] = i
-
-        for line in lines[1:]:
-            line = line.strip()
-            if not line or line.startswith("*"):
-                continue
-
-            parts = line.split("\t")
-
-            def get_col(col_name: str, default: str = "", _parts: list[str] = parts) -> str:
-                if col_name in col_map and col_map[col_name] < len(_parts):
-                    return _parts[col_map[col_name]]
-                return default
-
-            def get_int(col_name: str, default: int = 0) -> int:
-                val = get_col(col_name)
-                if val:
-                    try:
-                        return int(val)
-                    except ValueError:
-                        return default
-                return default
-
-            def get_bool(col_name: str) -> bool:
-                val = get_col(col_name)
-                return val == "1"
-
-            code = get_col("code")
+        for row in TsvReader(filepath, strip_cells=False):
+            code = row.get("code")
             if not code or code == "xxx":
                 continue
 
-            belt_col_to_rows = {0: 3, 1: 2, 3: 4, 4: 2, 5: 3, 6: 4}
-            item_type_col = get_col("type").lower().strip()
+            item_type_col = row.get("type").lower().strip()
             belt_rows = 0
             if item_type_col == "belt":
-                belt_col_val = get_int("belt", -1)
+                belt_col_val = row.get_int("belt", -1)
                 belt_rows = belt_col_to_rows.get(belt_col_val, 0)
 
             item = ItemTypeInfo(
                 code=code,
-                name=get_col("name"),
+                name=row.get("name"),
                 item_type=item_category,
-                item_type2=get_col("type"),
-                invwidth=get_int("invwidth", 1),
-                invheight=get_int("invheight", 1),
-                hasinv=get_bool("hasinv"),
-                gemsockets=get_int("gemsockets"),
-                stackable=get_bool("stackable"),
-                useable=get_bool("useable"),
-                compactsave=get_bool("compactsave"),
-                version=get_int("version"),
-                rarity=get_int("rarity"),
-                spawnable=get_bool("spawnable"),
-                nodurability=get_bool("nodurability"),
-                durability=get_int("durability"),
-                mindam=get_int("mindam"),
-                maxdam=get_int("maxdam"),
-                minmisdam=get_int("minmisdam"),
-                maxmisdam=get_int("maxmisdam"),
-                speed=get_int("speed"),
-                reqstr=get_int("reqstr"),
-                reqdex=get_int("reqdex"),
-                level=get_int("level"),
-                levelreq=get_int("levelreq"),
-                cost=get_int("cost"),
-                component=get_int("component"),
-                type=get_col("type"),
-                type2=get_col("type2"),
-                minstack=get_int("minstack"),
-                maxstack=get_int("maxstack"),
-                spawnstack=get_int("spawnstack"),
-                quest=get_int("quest"),
-                questdiffcheck=get_bool("questdiffcheck"),
-                spell_id=get_int("pSpell"),
-                spellicon=get_int("spellicon"),
+                item_type2=row.get("type"),
+                invwidth=row.get_int("invwidth", 1),
+                invheight=row.get_int("invheight", 1),
+                hasinv=row.get_bool("hasinv"),
+                gemsockets=row.get_int("gemsockets"),
+                stackable=row.get_bool("stackable"),
+                useable=row.get_bool("useable"),
+                compactsave=row.get_bool("compactsave"),
+                version=row.get_int("version"),
+                rarity=row.get_int("rarity"),
+                spawnable=row.get_bool("spawnable"),
+                nodurability=row.get_bool("nodurability"),
+                durability=row.get_int("durability"),
+                mindam=row.get_int("mindam"),
+                maxdam=row.get_int("maxdam"),
+                minmisdam=row.get_int("minmisdam"),
+                maxmisdam=row.get_int("maxmisdam"),
+                speed=row.get_int("speed"),
+                reqstr=row.get_int("reqstr"),
+                reqdex=row.get_int("reqdex"),
+                level=row.get_int("level"),
+                levelreq=row.get_int("levelreq"),
+                cost=row.get_int("cost"),
+                component=row.get_int("component"),
+                type=row.get("type"),
+                type2=row.get("type2"),
+                minstack=row.get_int("minstack"),
+                maxstack=row.get_int("maxstack"),
+                spawnstack=row.get_int("spawnstack"),
+                quest=row.get_int("quest"),
+                questdiffcheck=row.get_bool("questdiffcheck"),
+                spell_id=row.get_int("pSpell"),
+                spellicon=row.get_int("spellicon"),
                 belt_rows=belt_rows,
             )
 
             items[code] = item
 
-            normcode = get_col("normcode")
-            if normcode and normcode != "xxx" and normcode not in items:
-                items[normcode] = item
-
-            ubercode = get_col("ubercode")
-            if ubercode and ubercode != "xxx" and ubercode not in items:
-                items[ubercode] = item
-
-            ultracode = get_col("ultracode")
-            if ultracode and ultracode != "xxx" and ultracode not in items:
-                items[ultracode] = item
+            for alias_col in ("normcode", "ubercode", "ultracode"):
+                alias = row.get(alias_col)
+                if alias and alias != "xxx" and alias not in items:
+                    items[alias] = item
 
         return items
 
     def load_magic_affix(
         self, filepath: str | Traversable, is_prefix: bool
     ) -> dict[int, MagicAffixInfo]:
-        affix_dict = {}
+        affix_dict: dict[int, MagicAffixInfo] = {}
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if len(lines) < 1:
-            return affix_dict
-
-        header = lines[0].strip().split("\t")
-        col_map = {}
-        for i, col in enumerate(header):
-            col_map[col] = i
-
-        for idx, line in enumerate(lines[1:]):
-            line = line.rstrip("\r\n")
-            if not line or line.startswith("*"):
-                continue
-
-            parts = line.split("\t")
-
-            def get_col(col_name: str, default: str = "", _parts: list[str] = parts) -> str:
-                if col_name in col_map and col_map[col_name] < len(_parts):
-                    return _parts[col_map[col_name]]
-                return default
-
-            def get_int(col_name: str, default: int = 0) -> int:
-                val = get_col(col_name)
-                if val:
-                    try:
-                        return int(val)
-                    except ValueError:
-                        return default
-                return default
-
-            name = get_col("Name")
+        for row in TsvReader(filepath, skip_expansion=False):
+            name = row.get("Name")
             if not name:
                 continue
 
-            affix = MagicAffixInfo(
+            affix_dict[row.index] = MagicAffixInfo(
                 name=name,
-                affix_id=idx,
-                level=get_int("level"),
-                levelreq=get_int("levelreq"),
+                affix_id=row.index,
+                level=row.get_int("level"),
+                levelreq=row.get_int("levelreq"),
             )
-            affix_dict[idx] = affix
 
         return affix_dict
 
     def load_rare_affix(self, filepath: str | Traversable, offset: int = 0) -> dict[int, str]:
-        affix_dict = {}
+        affix_dict: dict[int, str] = {}
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if len(lines) < 1:
-            return affix_dict
-
-        header = lines[0].strip().split("\t")
-        col_map = {col: i for i, col in enumerate(header)}
-        name_col = col_map.get("name", 0)
-
-        for idx, line in enumerate(lines[1:]):
-            line = line.rstrip("\r\n")
-            if not line or line.startswith("*"):
-                continue
-
-            parts = line.split("\t")
-            if name_col < len(parts):
-                name = parts[name_col].strip()
-                if name:
-                    affix_dict[offset + idx + 1] = name
+        for row in TsvReader(filepath, skip_expansion=False):
+            name = row.get("name")
+            if name:
+                affix_dict[offset + row.index + 1] = name
 
         return affix_dict
 
     def load_unique_items(self, filepath: str | Traversable) -> dict[int, UniqueItemInfo]:
-        unique_items = {}
+        unique_items: dict[int, UniqueItemInfo] = {}
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if len(lines) < 1:
-            return unique_items
-
-        header = lines[0].strip().split("\t")
-        col_map = {}
-        for i, col in enumerate(header):
-            col_map[col] = i
-
-        for line in lines[1:]:
-            line = line.strip()
-            if not line or line.startswith("*"):
-                continue
-
-            parts = line.split("\t")
-
-            def get_col(col_name: str, default: str = "", _parts: list[str] = parts) -> str:
-                if col_name in col_map and col_map[col_name] < len(_parts):
-                    return _parts[col_map[col_name]]
-                return default
-
-            def get_int(col_name: str, default: int = 0) -> int:
-                val = get_col(col_name)
-                if val:
-                    try:
-                        return int(val)
-                    except ValueError:
-                        return default
-                return default
-
-            unique_id = get_int("*ID")
+        for row in TsvReader(filepath):
+            unique_id = row.get_int("*ID")
             if unique_id <= 0:
                 continue
 
-            item = UniqueItemInfo(
-                index=get_col("index"),
+            unique_items[unique_id] = UniqueItemInfo(
+                index=row.get("index"),
                 unique_id=unique_id,
-                code=get_col("code"),
+                code=row.get("code"),
             )
-            unique_items[unique_id] = item
 
         return unique_items
 
@@ -1002,56 +895,34 @@ class D2DataLoader:
         runewords: dict[int, RuneWordInfo] = {}
 
         if runes_file:
-            with _open_resource(runes_file, encoding="utf-8-sig") as f:
-                lines = f.readlines()
-            if lines:
-                header = lines[0].strip().split("\t")
-                name_idx = header.index("Name") if "Name" in header else 0
-                rune_name_idx = header.index("*Rune Name") if "*Rune Name" in header else -1
-                rune_fields = [
-                    header.index(f"Rune{i}") for i in range(1, 7) if f"Rune{i}" in header
-                ]
+            for row in TsvReader(runes_file):
+                key = row.get("Name")
+                if not key.startswith("Runeword"):
+                    continue
 
-                for line in lines[1:]:
-                    parts = line.strip().split("\t")
-                    if len(parts) <= name_idx:
-                        continue
-                    key = parts[name_idx].strip()
-                    if not key or not key.startswith("Runeword"):
-                        continue
+                canonical_name = row.get("*Rune Name") or key
+                rune_codes = [code for i in range(1, 7) if (code := row.get(f"Rune{i}"))]
 
-                    canonical_name = (
-                        parts[rune_name_idx].strip()
-                        if 0 <= rune_name_idx < len(parts) and parts[rune_name_idx]
-                        else key
-                    )
+                try:
+                    rw_num = int(key.replace("Runeword", ""))
+                except ValueError:
+                    rw_num = 0
 
-                    rune_codes = [
-                        parts[idx].strip()
-                        for idx in rune_fields
-                        if idx < len(parts) and parts[idx].strip()
-                    ]
+                json_entry = json_by_key.get(key, {})
+                d2r_id = json_entry.get("id", rw_num)
+                display_name = json_entry.get("enUS", canonical_name)
 
-                    try:
-                        rw_num = int(key.replace("Runeword", ""))
-                    except ValueError:
-                        rw_num = 0
+                rw_info = RuneWordInfo(
+                    name=display_name,
+                    runeword_id=d2r_id,
+                    key=key,
+                    rune_codes=rune_codes,
+                )
 
-                    json_entry = json_by_key.get(key, {})
-                    d2r_id = json_entry.get("id", rw_num)
-                    display_name = json_entry.get("enUS", canonical_name)
-
-                    rw_info = RuneWordInfo(
-                        name=display_name,
-                        runeword_id=d2r_id,
-                        key=key,
-                        rune_codes=rune_codes,
-                    )
-
-                    if d2r_id > 0:
-                        runewords[d2r_id] = rw_info
-                    if rw_num > 0 and rw_num not in runewords:
-                        runewords[rw_num] = rw_info
+                if d2r_id > 0:
+                    runewords[d2r_id] = rw_info
+                if rw_num > 0 and rw_num not in runewords:
+                    runewords[rw_num] = rw_info
 
         for key, item in json_by_key.items():
             if key.startswith("Runeword"):
@@ -1064,81 +935,34 @@ class D2DataLoader:
 
     def load_gems(self, filepath: str | Traversable) -> dict[str, GemInfo]:
         gems: dict[str, GemInfo] = {}
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
 
-        if len(lines) < 1:
-            return gems
-
-        header = [h.strip() for h in lines[0].strip().split("\t")]
-        col_map = {col.lower(): i for i, col in enumerate(header)}
-
-        for line in lines[1:]:
-            line = line.strip()
-            if not line or line.startswith(("*", "Expansion")):
-                continue
-            parts = line.split("\t")
-
-            def get_col(name: str, default: str = "", _parts: list[str] = parts) -> str:
-                idx = col_map.get(name.lower(), -1)
-                return _parts[idx].strip() if 0 <= idx < len(_parts) else default
-
-            def to_int(val: str, default: int = 0) -> int:
-                try:
-                    return int(val)
-                except ValueError:
-                    return default
-
-            code = get_col("code").lower()
+        for row in TsvReader(filepath):
+            code = row.get("code").lower()
             if not code:
                 continue
 
-            name = get_col("name")
-            weapon_mods = []
-            for i in range(1, 4):
-                mod_code = get_col(f"weaponmod{i}code")
-                if mod_code:
-                    weapon_mods.append(
-                        GemMod(
-                            code=mod_code,
-                            param=to_int(get_col(f"weaponmod{i}param")),
-                            min_val=to_int(get_col(f"weaponmod{i}min")),
-                            max_val=to_int(get_col(f"weaponmod{i}max")),
+            mod_groups: dict[str, list[GemMod]] = {}
+            for prefix in ("weaponmod", "helmmod", "shieldmod"):
+                mods: list[GemMod] = []
+                for i in range(1, 4):
+                    mod_code = row.get(f"{prefix}{i}code")
+                    if mod_code:
+                        mods.append(
+                            GemMod(
+                                code=mod_code,
+                                param=row.get_int(f"{prefix}{i}param"),
+                                min_val=row.get_int(f"{prefix}{i}min"),
+                                max_val=row.get_int(f"{prefix}{i}max"),
+                            )
                         )
-                    )
-
-            helm_mods = []
-            for i in range(1, 4):
-                mod_code = get_col(f"helmmod{i}code")
-                if mod_code:
-                    helm_mods.append(
-                        GemMod(
-                            code=mod_code,
-                            param=to_int(get_col(f"helmmod{i}param")),
-                            min_val=to_int(get_col(f"helmmod{i}min")),
-                            max_val=to_int(get_col(f"helmmod{i}max")),
-                        )
-                    )
-
-            shield_mods = []
-            for i in range(1, 4):
-                mod_code = get_col(f"shieldmod{i}code")
-                if mod_code:
-                    shield_mods.append(
-                        GemMod(
-                            code=mod_code,
-                            param=to_int(get_col(f"shieldmod{i}param")),
-                            min_val=to_int(get_col(f"shieldmod{i}min")),
-                            max_val=to_int(get_col(f"shieldmod{i}max")),
-                        )
-                    )
+                mod_groups[prefix] = mods
 
             gems[code] = GemInfo(
                 code=code,
-                name=name,
-                weapon_mods=weapon_mods,
-                helm_mods=helm_mods,
-                shield_mods=shield_mods,
+                name=row.get("name"),
+                weapon_mods=mod_groups["weaponmod"],
+                helm_mods=mod_groups["helmmod"],
+                shield_mods=mod_groups["shieldmod"],
             )
 
         return gems
@@ -1301,8 +1125,6 @@ class D2DataLoader:
         json_path: str | Traversable | None = None,
     ) -> dict[int, SetItemInfo]:
         """Load set items from game table (setitems.txt) with localized names from item-names.json."""
-        import json
-
         name_str = setitems_path if isinstance(setitems_path, str) else setitems_path.name
         if json_path is None and name_str.endswith(".json"):
             json_file: str | Traversable | None = setitems_path
@@ -1316,7 +1138,7 @@ class D2DataLoader:
 
         json_by_key: dict[str, dict] = {}
         if json_file:
-            with open_resource(json_file, encoding="utf-8-sig") as f:
+            with _open_resource(json_file, encoding="utf-8-sig") as f:
                 data = json.load(f)
             for item in data:
                 if isinstance(item, dict):
@@ -1327,35 +1149,21 @@ class D2DataLoader:
         set_items: dict[int, SetItemInfo] = {}
 
         if table_file:
-            with open_resource(table_file, encoding="utf-8-sig", errors="replace") as f:
-                lines = f.readlines()
-
-            for line in lines:
-                line = line.strip()
-                if not line or line.startswith("*"):
-                    continue
-                parts = line.split("\t")
-                if len(parts) < 2 or not parts[1].isdigit():
-                    continue
-
-                key = parts[0].strip()
-                row_id = int(parts[1])
-
-                json_entry = json_by_key.get(key, {})
-                d2r_id = json_entry.get("id", 0)
-
-                set_info = SetItemInfo(name=key, set_id=d2r_id)
-                set_items[row_id] = set_info
-                if d2r_id > 0 and d2r_id not in set_items:
-                    set_items[d2r_id] = set_info
+            entries = (
+                (key, row_id)
+                for row in TsvReader(table_file)
+                if (key := row.get("index")) and (row_id := row.get_int("*ID", -1)) >= 0
+            )
         else:
-            for idx, name in enumerate(self.SET_ITEM_NAMES):
-                json_entry = json_by_key.get(name, {})
-                item_id = json_entry.get("id", 0)
-                set_info = SetItemInfo(name=name, set_id=item_id)
-                set_items[idx] = set_info
-                if item_id > 0 and item_id not in set_items:
-                    set_items[item_id] = set_info
+            entries = ((name, idx) for idx, name in enumerate(self.SET_ITEM_NAMES))
+
+        for name, row_id in entries:
+            json_entry = json_by_key.get(name, {})
+            d2r_id = json_entry.get("id", 0)
+            set_info = SetItemInfo(name=name, set_id=d2r_id)
+            set_items[row_id] = set_info
+            if d2r_id > 0 and d2r_id not in set_items:
+                set_items[d2r_id] = set_info
 
         return set_items
 
@@ -1366,47 +1174,18 @@ class D2DataLoader:
         aura_skill_ids: set[int] = set()
         fire_skill_ids: set[int] = set()
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if len(lines) < 1:
-            return skills, aura_skill_ids, fire_skill_ids
-
-        header = lines[0].strip().split("\t")
-        col_map = {}
-        for i, col in enumerate(header):
-            col_map[col] = i
-
-        for line in lines[1:]:
-            line = line.strip()
-            if not line or line.startswith("*"):
+        for row in TsvReader(filepath):
+            skill_id = row.get_int("*Id", -1)
+            if skill_id < 0:
                 continue
 
-            parts = line.split("\t")
-
-            def get_col(col_name: str, default: str = "", _parts: list[str] = parts) -> str:
-                if col_name in col_map and col_map[col_name] < len(_parts):
-                    return _parts[col_map[col_name]]
-                return default
-
-            def get_int(col_name: str, default: int = 0) -> int:
-                val = get_col(col_name)
-                if val:
-                    try:
-                        return int(val)
-                    except ValueError:
-                        return default
-                return default
-
-            skill_name = get_col("skill")
-            skill_id = get_int("*Id")
-
-            if skill_id >= 0 and skill_name:
+            skill_name = row.get("skill")
+            if skill_name:
                 skills[skill_id] = skill_name
 
-            if get_int("aura") == 1:
+            if row.get_int("aura") == 1:
                 aura_skill_ids.add(skill_id)
-            if skill_id >= 0 and get_col("EType") == "fire":
+            if row.get("EType") == "fire":
                 fire_skill_ids.add(skill_id)
 
         return skills, aura_skill_ids, fire_skill_ids
@@ -1419,77 +1198,43 @@ class D2DataLoader:
         """Load hireling definitions from hireling.txt, preferring Version 100 entries."""
         grouped: dict[int, dict[int, tuple[HirelingInfo, list[HirelingLevelInfo]]]] = {}
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if len(lines) < 1:
-            return {}
-
-        header = lines[0].rstrip("\r\n").split("\t")
-        col_map = {col: i for i, col in enumerate(header)}
-
-        for line in lines[1:]:
-            raw_line = line.rstrip("\r\n")
-            if not raw_line or raw_line.startswith("*"):
+        for row in TsvReader(filepath):
+            hireling_id = row.get_int("Id", -1)
+            if hireling_id < 0:
                 continue
 
-            parts = raw_line.split("\t")
-
-            def get_col(col_name: str, default: str = "", _parts: list[str] = parts) -> str:
-                idx = col_map.get(col_name)
-                if idx is not None and idx < len(_parts):
-                    return _parts[idx]
-                return default
-
-            def get_int(col_name: str, default: int = 0, _parts: list[str] = parts) -> int:
-                raw = get_col(col_name, _parts=_parts).strip()
-                if not raw:
-                    return default
-                try:
-                    return int(raw)
-                except ValueError:
-                    return default
-
-            id_str = get_col("Id").strip()
-            if not id_str:
-                continue
-            try:
-                hireling_id = int(id_str)
-            except ValueError:
-                continue
-
-            version = get_int("Version")
+            version = row.get_int("Version")
             ver_map = grouped.setdefault(hireling_id, {})
             if version not in ver_map:
                 info = HirelingInfo(
                     hireling_id=hireling_id,
-                    hireling=get_col("Hireling").strip(),
-                    act=get_int("Act"),
-                    difficulty=get_int("Difficulty"),
-                    name_first=get_col("NameFirst").strip(),
-                    name_last=get_col("NameLast").strip(),
-                    hire_desc=get_col("HireDesc").strip(),
-                    skill_1=get_col("Skill1").strip(),
+                    hireling=row.get("Hireling"),
+                    act=row.get_int("Act"),
+                    difficulty=row.get_int("Difficulty"),
+                    name_first=row.get("NameFirst"),
+                    name_last=row.get("NameLast"),
+                    hire_desc=row.get("HireDesc"),
+                    skill_1=row.get("Skill1"),
                 )
                 ver_map[version] = (info, [])
 
             _, levels_list = ver_map[version]
             levels_list.append(
                 HirelingLevelInfo(
-                    level=get_int("Level"),
-                    exp_per_lvl=get_int("Exp/Lvl"),
-                    str_base=get_int("Str"),
-                    str_per_lvl=get_int("Str/Lvl"),
-                    dex_base=get_int("Dex"),
-                    dex_per_lvl=get_int("Dex/Lvl"),
-                    resist_fire=get_int("ResistFire"),
-                    resist_fire_per_lvl=get_int("ResistFire/Lvl"),
-                    resist_cold=get_int("ResistCold"),
-                    resist_cold_per_lvl=get_int("ResistCold/Lvl"),
-                    resist_lightning=get_int("ResistLightning"),
-                    resist_lightning_per_lvl=get_int("ResistLightning/Lvl"),
-                    resist_poison=get_int("ResistPoison"),
-                    resist_poison_per_lvl=get_int("ResistPoison/Lvl"),
+                    level=row.get_int("Level"),
+                    exp_per_lvl=row.get_int("Exp/Lvl"),
+                    str_base=row.get_int("Str"),
+                    str_per_lvl=row.get_int("Str/Lvl"),
+                    dex_base=row.get_int("Dex"),
+                    dex_per_lvl=row.get_int("Dex/Lvl"),
+                    resist_fire=row.get_int("ResistFire"),
+                    resist_fire_per_lvl=row.get_int("ResistFire/Lvl"),
+                    resist_cold=row.get_int("ResistCold"),
+                    resist_cold_per_lvl=row.get_int("ResistCold/Lvl"),
+                    resist_lightning=row.get_int("ResistLightning"),
+                    resist_lightning_per_lvl=row.get_int("ResistLightning/Lvl"),
+                    resist_poison=row.get_int("ResistPoison"),
+                    resist_poison_per_lvl=row.get_int("ResistPoison/Lvl"),
                 )
             )
 
@@ -1505,32 +1250,15 @@ class D2DataLoader:
     def load_monsters(self, filepath: str | Traversable) -> dict[int, str]:
         """Load monster NameStr localization keys indexed by *hcIdx from monstats.txt."""
         monsters: dict[int, str] = {}
-
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if not lines:
+        reader = TsvReader(filepath)
+        if not reader.has_columns("*hcIdx", "NameStr"):
             return monsters
 
-        header = lines[0].rstrip("\r\n").split("\t")
-        col_map = {col.strip(): i for i, col in enumerate(header)}
-        idx_col = col_map.get("*hcIdx", -1)
-        name_col = col_map.get("NameStr", -1)
-        if idx_col < 0 or name_col < 0:
-            return monsters
-
-        for line in lines[1:]:
-            stripped = line.rstrip("\r\n")
-            if not stripped or stripped.startswith(("*", "Expansion")):
+        for row in reader:
+            monster_id = row.get_int("*hcIdx", -1)
+            if monster_id < 0:
                 continue
-            parts = stripped.split("\t")
-            if idx_col >= len(parts) or name_col >= len(parts):
-                continue
-            try:
-                monster_id = int(parts[idx_col].strip())
-            except ValueError:
-                continue
-            name_str = parts[name_col].strip()
+            name_str = row.get("NameStr")
             if name_str and name_str != "unused":
                 monsters[monster_id] = name_str
 
@@ -1552,58 +1280,35 @@ class D2DataLoader:
     def load_itemtypes(
         self, filepath: str | Traversable
     ) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, tuple[int, int]], set[str]]:
-        type_ancestors = {}
-        type_descendants = {}
-        type_bodyloc = {}
-        beltable_codes = set()
-
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        if len(lines) < 1:
-            return type_ancestors, type_descendants, type_bodyloc, beltable_codes
-
-        header = lines[0].strip().split("\t")
-        col_map = {}
-        for i, col in enumerate(header):
-            col_map[col.strip().lower()] = i
+        type_ancestors: dict[str, set[str]] = {}
+        type_descendants: dict[str, set[str]] = {}
+        type_bodyloc: dict[str, tuple[int, int]] = {}
+        beltable_codes: set[str] = set()
 
         type_equivs: dict[str, tuple[str, str]] = {}
         all_codes: set[str] = set()
-        for line in lines[1:]:
-            line = line.strip()
-            if not line or line.startswith(("*", "Expansion")):
-                continue
-            parts = line.split("\t")
-
-            def get_col(name: str, default: str = "", _parts: list[str] = parts) -> str:
-                idx = col_map.get(name.strip().lower(), -1)
-                return _parts[idx].strip() if 0 <= idx < len(_parts) else default
-
-            type_name = get_col("itemtype")
-            code = get_col("code")
-            equiv1 = get_col("equiv1")
-            equiv2 = get_col("equiv2")
-            bodyloc1 = get_col("bodyloc1", "0")
-            bodyloc2 = get_col("bodyloc2", "0")
-
+        for row in TsvReader(filepath):
+            type_name = row.get("itemtype")
             if not type_name:
                 continue
 
+            code = row.get("code")
+            equiv1 = row.get("equiv1").lower()
+            equiv2 = row.get("equiv2").lower()
+            bl1 = self.BODYLOC_MAP.get(row.get("bodyloc1").lower(), 0)
+            bl2 = self.BODYLOC_MAP.get(row.get("bodyloc2").lower(), 0)
+
             key = type_name.lower()
-            type_equivs[key] = (equiv1.lower(), equiv2.lower())
+            type_equivs[key] = (equiv1, equiv2)
             all_codes.add(key)
-            bl1 = self.BODYLOC_MAP.get(bodyloc1.lower(), 0) if bodyloc1 else 0
-            bl2 = self.BODYLOC_MAP.get(bodyloc2.lower(), 0) if bodyloc2 else 0
             type_bodyloc[key] = (bl1, bl2)
             if code:
                 code_lower = code.lower()
-                type_equivs[code_lower] = (equiv1.lower(), equiv2.lower())
+                type_equivs[code_lower] = (equiv1, equiv2)
                 all_codes.add(code_lower)
                 type_bodyloc[code_lower] = (bl1, bl2)
 
-            beltable = get_col("beltable", "0")
-            if beltable == "1":
+            if row.get("beltable") == "1":
                 beltable_codes.add(key)
                 if code:
                     beltable_codes.add(code.lower())

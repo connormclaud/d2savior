@@ -4,6 +4,7 @@ from d2savior.core.d2data import (
     D2DataLoader,
     GameData,
     StatInfo,
+    TsvReader,
     VersionData,
 )
 
@@ -241,3 +242,65 @@ class TestD2DataManager:
         runes_path = os.path.join(self.data_dir, "d2r", "runes.txt")
         with pytest.deprecated_call():
             loader.load_runes_txt(runes_path, {})  # ty: ignore[deprecated]
+
+
+class TestTsvReader:
+    """Unit tests for shared TSV table parsing semantics."""
+
+    def test_bom_crlf_case_insensitive_and_defaults(self, tmp_path):
+        tsv = tmp_path / "sample.txt"
+        tsv.write_bytes(
+            b"\xef\xbb\xbf Name \t*Id\tFlag\r\n"
+            b"\r\n"
+            b"*comment\t99\t1\r\n"
+            b"Alpha \t 10 \t1\r\n"
+            b"Beta\tbad\t0\r\n"
+        )
+
+        reader = TsvReader(tsv)
+        assert reader.has_columns("name", "*id", "FLAG")
+        assert not reader.has_columns("name", "missing")
+
+        rows = list(reader)
+        assert len(rows) == 2
+        assert rows[0].index == 2
+        assert rows[0].get("NAME") == "Alpha"
+        assert rows[0].get_int("*id") == 10
+        assert rows[0].get_bool("flag") is True
+
+        assert rows[1].index == 3
+        assert rows[1].get("name") == "Beta"
+        assert rows[1].get_int("*ID", -1) == -1
+        assert rows[1].get_int("missing", 42) == 42
+        assert rows[1].get_bool("flag") is False
+
+    def test_skip_expansion_and_row_index(self, tmp_path):
+        tsv = tmp_path / "affixes.txt"
+        tsv.write_text(
+            "Name\tlevel\n\t0\nClassic\t5\nExpansion\t\nLoD\t12\n",
+            encoding="utf-8",
+        )
+
+        default_rows = [(r.index, r.get("Name")) for r in TsvReader(tsv)]
+        assert default_rows == [(0, ""), (1, "Classic"), (3, "LoD")]
+
+        with_expansion = [(r.index, r.get("Name")) for r in TsvReader(tsv, skip_expansion=False)]
+        assert with_expansion == [(0, ""), (1, "Classic"), (2, "Expansion"), (3, "LoD")]
+
+    def test_strip_cells_false_preserves_trailing_space_and_leading_tab(self, tmp_path):
+        tsv = tmp_path / "items.txt"
+        tsv.write_text("name\tcode\nStudded Leather \tstu\n\tblankfirst\n", encoding="utf-8")
+
+        rows = list(TsvReader(tsv, strip_cells=False))
+        assert [(r.get("name"), r.get("code")) for r in rows] == [
+            ("Studded Leather ", "stu"),
+            ("", "blankfirst"),
+        ]
+
+    def test_empty_file_yields_no_rows(self, tmp_path):
+        tsv = tmp_path / "empty.txt"
+        tsv.write_text("", encoding="utf-8")
+
+        reader = TsvReader(tsv)
+        assert not reader.has_columns("name")
+        assert list(reader) == []
