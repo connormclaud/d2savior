@@ -1082,3 +1082,22 @@ class TestSummaryMode:
         full_plain = format_item_info(plain, resolver=game_data_resolver)
         assert "Defence: 250" in full_plain
         assert "(effective:" not in full_plain
+
+    def test_char_summary_play_time_sentinel(self, game_data_resolver):
+        char = D2SStruct()
+        char.name = b"TestChar"
+        char.char_class = 1
+        char.char_level = 80
+        char.last_save_time = 1700000000
+
+        # Sentinel 0xFFFFFFFF (D2R v0x69) and 0 should not display Play Time: N/A
+        for sentinel in (0, 0xFFFFFFFF):
+            char.play_time = sentinel
+            summary = format_char_summary(char, resolver=game_data_resolver)
+            assert "Play Time" not in summary
+            assert "Last Saved:" in summary
+
+        # Valid positive play_time displays formatted duration
+        char.play_time = 3665
+        summary = format_char_summary(char, resolver=game_data_resolver)
+        assert "Play Time: 1h 1m 5s" in summary

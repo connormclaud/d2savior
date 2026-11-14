@@ -1333,7 +1333,7 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     time_parts = []
     if last_save_time:
         time_parts.append(f"Last Saved: {format_timestamp(last_save_time)}")
-    if play_time:
+    if 0 < play_time < 0xFFFFFFFF:
         time_parts.append(f"Play Time: {format_duration(play_time)}")
     if time_parts:
         result.append(" | ".join(time_parts))
