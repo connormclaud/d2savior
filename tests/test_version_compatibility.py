@@ -266,6 +266,36 @@ class TestVersionCompatibility:
         assert len(found_17) == 1
         assert len(found_18) == 1
 
+    def test_property_list_poison_does_not_inject_stat_88(self):
+        """Poison stat 57 must read paired 58/59 without injecting stat 88 (Double Potion)."""
+        if not self._has_merged_data or not self.v63:
+            pytest.skip("Version data not loaded")
+
+        stat_57 = self.v63.get_stat(57)
+        stat_58 = self.v63.get_stat(58)
+        stat_59 = self.v63.get_stat(59)
+        if not stat_57 or not stat_58 or not stat_59:
+            pytest.skip("ItemStatCost not loaded")
+
+        obs = OBitStream()
+        obs.write_bits(9, 57)
+        obs.write_bits(stat_57.save_bits, 128 + stat_57.save_add)
+        obs.write_bits(stat_58.save_bits, 128 + stat_58.save_add)
+        obs.write_bits(stat_59.save_bits, 100 + stat_59.save_add)
+        obs.write_bits(9, 0x1FF)
+        obs.align_byte()
+
+        bs = IBitStream(obs.get_data())
+        prop_list = PropertyList()
+        prop_list.deserialize(bs, 0x63, data=self.v63)
+
+        assert [(p[0], p[2]) for p in prop_list.properties] == [
+            (57, 128),
+            (58, 128),
+            (59, 100),
+        ]
+        assert all(p[0] != 88 for p in prop_list.properties)
+
     def test_item_creation(self):
         """测试不同版本的物品创建"""
         if not self._has_merged_data:

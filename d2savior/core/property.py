@@ -86,9 +86,10 @@ def format_property(
             frames = a[0] // 25 if a[0] else 0
             return f"{frames} seconds poison duration"
         case 57:
-            a[0] = (a[0] * a[2] + 128) >> 8 if a[0] and a[2] else 0
-            a[1] = (a[1] * a[2] + 128) >> 8 if a[1] and a[2] else 0
-            a[2] = a[2] // 25 if a[2] else 0
+            if a[2]:
+                a[0] = (a[0] * a[2] + 128) >> 8 if a[0] else 0
+                a[1] = (a[1] * a[2] + 128) >> 8 if a[1] else 0
+                a[2] = a[2] // 25
         case 83:
             class_name = resolver.get_localized_class_name(a[0])
             tpl_key = _CLASS_SKILL_LEVEL_KEYS.get(a[0])

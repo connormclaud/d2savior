@@ -60,6 +60,18 @@ class TestFormatProperty:
         result = format_property(54, [10, 20, 100], resolver=game_data_resolver)
         assert "Cold" in result
 
+    def test_format_property_poison_damage_fallback_and_scaled(
+        self, game_data_resolver: GameDataResolver
+    ):
+        assert (
+            format_property(57, [154], resolver=game_data_resolver)
+            == "+154 to Minimum Poison Damage"
+        )
+        assert (
+            format_property(57, [128, 128, 100], resolver=game_data_resolver)
+            == "+50 to Minimum Poison Damage"
+        )
+
     def test_format_property_life_steal(self, game_data_resolver: GameDataResolver):
         result = format_property(60, [5], resolver=game_data_resolver)
         assert "Life stolen" in result

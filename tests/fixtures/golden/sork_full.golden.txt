@@ -1024,9 +1024,7 @@ Total items: 69
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +0 to Minimum Poison Damage
-      - +154 to Maximum Poison Damage
-      - 5 seconds poison duration
+      - +75 poison damage over 5 seconds
   Socketed Item [1]:
     Type: r10  (Thul Rune)
     Required Level: 23
@@ -1035,9 +1033,7 @@ Total items: 69
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +3 to Minimum Cold Damage
-      - +14 to Maximum Cold Damage
-      - 3 seconds cold duration
+      - Adds 3-14 cold damage
   Socketed Item [2]:
     Type: r09  (Ort Rune)
     Required Level: 21
@@ -1046,8 +1042,7 @@ Total items: 69
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +1 to Minimum Lightning Damage
-      - +50 to Maximum Lightning Damage
+      - Adds 1-50 lightning damage
   Socketed Item [3]:
     Type: r11  (Amn Rune)
     Required Level: 25
@@ -1196,8 +1191,7 @@ Mercenary items: 3
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +5 to Minimum Fire Damage
-      - +30 to Maximum Fire Damage
+      - Adds 5-30 fire damage
   Socketed Item [1]:
     Type: r03  (Tir Rune)
     Required Level: 13
@@ -1215,9 +1209,7 @@ Mercenary items: 3
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +0 to Minimum Poison Damage
-      - +154 to Maximum Poison Damage
-      - 5 seconds poison duration
+      - +75 poison damage over 5 seconds
   Socketed Item [3]:
     Type: r12  (Sol Rune)
     Required Level: 27

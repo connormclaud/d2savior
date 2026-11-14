@@ -1,6 +1,6 @@
 """Magical property list data structures and bitstream serialization."""
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 
@@ -31,8 +31,6 @@ _TRACE_PROPERTY = False
 class PropertyList:
     """List of magical item properties stored as (prop_id, layer, value) tuples."""
 
-    IMPLICIT_STATS: ClassVar[set[int]] = {88}
-
     def __init__(self) -> None:
         self.properties: list[RawProperty] = []
         self.end_flag = 0
@@ -46,7 +44,7 @@ class PropertyList:
         Reading and writing have distinct control flows because reading unpacks
         variable-length bitfields from the stream into list elements until the 0x1FF
         terminator is reached, whereas writing iterates through the in-memory list
-        while handling paired and implicit stats.
+        while handling paired stats.
         """
         if io.is_reading:
             if data is None:
@@ -99,9 +97,6 @@ class PropertyList:
                             print(
                                 f"    paired stat {paired_id}: raw={paired_raw}, value={paired_value}"
                             )
-
-                if self.end_flag == 57:
-                    self.properties.append((88, 0, 1))
             else:
                 prop_meta = data.get_property_meta(self.end_flag)
                 if prop_meta and prop_meta.bits_sum > 0:
@@ -219,9 +214,6 @@ class PropertyList:
 
         for prop_id, layer, value in self.properties:
             if prop_id in all_paired_ids:
-                continue
-
-            if prop_id in PropertyList.IMPLICIT_STATS:
                 continue
 
             bs.write_bits(9, prop_id)

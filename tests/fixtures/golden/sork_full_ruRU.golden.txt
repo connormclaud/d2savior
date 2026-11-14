@@ -1024,9 +1024,7 @@ Total items: 69
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +0 к минимальному урону от яда
-      - +154 к максимальному урону от яда
-      - 5 seconds poison duration
+      - +75 урона от яда за 5 сек.
   Socketed Item [1]:
     Type: r10  (Thul Rune)
     Required Level: 23
@@ -1035,9 +1033,7 @@ Total items: 69
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +3 к минимальному урону от льда
-      - +14 к максимальному урону от льда
-      - 3 seconds cold duration
+      - +3–14 урона от льда
   Socketed Item [2]:
     Type: r09  (Ort Rune)
     Required Level: 21
@@ -1046,8 +1042,7 @@ Total items: 69
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +1 к минимальному урону от молнии
-      - +50 к максимальному урону от молнии
+      - +1–50 урона от молнии
   Socketed Item [3]:
     Type: r11  (Amn Rune)
     Required Level: 25
@@ -1196,8 +1191,7 @@ Mercenary items: 3
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +5 к минимальному урону от огня
-      - +30 к максимальному урону от огня
+      - +5–30 урона от огня
   Socketed Item [1]:
     Type: r03  (Tir Rune)
     Required Level: 13
@@ -1215,9 +1209,7 @@ Mercenary items: 3
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +0 к минимальному урону от яда
-      - +154 к максимальному урону от яда
-      - 5 seconds poison duration
+      - +75 урона от яда за 5 сек.
   Socketed Item [3]:
     Type: r12  (Sol Rune)
     Required Level: 27

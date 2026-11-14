@@ -2,7 +2,7 @@
 
 import datetime
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NamedTuple
 
 from d2savior.core.constants import (
     CLASS_SKILL_BASES,
@@ -193,6 +193,223 @@ def item_matches_pattern(
     return False
 
 
+class _ElementalSpec(NamedTuple):
+    min_id: int
+    max_id: int
+    len_id: int | None
+    single_key: str
+    single_fallback: str
+    range_key: str
+    range_fallback: str
+    is_poison: bool = False
+
+
+_ELEMENTAL_DAMAGE_SPECS: tuple[_ElementalSpec, ...] = (
+    _ElementalSpec(
+        48,
+        49,
+        None,
+        "strModFireDamage",
+        "%+d fire damage",
+        "strModFireDamageRange",
+        "Adds %d-%d fire damage",
+    ),
+    _ElementalSpec(
+        50,
+        51,
+        None,
+        "strModLightningDamage",
+        "%+d lightning damage",
+        "strModLightningDamageRange",
+        "Adds %d-%d lightning damage",
+    ),
+    _ElementalSpec(
+        52,
+        53,
+        None,
+        "strModMagicDamage",
+        "%+d magic damage",
+        "strModMagicDamageRange",
+        "Adds %d-%d magic damage",
+    ),
+    _ElementalSpec(
+        54,
+        55,
+        56,
+        "strModColdDamage",
+        "%+d cold damage",
+        "strModColdDamageRange",
+        "Adds %d-%d cold damage",
+    ),
+    _ElementalSpec(
+        57,
+        58,
+        59,
+        "strModPoisonDamage",
+        "%+d poison damage over %d seconds",
+        "strModPoisonDamageRange",
+        "Adds %d-%d poison damage over %d seconds",
+        is_poison=True,
+    ),
+)
+
+_ELEMENTAL_SPEC_BY_ID: dict[int, _ElementalSpec] = {
+    sid: spec
+    for spec in _ELEMENTAL_DAMAGE_SPECS
+    for sid in (spec.min_id, spec.max_id, spec.len_id)
+    if sid is not None
+}
+
+
+def _format_modifier_template(
+    resolver: GameDataResolver,
+    key: str,
+    fallback: str,
+    *values: int,
+    signed_first: bool = False,
+) -> str:
+    """Resolve and format a localized item-modifier template with integer arguments."""
+    tpl = resolver.get_item_modifier(key)
+    if not tpl or tpl == key:
+        tpl = fallback
+    result = tpl
+    for i, val in enumerate(values):
+        if i == 0 and signed_first and "%+d" in result:
+            result = result.replace("%+d", f"{val:+d}", 1)
+        elif "%d" in result:
+            result = result.replace("%d", str(val), 1)
+    return result
+
+
+def _format_elemental_damage(
+    spec: _ElementalSpec,
+    d_min: int,
+    d_max: int,
+    frames: int,
+    resolver: GameDataResolver,
+) -> str | None:
+    """Format grouped elemental min/max/(duration) values into one localized string."""
+    if spec.is_poison:
+        if frames <= 0:
+            return None
+        p_min = (d_min * frames + 128) >> 8 if d_min > 0 else 0
+        p_max = (d_max * frames + 128) >> 8 if d_max > 0 else 0
+        seconds = frames // 25
+        if p_max <= 0 or seconds <= 0:
+            return None
+        if p_min == p_max:
+            return _format_modifier_template(
+                resolver, spec.single_key, spec.single_fallback, p_min, seconds, signed_first=True
+            )
+        if 0 < p_min < p_max:
+            return _format_modifier_template(
+                resolver, spec.range_key, spec.range_fallback, p_min, p_max, seconds
+            )
+        return None
+
+    if d_max <= 0:
+        return None
+    if d_min == d_max:
+        return _format_modifier_template(
+            resolver, spec.single_key, spec.single_fallback, d_min, signed_first=True
+        )
+    if 0 < d_min < d_max:
+        return _format_modifier_template(
+            resolver, spec.range_key, spec.range_fallback, d_min, d_max
+        )
+    return None
+
+
+def _extract_elemental_replacements(
+    parsed_props: list[tuple[int, int, list[int]]],
+    resolver: GameDataResolver,
+) -> dict[int, tuple[int, str]]:
+    """Map paired elemental stat IDs in parsed_props to (group_id, combined_text)."""
+    if not any(prop_id in _ELEMENTAL_SPEC_BY_ID for prop_id, _, _ in parsed_props):
+        return {}
+
+    totals: dict[int, int] = {}
+    first_params: dict[int, list[int]] = {}
+    poison_len_count = 0
+
+    for prop_id, value, params in parsed_props:
+        if prop_id not in _ELEMENTAL_SPEC_BY_ID:
+            continue
+        val = params[0] if params else value
+        totals[prop_id] = totals.get(prop_id, 0) + val
+        if prop_id not in first_params and params:
+            first_params[prop_id] = params
+        if prop_id == 59 and val > 0:
+            poison_len_count += 1
+
+    replacements: dict[int, tuple[int, str]] = {}
+    for spec in _ELEMENTAL_DAMAGE_SPECS:
+        if spec.min_id in totals and spec.max_id in totals:
+            d_min = totals[spec.min_id]
+            d_max = totals[spec.max_id]
+            raw_frames = totals.get(spec.len_id, 0) if spec.len_id is not None else 0
+            if spec.is_poison and poison_len_count > 1:
+                frames = raw_frames // poison_len_count
+            else:
+                frames = raw_frames
+        elif spec.min_id in totals and spec.max_id not in totals:
+            # Handle legacy (<=0x60) multi-field single tuple [min, max, (frames)].
+            p = first_params.get(spec.min_id, [])
+            if len(p) < 2:
+                continue
+            d_min, d_max = p[0], p[1]
+            frames = p[2] if len(p) >= 3 else 0
+            if spec.is_poison and frames == 0:
+                continue
+            if not spec.is_poison and d_max == 0:
+                continue
+        else:
+            continue
+
+        formatted = _format_elemental_damage(spec, d_min, d_max, frames, resolver)
+        if formatted is None:
+            continue
+
+        for sid in (spec.min_id, spec.max_id, spec.len_id):
+            if sid is not None and sid in totals:
+                replacements[sid] = (spec.min_id, formatted)
+
+    return replacements
+
+
+def _format_property_entries(
+    parsed_props: list[tuple[int, int, list[int]]],
+    resolver: GameDataResolver,
+    version: int = 0x63,
+    property_formatter: Callable[..., str | None] | None = None,
+) -> FormattedLines:
+    """Format parsed property tuples into strings, grouping paired elemental stats."""
+    format_func = property_formatter or resolver.format_property
+    elem_replacements = (
+        _extract_elemental_replacements(parsed_props, resolver)
+        if property_formatter is None
+        else {}
+    )
+    emitted_elem_groups: set[int] = set()
+    result = []
+
+    for prop_id, value, params in parsed_props:
+        if prop_id in elem_replacements:
+            group_id, formatted_elem = elem_replacements[prop_id]
+            if group_id not in emitted_elem_groups:
+                emitted_elem_groups.add(group_id)
+                result.append(formatted_elem)
+            continue
+        formatted = format_func(prop_id, params, version)
+        if formatted:
+            result.append(formatted)
+        elif params:
+            result.append(f"ID {prop_id}: raw={value}, params={params}")
+        else:
+            result.append(f"ID {prop_id}: {value}")
+    return result
+
+
 def _format_parsed_properties(
     prop_list: Any,
     resolver: GameDataResolver,
@@ -202,20 +419,13 @@ def _format_parsed_properties(
     """Format a property list into human-readable strings, falling back to raw IDs."""
     if not prop_list or not getattr(prop_list, "properties", None):
         return []
-    format_func = property_formatter or resolver.format_property
-    result = []
-    data = resolver.data
-    parsed_props = prop_list.get_parsed_properties(version, data=data)
-
-    for prop_id, value, params in parsed_props:
-        formatted = format_func(prop_id, params, version)
-        if formatted:
-            result.append(formatted)
-        elif params:
-            result.append(f"ID {prop_id}: raw={value}, params={params}")
-        else:
-            result.append(f"ID {prop_id}: {value}")
-    return result
+    parsed_props = prop_list.get_parsed_properties(version, data=resolver.data)
+    return _format_property_entries(
+        parsed_props,
+        resolver=resolver,
+        version=version,
+        property_formatter=property_formatter,
+    )
 
 
 _DAMAGE_VARIANT_GROUPS: tuple[tuple[int, int, int], ...] = (
@@ -391,6 +601,11 @@ def _format_summary_properties(
                 aggregated[key][0] += val
 
     dmg_pair_map = _collapse_damage_stats(aggregated, ordered_keys, prop_id_map, raw_val_map)
+    elem_replacements = (
+        _extract_elemental_replacements(parsed_props, resolver)
+        if property_formatter is None
+        else {}
+    )
 
     res_keys = [(39,), (41,), (43,), (45,)]
     all_res_present = all(k in aggregated for k in res_keys)
@@ -403,6 +618,7 @@ def _format_summary_properties(
     result: list[str] = []
     all_res_inserted = False
     emitted_dmg_pairs: set[Any] = set()
+    emitted_elem_groups: set[int] = set()
 
     for key in ordered_keys:
         if key not in aggregated:
@@ -411,15 +627,23 @@ def _format_summary_properties(
         prop_id = prop_id_map[key]
         params = aggregated[key]
 
+        if prop_id in elem_replacements:
+            group_id, formatted_elem = elem_replacements[prop_id]
+            if group_id not in emitted_elem_groups:
+                emitted_elem_groups.add(group_id)
+                result.append(formatted_elem)
+            continue
+
         if key in dmg_pair_map:
             if key not in emitted_dmg_pairs:
                 partner_key, d_min, d_max = dmg_pair_map[key]
                 emitted_dmg_pairs.add(key)
                 emitted_dmg_pairs.add(partner_key)
-                tpl = resolver.get_item_modifier("strModMinDamageRange")
-                if not tpl or tpl == "strModMinDamageRange":
-                    tpl = "Adds %d-%d damage"
-                result.append(tpl.replace("%d", str(d_min), 1).replace("%d", str(d_max), 1))
+                result.append(
+                    _format_modifier_template(
+                        resolver, "strModMinDamageRange", "Adds %d-%d damage", d_min, d_max
+                    )
+                )
             continue
 
         if min_res > 0 and key in res_keys:
@@ -686,10 +910,10 @@ def _format_item_lines(
         socket_props = item_resolver.get_socket_properties(parent_item, item)
         if socket_props:
             result.append(f"{indent}Properties:")
-            for prop_id, _val, params in socket_props:
-                formatted = item_resolver.format_property(prop_id, params, version)
-                if formatted:
-                    result.append(f"{indent}  - {formatted}")
+            for formatted in _format_property_entries(
+                socket_props, resolver=item_resolver, version=version
+            ):
+                result.append(f"{indent}  - {formatted}")
 
     if item.gem_items:
         for j, gem in enumerate(item.gem_items):

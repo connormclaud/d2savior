@@ -122,8 +122,7 @@ Total items: 31
   Properties:
     - +40 to Minimum Damage
     - +62 to Maximum Damage
-    - +50 to Minimum Lightning Damage
-    - +75 to Maximum Lightning Damage
+    - Adds 50-75 lightning damage
     - 10% Life stolen per hit
     - 5% Mana stolen per hit
     - +30% Increased Attack Speed
@@ -471,9 +470,7 @@ Total items: 31
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +0 to Minimum Poison Damage
-      - +154 to Maximum Poison Damage
-      - 5 seconds poison duration
+      - +75 poison damage over 5 seconds
   Socketed Item [1]:
     Type: r10  (Thul Rune)
     Required Level: 23
@@ -482,9 +479,7 @@ Total items: 31
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +3 to Minimum Cold Damage
-      - +14 to Maximum Cold Damage
-      - 3 seconds cold duration
+      - Adds 3-14 cold damage
   Socketed Item [2]:
     Type: r09  (Ort Rune)
     Required Level: 21
@@ -493,8 +488,7 @@ Total items: 31
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +1 to Minimum Lightning Damage
-      - +50 to Maximum Lightning Damage
+      - Adds 1-50 lightning damage
   Socketed Item [3]:
     Type: r11  (Amn Rune)
     Required Level: 25
@@ -734,9 +728,7 @@ Total items: 26
   Set Properties (2 Items):
     - +16 to Attack Rating (Based on Character Level)
   Set Properties (3 Items):
-    - +20 to Minimum Cold Damage
-    - +30 to Maximum Cold Damage
-    - 3 seconds cold duration
+    - Adds 20-30 cold damage
 --- Item 4 ---
   Type: vbl  (Light Belt)
   Location: STORED, Position: 0
@@ -804,9 +796,7 @@ Total items: 26
     - +25 to Mana
     - +75% Enhanced Maximum Damage
     - +75% Enhanced Minimum Damage
-    - +25 to Minimum Cold Damage
-    - +75 to Maximum Cold Damage
-    - 2 seconds cold duration
+    - Adds 25-75 cold damage
     - 8% Mana stolen per hit
     - +20% Faster Cast Rate
 --- Item 8 ---
@@ -1053,8 +1043,7 @@ Total items: 26
   Properties:
     - +40 to Minimum Damage
     - +62 to Maximum Damage
-    - +50 to Minimum Lightning Damage
-    - +75 to Maximum Lightning Damage
+    - Adds 50-75 lightning damage
     - 10% Life stolen per hit
     - 5% Mana stolen per hit
     - +30% Increased Attack Speed
@@ -1163,9 +1152,7 @@ Total items: 26
     - +25% Enhanced Minimum Damage
     - 4% Life stolen per hit
   Set Properties (2 Items):
-    - +25 to Minimum Cold Damage
-    - +75 to Maximum Cold Damage
-    - 3 seconds cold duration
+    - Adds 25-75 cold damage
 
 === Tab 3 (Normal) ===
 Total items: 17
@@ -1185,8 +1172,7 @@ Total items: 17
     - +181% Enhanced Maximum Damage
     - +181% Enhanced Minimum Damage
     - +25 to Maximum Damage
-    - +1 to Minimum Lightning Damage
-    - +212 to Maximum Lightning Damage
+    - Adds 1-212 lightning damage
     - 54% Better Chance of Getting Magic Items
     - Knockback
     - +33% Chance of Open Wounds
@@ -1207,9 +1193,7 @@ Total items: 17
     - +201% Enhanced Minimum Damage
     - +50 Defense vs. Missile
     - Cold Resist +35%
-    - +15 to Minimum Cold Damage
-    - +30 to Maximum Cold Damage
-    - 3 seconds cold duration
+    - Adds 15-30 cold damage
     - +3 to Strafe (Amazon Only)
 --- Item 2 ---
   Type: 9wn  (Burnt Wand)
@@ -1285,9 +1269,7 @@ Total items: 17
     - +160% Enhanced Minimum Damage
     - +5 to Minimum Damage
     - +10 to Maximum Damage
-    - +63 to Minimum Cold Damage
-    - +112 to Maximum Cold Damage
-    - 5 seconds cold duration
+    - Adds 63-112 cold damage
     - Freezes target
     - Cannot Be Frozen
     - Level 9 Frozen Orb (36/50 Charges)
@@ -1410,8 +1392,7 @@ Total items: 17
   Properties:
     - +159% Enhanced Maximum Damage
     - +159% Enhanced Minimum Damage
-    - +40 to Minimum Fire Damage
-    - +180 to Maximum Fire Damage
+    - Adds 40-180 fire damage
     - +3 to Immolation Arrow (Amazon Only)
     - +50% Piercing Attack
     - Fires Explosive Arrows or Bolts
@@ -1476,8 +1457,7 @@ Total items: 17
     - +11 to Dexterity
     - +35 to Life
     - +104 to Attack Rating
-    - +140 to Minimum Fire Damage
-    - +270 to Maximum Fire Damage
+    - Adds 140-270 fire damage
     - +10% Chance of Crushing Blow
   Set Properties (2 Items):
     - +30% Increased Attack Speed
@@ -1531,8 +1511,7 @@ Total items: 17
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +5 to Minimum Fire Damage
-      - +30 to Maximum Fire Damage
+      - Adds 5-30 fire damage
   Socketed Item [1]:
     Type: r03  (Tir Rune)
     Required Level: 13
@@ -1550,9 +1529,7 @@ Total items: 17
     Quality: NORMAL
     Flags: Identified, JustSaved
     Properties:
-      - +0 to Minimum Poison Damage
-      - +154 to Maximum Poison Damage
-      - 5 seconds poison duration
+      - +75 poison damage over 5 seconds
   Socketed Item [3]:
     Type: r12  (Sol Rune)
     Required Level: 27
@@ -1755,8 +1732,7 @@ Total items: 24
     - +8 to Maximum Damage
     - +8 to Maximum Damage
     - Cold Resist +25%
-    - +12 to Minimum Fire Damage
-    - +33 to Maximum Fire Damage
+    - Adds 12-33 fire damage
     - +8 to Maximum Throw Damage
 --- Item 16 ---
   Type: jew  (Jewel)
@@ -1784,8 +1760,7 @@ Total items: 24
     - Lightning Resist +8%
     - Cold Resist +8%
     - Poison Resist +8%
-    - +1 to Minimum Lightning Damage
-    - +92 to Maximum Lightning Damage
+    - Adds 1-92 lightning damage
 --- Item 18 ---
   Type: jew  (Jewel)
   Location: STORED, Position: 0
@@ -1796,8 +1771,7 @@ Total items: 24
   Drop Level: 64
   Suffix: 665 (of Fire)
   Properties:
-    - +6 to Minimum Fire Damage
-    - +24 to Maximum Fire Damage
+    - Adds 6-24 fire damage
 --- Item 19 ---
   Type: pax  (Poleaxe)
   Location: STORED, Position: 0

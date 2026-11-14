@@ -897,3 +897,79 @@ class TestSummaryMode:
         assert "Adds 18-30 damage" in bow_sol_summary
         assert "+9 to Minimum Damage" not in bow_sol_summary
         assert "+30 to Maximum Damage" not in bow_sol_summary
+
+    def test_elemental_and_poison_grouping(self, game_data_resolver):
+        from d2savior.core.formatters import _format_property_entries, _format_summary_properties
+
+        # Poison equal rate (Tal Rune: 154 rate * 125 frames / 256 = 75 over 5s)
+        tal_props = [(57, 154, [154]), (58, 154, [154]), (59, 125, [125])]
+        assert _format_summary_properties(tal_props, resolver=game_data_resolver) == [
+            "+75 poison damage over 5 seconds"
+        ]
+        assert _format_property_entries(tal_props, resolver=game_data_resolver) == [
+            "+75 poison damage over 5 seconds"
+        ]
+
+        # Foul Small Charm (128 rate * 100 frames / 256 = 50 over 4s), no stat 88
+        foul_props = [(57, 128, [128]), (58, 128, [128]), (59, 100, [100])]
+        assert _format_summary_properties(foul_props, resolver=game_data_resolver) == [
+            "+50 poison damage over 4 seconds"
+        ]
+
+        # Asymmetric poison range (min_rate=103, max_rate=205, 50 frames -> 20-40 over 2s)
+        range_poison = [(57, 103, [103]), (58, 205, [205]), (59, 50, [50])]
+        assert _format_summary_properties(range_poison, resolver=game_data_resolver) == [
+            "Adds 20-40 poison damage over 2 seconds"
+        ]
+
+        # Legacy 0x60 single-tuple poison format [min_rate, max_rate, frames]
+        legacy_poison = [(57, 0, [128, 128, 100, 0])]
+        assert _format_summary_properties(legacy_poison, resolver=game_data_resolver) == [
+            "+50 poison damage over 4 seconds"
+        ]
+
+        # Fire, Lightning, Cold (consuming duration 56), and equal elemental values
+        elem_props = [
+            (48, 5, [5]),
+            (49, 30, [30]),
+            (50, 1, [1]),
+            (51, 50, [50]),
+            (54, 3, [3]),
+            (55, 14, [14]),
+            (56, 75, [75]),
+        ]
+        expected_elem = [
+            "Adds 5-30 fire damage",
+            "Adds 1-50 lightning damage",
+            "Adds 3-14 cold damage",
+        ]
+        assert _format_summary_properties(elem_props, resolver=game_data_resolver) == expected_elem
+        assert _format_property_entries(elem_props, resolver=game_data_resolver) == expected_elem
+        assert _format_summary_properties(
+            [(48, 12, [12]), (49, 12, [12])], resolver=game_data_resolver
+        ) == ["+12 fire damage"]
+
+        # Two socketed Tal Runes average duration rather than squaring damage/duration
+        sword = D2Item()
+        sword.type_name = b"crs "
+        tal1 = D2Item()
+        tal1.type_name = b"r07 "
+        tal2 = D2Item()
+        tal2.type_name = b"r07 "
+        sword.item_info = ItemInfo()
+        sword.item_info.type_specific_info = TypeSpecificInfo()
+        sword.gem_items = [tal1, tal2]
+        assert "+150 poison damage over 5 seconds" in format_item_summary(
+            sword, resolver=game_data_resolver
+        )
+
+        # Localized ruRU poison and elemental range formatting
+        resolver_ru = GameDataResolver.load(lang_key="ruRU")
+        assert _format_summary_properties(tal_props, resolver=resolver_ru) == [
+            "+75 урона от яда за 5 сек."
+        ]
+        assert _format_summary_properties(elem_props, resolver=resolver_ru) == [
+            "+5–30 урона от огня",
+            "+1–50 урона от молнии",
+            "+3–14 урона от льда",
+        ]
