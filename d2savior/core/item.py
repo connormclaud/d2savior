@@ -342,7 +342,7 @@ class TypeSpecificInfo:
 
 
 class ItemInfo:
-    STACKABLE_FOR_STASH: ClassVar[set[bytes]] = RUNE_CODES | GEM_CODES | MATERIAL_CODES
+    STACKABLE_FOR_STASH: ClassVar[frozenset[bytes]] = RUNE_CODES | GEM_CODES | MATERIAL_CODES
 
     def __init__(self, meta: ItemMetaData | None = None) -> None:
         self.type_name: bytes = b"    "

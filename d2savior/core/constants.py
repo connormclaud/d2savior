@@ -10,62 +10,66 @@ from d2savior.core.stash import (
     STASH_TAB_TYPE_NORMAL,
 )
 
-TAB_TYPE_NAMES = {
-    STASH_TAB_TYPE_NORMAL: "Normal",
-    STASH_TAB_TYPE_ADVANCED: "Advanced (Currency)",
-    STASH_TAB_TYPE_CHRONICLE: "Chronicle",
-}
+TAB_TYPE_NAMES = frozendict(
+    {
+        STASH_TAB_TYPE_NORMAL: "Normal",
+        STASH_TAB_TYPE_ADVANCED: "Advanced (Currency)",
+        STASH_TAB_TYPE_CHRONICLE: "Chronicle",
+    }
+)
 
 GEM_TYPE_NAMES = ["Amethyst", "Topaz", "Sapphire", "Emerald", "Ruby", "Diamond", "Skull"]
 
-GEM_CODE_MAP = {
-    # Amethyst
-    b"gcv": ("Amethyst", "o"),
-    b"gfv": ("Amethyst", "o"),
-    b"gsv": ("Amethyst", "o"),
-    b"gzv": ("Amethyst", "f"),
-    b"gpv": ("Amethyst", "p"),
-    # Topaz
-    b"gcy": ("Topaz", "o"),
-    b"gfy": ("Topaz", "o"),
-    b"gsy": ("Topaz", "o"),
-    b"gly": ("Topaz", "f"),
-    b"gpy": ("Topaz", "p"),
-    # Sapphire
-    b"gcb": ("Sapphire", "o"),
-    b"gfb": ("Sapphire", "o"),
-    b"gsb": ("Sapphire", "o"),
-    b"glb": ("Sapphire", "f"),
-    b"gpb": ("Sapphire", "p"),
-    # Emerald
-    b"gcg": ("Emerald", "o"),
-    b"gfg": ("Emerald", "o"),
-    b"gsg": ("Emerald", "o"),
-    b"glg": ("Emerald", "f"),
-    b"gpg": ("Emerald", "p"),
-    # Ruby
-    b"gcr": ("Ruby", "o"),
-    b"gfr": ("Ruby", "o"),
-    b"gsr": ("Ruby", "o"),
-    b"glr": ("Ruby", "f"),
-    b"gpr": ("Ruby", "p"),
-    # Diamond
-    b"gcw": ("Diamond", "o"),
-    b"gfw": ("Diamond", "o"),
-    b"gsw": ("Diamond", "o"),
-    b"glw": ("Diamond", "f"),
-    b"gpw": ("Diamond", "p"),
-    # Skull
-    b"skc": ("Skull", "o"),
-    b"skf": ("Skull", "o"),
-    b"sku": ("Skull", "o"),
-    b"skl": ("Skull", "f"),
-    b"skz": ("Skull", "p"),
-}
+GEM_CODE_MAP = frozendict(
+    {
+        # Amethyst
+        b"gcv": ("Amethyst", "o"),
+        b"gfv": ("Amethyst", "o"),
+        b"gsv": ("Amethyst", "o"),
+        b"gzv": ("Amethyst", "f"),
+        b"gpv": ("Amethyst", "p"),
+        # Topaz
+        b"gcy": ("Topaz", "o"),
+        b"gfy": ("Topaz", "o"),
+        b"gsy": ("Topaz", "o"),
+        b"gly": ("Topaz", "f"),
+        b"gpy": ("Topaz", "p"),
+        # Sapphire
+        b"gcb": ("Sapphire", "o"),
+        b"gfb": ("Sapphire", "o"),
+        b"gsb": ("Sapphire", "o"),
+        b"glb": ("Sapphire", "f"),
+        b"gpb": ("Sapphire", "p"),
+        # Emerald
+        b"gcg": ("Emerald", "o"),
+        b"gfg": ("Emerald", "o"),
+        b"gsg": ("Emerald", "o"),
+        b"glg": ("Emerald", "f"),
+        b"gpg": ("Emerald", "p"),
+        # Ruby
+        b"gcr": ("Ruby", "o"),
+        b"gfr": ("Ruby", "o"),
+        b"gsr": ("Ruby", "o"),
+        b"glr": ("Ruby", "f"),
+        b"gpr": ("Ruby", "p"),
+        # Diamond
+        b"gcw": ("Diamond", "o"),
+        b"gfw": ("Diamond", "o"),
+        b"gsw": ("Diamond", "o"),
+        b"glw": ("Diamond", "f"),
+        b"gpw": ("Diamond", "p"),
+        # Skull
+        b"skc": ("Skull", "o"),
+        b"skf": ("Skull", "o"),
+        b"sku": ("Skull", "o"),
+        b"skl": ("Skull", "f"),
+        b"skz": ("Skull", "p"),
+    }
+)
 
-RUNE_CODES_STRIPPED = {c.strip() for c in RUNE_CODES}
-GEM_CODES_STRIPPED = {c.strip() for c in GEM_CODES}
-MATERIAL_CODES_STRIPPED = {c.strip() for c in MATERIAL_CODES}
+RUNE_CODES_STRIPPED = frozenset(c.strip() for c in RUNE_CODES)
+GEM_CODES_STRIPPED = frozenset(c.strip() for c in GEM_CODES)
+MATERIAL_CODES_STRIPPED = frozenset(c.strip() for c in MATERIAL_CODES)
 COMBINED_SLOT_ORDER_STRIPPED = [c.strip() for c in COMBINED_SLOT_ORDER]
 
 CLASS_SKILL_BASES = [
@@ -229,18 +233,20 @@ QUESTS_BY_ACT = [
     ),
 ]
 
-QUEST_REWARDS: dict[str, str] = {
-    "Den of Evil": "+1 Skill & Reset",
-    "Sisters' Burial Grounds": "Rogue Merc",
-    "The Search for Cain": "Rare Ring",
-    "Tools of the Trade": "Imbue",
-    "Radament's Lair": "+1 Skill",
-    "The Golden Bird": "+20 Life",
-    "Blade of the Old Religion": "Rare Ring",
-    "Lam Esen's Tome": "+5 Stats",
-    "The Fallen Angel": "+2 Skills",
-    "Siege on Harrogath": "Socket",
-    "Rescue on Mount Arreat": "Ral+Ort+Tal",
-    "Prison of Ice": "+10 All Res",
-    "Betrayal of Harrogath": "Personalize",
-}
+QUEST_REWARDS: frozendict[str, str] = frozendict(
+    {
+        "Den of Evil": "+1 Skill & Reset",
+        "Sisters' Burial Grounds": "Rogue Merc",
+        "The Search for Cain": "Rare Ring",
+        "Tools of the Trade": "Imbue",
+        "Radament's Lair": "+1 Skill",
+        "The Golden Bird": "+20 Life",
+        "Blade of the Old Religion": "Rare Ring",
+        "Lam Esen's Tome": "+5 Stats",
+        "The Fallen Angel": "+2 Skills",
+        "Siege on Harrogath": "Socket",
+        "Rescue on Mount Arreat": "Ral+Ort+Tal",
+        "Prison of Ice": "+10 All Res",
+        "Betrayal of Harrogath": "Personalize",
+    }
+)

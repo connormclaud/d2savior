@@ -123,16 +123,18 @@ class MercenaryStats:
     max_resistances: ResistanceStats = field(default_factory=_default_max_resistances)
 
 
-_RESIST_STAT_FIELDS: dict[int, tuple[str, bool]] = {
-    39: ("fire", False),  # fireresist
-    41: ("lightning", False),  # lightresist
-    43: ("cold", False),  # coldresist
-    45: ("poison", False),  # poisonresist
-    40: ("fire", True),  # maxfireresist
-    42: ("lightning", True),  # maxlightresist
-    44: ("cold", True),  # maxcoldresist
-    46: ("poison", True),  # maxpoisonresist
-}
+_RESIST_STAT_FIELDS: frozendict[int, tuple[str, bool]] = frozendict(
+    {
+        39: ("fire", False),  # fireresist
+        41: ("lightning", False),  # lightresist
+        43: ("cold", False),  # coldresist
+        45: ("poison", False),  # poisonresist
+        40: ("fire", True),  # maxfireresist
+        42: ("lightning", True),  # maxlightresist
+        44: ("cold", True),  # maxcoldresist
+        46: ("poison", True),  # maxpoisonresist
+    }
+)
 
 
 def _apply_resist_stat(

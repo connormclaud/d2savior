@@ -4,63 +4,71 @@ CLASS_NAME_SIZE = 7
 CLASS_SKILL_NAME_SIZE = 30
 CLASS_SKILL_TAB_SIZE = 3
 
-_CLASS_SKILL_LEVEL_KEYS = {
-    0: "ModStr3a",  # Amazon
-    1: "ModStr3d",  # Sorceress
-    2: "ModStr3c",  # Necromancer
-    3: "ModStr3b",  # Paladin
-    4: "ModStr3e",  # Barbarian
-    5: "ModStre8a",  # Druid
-    6: "ModStre8b",  # Assassin
-    7: "ModStrge9",  # Warlock
-}
+_CLASS_SKILL_LEVEL_KEYS = frozendict(
+    {
+        0: "ModStr3a",  # Amazon
+        1: "ModStr3d",  # Sorceress
+        2: "ModStr3c",  # Necromancer
+        3: "ModStr3b",  # Paladin
+        4: "ModStr3e",  # Barbarian
+        5: "ModStre8a",  # Druid
+        6: "ModStre8b",  # Assassin
+        7: "ModStrge9",  # Warlock
+    }
+)
 
-_CLASS_ONLY_KEYS = {
-    0: "AmaOnly",  # (Amazon Only)
-    1: "SorOnly",  # (Sorceress Only)
-    2: "NecOnly",  # (Necromancer Only)
-    3: "PalOnly",  # (Paladin Only)
-    4: "BarOnly",  # (Barbarian Only)
-    5: "DruOnly",  # (Druid Only)
-    6: "AssOnly",  # (Assassin Only)
-    7: "WarOnly",  # (Warlock Only)
-}
+_CLASS_ONLY_KEYS = frozendict(
+    {
+        0: "AmaOnly",  # (Amazon Only)
+        1: "SorOnly",  # (Sorceress Only)
+        2: "NecOnly",  # (Necromancer Only)
+        3: "PalOnly",  # (Paladin Only)
+        4: "BarOnly",  # (Barbarian Only)
+        5: "DruOnly",  # (Druid Only)
+        6: "AssOnly",  # (Assassin Only)
+        7: "WarOnly",  # (Warlock Only)
+    }
+)
 
-_SKILL_TAB_MODIFIER_KEYS: dict[tuple[int, int], str] = {
-    (0, 0): "StrSklTabItem3",  # Bow and Crossbow Skills
-    (0, 1): "StrSklTabItem2",  # Passive and Magic Skills
-    (0, 2): "StrSklTabItem1",  # Javelin and Spear Skills
-    (1, 0): "StrSklTabItem15",  # Fire Skills
-    (1, 1): "StrSklTabItem14",  # Lightning Skills
-    (1, 2): "StrSklTabItem13",  # Cold Skills
-    (2, 0): "StrSklTabItem8",  # Curses
-    (2, 1): "StrSklTabItem7",  # Poison and Bone Skills
-    (2, 2): "StrSklTabItem9",  # Summoning Skills
-    (3, 0): "StrSklTabItem6",  # Combat Skills (Paladin)
-    (3, 1): "StrSklTabItem5",  # Offensive Auras
-    (3, 2): "StrSklTabItem4",  # Defensive Auras
-    (4, 0): "StrSklTabItem11",  # Combat Skills (Barbarian)
-    (4, 1): "StrSklTabItem12",  # Masteries
-    (4, 2): "StrSklTabItem10",  # Warcries
-    (5, 0): "StrSklTabItem16",  # Summoning Skills (Druid)
-    (5, 1): "StrSklTabItem17",  # Shape Shifting Skills
-    (5, 2): "StrSklTabItem18",  # Elemental Skills
-    (6, 0): "StrSklTabItem19",  # Traps
-    (6, 1): "StrSklTabItem20",  # Shadow Disciplines
-    (6, 2): "StrSklTabItem21",  # Martial Arts
-    (7, 0): "StrSklTabItem24",  # Demon Skills
-    (7, 1): "StrSklTabItem22",  # Eldritch Skills
-    (7, 2): "StrSklTabItem23",  # Chaos Skills
-}
+_SKILL_TAB_MODIFIER_KEYS: frozendict[tuple[int, int], str] = frozendict(
+    {
+        (0, 0): "StrSklTabItem3",  # Bow and Crossbow Skills
+        (0, 1): "StrSklTabItem2",  # Passive and Magic Skills
+        (0, 2): "StrSklTabItem1",  # Javelin and Spear Skills
+        (1, 0): "StrSklTabItem15",  # Fire Skills
+        (1, 1): "StrSklTabItem14",  # Lightning Skills
+        (1, 2): "StrSklTabItem13",  # Cold Skills
+        (2, 0): "StrSklTabItem8",  # Curses
+        (2, 1): "StrSklTabItem7",  # Poison and Bone Skills
+        (2, 2): "StrSklTabItem9",  # Summoning Skills
+        (3, 0): "StrSklTabItem6",  # Combat Skills (Paladin)
+        (3, 1): "StrSklTabItem5",  # Offensive Auras
+        (3, 2): "StrSklTabItem4",  # Defensive Auras
+        (4, 0): "StrSklTabItem11",  # Combat Skills (Barbarian)
+        (4, 1): "StrSklTabItem12",  # Masteries
+        (4, 2): "StrSklTabItem10",  # Warcries
+        (5, 0): "StrSklTabItem16",  # Summoning Skills (Druid)
+        (5, 1): "StrSklTabItem17",  # Shape Shifting Skills
+        (5, 2): "StrSklTabItem18",  # Elemental Skills
+        (6, 0): "StrSklTabItem19",  # Traps
+        (6, 1): "StrSklTabItem20",  # Shadow Disciplines
+        (6, 2): "StrSklTabItem21",  # Martial Arts
+        (7, 0): "StrSklTabItem24",  # Demon Skills
+        (7, 1): "StrSklTabItem22",  # Eldritch Skills
+        (7, 2): "StrSklTabItem23",  # Chaos Skills
+    }
+)
 
-_CHANCE_CAST_KEYS = {
-    195: "ItemExpansiveChancX",
-    196: "ModitemskonKill",
-    197: "Moditemskondeath",
-    198: "ItemExpansiveChanc1",
-    199: "ModitemskonLevel",
-    201: "ItemExpansiveChanc2",
-}
+_CHANCE_CAST_KEYS = frozendict(
+    {
+        195: "ItemExpansiveChancX",
+        196: "ModitemskonKill",
+        197: "Moditemskondeath",
+        198: "ItemExpansiveChanc1",
+        199: "ModitemskonLevel",
+        201: "ItemExpansiveChanc2",
+    }
+)
 
 
 def get_skill_class_id(skill_id: int) -> int:

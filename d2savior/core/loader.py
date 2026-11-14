@@ -736,18 +736,20 @@ class D2DataLoader:
 
         return monsters
 
-    BODYLOC_MAP: ClassVar[dict[str, int]] = {
-        "head": 1,
-        "neck": 2,
-        "tors": 3,
-        "rarm": 4,
-        "larm": 5,
-        "rrin": 6,
-        "lrin": 7,
-        "belt": 8,
-        "feet": 9,
-        "glov": 10,
-    }
+    BODYLOC_MAP: ClassVar[frozendict[str, int]] = frozendict(
+        {
+            "head": 1,
+            "neck": 2,
+            "tors": 3,
+            "rarm": 4,
+            "larm": 5,
+            "rrin": 6,
+            "lrin": 7,
+            "belt": 8,
+            "feet": 9,
+            "glov": 10,
+        }
+    )
 
     def load_itemtypes(
         self, filepath: str | Traversable
@@ -1151,11 +1153,13 @@ class GameData:
             return next(iter(self.version_data.values()))
         raise KeyError(f"No game data loaded for version {version:#x}")
 
-    OVERLAY_CHAIN: ClassVar[dict[int, list[str]]] = {
-        0x63: ["0x63", "d2r"],
-        0x69: ["d2r"],
-    }
-    DEFAULT_OVERLAYS: ClassVar[list[str]] = ["d2r"]
+    OVERLAY_CHAIN: ClassVar[frozendict[int, tuple[str, ...]]] = frozendict(
+        {
+            0x63: ("0x63", "d2r"),
+            0x69: ("d2r",),
+        }
+    )
+    DEFAULT_OVERLAYS: ClassVar[tuple[str, ...]] = ("d2r",)
 
     def load_version(
         self,

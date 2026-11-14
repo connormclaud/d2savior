@@ -26,38 +26,40 @@ class _ElementalTemplate(NamedTuple):
     range_fallback: str
 
 
-_ELEMENTAL_TEMPLATES: dict[int, _ElementalTemplate] = {
-    48: _ElementalTemplate(
-        "strModFireDamage",
-        "%+d fire damage",
-        "strModFireDamageRange",
-        "Adds %d-%d fire damage",
-    ),
-    50: _ElementalTemplate(
-        "strModLightningDamage",
-        "%+d lightning damage",
-        "strModLightningDamageRange",
-        "Adds %d-%d lightning damage",
-    ),
-    52: _ElementalTemplate(
-        "strModMagicDamage",
-        "%+d magic damage",
-        "strModMagicDamageRange",
-        "Adds %d-%d magic damage",
-    ),
-    54: _ElementalTemplate(
-        "strModColdDamage",
-        "%+d cold damage",
-        "strModColdDamageRange",
-        "Adds %d-%d cold damage",
-    ),
-    57: _ElementalTemplate(
-        "strModPoisonDamage",
-        "%+d poison damage over %d seconds",
-        "strModPoisonDamageRange",
-        "Adds %d-%d poison damage over %d seconds",
-    ),
-}
+_ELEMENTAL_TEMPLATES: frozendict[int, _ElementalTemplate] = frozendict(
+    {
+        48: _ElementalTemplate(
+            "strModFireDamage",
+            "%+d fire damage",
+            "strModFireDamageRange",
+            "Adds %d-%d fire damage",
+        ),
+        50: _ElementalTemplate(
+            "strModLightningDamage",
+            "%+d lightning damage",
+            "strModLightningDamageRange",
+            "Adds %d-%d lightning damage",
+        ),
+        52: _ElementalTemplate(
+            "strModMagicDamage",
+            "%+d magic damage",
+            "strModMagicDamageRange",
+            "Adds %d-%d magic damage",
+        ),
+        54: _ElementalTemplate(
+            "strModColdDamage",
+            "%+d cold damage",
+            "strModColdDamageRange",
+            "Adds %d-%d cold damage",
+        ),
+        57: _ElementalTemplate(
+            "strModPoisonDamage",
+            "%+d poison damage over %d seconds",
+            "strModPoisonDamageRange",
+            "Adds %d-%d poison damage over %d seconds",
+        ),
+    }
+)
 
 
 def get_item_display_name(item: D2Item, resolver: GameDataResolver, version: int = 0x63) -> str:

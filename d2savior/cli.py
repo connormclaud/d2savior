@@ -125,18 +125,20 @@ def parse_file(
     return None, None, None
 
 
-FORMATTERS = {
-    ("char", False): lambda d, resolver: format_char_info(d, resolver=resolver),
-    ("char", True): lambda d, resolver: format_char_summary(d, resolver=resolver),
-    ("stash", False): lambda d, resolver: format_stash_info(d, resolver=resolver),
-    ("stash", True): lambda d, resolver: format_stash_summary(d, resolver=resolver),
-    ("item", False): lambda it, resolver: (
-        "=== Item Info ===\n" + format_item_info(it, resolver=resolver)
-    ),
-    ("item", True): lambda it, resolver: (
-        f"=== Item Summary ===\n- {format_item_summary(it, resolver=resolver)}"
-    ),
-}
+FORMATTERS = frozendict(
+    {
+        ("char", False): lambda d, resolver: format_char_info(d, resolver=resolver),
+        ("char", True): lambda d, resolver: format_char_summary(d, resolver=resolver),
+        ("stash", False): lambda d, resolver: format_stash_info(d, resolver=resolver),
+        ("stash", True): lambda d, resolver: format_stash_summary(d, resolver=resolver),
+        ("item", False): lambda it, resolver: (
+            "=== Item Info ===\n" + format_item_info(it, resolver=resolver)
+        ),
+        ("item", True): lambda it, resolver: (
+            f"=== Item Summary ===\n- {format_item_summary(it, resolver=resolver)}"
+        ),
+    }
+)
 
 
 def format_output(
@@ -440,16 +442,18 @@ def cmd_stash(argv: list[str]) -> int:
     return _process_files(stash_files, args, resolver)
 
 
-COMMANDS = {
-    "list": (
-        cmd_list,
-        "list [path]       List characters in save directory (sorted by last played)",
-    ),
-    "stash": (
-        cmd_stash,
-        "stash [path]      Display shared stash in save directory",
-    ),
-}
+COMMANDS = frozendict(
+    {
+        "list": (
+            cmd_list,
+            "list [path]       List characters in save directory (sorted by last played)",
+        ),
+        "stash": (
+            cmd_stash,
+            "stash [path]      Display shared stash in save directory",
+        ),
+    }
+)
 
 
 def main(argv: list[str] | None = None) -> None:

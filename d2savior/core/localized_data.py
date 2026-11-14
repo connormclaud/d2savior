@@ -243,32 +243,34 @@ class LocalizedDataLoader:
                 return result
         return ""
 
-    _SKILL_TAB_KEYS: ClassVar[dict[tuple[int, int], str]] = {
-        (0, 0): "SkillCategoryAm3",
-        (0, 1): "SkillCategoryAm2",
-        (0, 2): "SkillCategoryAm1",
-        (1, 0): "SkillCategorySo3",
-        (1, 1): "SkillCategorySo2",
-        (1, 2): "SkillCategorySo1",
-        (2, 0): "SkillCategoryNe3",
-        (2, 1): "SkillCategoryNe2",
-        (2, 2): "SkillCategoryNe1",
-        (3, 0): "SkillCategoryPa3",
-        (3, 1): "SkillCategoryPa2",
-        (3, 2): "SkillCategoryPa1",
-        (4, 0): "SkillCategoryBa3",
-        (4, 1): "SkillCategoryBa2",
-        (4, 2): "SkillCategoryBa1",
-        (5, 0): "SkillCategoryDr3",
-        (5, 1): "SkillCategoryDr2",
-        (5, 2): "SkillCategoryDr1",
-        (6, 0): "SkillCategoryAs3",
-        (6, 1): "SkillCategoryAs2",
-        (6, 2): "SkillCategoryAs1",
-        (7, 0): "SkillCategoryWa1",
-        (7, 1): "SkillCategoryWa2",
-        (7, 2): "SkillCategoryWa3",
-    }
+    _SKILL_TAB_KEYS: ClassVar[frozendict[tuple[int, int], str]] = frozendict(
+        {
+            (0, 0): "SkillCategoryAm3",
+            (0, 1): "SkillCategoryAm2",
+            (0, 2): "SkillCategoryAm1",
+            (1, 0): "SkillCategorySo3",
+            (1, 1): "SkillCategorySo2",
+            (1, 2): "SkillCategorySo1",
+            (2, 0): "SkillCategoryNe3",
+            (2, 1): "SkillCategoryNe2",
+            (2, 2): "SkillCategoryNe1",
+            (3, 0): "SkillCategoryPa3",
+            (3, 1): "SkillCategoryPa2",
+            (3, 2): "SkillCategoryPa1",
+            (4, 0): "SkillCategoryBa3",
+            (4, 1): "SkillCategoryBa2",
+            (4, 2): "SkillCategoryBa1",
+            (5, 0): "SkillCategoryDr3",
+            (5, 1): "SkillCategoryDr2",
+            (5, 2): "SkillCategoryDr1",
+            (6, 0): "SkillCategoryAs3",
+            (6, 1): "SkillCategoryAs2",
+            (6, 2): "SkillCategoryAs1",
+            (7, 0): "SkillCategoryWa1",
+            (7, 1): "SkillCategoryWa2",
+            (7, 2): "SkillCategoryWa3",
+        }
+    )
 
     def get_skill_tab_name(self, tab: int, class_id: int) -> str:
         key = self._SKILL_TAB_KEYS.get((class_id, tab))

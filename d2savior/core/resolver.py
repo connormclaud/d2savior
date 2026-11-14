@@ -476,31 +476,39 @@ class GameDataResolver:
                 return name
         return default_name
 
-    _MERC_ACT_ROMAN: ClassVar[dict[int, str]] = {
-        1: "Act I",
-        2: "Act II",
-        3: "Act III",
-        4: "Act IV",
-        5: "Act V",
-    }
-    _MERC_DIFFICULTIES: ClassVar[dict[int, str]] = {
-        1: "Normal",
-        2: "Nightmare",
-        3: "Hell",
-    }
-    _MERC_CLASS_LOC: ClassVar[dict[int, tuple[str, str]]] = {
-        1: ("monsters", "RogueScout"),
-        2: ("ui", "DesertMerc"),
-        3: ("monsters", "Iron Wolf"),
-        5: ("ui", "Barbarian"),
-    }
-    _MERC_DESC_FALLBACK: ClassVar[dict[str, str]] = {
-        "strhirespecial1": "Fire Arrow",
-        "strhirespecial2": "Cold Arrow",
-        "strhirespecial5": "Lightning",
-        "strhirespecial6": "Cold",
-        "strhirespecial7": "Fire",
-    }
+    _MERC_ACT_ROMAN: ClassVar[frozendict[int, str]] = frozendict(
+        {
+            1: "Act I",
+            2: "Act II",
+            3: "Act III",
+            4: "Act IV",
+            5: "Act V",
+        }
+    )
+    _MERC_DIFFICULTIES: ClassVar[frozendict[int, str]] = frozendict(
+        {
+            1: "Normal",
+            2: "Nightmare",
+            3: "Hell",
+        }
+    )
+    _MERC_CLASS_LOC: ClassVar[frozendict[int, tuple[str, str]]] = frozendict(
+        {
+            1: ("monsters", "RogueScout"),
+            2: ("ui", "DesertMerc"),
+            3: ("monsters", "Iron Wolf"),
+            5: ("ui", "Barbarian"),
+        }
+    )
+    _MERC_DESC_FALLBACK: ClassVar[frozendict[str, str]] = frozendict(
+        {
+            "strhirespecial1": "Fire Arrow",
+            "strhirespecial2": "Cold Arrow",
+            "strhirespecial5": "Lightning",
+            "strhirespecial6": "Cold",
+            "strhirespecial7": "Fire",
+        }
+    )
 
     def get_localized_mercenary_name(self, hireling_id: int, name_index: int) -> str:
         """Resolve a mercenary's localized name from hireling_id and name_index."""

@@ -19,15 +19,19 @@ def is_d2r(version: int) -> bool:
     return version >= 0x61
 
 
-PAIRED_STATS = {
-    17: [18],
-    48: [49],
-    50: [51],
-    52: [53],
-    54: [55, 56],
-    57: [58, 59],
-}
-_PAIRED_STAT_IDS = {pid for paired in PAIRED_STATS.values() for pid in paired}
+PAIRED_STATS: frozendict[int, tuple[int, ...]] = frozendict(
+    {
+        17: (18,),
+        48: (49,),
+        50: (51,),
+        52: (53,),
+        54: (55, 56),
+        57: (58, 59),
+    }
+)
+_PAIRED_STAT_IDS: frozenset[int] = frozenset(
+    pid for paired in PAIRED_STATS.values() for pid in paired
+)
 
 
 class PropertyList:
