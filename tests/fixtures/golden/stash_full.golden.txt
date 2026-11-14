@@ -15,7 +15,7 @@ Total items: 31
   Suffix: 286 (of Chance)
   Properties:
     - 13% Better Chance of Getting Magic Items
-    - +1 to Offensive Auras
+    - +1 to Offensive Auras (Paladin Only)
 --- Item 1 ---
   Type: cap  (Cap)
   Location: STORED, Position: 0
@@ -90,7 +90,7 @@ Total items: 31
     - +5 to Dexterity
     - Fire Resist +12%
     - Poison Length Reduced by 25%
-    - +1 to Javelin and Spear
+    - +1 to Javelin and Spear Skills (Amazon Only)
 --- Item 4 ---
   Type: rin  (Ring)
   Location: STORED, Position: 0
@@ -343,7 +343,7 @@ Total items: 31
   Drop Level: 49
   Prefix: 470 (Hawk Branded)
   Properties:
-    - +2 to Combat Skills
+    - +2 to Combat Skills (Paladin Only)
 --- Item 17 ---
   Type: gts  (Gothic Shield)
   Location: STORED, Position: 0
@@ -439,7 +439,7 @@ Total items: 31
     - Cold Resist +16%
     - Poison Resist +42%
     - Replenish Life +5
-    - +2 to Combat Skills
+    - +2 to Combat Skills (Paladin Only)
 --- Item 21 ---
   Type: crs  (Crystal Sword)
   Location: STORED, Position: 0
@@ -558,7 +558,7 @@ Total items: 31
   Durability: 28/35
   Properties:
     - 58% Extra Gold from Monsters
-    - +2 to Elemental
+    - +2 to Elemental Skills (Druid Only)
 --- Item 24 ---
   Type: amu  (Amulet)
   Location: STORED, Position: 0
@@ -595,7 +595,7 @@ Total items: 31
   Drop Level: 64
   Prefix: 474 (Marshal's)
   Properties:
-    - +3 to Offensive Auras
+    - +3 to Offensive Auras (Paladin Only)
 --- Item 27 ---
   Type: amu  (Amulet)
   Location: STORED, Position: 0
@@ -627,7 +627,7 @@ Total items: 31
     - +51 to Mana
     - Magic Damage Reduced by 2
     - Cold Resist +33%
-    - +1 to Shadow Disciplines
+    - +1 to Shadow Disciplines (Assassin Only)
 --- Item 29 ---
   Type: amu  (Amulet)
   Location: STORED, Position: 0
@@ -1288,7 +1288,7 @@ Total items: 17
     - +30% Faster Run/Walk
     - +25 to Minimum Throw Damage
     - +50 to Maximum Throw Damage
-    - +2 to Javelin and Spear
+    - +2 to Javelin and Spear Skills (Amazon Only)
     - Replenishes quantity
     - Increased Stack Size
 --- Item 7 ---
@@ -1384,7 +1384,7 @@ Total items: 17
     - +3 to Immolation Arrow (Amazon Only)
     - +50% Piercing Attack
     - Fires Explosive Arrows or Bolts
-    - +3 to Bow and Crossbow
+    - +3 to Bow and Crossbow Skills (Amazon Only)
 --- Item 12 ---
   Type: 8hb  (Razor Bow)
   Required Level: 21
@@ -1421,7 +1421,7 @@ Total items: 17
     - Fire Resist +23%
     - Lightning Resist +24%
     - Cold Resist +22%
-    - +2 to Demon
+    - +2 to Demon Skills (Warlock Only)
   Set Properties (2 Items):
     - Poison Resist +25%
   Set Properties (4 Items):
@@ -1464,7 +1464,7 @@ Total items: 17
   Durability: 27/48
   Sockets: 4
   Properties:
-    - +2 to Bow and Crossbow
+    - +2 to Bow and Crossbow Skills (Amazon Only)
 --- Item 16 ---
   Type: 9vo  (Bill)
   Required Level: 25

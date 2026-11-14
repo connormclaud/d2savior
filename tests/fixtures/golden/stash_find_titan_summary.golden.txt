@@ -1,3 +1,3 @@
 === Diablo II Shared Stash Summary ===
 === Tab 3 (Normal) ===
-  - Titan's Revenge (Ceremonial Javelin) [Qty: 180] (+20 to Strength, +20 to Dexterity, +172% Enhanced Damage, Adds 25-50 damage, 7% Life stolen per hit, +2 to Amazon Skill Levels, +30% Faster Run/Walk, +2 to Javelin and Spear, Replenishes quantity, Increased Stack Size)
+  - Titan's Revenge (Ceremonial Javelin) [Qty: 180] (+20 to Strength, +20 to Dexterity, +172% Enhanced Damage, Adds 25-50 damage, 7% Life stolen per hit, +2 to Amazon Skill Levels, +30% Faster Run/Walk, +2 to Javelin and Spear Skills (Amazon Only), Replenishes quantity, Increased Stack Size)

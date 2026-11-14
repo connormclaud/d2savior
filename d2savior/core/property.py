@@ -26,6 +26,33 @@ _CLASS_ONLY_KEYS = {
     7: "WarOnly",  # (Warlock Only)
 }
 
+_SKILL_TAB_MODIFIER_KEYS: dict[tuple[int, int], str] = {
+    (0, 0): "StrSklTabItem3",  # Bow and Crossbow Skills
+    (0, 1): "StrSklTabItem2",  # Passive and Magic Skills
+    (0, 2): "StrSklTabItem1",  # Javelin and Spear Skills
+    (1, 0): "StrSklTabItem15",  # Fire Skills
+    (1, 1): "StrSklTabItem14",  # Lightning Skills
+    (1, 2): "StrSklTabItem13",  # Cold Skills
+    (2, 0): "StrSklTabItem8",  # Curses
+    (2, 1): "StrSklTabItem7",  # Poison and Bone Skills
+    (2, 2): "StrSklTabItem9",  # Summoning Skills
+    (3, 0): "StrSklTabItem6",  # Combat Skills (Paladin)
+    (3, 1): "StrSklTabItem5",  # Offensive Auras
+    (3, 2): "StrSklTabItem4",  # Defensive Auras
+    (4, 0): "StrSklTabItem11",  # Combat Skills (Barbarian)
+    (4, 1): "StrSklTabItem12",  # Masteries
+    (4, 2): "StrSklTabItem10",  # Warcries
+    (5, 0): "StrSklTabItem16",  # Summoning Skills (Druid)
+    (5, 1): "StrSklTabItem17",  # Shape Shifting Skills
+    (5, 2): "StrSklTabItem18",  # Elemental Skills
+    (6, 0): "StrSklTabItem19",  # Traps
+    (6, 1): "StrSklTabItem20",  # Shadow Disciplines
+    (6, 2): "StrSklTabItem21",  # Martial Arts
+    (7, 0): "StrSklTabItem24",  # Demon Skills
+    (7, 1): "StrSklTabItem22",  # Eldritch Skills
+    (7, 2): "StrSklTabItem23",  # Chaos Skills
+}
+
 _CHANCE_CAST_KEYS = {
     195: "ItemExpansiveChancX",
     196: "ModitemskonKill",
@@ -48,6 +75,20 @@ def get_skill_class_id(skill_id: int) -> int:
 
 def get_time_name(time_id: int) -> str:
     return f"Time{time_id}"
+
+
+def _get_class_only_str(class_id: int, resolver: Any) -> str:
+    """Return localized class restriction string such as '(Warlock Only)', or '' if unknown."""
+    class_only_key = _CLASS_ONLY_KEYS.get(class_id)
+    if class_only_key:
+        loc_str = resolver.get_item_modifier(class_only_key)
+        if loc_str and loc_str != class_only_key:
+            return loc_str
+    if class_id >= 0:
+        class_name = resolver.get_localized_class_name(class_id)
+        if class_name and class_name != "Unknown":
+            return f"({class_name} Only)"
+    return ""
 
 
 def format_property(
@@ -134,16 +175,10 @@ def format_property(
         case 107:
             skill_name = resolver.get_skill_name(a[0])
             class_id = get_skill_class_id(a[0])
-            class_name = resolver.get_localized_class_name(class_id) if class_id >= 0 else ""
+            class_only_str = _get_class_only_str(class_id, resolver)
             if stat and stat.descstrpos:
                 tpl = resolver.get_item_modifier(stat.descstrpos)
                 if tpl and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
-                    class_only_key = _CLASS_ONLY_KEYS.get(class_id)
-                    class_only_str = (
-                        resolver.get_item_modifier(class_only_key) if class_only_key else ""
-                    )
-                    if not class_only_str:
-                        class_only_str = f"({class_name} Only)" if class_name else ""
                     if (
                         "(%s)" in tpl
                         and class_only_str.startswith("(")
@@ -154,8 +189,8 @@ def format_property(
                     res = res.replace("%s", skill_name, 1)
                     res = res.replace("%s", class_only_str, 1)
                     return res.strip()
-            if class_name:
-                return f"+{a[1]} to {skill_name} ({class_name} Only)"
+            if class_only_str:
+                return f"+{a[1]} to {skill_name} {class_only_str}"
             return f"+{a[1]} to {skill_name}"
         case 112:
             a[0] = a[0] * 100 // 127 if a[0] else 0
@@ -199,9 +234,18 @@ def format_property(
                 return f"+{a[1]}% to Attack Rating versus {monster_name}"
             return f"+{a[1]}% to Damage versus {monster_name}"
         case 188:
-            skill_tab_name = resolver.get_localized_skill_tab_name(a[0], a[1])
+            tab, class_id, level = a[0], a[1], a[2]
+            class_only_str = _get_class_only_str(class_id, resolver)
+            tpl_key = _SKILL_TAB_MODIFIER_KEYS.get((class_id, tab))
+            if tpl_key:
+                tpl = resolver.get_item_modifier(tpl_key)
+                if tpl and ("%+d" in tpl or "%d" in tpl):
+                    formatted = tpl.replace("%+d", f"{level:+d}").replace("%d", str(level))
+                    return f"{formatted} {class_only_str}".strip()
+            skill_tab_name = resolver.get_localized_skill_tab_name(tab, class_id)
             if skill_tab_name:
-                return f"+{a[2]} to {skill_tab_name}"
+                base = f"+{level} to {skill_tab_name}"
+                return f"{base} {class_only_str}".strip()
         case 195 | 196 | 197 | 198 | 199 | 201:
             level = a[0]
             skill_name = resolver.get_skill_name(a[1])

@@ -192,7 +192,7 @@ Total items: 69
     - +55% Enhanced Defense
     - Cold Resist +25%
     - 76% Extra Gold from Monsters
-    - +1 to Bow and Crossbow
+    - +1 to Bow and Crossbow Skills (Amazon Only)
     - Repairs 33% durability per second
 --- Item 8 ---
   Type: lgl  (Leather Gloves)

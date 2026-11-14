@@ -85,7 +85,7 @@ Equipped:
 - [Stash] Broad Sword [Sockets: 4]
 - [Stash] Glowing Ring of the Apprentice (+2 to Light Radius, +10% Faster Cast Rate)
 - [Stash] Raven Song (Rare Sacred Globe) (+8 to Energy, +13 to Life, +31 to Mana, Fire Resist +38%, +20% Faster Cast Rate, +1 to Fire Wall (Sorceress Only), 12% Chance to cast level 4 Nova on striking)
-- [Stash] Raven Knuckle (Rare Light Gauntlets) [Def: 12] (+1 to Dexterity, +55% Enhanced Defense, Cold Resist +25%, 76% Extra Gold from Monsters, +1 to Bow and Crossbow, Repairs 33% durability per second)
+- [Stash] Raven Knuckle (Rare Light Gauntlets) [Def: 12] (+1 to Dexterity, +55% Enhanced Defense, Cold Resist +25%, 76% Extra Gold from Monsters, +1 to Bow and Crossbow Skills (Amazon Only), Repairs 33% durability per second)
 - [Stash] Russet Leather Gloves of Chance [Def: 3] (Fire Resist +18%, 11% Better Chance of Getting Magic Items)
 - [Stash] Beryl Amulet of Luck (Poison Resist +6%, 34% Better Chance of Getting Magic Items)
 - [Stash] Large Charm of Strength (+3 to Strength)

@@ -123,8 +123,47 @@ class TestFormatPropertySpecialCases:
         assert "Magic Arrow" in result
 
     def test_format_property_skill_tab(self, game_data_resolver: GameDataResolver):
+        from d2savior.core.d2data import GameDataResolver as GResolver
+
         result = format_property(188, [2, 0, 3], resolver=game_data_resolver)
-        assert "Javelin and Spear" in result
+        assert result == "+3 to Javelin and Spear Skills (Amazon Only)"
+
+        # Ambiguous Warlock, Druid, Paladin, and Barbarian skill tabs
+        assert (
+            format_property(188, [0, 7, 2], resolver=game_data_resolver)
+            == "+2 to Demon Skills (Warlock Only)"
+        )
+        assert (
+            format_property(188, [1, 7, 1], resolver=game_data_resolver)
+            == "+1 to Eldritch Skills (Warlock Only)"
+        )
+        assert (
+            format_property(188, [2, 7, 1], resolver=game_data_resolver)
+            == "+1 to Chaos Skills (Warlock Only)"
+        )
+        assert (
+            format_property(188, [2, 5, 1], resolver=game_data_resolver)
+            == "+1 to Elemental Skills (Druid Only)"
+        )
+        assert (
+            format_property(188, [0, 3, 2], resolver=game_data_resolver)
+            == "+2 to Combat Skills (Paladin Only)"
+        )
+        assert (
+            format_property(188, [0, 4, 2], resolver=game_data_resolver)
+            == "+2 to Combat Skills (Barbarian Only)"
+        )
+
+        # Localized Russian skill tab + class restriction
+        resolver_ru = GResolver.load(lang_key="ruRU")
+        assert (
+            format_property(188, [0, 7, 2], resolver=resolver_ru)
+            == "+2 к демоническим умениям (Только для чернокнижников)"
+        )
+        assert (
+            format_property(188, [2, 5, 2], resolver=resolver_ru)
+            == "+2 к силам стихий (только для друидов)"
+        )
 
     def test_format_property_aura_when_equipped(self, game_data_resolver: GameDataResolver):
         result = format_property(151, [5, 10], resolver=game_data_resolver)

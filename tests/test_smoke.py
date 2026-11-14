@@ -35,6 +35,9 @@ STASH_FULL_RURU_GOLDEN = os.path.join(GOLDEN_DIR, "stash_full_ruRU.golden.txt")
 STASH_FIND_CHARM_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_find_charm_summary.golden.txt")
 STASH_FIND_JEWEL_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_find_jewel_summary.golden.txt")
 STASH_FIND_TITAN_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_find_titan_summary.golden.txt")
+STASH_FIND_HORAZON_SUMMARY_GOLDEN = os.path.join(
+    GOLDEN_DIR, "stash_find_horazon_summary.golden.txt"
+)
 MULE_UNIQUE_FIND_GRIM_SUMMARY_GOLDEN = os.path.join(
     GOLDEN_DIR, "mule_unique_find_grim_summary.golden.txt"
 )
@@ -43,6 +46,7 @@ STASH_FIND_CASES = [
     ("Charm", STASH_FIND_CHARM_SUMMARY_GOLDEN),
     ("Jewel", STASH_FIND_JEWEL_SUMMARY_GOLDEN),
     ("Titan", STASH_FIND_TITAN_SUMMARY_GOLDEN),
+    ("Horazon", STASH_FIND_HORAZON_SUMMARY_GOLDEN),
 ]
 
 CHAR_FIND_CASES = [
