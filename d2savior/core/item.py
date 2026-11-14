@@ -20,11 +20,6 @@ def is_valid_version(version: int) -> bool:
     return version in VALID_VERSIONS
 
 
-_TRACE_PROPERTY = False
-_TRACE_ITEM = False
-_TRACE_ITEM_IDX = -1
-
-
 class ExtItemInfo:
     def __init__(self, meta: ItemMetaData | None = None) -> None:
         self.gems: int = 0
@@ -1047,28 +1042,19 @@ class ItemList:
                 return
 
             self.items = []
-            for i in range(self.count):
+            for _ in range(self.count):
                 assert isinstance(io, BitReader)
                 if io.bs.is_end():
                     break
                 if io.bs.remaining() < 16 * 8:
                     break
-                import d2savior.core.item as _self_mod
-
-                old_trace = _self_mod._TRACE_ITEM
-                old_trace_prop = _self_mod._TRACE_PROPERTY
-                if _self_mod._TRACE_ITEM_IDX >= 0 and i == _self_mod._TRACE_ITEM_IDX:
-                    _self_mod._TRACE_ITEM = True
-                    _self_mod._TRACE_PROPERTY = True
                 item = D2Item()
                 start_offset = io.get_offset()
                 try:
                     item.codec(io, version, not is_d2r(version), data=data)
                 except ValueError:
-                    io.bs._offset = start_offset
+                    io.seek_bits(start_offset)
                     continue
-                _self_mod._TRACE_ITEM = old_trace
-                _self_mod._TRACE_PROPERTY = old_trace_prop
                 self.items.append(item)
 
     def deserialize(

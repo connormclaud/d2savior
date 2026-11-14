@@ -416,22 +416,21 @@ class Demon:
             if self._raw_data:
                 io.bytes(len(self._raw_data), self._raw_data)
         else:
-            if isinstance(io, BitReader):
-                start_pos = io.bs.bytes_pos
-                self.section_version = io.word(self.section_version)
-                self.magic = io.word(self.magic)
-                if self.magic != DEMON_MAGIC:
-                    io.seek_back_bytes(4)
-                    return
-                has_demon_byte = io.byte()
-                self.has_demon = has_demon_byte != 0
-                self.padding = io.byte(self.padding)
-                if self.has_demon:
-                    self._read_demon_data(io)
+            start_offset = io.get_offset()
+            self.section_version = io.word(self.section_version)
+            self.magic = io.word(self.magic)
+            if self.magic != DEMON_MAGIC:
+                io.seek_back_bytes(4)
+                return
+            has_demon_byte = io.byte()
+            self.has_demon = has_demon_byte != 0
+            self.padding = io.byte(self.padding)
+            if self.has_demon:
+                self._read_demon_data(io)
 
-                end_pos = io.bs.bytes_pos
-                io.bs.bytes_pos = start_pos
-                self._raw_data = io.bs.read_bytes(end_pos - start_pos)
+            end_offset = io.get_offset()
+            io.seek_bits(start_offset)
+            self._raw_data = io.bytes((end_offset - start_offset) // 8)
 
     def _read_demon_data(self, io: BitIO) -> None:
         stat_data_size = io.word()

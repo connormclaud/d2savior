@@ -1,8 +1,11 @@
 """Magical property list data structures and bitstream serialization."""
 
+import logging
 from typing import TYPE_CHECKING
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from d2savior.core.ibitstream import IBitStream
@@ -24,8 +27,6 @@ PAIRED_STATS = {
     54: [55, 56],
     57: [58, 59],
 }
-
-_TRACE_PROPERTY = False
 
 
 class PropertyList:
@@ -63,8 +64,9 @@ class PropertyList:
         self.properties = []
         self._use_stat_cost = is_d2r(version)
 
+        trace_props = logger.isEnabledFor(logging.DEBUG)
         while True:
-            bit_pos = bs.get_offset() if _TRACE_PROPERTY else 0
+            bit_pos = bs.get_offset() if trace_props else 0
             self.end_flag = bs.read_bits(9)
             if self.end_flag >= 0x1FF:
                 break
@@ -82,9 +84,17 @@ class PropertyList:
                 value = (raw_value - stat_cost.save_add) << stat_cost.val_shift
                 self.properties.append((self.end_flag, layer, value))
 
-                if _TRACE_PROPERTY:
-                    print(
-                        f"  stat {self.end_flag}: bit_pos={bit_pos}, layer={layer}, raw_value={raw_value}, value={value}, save_bits={stat_cost.save_bits}, save_param_bits={stat_cost.save_param_bits}"
+                if trace_props:
+                    logger.debug(
+                        "  stat %s: bit_pos=%s, layer=%s, raw_value=%s, value=%s, "
+                        "save_bits=%s, save_param_bits=%s",
+                        self.end_flag,
+                        bit_pos,
+                        layer,
+                        raw_value,
+                        value,
+                        stat_cost.save_bits,
+                        stat_cost.save_param_bits,
                     )
 
                 for paired_id in PAIRED_STATS.get(self.end_flag, []):
@@ -93,9 +103,12 @@ class PropertyList:
                         paired_raw = bs.read_bits(paired_cost.save_bits)
                         paired_value = (paired_raw - paired_cost.save_add) << paired_cost.val_shift
                         self.properties.append((paired_id, 0, paired_value))
-                        if _TRACE_PROPERTY:
-                            print(
-                                f"    paired stat {paired_id}: raw={paired_raw}, value={paired_value}"
+                        if trace_props:
+                            logger.debug(
+                                "    paired stat %s: raw=%s, value=%s",
+                                paired_id,
+                                paired_raw,
+                                paired_value,
                             )
             else:
                 prop_meta = data.get_property_meta(self.end_flag)

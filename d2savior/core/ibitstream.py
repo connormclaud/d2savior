@@ -58,7 +58,15 @@ class IBitStream:
         return data
 
     def seek_back_bytes(self, num_bytes: int) -> None:
-        self._offset -= num_bytes * 8
+        self.seek_bits(self._offset - num_bytes * 8)
+
+    def seek_bits(self, bit_offset: int) -> None:
+        if bit_offset < 0 or bit_offset > len(self._data) * 8:
+            raise ValueError(f"bit_offset {bit_offset} out of range [0, {len(self._data) * 8}]")
+        self._offset = bit_offset
+
+    def seek_bytes(self, byte_offset: int) -> None:
+        self.seek_bits(byte_offset * 8)
 
     def get_offset(self) -> int:
         return self._offset

@@ -327,7 +327,7 @@ class StashTab:
         version: int | None = None,
         data: VersionData | GameData | GameDataResolver | None = None,
     ) -> None:
-        start_pos = io.bs.bytes_pos if isinstance(io, BitReader) else 0
+        start_pos = io.get_offset() // 8 if io.is_reading else 0
 
         magic = io.dword(STASH_TAB_MAGIC)
         if io.is_reading and magic != STASH_TAB_MAGIC:
@@ -378,9 +378,9 @@ class StashTab:
                         f"ItemFormat={self.item_format:#x}): {e}"
                     )
 
-        if isinstance(io, BitReader):
+        if io.is_reading:
             end_pos = start_pos + self._tab_size
-            io.bs.bytes_pos = end_pos
+            io.seek_bytes(end_pos)
 
     def deserialize(
         self,

@@ -71,6 +71,16 @@ class BitIO(ABC):
         """Rewind the stream position by num_bytes bytes."""
         ...
 
+    @abstractmethod
+    def seek_bits(self, bit_offset: int) -> None:
+        """Seek stream position to absolute bit_offset."""
+        ...
+
+    @abstractmethod
+    def seek_bytes(self, byte_offset: int) -> None:
+        """Seek stream position to absolute byte_offset."""
+        ...
+
     def opt_bits(self, count: int, value: int | None = None) -> int | None:
         """Read/write a 1-bit presence flag followed by count bits if present."""
         if self.is_writing:
@@ -140,6 +150,12 @@ class BitReader(BitIO):
     def seek_back_bytes(self, num_bytes: int) -> None:
         self.bs.seek_back_bytes(num_bytes)
 
+    def seek_bits(self, bit_offset: int) -> None:
+        self.bs.seek_bits(bit_offset)
+
+    def seek_bytes(self, byte_offset: int) -> None:
+        self.bs.seek_bytes(byte_offset)
+
 
 class BitWriter(BitIO):
     """BitIO writer wrapping an OBitStream."""
@@ -200,3 +216,9 @@ class BitWriter(BitIO):
 
     def seek_back_bytes(self, num_bytes: int) -> None:
         raise NotImplementedError("Cannot seek back in BitWriter")
+
+    def seek_bits(self, bit_offset: int) -> None:
+        raise NotImplementedError("Cannot seek in BitWriter")
+
+    def seek_bytes(self, byte_offset: int) -> None:
+        raise NotImplementedError("Cannot seek in BitWriter")

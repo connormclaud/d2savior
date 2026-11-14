@@ -2,7 +2,9 @@
 import argparse
 import os
 import signal
+import struct
 import sys
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +34,14 @@ from d2savior.core.stash_formatter import (
     format_stash_info,
     format_stash_summary,
 )
+
+_PARSE_ERRORS = (OSError, ValueError, LookupError, EOFError, struct.error)
+
+
+def _report_parse_error(file_path: str, exc: Exception, debug: bool) -> None:
+    print(f"Error parsing '{file_path}': {exc}", file=sys.stderr)
+    if debug:
+        traceback.print_exc(file=sys.stderr)
 
 
 def parse_d2i_file(
@@ -64,11 +74,8 @@ def parse_d2i_file(
             print(f"Remaining: {bs.remaining()}")
 
         return True, stash, "stash", bs
-    except Exception as e:
-        print(f"Error parsing file: {e}", file=sys.stderr)
-        import traceback
-
-        traceback.print_exc(file=sys.stderr)
+    except _PARSE_ERRORS as e:
+        _report_parse_error(file_path, e, debug)
         return False, None, None, None
 
 
@@ -93,11 +100,8 @@ def parse_d2s_file(
 
         return True, char_data, bs
 
-    except Exception as e:
-        print(f"Error parsing file: {e}", file=sys.stderr)
-        import traceback
-
-        traceback.print_exc(file=sys.stderr)
+    except _PARSE_ERRORS as e:
+        _report_parse_error(file_path, e, debug)
         return False, None, None
 
 

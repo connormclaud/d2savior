@@ -168,3 +168,24 @@ def test_cmd_stash_find(capsys):
     assert "=== Diablo II Shared Stash Summary ===" in captured.out
     assert "=== Tab 3 (Normal) ===" in captured.out
     assert "Horazon's Hold (Demonhide Gloves)" in captured.out
+
+
+def test_parse_error_suppresses_traceback_by_default(capsys, tmp_path, game_data_resolver):
+    missing_d2s = str(tmp_path / "missing.d2s")
+    ok, data, bs = parse_d2s_file(missing_d2s, resolver=game_data_resolver, debug=False)
+    assert not ok
+    assert data is None
+    assert bs is None
+    err = capsys.readouterr().err
+    assert f"Error parsing '{missing_d2s}'" in err
+    assert "Traceback (most recent call last):" not in err
+
+    missing_d2i = str(tmp_path / "missing.d2i")
+    ok, item, kind, bs = parse_d2i_file(missing_d2i, resolver=game_data_resolver, debug=True)
+    assert not ok
+    assert item is None
+    assert kind is None
+    assert bs is None
+    err = capsys.readouterr().err
+    assert f"Error parsing '{missing_d2i}'" in err
+    assert "Traceback (most recent call last):" in err

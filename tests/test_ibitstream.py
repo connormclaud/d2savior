@@ -221,6 +221,36 @@ class TestIBitStreamNewInterface:
         assert stream.bytes_pos == 1
         assert stream.read_byte() == 1
 
+    def test_seek_bits_and_seek_bytes(self):
+        from d2savior.core.bit_io import BitReader, BitWriter
+        from d2savior.core.obitstream import OBitStream
+
+        stream = IBitStream(b"\x10\x20\x30\x40")
+        reader = BitReader(stream)
+        reader.bits(5)
+        reader.seek_bytes(2)
+        assert reader.get_offset() == 16
+        assert reader.byte() == 0x30
+
+        reader.seek_bits(8)
+        assert reader.get_offset() == 8
+        assert reader.byte() == 0x20
+
+        # Seeking to exact EOF is allowed
+        reader.seek_bytes(4)
+        assert stream.is_end()
+
+        with pytest.raises(ValueError, match="out of range"):
+            reader.seek_bits(-1)
+        with pytest.raises(ValueError, match="out of range"):
+            reader.seek_bytes(5)
+
+        writer = BitWriter(OBitStream())
+        with pytest.raises(NotImplementedError):
+            writer.seek_bits(0)
+        with pytest.raises(NotImplementedError):
+            writer.seek_bytes(0)
+
     def test_snake_case_aliases(self):
         stream = IBitStream(b"v\x01")
         assert stream.get_offset() == 0
