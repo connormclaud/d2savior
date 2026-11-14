@@ -1,9 +1,15 @@
-from typing import Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
+from d2savior.core.ibitstream import IBitStream
 from d2savior.core.loader import GameData
+from d2savior.core.models import VersionData
 from d2savior.core.obitstream import OBitStream
 from d2savior.core.resolver import GameDataResolver
+
+if TYPE_CHECKING:
+    from d2savior.core.item import D2Item, ItemList
 
 STASH_TAB_MAGIC = 0xAA55AA55
 STASH_TAB_HEADER_SIZE = 64
@@ -223,14 +229,14 @@ MATERIAL_CODES = {
 }
 
 
-def classify_advanced_tab(items: list[Any] | None) -> int:
+def classify_advanced_tab(items: Sequence[D2Item] | None) -> int:
     if not items:
         return ADVANCED_SUBTYPE_UNKNOWN
     rune_count = 0
     gem_count = 0
     material_count = 0
     for item in items:
-        tn = getattr(item, "type_name", b"")
+        tn = item.type_name
         if tn in RUNE_CODES:
             rune_count += 1
         elif tn in GEM_CODES:
@@ -266,7 +272,7 @@ def get_advanced_layout(subtype: int) -> tuple[int, int]:
 COMBINED_SLOT_ORDER = GEM_SLOT_ORDER + RUNE_SLOT_ORDER + MATERIAL_SLOT_ORDER
 
 
-def get_advanced_slot_order(subtype: int) -> list:
+def get_advanced_slot_order(subtype: int) -> list[bytes]:
     if subtype == ADVANCED_SUBTYPE_GEM:
         return GEM_SLOT_ORDER
     elif subtype == ADVANCED_SUBTYPE_RUNE:
@@ -276,7 +282,7 @@ def get_advanced_slot_order(subtype: int) -> list:
     return COMBINED_SLOT_ORDER
 
 
-def compute_advanced_grid(items: list[Any], subtype: int) -> tuple[int, int, list]:
+def compute_advanced_grid(items: Sequence[D2Item], subtype: int) -> tuple[int, int, list[bytes]]:
     if not items:
         layout = get_advanced_layout(subtype)
         return layout[0], layout[1], get_advanced_slot_order(subtype)
@@ -287,7 +293,7 @@ def compute_advanced_grid(items: list[Any], subtype: int) -> tuple[int, int, lis
 
     item_type_set = set()
     for item in items:
-        tn = getattr(item, "type_name", b"")
+        tn = item.type_name
         if tn:
             item_type_set.add(tn)
 
@@ -310,12 +316,17 @@ class StashTab:
         self.season = 0
         self.tab_type = STASH_TAB_TYPE_NORMAL
         self.reserved = b"\x00" * 43
-        self.items = None
-        self.chronicle = None
+        self.items: ItemList | None = None
+        self.chronicle: bytes | None = None
         self._tab_size = 0
-        self._data: Any = None
+        self._data: VersionData | None = None
 
-    def codec(self, io: BitIO, version: int | None = None, data: Any = None) -> None:
+    def codec(
+        self,
+        io: BitIO,
+        version: int | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
+    ) -> None:
         start_pos = io.bs.bytes_pos if isinstance(io, BitReader) else 0
 
         magic = io.dword(STASH_TAB_MAGIC)
@@ -335,7 +346,7 @@ class StashTab:
 
         item_version = version if version else self.item_format
         if isinstance(data, GameDataResolver):
-            vd = data.game_data.for_version(item_version)
+            vd: VersionData | None = data.for_version(item_version).data
         elif isinstance(data, GameData):
             vd = data.for_version(item_version)
         else:
@@ -371,11 +382,21 @@ class StashTab:
             end_pos = start_pos + self._tab_size
             io.bs.bytes_pos = end_pos
 
-    def deserialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
+    def deserialize(
+        self,
+        bs: IBitStream | BitIO,
+        version: int | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
+    ) -> None:
         reader = bs if isinstance(bs, BitIO) else BitReader(bs)
         self.codec(reader, version, data=data)
 
-    def serialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
+    def serialize(
+        self,
+        bs: OBitStream | BitIO,
+        version: int | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
+    ) -> None:
         writer = bs if isinstance(bs, BitIO) else BitWriter(bs)
         self.codec(writer, version, data=data)
 
@@ -385,7 +406,12 @@ class SharedStash:
         self.tabs: list[StashTab] = []
         self.file_path = ""
 
-    def codec(self, io: BitIO, version: int | None = None, data: Any = None) -> None:
+    def codec(
+        self,
+        io: BitIO,
+        version: int | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
+    ) -> None:
         import struct
 
         if io.is_writing:
@@ -412,11 +438,21 @@ class SharedStash:
                     logging.warning(f"Failed to parse stash tab #{len(self.tabs)}: {e}")
                     break
 
-    def deserialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
+    def deserialize(
+        self,
+        bs: IBitStream | BitIO,
+        version: int | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
+    ) -> None:
         reader = bs if isinstance(bs, BitIO) else BitReader(bs)
         self.codec(reader, version, data=data)
 
-    def serialize(self, bs: Any, version: int | None = None, data: Any = None) -> None:
+    def serialize(
+        self,
+        bs: OBitStream | BitIO,
+        version: int | None = None,
+        data: VersionData | GameData | GameDataResolver | None = None,
+    ) -> None:
         writer = bs if isinstance(bs, BitIO) else BitWriter(bs)
         self.codec(writer, version, data=data)
 
@@ -428,7 +464,7 @@ class SharedStash:
             return self.tabs[index]
         return None
 
-    def get_tab_items(self, index: int) -> list[Any]:
+    def get_tab_items(self, index: int) -> list[D2Item]:
         tab = self.get_tab(index)
         if tab and tab.items:
             return tab.items.items

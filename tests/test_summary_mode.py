@@ -546,10 +546,12 @@ class TestSummaryMode:
 
         # Switching language produces a resolver for that language
         resolver_zh = GameDataResolver.load(lang_key="zhCN")
+        assert resolver_zh.loc is not None
         assert resolver_zh.loc.current_lang == "zhCN"
 
         # enUS still loads correctly
         resolver_en = GameDataResolver.load(lang_key="enUS")
+        assert resolver_en.loc is not None
         assert resolver_en.loc.current_lang == "enUS"
 
     def test_ru_summary_mode(self):

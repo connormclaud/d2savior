@@ -1,5 +1,4 @@
 from enum import FlagBoundary, IntFlag
-from typing import Any
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 from d2savior.core.enums import (
@@ -15,6 +14,7 @@ from d2savior.core.enums import (
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import D2Item, ItemList
 from d2savior.core.loader import GameData
+from d2savior.core.models import VersionData
 from d2savior.core.obitstream import OBitStream
 from d2savior.core.resolver import GameDataResolver
 
@@ -272,19 +272,23 @@ class CharSkills:
 class CorpseData:
     def __init__(self) -> None:
         self.unknown = b""
-        self.items = None
+        self.items: ItemList | None = None
 
-    def codec(self, io: BitIO, version: int, data: Any = None) -> None:
+    def codec(self, io: BitIO, version: int, data: VersionData | GameData | None = None) -> None:
         self.unknown = io.bytes(12, self.unknown)
         if io.is_reading:
             self.items = ItemList()
         if self.items:
             self.items.codec(io, version, data=data)
 
-    def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
+    def deserialize(
+        self, bs: IBitStream, version: int, data: VersionData | GameData | None = None
+    ) -> None:
         self.codec(BitReader(bs), version, data=data)
 
-    def serialize(self, bs: OBitStream, version: int, data: Any = None) -> None:
+    def serialize(
+        self, bs: OBitStream, version: int, data: VersionData | GameData | None = None
+    ) -> None:
         self.codec(BitWriter(bs), version, data=data)
 
 
@@ -292,9 +296,9 @@ class Corpse:
     def __init__(self) -> None:
         self.magic = 0
         self.count = 0
-        self.corpse_data = None
+        self.corpse_data: CorpseData | None = None
 
-    def codec(self, io: BitIO, version: int, data: Any = None) -> None:
+    def codec(self, io: BitIO, version: int, data: VersionData | GameData | None = None) -> None:
         self.magic = io.word(self.magic)
         self.count = io.word(self.count)
         if io.is_reading:
@@ -312,19 +316,29 @@ class Corpse:
     def has_corpse(self) -> bool:
         return self.count > 0 and self.corpse_data is not None
 
-    def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
+    def deserialize(
+        self, bs: IBitStream, version: int, data: VersionData | GameData | None = None
+    ) -> None:
         self.codec(BitReader(bs), version, data=data)
 
-    def serialize(self, bs: OBitStream, version: int, data: Any = None) -> None:
+    def serialize(
+        self, bs: OBitStream, version: int, data: VersionData | GameData | None = None
+    ) -> None:
         self.codec(BitWriter(bs), version, data=data)
 
 
 class Mercenary:
     def __init__(self) -> None:
         self.magic = 0
-        self.items = None
+        self.items: ItemList | None = None
 
-    def codec(self, io: BitIO, has_mercenary: bool, version: int, data: Any = None) -> None:
+    def codec(
+        self,
+        io: BitIO,
+        has_mercenary: bool,
+        version: int,
+        data: VersionData | GameData | None = None,
+    ) -> None:
         self.magic = io.word(self.magic)
         if io.is_reading:
             if self.magic != MERCENARY_MAGIC:
@@ -339,12 +353,20 @@ class Mercenary:
                 self.items.codec(io, version, data=data)
 
     def deserialize(
-        self, bs: IBitStream, has_mercenary: bool, version: int, data: Any = None
+        self,
+        bs: IBitStream,
+        has_mercenary: bool,
+        version: int,
+        data: VersionData | GameData | None = None,
     ) -> None:
         self.codec(BitReader(bs), has_mercenary, version, data=data)
 
     def serialize(
-        self, bs: OBitStream, has_mercenary: bool, version: int, data: Any = None
+        self,
+        bs: OBitStream,
+        has_mercenary: bool,
+        version: int,
+        data: VersionData | GameData | None = None,
     ) -> None:
         self.codec(BitWriter(bs), has_mercenary, version, data=data)
 
@@ -353,9 +375,9 @@ class Golem:
     def __init__(self) -> None:
         self.magic = 0
         self.has_golem = 0
-        self.item = None
+        self.item: D2Item | None = None
 
-    def codec(self, io: BitIO, version: int, data: Any = None) -> None:
+    def codec(self, io: BitIO, version: int, data: VersionData | GameData | None = None) -> None:
         self.magic = io.word(self.magic)
         self.has_golem = io.byte(self.has_golem)
         if io.is_reading:
@@ -369,10 +391,14 @@ class Golem:
             if self.has_golem and self.item:
                 self.item.codec(io, version, False, data=data)
 
-    def deserialize(self, bs: IBitStream, version: int, data: Any = None) -> None:
+    def deserialize(
+        self, bs: IBitStream, version: int, data: VersionData | GameData | None = None
+    ) -> None:
         self.codec(BitReader(bs), version, data=data)
 
-    def serialize(self, bs: OBitStream, version: int, data: Any = None) -> None:
+    def serialize(
+        self, bs: OBitStream, version: int, data: VersionData | GameData | None = None
+    ) -> None:
         self.codec(BitWriter(bs), version, data=data)
 
 
@@ -494,17 +520,19 @@ class D2SStruct:
         self.golem = Golem()
         self.demon = Demon()
         self.game_version = 0
-        self._data: Any = None
+        self._data: VersionData | None = None
 
     @property
     def merc_experience(self) -> int:
-        return self._merc_experience if self.version >= 0x69 else getattr(self, "merc_exp", 0)
+        return self._merc_experience if self.version >= 0x69 else self.merc_exp
 
     @merc_experience.setter
     def merc_experience(self, val: int) -> None:
         self._merc_experience = val
 
-    def codec(self, io: BitIO, data: Any = None) -> None:
+    def codec(
+        self, io: BitIO, data: VersionData | GameData | GameDataResolver | None = None
+    ) -> None:
         self.magic = io.dword(self.magic)
         self.version = io.dword(self.version)
         self.size = io.dword(self.size)
@@ -512,7 +540,7 @@ class D2SStruct:
         self.weapon_set = io.dword(self.weapon_set)
 
         if isinstance(data, GameDataResolver):
-            vd = data.game_data.for_version(self.version)
+            vd: VersionData | None = data.for_version(self.version).data
         elif isinstance(data, GameData):
             vd = data.for_version(self.version)
         else:
@@ -524,7 +552,9 @@ class D2SStruct:
         else:
             self._codec_common(io, data=vd)
 
-    def deserialize(self, bs: IBitStream, data: Any = None) -> None:
+    def deserialize(
+        self, bs: IBitStream, data: VersionData | GameData | GameDataResolver | None = None
+    ) -> None:
         self.codec(BitReader(bs), data=data)
 
     def _codec_hotkeys_and_appearance(self, io: BitIO) -> None:
@@ -542,7 +572,7 @@ class D2SStruct:
 
         self.map_seed = io.dword(self.map_seed)
 
-    def _codec_sections(self, io: BitIO, data: Any = None) -> None:
+    def _codec_sections(self, io: BitIO, data: VersionData | GameData | None = None) -> None:
         if self.quests is not None:
             self.quests.codec(io)
 
@@ -567,7 +597,7 @@ class D2SStruct:
 
         io.align_byte()
 
-    def _codec_v69(self, io: BitIO, data: Any = None) -> None:
+    def _codec_v69(self, io: BitIO, data: VersionData | GameData | None = None) -> None:
         self.char_flags = CharStatus(io.dword(int(self.char_flags)))
         if io.is_reading:
             self.char_type = self.char_flags
@@ -599,10 +629,10 @@ class D2SStruct:
 
         self._codec_sections(io, data=data)
 
-    def _read_data_v69(self, bs: IBitStream, data: Any = None) -> None:
+    def _read_data_v69(self, bs: IBitStream, data: VersionData | GameData | None = None) -> None:
         self._codec_v69(BitReader(bs), data=data)
 
-    def _codec_common(self, io: BitIO, data: Any = None) -> None:
+    def _codec_common(self, io: BitIO, data: VersionData | GameData | None = None) -> None:
         self.name = io.bytes(16, self.name)
 
         if io.is_reading:
@@ -637,7 +667,7 @@ class D2SStruct:
 
         self._codec_sections(io, data=data)
 
-    def _read_data_common(self, bs: IBitStream, data: Any = None) -> None:
+    def _read_data_common(self, bs: IBitStream, data: VersionData | GameData | None = None) -> None:
         self._codec_common(BitReader(bs), data=data)
 
     def has_mercenary(self) -> bool:
@@ -650,15 +680,15 @@ class D2SStruct:
 
     @property
     def merc_name_id(self) -> int:
-        return self.merc_name_index if self.version >= 0x69 else getattr(self, "merc_name", 0)
+        return self.merc_name_index if self.version >= 0x69 else self.merc_name
 
     @property
     def merc_type_id(self) -> int:
-        return self.merc_hireling_id if self.version >= 0x69 else getattr(self, "merc_type", 0)
+        return self.merc_hireling_id if self.version >= 0x69 else self.merc_type
 
     @property
     def merc_is_dead(self) -> bool:
-        return bool(getattr(self, "merc_dead", 0))
+        return bool(self.merc_dead)
 
     def is_ladder(self) -> bool:
         return bool(self.char_flags & CharStatus.LADDER)
@@ -712,13 +742,15 @@ class D2SStruct:
         }
         return title_names.get(title, f"Unknown({title})")
 
-    def serialize(self, bs: OBitStream, data: Any = None) -> None:
+    def serialize(
+        self, bs: OBitStream, data: VersionData | GameData | GameDataResolver | None = None
+    ) -> None:
         self.codec(BitWriter(bs), data=data)
 
-    def _serialize_v69(self, bs: OBitStream, data: Any = None) -> None:
+    def _serialize_v69(self, bs: OBitStream, data: VersionData | GameData | None = None) -> None:
         self._codec_v69(BitWriter(bs), data=data)
 
-    def _serialize_common(self, bs: OBitStream, data: Any = None) -> None:
+    def _serialize_common(self, bs: OBitStream, data: VersionData | GameData | None = None) -> None:
         self._codec_common(BitWriter(bs), data=data)
 
     def calculate_checksum(self, data: bytes | bytearray) -> int:

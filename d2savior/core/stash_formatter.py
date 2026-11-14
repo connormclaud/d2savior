@@ -1,7 +1,5 @@
 """Full, summary, and search text formatting for Diablo II shared stash files."""
 
-from typing import Any
-
 from d2savior.core.constants import (
     COMBINED_SLOT_ORDER_STRIPPED,
     GEM_CODE_MAP,
@@ -10,6 +8,7 @@ from d2savior.core.constants import (
     RUNE_CODES_STRIPPED,
     TAB_TYPE_NAMES,
 )
+from d2savior.core.item import D2Item
 from d2savior.core.item_formatter import (
     _format_item_lines,
     format_item_summary,
@@ -21,7 +20,7 @@ from d2savior.core.stash import STASH_TAB_TYPE_ADVANCED, SharedStash
 
 def _append_counted_summaries(
     lines: list[str],
-    items: list[Any],
+    items: list[D2Item],
     resolver: GameDataResolver,
     version: int,
     *,
@@ -65,11 +64,7 @@ def format_stash_info(stash: SharedStash, resolver: GameDataResolver) -> str:
         version = tab.item_format if tab.item_format else 0x63
         tab_resolver = resolver.for_version(version)
         if tab.tab_type == STASH_TAB_TYPE_ADVANCED:
-            active_items = [
-                item
-                for item in items
-                if getattr(getattr(item, "item_info", None), "stash_stack_size", 0) > 0
-            ]
+            active_items = [item for item in items if item.stash_stack_size > 0]
             result.append(f"Total items: {len(active_items)}")
             for item_idx, item in enumerate(active_items):
                 result.append(f"--- Item {item_idx} ---")
@@ -111,11 +106,7 @@ def format_stash_summary(stash: SharedStash, resolver: GameDataResolver) -> str:
         cur_resolver = resolver.for_version(version)
 
         if tab.tab_type == STASH_TAB_TYPE_ADVANCED:
-            active_items = [
-                it
-                for it in items
-                if getattr(getattr(it, "item_info", None), "stash_stack_size", 0) > 0
-            ]
+            active_items = [it for it in items if it.stash_stack_size > 0]
             if not active_items:
                 result.append("  (empty)")
             else:
@@ -126,13 +117,13 @@ def format_stash_summary(stash: SharedStash, resolver: GameDataResolver) -> str:
 
                 sorted_active = sorted(
                     active_items,
-                    key=lambda it: slot_order_map.get(getattr(it, "type_name", b"").strip(), 9999),
+                    key=lambda it: slot_order_map.get(it.type_name.strip(), 9999),
                 )
 
                 for it in sorted_active:
-                    code_b = getattr(it, "type_name", b"").strip()
-                    code_str = code_b.decode("ascii", errors="replace")
-                    stack_size = getattr(getattr(it, "item_info", None), "stash_stack_size", 0)
+                    code_b = it.type_name.strip()
+                    code_str = it.code_str
+                    stack_size = it.stash_stack_size
 
                     if code_b in GEM_CODE_MAP:
                         g_type, tier = GEM_CODE_MAP[code_b]
@@ -202,11 +193,7 @@ def format_stash_find(
         is_advanced = tab.tab_type == STASH_TAB_TYPE_ADVANCED
 
         if is_advanced:
-            items = [
-                it
-                for it in items
-                if getattr(getattr(it, "item_info", None), "stash_stack_size", 0) > 0
-            ]
+            items = [it for it in items if it.stash_stack_size > 0]
 
         matching = [
             it

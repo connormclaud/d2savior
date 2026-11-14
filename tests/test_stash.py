@@ -7,6 +7,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from d2savior.core.ibitstream import IBitStream
+from d2savior.core.item import D2Item
 from d2savior.core.obitstream import OBitStream
 from d2savior.core.stash import (
     ADVANCED_SUBTYPE_GEM,
@@ -449,12 +450,10 @@ class TestCSharedStash:
 
 
 class TestClassifyAdvancedTab:
-    def _make_item(self, type_name):
-        class FakeItem:
-            def __init__(self, tn):
-                self.type_name = tn
-
-        return FakeItem(type_name)
+    def _make_item(self, type_name: bytes) -> D2Item:
+        item = D2Item()
+        item.type_name = type_name
+        return item
 
     def test_empty_items(self):
         assert classify_advanced_tab([]) == ADVANCED_SUBTYPE_UNKNOWN
@@ -531,12 +530,10 @@ class TestGetAdvancedSlotOrder:
 
 
 class TestComputeAdvancedGrid:
-    def _make_item(self, type_name):
-        class FakeItem:
-            def __init__(self, tn):
-                self.type_name = tn
-
-        return FakeItem(type_name)
+    def _make_item(self, type_name: bytes) -> D2Item:
+        item = D2Item()
+        item.type_name = type_name
+        return item
 
     def test_empty_items_gem(self):
         cols, rows, slots = compute_advanced_grid([], ADVANCED_SUBTYPE_GEM)

@@ -1,7 +1,7 @@
 """Full, summary, list, and search text formatting for Diablo II character saves."""
 
 import datetime
-from typing import Any
+from collections.abc import Mapping, Sequence
 
 from d2savior.core.constants import (
     CLASS_SKILL_BASES,
@@ -12,6 +12,7 @@ from d2savior.core.constants import (
 )
 from d2savior.core.d2s_struct import CharStatus, D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
+from d2savior.core.item import D2Item
 from d2savior.core.item_formatter import (
     FormattedLines,
     _format_item_lines,
@@ -38,27 +39,12 @@ def get_char_type_name(char_type: int) -> str:
 
 def get_char_status_summary(char_data: D2SStruct) -> str:
     status_parts = []
-    is_lad = (
-        char_data.is_ladder()
-        if hasattr(char_data, "is_ladder")
-        else bool(getattr(char_data, "char_flags", 0) & 0x40)
-    )
-    if is_lad:
+    if char_data.is_ladder():
         status_parts.append("Ladder")
 
-    is_hc = (
-        char_data.is_hardcore()
-        if hasattr(char_data, "is_hardcore")
-        else bool(getattr(char_data, "char_flags", 0) & 0x04)
-    )
-    status_parts.append("Hardcore" if is_hc else "Softcore")
+    status_parts.append("Hardcore" if char_data.is_hardcore() else "Softcore")
 
-    is_died = (
-        char_data.is_died_before()
-        if hasattr(char_data, "is_died_before")
-        else bool(getattr(char_data, "char_flags", 0) & 0x08)
-    )
-    if is_died:
+    if char_data.is_died_before():
         status_parts.append("Died before")
 
     return " | ".join(status_parts)
@@ -244,7 +230,7 @@ def _get_character_skills(
     adv_stats: AdvancedStats | None = None,
 ) -> list[SkillInfo]:
     """Return invested skills as a list of (skill_index, skill_name, base_level, effective_level) tuples."""
-    if not getattr(char_data, "skills", None) or char_data.skills.magic != 0x6669:
+    if char_data.skills.magic != 0x6669:
         return []
     version = char_data.version if char_data.version else 0x63
     skills: list[SkillInfo] = []
@@ -343,27 +329,27 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     char_type_name = get_char_type_name(char_data.char_flags)
     result.append(f"Character Flags: 0x{char_data.char_flags:X} ({char_type_name})")
 
-    char_title = getattr(char_data, "char_title", 0)
+    char_title = char_data.char_title
     char_title_name = get_char_title_name(char_title, char_data.char_class)
     result.append(f"Character Title: 0x{char_title:X} ({char_title_name})")
 
     result.append(f"Weapon Set: {'I' if char_data.weapon_set == 0 else 'II'}")
 
-    create_time = getattr(char_data, "create_time", 0)
-    last_save_time = getattr(char_data, "last_save_time", 0) or getattr(char_data, "dw_time", 0)
-    play_time = getattr(char_data, "play_time", 0)
+    create_time = char_data.create_time
+    last_save_time = char_data.last_save_time or char_data.dw_time
+    play_time = char_data.play_time
 
     result.append(f"Create Time: {format_timestamp(create_time)}")
     result.append(f"Last Save Time: {format_timestamp(last_save_time)}")
     result.append(f"Play Time: {format_duration(play_time)}")
 
     if char_data.version >= 0x69:
-        result.append(f"Game Version: {getattr(char_data, 'game_version', 0)}")
+        result.append(f"Game Version: {char_data.game_version}")
     else:
-        result.append(f"NumStats/NumSkills: 0x{getattr(char_data, 'num_stats_num_skills', 0):04X}")
-        result.append(f"Merc Dead: {'Yes' if getattr(char_data, 'merc_dead', 0) else 'No'}")
+        result.append(f"NumStats/NumSkills: 0x{char_data.num_stats_num_skills:04X}")
+        result.append(f"Merc Dead: {'Yes' if char_data.merc_dead else 'No'}")
         result.append(
-            f"Merc Flags: 0x{getattr(char_data, 'merc_flags_low', 0):04X}{getattr(char_data, 'merc_flags_high', 0):02X}"
+            f"Merc Flags: 0x{char_data.merc_flags_low:04X}{char_data.merc_flags_high:02X}"
         )
 
     result.append("")
@@ -414,9 +400,9 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     )
     result.append("")
     result.append("=== Items ===")
-    item_list = getattr(char_data, "item_list", None)
-    if item_list and getattr(item_list, "magic", None) == 0x4D4A:
-        items = getattr(item_list, "items", [])
+    item_list = char_data.item_list
+    if item_list.magic == 0x4D4A:
+        items = item_list.items
         result.append(f"Total items: {len(items)}")
         for i, item in enumerate(items):
             result.append(f"--- Item {i} ---")
@@ -437,11 +423,9 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
         if char_data.has_mercenary():
             result.append(_format_mercenary_header(char_data, char_resolver, summary=False))
             if char_data.version >= 0x69:
-                merc_seed = getattr(char_data, "merc_seed", 0)
-                merc_flags = getattr(char_data, "merc_flags", 0)
-                result.append(f"Mercenary Seed: 0x{merc_seed:08X}")
+                result.append(f"Mercenary Seed: 0x{char_data.merc_seed:08X}")
                 result.append(f"Mercenary Exp: {char_data.merc_experience}")
-                result.append(f"Mercenary Flags: 0x{merc_flags:08X}")
+                result.append(f"Mercenary Flags: 0x{char_data.merc_flags:08X}")
             else:
                 result.append(f"Mercenary Exp: {char_data.merc_experience}")
                 result.append(f"Merc Dead: {'Yes' if char_data.merc_is_dead else 'No'}")
@@ -490,7 +474,7 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     char_resolver = resolver.for_version(version)
     char_class = char_resolver.get_localized_class_name(char_data.char_class)
     flags_str = get_char_status_summary(char_data)
-    char_title = getattr(char_data, "char_title", 0)
+    char_title = char_data.char_title
     title_str = get_char_title_name(char_title, char_data.char_class)
     weapon_set = "I" if char_data.weapon_set == 0 else "II"
 
@@ -499,8 +483,8 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     )
     result.append(f"Status: {flags_str} | Weapon Set: {weapon_set}")
 
-    last_save_time = getattr(char_data, "last_save_time", 0) or getattr(char_data, "dw_time", 0)
-    play_time = getattr(char_data, "play_time", 0)
+    last_save_time = char_data.last_save_time or char_data.dw_time
+    play_time = char_data.play_time
     time_parts = []
     if last_save_time:
         time_parts.append(f"Last Saved: {format_timestamp(last_save_time)}")
@@ -559,10 +543,9 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     belt_items = []
     cursor_items = []
 
-    item_list = getattr(char_data, "item_list", None)
-    if item_list and getattr(item_list, "magic", None) == 0x4D4A:
-        items = getattr(item_list, "items", [])
-        for item in items:
+    item_list = char_data.item_list
+    if item_list.magic == 0x4D4A:
+        for item in item_list.items:
             loc = ItemLocation(item.location)
             match (loc, item.stored_in):
                 case (ItemLocation.EQUIPPED, _):
@@ -655,16 +638,18 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     return "\n".join(result).rstrip()
 
 
-def format_char_list(records: list[dict[str, Any]]) -> str:
+def format_char_list(records: Sequence[Mapping[str, str | int]]) -> str:
     """Format a list of character records into a column-aligned table."""
     if not records:
         return ""
     headers = ("NAME", "CLASS", "LEVEL", "MODE", "LAST PLAYED")
-    col_name = max(len(headers[0]), max((len(r["name"]) for r in records), default=0))
-    col_class = max(len(headers[1]), max((len(r["class"]) for r in records), default=0))
+    col_name = max(len(headers[0]), max((len(str(r["name"])) for r in records), default=0))
+    col_class = max(len(headers[1]), max((len(str(r["class"])) for r in records), default=0))
     col_level = max(len(headers[2]), max((len(str(r["level"])) for r in records), default=0))
-    col_mode = max(len(headers[3]), max((len(r["mode"]) for r in records), default=0))
-    col_last_played = max(len(headers[4]), max((len(r["last_played"]) for r in records), default=0))
+    col_mode = max(len(headers[3]), max((len(str(r["mode"])) for r in records), default=0))
+    col_last_played = max(
+        len(headers[4]), max((len(str(r["last_played"])) for r in records), default=0)
+    )
 
     header_line = (
         f"{headers[0]:<{col_name}}  "
@@ -697,14 +682,14 @@ def format_char_find(
     version = char_data.version
     char_resolver = resolver.for_version(version)
 
-    equipped_matches: list[tuple[EquipSlot, Any]] = []
-    merc_matches: list[tuple[str, Any]] = []
-    corpse_matches: list[Any] = []
-    stored_matches: list[tuple[str, Any]] = []
+    equipped_matches: list[tuple[EquipSlot, D2Item]] = []
+    merc_matches: list[tuple[str, D2Item]] = []
+    corpse_matches: list[D2Item] = []
+    stored_matches: list[tuple[str, D2Item]] = []
 
-    item_list = getattr(char_data, "item_list", None)
-    if item_list and getattr(item_list, "magic", None) == 0x4D4A:
-        for it in getattr(item_list, "items", []):
+    item_list = char_data.item_list
+    if item_list.magic == 0x4D4A:
+        for it in item_list.items:
             if not item_matches_pattern(it, pattern, resolver=char_resolver, version=version):
                 continue
             loc = ItemLocation(it.location)

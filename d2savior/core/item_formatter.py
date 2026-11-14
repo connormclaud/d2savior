@@ -1,12 +1,14 @@
 """Text formatting and pattern matching for Diablo II items and item properties."""
 
 from collections.abc import Callable
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 from d2savior.core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
-from d2savior.core.item import ITEM_FLAG_LABELS
+from d2savior.core.item import D2Item
+from d2savior.core.property_list import PropertyList
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stats import (
+    SummaryPropKey,
     aggregate_summary_properties,
     calculate_effective_defence,
     collect_item_properties,
@@ -58,15 +60,13 @@ _ELEMENTAL_TEMPLATES: dict[int, _ElementalTemplate] = {
 }
 
 
-def get_item_display_name(item: Any, resolver: GameDataResolver, version: int = 0x63) -> str:
-    type_name = (
-        item.type_name.decode("ascii", errors="replace").strip() if item.type_name else "Unknown"
-    )
+def get_item_display_name(item: D2Item, resolver: GameDataResolver, version: int = 0x63) -> str:
+    type_name = item.code_str or "Unknown"
 
     raw_name = type_info.name if (type_info := resolver.get_item(type_name)) else type_name
     base_item_name = resolver.get_localized_item_name(type_name, fallback=raw_name)
 
-    if ext := getattr(getattr(item, "item_info", None), "ext_info", None):
+    if ext := item.ext_info:
         if ext.rune_id is not None and (
             rw_name := resolver.get_localized_runeword_name(ext.rune_word_id())
         ):
@@ -120,7 +120,7 @@ def get_item_display_name(item: Any, resolver: GameDataResolver, version: int = 
 
 
 def item_matches_pattern(
-    item: Any, pattern: str, resolver: GameDataResolver, version: int = 0x63
+    item: D2Item, pattern: str, resolver: GameDataResolver, version: int = 0x63
 ) -> bool:
     """Return True if the item or any of its socketed items match the search pattern."""
     norm = pattern.strip().lower()
@@ -131,11 +131,10 @@ def item_matches_pattern(
     if norm in title.lower():
         return True
 
-    if getattr(item, "gem_items", None):
-        for gem in item.gem_items:
-            gem_title = get_item_display_name(gem, resolver=resolver, version=version)
-            if norm in gem_title.lower():
-                return True
+    for gem in item.gem_items:
+        gem_title = get_item_display_name(gem, resolver=resolver, version=version)
+        if norm in gem_title.lower():
+            return True
 
     return False
 
@@ -238,13 +237,13 @@ def _format_property_entries(
 
 
 def _format_parsed_properties(
-    prop_list: Any,
+    prop_list: PropertyList | None,
     resolver: GameDataResolver,
     version: int = 0x63,
     property_formatter: Callable[..., str | None] | None = None,
 ) -> FormattedLines:
     """Format a property list into human-readable strings, falling back to raw IDs."""
-    if not prop_list or not getattr(prop_list, "properties", None):
+    if not prop_list or not prop_list.properties:
         return []
     parsed_props = prop_list.get_parsed_properties(version, data=resolver.data)
     return _format_property_entries(
@@ -273,7 +272,7 @@ def _format_summary_properties(
 
     result: list[str] = []
     all_res_inserted = False
-    emitted_dmg_pairs: set[Any] = set()
+    emitted_dmg_pairs: set[SummaryPropKey] = set()
     emitted_elem_groups: set[int] = set()
 
     for key in agg.ordered_keys:
@@ -335,20 +334,20 @@ def _format_summary_properties(
 
 
 def format_item_summary(
-    item: Any,
+    item: D2Item,
     resolver: GameDataResolver,
     version: int = 0x63,
     include_properties: bool = True,
     property_formatter: Callable[..., str | None] | None = None,
 ) -> str:
-    info = getattr(item, "item_info", None)
+    info = item.item_info
     if info and info.gold:
         return f"Gold: {info.gold.quantity}"
 
     title = get_item_display_name(item, resolver=resolver, version=version)
 
     meta_tags = []
-    tp = getattr(info, "type_specific_info", None)
+    tp = item.type_specific_info
     need_parsed = tp is not None and (include_properties or tp.defence is not None)
     all_parsed = (
         collect_item_properties(item, resolver, version, normalize_source=normalize_damage_props)
@@ -364,18 +363,18 @@ def format_item_summary(
         if sockets > 0:
             meta_tags.append(f"Sockets: {sockets}")
 
-    if getattr(item, "is_ethereal", False):
+    if item.is_ethereal:
         meta_tags.append("Eth")
-    if getattr(item, "is_disabled", False):
+    if item.is_disabled:
         meta_tags.append("Broken")
 
-    stack_size = getattr(info, "stash_stack_size", 0)
+    stack_size = item.stash_stack_size
     if stack_size > 1:
         meta_tags.append(f"x{stack_size}")
     elif tp and tp.quantity is not None and tp.quantity > 1:
         meta_tags.append(f"Qty: {tp.quantity}")
 
-    if getattr(item, "gem_items", None):
+    if item.gem_items:
         socketed = []
         for gem in item.gem_items:
             g_name = get_item_display_name(gem, version=version, resolver=resolver)
@@ -396,11 +395,11 @@ def format_item_summary(
 
 
 def _format_item_lines(
-    item: Any,
+    item: D2Item,
     resolver: GameDataResolver,
     indent: str = "  ",
     version: int | None = None,
-    parent_item: Any | None = None,
+    parent_item: D2Item | None = None,
 ) -> FormattedLines:
     result = []
     type_name = item.type_name.decode("ascii", errors="replace") if item.type_name else "Unknown"
@@ -432,11 +431,7 @@ def _format_item_lines(
     quality = ItemQuality(item.quality())
     result.append(f"{indent}Quality: {quality}")
 
-    flags = (
-        item.get_flag_names()
-        if hasattr(item, "get_flag_names")
-        else [label for attr, label in ITEM_FLAG_LABELS if getattr(item, attr, False)]
-    )
+    flags = item.get_flag_names()
     if flags:
         result.append(f"{indent}Flags: {', '.join(flags)}")
 
@@ -478,11 +473,7 @@ def _format_item_lines(
                 if item.gem_items:
                     rune_names = []
                     for gem in item.gem_items:
-                        gem_type = (
-                            gem.type_name.decode("ascii", errors="replace").strip()
-                            if gem.type_name
-                            else ""
-                        )
+                        gem_type = gem.code_str
                         if gem_type.startswith("r"):
                             try:
                                 rune_num = int(gem_type[1:])
@@ -534,20 +525,20 @@ def _format_item_lines(
                 result.append(f"{indent}Sockets: {sockets}")
 
             if props := _format_parsed_properties(
-                getattr(tp, "property_list", None), resolver=item_resolver, version=version
+                tp.property_list, resolver=item_resolver, version=version
             ):
                 result.append(f"{indent}Properties:")
                 for p in props:
                     result.append(f"{indent}  - {p}")
 
             if rw_props := _format_parsed_properties(
-                getattr(tp, "runeword_property_list", None), resolver=item_resolver, version=version
+                tp.runeword_property_list, resolver=item_resolver, version=version
             ):
                 result.append(f"{indent}Rune Word Properties:")
                 for p in rw_props:
                     result.append(f"{indent}  - {p}")
 
-            if getattr(tp, "set_properties", None):
+            if tp.set_properties:
                 for idx, set_prop_list in enumerate(tp.set_properties):
                     if set_props := _format_parsed_properties(
                         set_prop_list, resolver=item_resolver, version=version
@@ -557,12 +548,12 @@ def _format_item_lines(
                         for p in set_props:
                             result.append(f"{indent}  - {p}")
 
-        if getattr(info, "stash_stack_size", 0) > 0:
+        if info.stash_stack_size > 0:
             result.append(f"{indent}Stack Size: {info.stash_stack_size}")
         if info.gold:
             result.append(f"{indent}Gold: {info.gold.quantity}")
 
-    if parent_item and not (tp and getattr(tp, "property_list", None)):
+    if parent_item and not (tp and tp.property_list):
         socket_props = item_resolver.get_socket_properties(parent_item, item)
         if socket_props:
             result.append(f"{indent}Properties:")
@@ -588,7 +579,7 @@ def _format_item_lines(
 
 
 def format_item_info(
-    item: Any,
+    item: D2Item,
     resolver: GameDataResolver,
     indent: str = "  ",
     version: int | None = None,
@@ -597,7 +588,7 @@ def format_item_info(
 
 
 def format_item_find(
-    item: Any,
+    item: D2Item,
     pattern: str,
     resolver: GameDataResolver,
     summary: bool = True,

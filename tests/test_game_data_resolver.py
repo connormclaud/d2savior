@@ -68,8 +68,11 @@ class TestGameDataResolver:
         assert r_ru.get_item_modifier("ItemStats1h") == "Защита: %d"
         assert r_zh.get_item_modifier("ItemStats1h") == "防御: %d"
 
+        assert r_en.loc is not None
         assert r_en.loc.current_lang == "enUS"
+        assert r_ru.loc is not None
         assert r_ru.loc.current_lang == "ruRU"
+        assert r_zh.loc is not None
         assert r_zh.loc.current_lang == "zhCN"
 
     def test_delegation_to_version_data(self):

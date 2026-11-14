@@ -1,4 +1,4 @@
-from typing import Any
+from d2savior.core.resolver import GameDataResolver
 
 CLASS_NAME_SIZE = 7
 CLASS_SKILL_NAME_SIZE = 30
@@ -77,7 +77,7 @@ def get_time_name(time_id: int) -> str:
     return f"Time{time_id}"
 
 
-def _get_class_only_str(class_id: int, resolver: Any) -> str:
+def _get_class_only_str(class_id: int, resolver: GameDataResolver) -> str:
     """Return localized class restriction string such as '(Warlock Only)', or '' if unknown."""
     class_only_key = _CLASS_ONLY_KEYS.get(class_id)
     if class_only_key:
@@ -94,16 +94,14 @@ def _get_class_only_str(class_id: int, resolver: Any) -> str:
 def format_property(
     prop_id: int,
     params: list[int],
-    resolver: Any,
+    resolver: GameDataResolver,
     version: int = 0x60,
 ) -> str:
     vd = (
-        resolver.game_data.for_version(version)
-        if getattr(resolver, "game_data", None) is not None
-        else getattr(resolver, "data", None)
+        resolver.game_data.for_version(version) if resolver.game_data is not None else resolver.data
     )
 
-    stat = vd.get_stat(prop_id) if vd else None
+    stat = vd.get_stat(prop_id)
     prop_name = stat.stat_name if stat and stat.stat_name else f"Stat{prop_id}"
 
     if not params:
@@ -113,9 +111,10 @@ def format_property(
                 return template
         return prop_name
 
-    a: list[Any] = list(params)
+    a: list[int] = list(params)
     while len(a) < 4:
         a.append(0)
+    scaled_val: int | float | None = None
 
     match prop_id:
         case 54:
@@ -296,23 +295,23 @@ def format_property(
                     return result
             return f"Level {level} {skill_name} ({a[2]}/{a[3]} Charges)"
         case _ if prop_id in range(214, 251):
-            sc = vd.get_stat(prop_id) if vd else None
+            sc = vd.get_stat(prop_id)
             if sc and sc.op_param > 0:
-                a[0] = round(a[0] / sc.op_param, 2)
+                scaled_val = round(a[0] / sc.op_param, 2)
             elif sc and sc.val_shift > 0:
-                a[0] = a[0] / (1 << sc.val_shift)
+                scaled_val = a[0] / (1 << sc.val_shift)
             if prop_id == 237:
+                val = scaled_val if scaled_val is not None else a[0]
                 if stat and stat.descstrpos:
                     tpl = resolver.get_item_modifier(stat.descstrpos)
                     if tpl and ("%+d" in tpl or "%d" in tpl or "%g" in tpl or "%+g" in tpl):
-                        val = a[0]
                         return (
                             tpl.replace("%+g", f"{val:+g}")
                             .replace("%g", f"{val:g}")
                             .replace("%+d", f"{val:+g}")
                             .replace("%d", f"{val:g}")
                         )
-                return f"+{a[0]:g} Poison Absorb (Based on Character Level)"
+                return f"+{val:g} Poison Absorb (Based on Character Level)"
         case 252 | 253:
             a[0] = 100 // a[0] if a[0] else 0
         case _ if prop_id in range(268, 304):
@@ -325,12 +324,12 @@ def format_property(
         case _:
             pass
 
+    value: int | float = scaled_val if scaled_val is not None else a[0]
     if stat and stat.descstrpos:
-        template_key = stat.descstrpos if a[0] >= 0 else (stat.descstrneg or stat.descstrpos)
+        template_key = stat.descstrpos if value >= 0 else (stat.descstrneg or stat.descstrpos)
         template = resolver.get_item_modifier(template_key)
         if template:
             descfunc = stat.descfunc
-            value = a[0]
 
             match descfunc:
                 case 1 | 3 | 7 | 9 | 12 | 13 | 14 | 15 | 17 | 18 | 21 | 23 | 24:
@@ -356,10 +355,10 @@ def format_property(
 
             return result
 
-    return _format_template(prop_name, [a[0], a[1], a[2], a[3]])
+    return _format_template(prop_name, [value, a[1], a[2], a[3]])
 
 
-def _format_template(template: str, values: list) -> str:
+def _format_template(template: str, values: list[int | float]) -> str:
     if not template:
         return ""
 

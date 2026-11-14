@@ -626,13 +626,30 @@ class D2Item:
         else:
             self._meta = ItemMetaData(type_id=value)
 
+    @property
+    def code_str(self) -> str:
+        """Return the stripped ASCII item type code (e.g., 'amu', 'rin')."""
+        return self.type_name.decode("ascii", errors="replace").strip()
+
+    @property
+    def ext_info(self) -> ExtItemInfo | None:
+        return self.item_info.ext_info if self.item_info else None
+
+    @property
+    def type_specific_info(self) -> TypeSpecificInfo | None:
+        return self.item_info.type_specific_info if self.item_info else None
+
+    @property
+    def stash_stack_size(self) -> int:
+        return self.item_info.stash_stack_size if self.item_info else 0
+
     def quality(self) -> int:
         if self.is_ear or self.is_simple:
             if self._meta and self._meta.is_unique:
                 return 7
             return 2
-        if self.item_info and self.item_info.ext_info:
-            return self.item_info.ext_info.quality
+        if ext := self.ext_info:
+            return ext.quality
         return 2
 
     def get_flag_names(self) -> list[str]:
@@ -664,7 +681,7 @@ class D2Item:
         return self.item_info is not None and self.item_info.is_box()
 
     def has_property_list(self) -> bool:
-        return self.item_info is not None and self.item_info.type_specific_info is not None
+        return self.type_specific_info is not None
 
     def codec(
         self,
@@ -860,8 +877,7 @@ class D2Item:
 
         d = data or self._data
         if version > 92 and d:
-            code = self.type_name.decode("ascii", errors="replace").strip()
-            type_info = d.get_item(code)
+            type_info = d.get_item(self.code_str)
             if type_info and type_info.quest > 0 and type_info.questdiffcheck:
                 quest_diff_stat = d.get_stat(356)
                 if quest_diff_stat and quest_diff_stat.save_bits > 0:

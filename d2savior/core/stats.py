@@ -11,7 +11,7 @@ Calculates aggregated stats from active equipped gear, inventory charms, and que
 from collections import Counter
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 from d2savior.core.constants import (
     BASE_MAX_RESIST,
@@ -24,9 +24,12 @@ from d2savior.core.constants import (
 )
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
+from d2savior.core.item import D2Item
 from d2savior.core.models import HirelingInfo
 from d2savior.core.property import get_skill_class_id
 from d2savior.core.resolver import GameDataResolver
+
+type SummaryPropKey = tuple[int, ...]
 
 
 def _default_max_resistances() -> ResistanceStats:
@@ -155,15 +158,15 @@ def _clamp_max_resistances(max_res: ResistanceStats) -> ResistanceStats:
 
 def get_current_difficulty(char_data: D2SStruct) -> int:
     """Return the character's current difficulty index (0=Normal, 1=Nightmare, 2=Hell)."""
-    town = getattr(char_data, "town", b"")
+    town = char_data.town
     if len(town) >= 3:
         for diff_idx in (2, 1, 0):
             if town[diff_idx] & 0x80:
                 return diff_idx
 
     # Fallback when town bytes are unset (e.g., synthetic D2SStruct in unit tests).
-    quests = getattr(char_data, "quests", None)
-    if quests and getattr(quests, "magic", None) == 0x216F6F57:
+    quests = char_data.quests
+    if quests and quests.magic == 0x216F6F57:
         for diff_idx in (2, 1):
             if diff_idx < len(quests.qi_data):
                 qd = quests.qi_data[diff_idx]
@@ -174,15 +177,15 @@ def get_current_difficulty(char_data: D2SStruct) -> int:
                 ):
                     return diff_idx
 
-    waypoints = getattr(char_data, "waypoints", None)
-    if waypoints and getattr(waypoints, "magic", None) == 0x5357:
+    waypoints = char_data.waypoints
+    if waypoints.magic == 0x5357:
         for diff_idx in (2, 1):
             if diff_idx < len(waypoints.wp):
                 wp = waypoints.wp[diff_idx].waypoints
                 if wp and ((wp[0] & ~1) != 0 or any(b != 0 for b in wp[1:])):
                     return diff_idx
 
-    char_title = getattr(char_data, "char_title", 0)
+    char_title = char_data.char_title
     if char_title:
         if char_data.is_expansion():
             if char_title >= 10:
@@ -210,7 +213,7 @@ def get_difficulty_resist_penalty(char_data: D2SStruct, difficulty: int | None =
 
 
 def collect_item_properties(
-    item: Any,
+    item: D2Item,
     resolver: GameDataResolver,
     version: int,
     set_counts: dict[int, int] | None = None,
@@ -219,22 +222,22 @@ def collect_item_properties(
     | None = None,
 ) -> list[tuple[int, int, list[int]]]:
     """Retrieve parsed properties for an item, including runewords, socketables, and active set bonuses."""
-    tp = getattr(getattr(item, "item_info", None), "type_specific_info", None)
+    tp = item.type_specific_info
     if not tp:
         return []
 
     sources: list[list[tuple[int, int, list[int]]]] = []
-    if getattr(tp, "property_list", None):
+    if tp.property_list:
         sources.append(tp.property_list.get_parsed_properties(version, data=resolver.data))
-    if getattr(tp, "runeword_property_list", None):
+    if tp.runeword_property_list:
         sources.append(tp.runeword_property_list.get_parsed_properties(version, data=resolver.data))
-    if getattr(item, "gem_items", None):
+    if item.gem_items:
         for gem in item.gem_items:
             sources.append(resolver.get_socket_properties(item, gem))
 
     # Each index i in set_properties requires (i + 2) pieces of the set to be equipped.
-    if set_counts and getattr(tp, "set_properties", None):
-        ext = getattr(getattr(item, "item_info", None), "ext_info", None)
+    if set_counts and tp.set_properties:
+        ext = item.ext_info
         if ext and ext.set_id is not None:
             equipped_count = set_counts.get(ext.set_id, 0)
             for idx, set_prop_list in enumerate(tp.set_properties):
@@ -247,16 +250,16 @@ def collect_item_properties(
 
 
 def _iter_item_properties(
-    items: list[Any],
+    items: Sequence[D2Item],
     resolver: GameDataResolver,
     version: int,
     *,
-    set_items: list[Any] | None = None,
+    set_items: Sequence[D2Item] | None = None,
 ) -> Iterator[tuple[int, int, list[int]]]:
     """Yield (prop_id, val, params) across items, counting set bonuses from set_items."""
     set_counts: Counter[int] = Counter()
     for it in items if set_items is None else set_items:
-        ext = getattr(getattr(it, "item_info", None), "ext_info", None)
+        ext = it.ext_info
         if ext and ext.set_id is not None:
             set_counts[ext.set_id] += 1
 
@@ -267,11 +270,11 @@ def _iter_item_properties(
 
 
 def _iter_item_stats(
-    items: list[Any],
+    items: Sequence[D2Item],
     resolver: GameDataResolver,
     version: int,
     *,
-    set_items: list[Any] | None = None,
+    set_items: Sequence[D2Item] | None = None,
 ) -> Iterator[tuple[int, int]]:
     """Yield (prop_id, param_val) across items, counting set bonuses from set_items."""
     for prop_id, val, params in _iter_item_properties(
@@ -296,26 +299,23 @@ def calculate_advanced_stats(
         else (EquipSlot.WEAPON_I, EquipSlot.SHIELD_I)
     )
 
-    equipped_items: list[Any] = []
-    inventory_items: list[Any] = []
+    equipped_items: list[D2Item] = []
+    inventory_items: list[D2Item] = []
 
-    item_list = getattr(char_data, "item_list", None)
-    if item_list and getattr(item_list, "magic", None) == 0x4D4A:
-        for it in getattr(item_list, "items", []):
+    if char_data.item_list.magic == 0x4D4A:
+        for it in char_data.item_list.items:
             loc = ItemLocation(it.location)
             if loc == ItemLocation.EQUIPPED:
                 if it.position in inactive_weapon_slots:
                     continue
                 equipped_items.append(it)
-            elif loc == ItemLocation.STORED and it.stored_in == StoredIn.INVENTORY:
-                tname = (
-                    it.type_name.decode("ascii", errors="replace").strip().lower()
-                    if it.type_name
-                    else ""
-                )
-                # In Diablo II, only charms in inventory provide active bonuses
-                if tname in ("cm1", "cm2", "cm3"):
-                    inventory_items.append(it)
+            # In Diablo II, only charms in inventory provide active bonuses
+            elif (
+                loc == ItemLocation.STORED
+                and it.stored_in == StoredIn.INVENTORY
+                and it.code_str.lower() in ("cm1", "cm2", "cm3")
+            ):
+                inventory_items.append(it)
 
     res = ResistanceStats()
     max_res = _default_max_resistances()
@@ -332,14 +332,12 @@ def calculate_advanced_stats(
     oskill_bonuses: Counter[int] = Counter()
     fire_skills = 0
 
-    char_class = getattr(char_data, "char_class", -1)
-    char_level = getattr(char_data, "char_level", 0)
-    if not char_level:
-        p_stats = getattr(char_data, "player_stats", None)
-        if p_stats and getattr(p_stats, "is_valid", False):
-            char_level = getattr(p_stats, "level", 0)
+    char_class = char_data.char_class
+    char_level = char_data.char_level
+    if not char_level and char_data.player_stats.is_valid:
+        char_level = char_data.player_stats.level
 
-    all_source_items: list[Any] = equipped_items + inventory_items
+    all_source_items: list[D2Item] = equipped_items + inventory_items
 
     for prop_id, val, params in _iter_item_properties(
         all_source_items, char_resolver, version, set_items=equipped_items
@@ -379,13 +377,9 @@ def calculate_advanced_stats(
 
     # Paladin passive skills: Resist Fire (idx 4), Resist Cold (idx 9), Resist Lightning (idx 14)
     # grant +1% maximum resistance per 2 hard points invested.
-    skills = getattr(char_data, "skills", None)
-    if (
-        getattr(char_data, "char_class", -1) == 3
-        and skills
-        and getattr(skills, "magic", None) == 0x6669
-    ):
-        levels = getattr(skills, "skill_levels", [])
+    skills = char_data.skills
+    if char_class == 3 and skills.magic == 0x6669:
+        levels = skills.skill_levels
         if len(levels) > 4:
             max_res.fire += levels[4] // 2
         if len(levels) > 9:
@@ -396,11 +390,8 @@ def calculate_advanced_stats(
     # Add quest resistance bonuses:
     # In Diablo II, completing the "Prison of Ice" quest (Anya, Act V quest index 2)
     # awards the Scroll of Resistance, which grants +10 to all resistances permanently.
-    if (
-        getattr(char_data, "quests", None)
-        and getattr(char_data.quests, "magic", None) == 0x216F6F57
-    ):
-        for qd in getattr(char_data.quests, "qi_data", []):
+    if char_data.quests and char_data.quests.magic == 0x216F6F57:
+        for qd in char_data.quests.qi_data:
             if len(qd.act_5) > 2 and (qd.act_5[2] & 1):
                 res.fire += 10
                 res.cold += 10
@@ -475,7 +466,7 @@ def calculate_mercenary_stats(
     )
     max_res = _default_max_resistances()
 
-    merc_item_list = getattr(getattr(char_data, "mercenary", None), "items", None)
+    merc_item_list = char_data.mercenary.items
     merc_items = list(merc_item_list.items) if merc_item_list else []
     if merc_items:
         str_per_lvl = 0
@@ -561,11 +552,11 @@ class GroupedDamageValues(NamedTuple):
 class AggregatedSummaryProps(NamedTuple):
     """Aggregated item summary stats with collapsed 1H/2H/Throw damage and all-resistance floor."""
 
-    ordered_keys: list[Any]
-    aggregated: dict[Any, list[int]]
-    prop_id_map: dict[Any, int]
-    raw_val_map: dict[Any, int]
-    dmg_pair_map: dict[Any, tuple[Any, int, int]]
+    ordered_keys: list[SummaryPropKey]
+    aggregated: dict[SummaryPropKey, list[int]]
+    prop_id_map: dict[SummaryPropKey, int]
+    raw_val_map: dict[SummaryPropKey, int]
+    dmg_pair_map: dict[SummaryPropKey, tuple[SummaryPropKey, int, int]]
     min_all_res: int
     res_keys: tuple[tuple[int], ...]
 
@@ -654,11 +645,11 @@ def normalize_damage_props(
 
 
 def collapse_damage_stats(
-    aggregated: dict[Any, list[int]],
-    ordered_keys: list[Any],
-    prop_id_map: dict[Any, int],
-    raw_val_map: dict[Any, int],
-) -> dict[Any, tuple[Any, int, int]]:
+    aggregated: dict[SummaryPropKey, list[int]],
+    ordered_keys: list[SummaryPropKey],
+    prop_id_map: dict[SummaryPropKey, int],
+    raw_val_map: dict[SummaryPropKey, int],
+) -> dict[SummaryPropKey, tuple[SummaryPropKey, int, int]]:
     """Canonicalize 1H/2H/Throw damage variants in-place and return combinable min+max pairs."""
     for primary_id, secondary_id, throw_id in _DAMAGE_VARIANT_GROUPS:
         p_key = (primary_id,)
@@ -682,7 +673,7 @@ def collapse_damage_stats(
         if t_key in aggregated and throw_val is None:
             del aggregated[t_key]
 
-    pair_map: dict[Any, tuple[Any, int, int]] = {}
+    pair_map: dict[SummaryPropKey, tuple[SummaryPropKey, int, int]] = {}
     min_key, max_key = (21,), (22,)
     if min_key in aggregated and max_key in aggregated:
         d_min = aggregated[min_key][0]
@@ -772,10 +763,10 @@ def aggregate_summary_properties(
     resolver: GameDataResolver,
 ) -> AggregatedSummaryProps:
     """Stack identical summary stats, collapse 1H/2H/Throw damage, and compute min resistance."""
-    ordered_keys: list[Any] = []
-    aggregated: dict[Any, list[int]] = {}
-    prop_id_map: dict[Any, int] = {}
-    raw_val_map: dict[Any, int] = {}
+    ordered_keys: list[SummaryPropKey] = []
+    aggregated: dict[SummaryPropKey, list[int]] = {}
+    prop_id_map: dict[SummaryPropKey, int] = {}
+    raw_val_map: dict[SummaryPropKey, int] = {}
 
     for idx, (prop_id, value, params) in enumerate(parsed_props):
         p_list = list(params) if params else [value]

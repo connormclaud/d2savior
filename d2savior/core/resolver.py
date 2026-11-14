@@ -4,15 +4,17 @@ import importlib.resources
 import json
 from importlib.resources.abc import Traversable
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from d2savior.core.enums import CLASS_NAMES
 from d2savior.core.loader import GameData, open_resource
+from d2savior.core.localized_data import LocalizedDataLoader
 from d2savior.core.models import (
     GemInfo,
     GemMod,
     HirelingInfo,
     ItemMetaData,
+    ItemTypeId,
     ItemTypeInfo,
     MagicAffixInfo,
     PropertyInfo,
@@ -24,6 +26,9 @@ from d2savior.core.models import (
     VersionData,
 )
 
+if TYPE_CHECKING:
+    from d2savior.core.item import D2Item
+
 
 class GameDataResolver:
     """Facade unifying multi-version GameData lookups, localization, and modifiers."""
@@ -32,7 +37,7 @@ class GameDataResolver:
         self,
         game_data_or_version: GameData | VersionData | int | None = None,
         game_data: GameData | None = None,
-        loc: Any | None = None,
+        loc: LocalizedDataLoader | None = None,
         modifiers: dict[str, str] | None = None,
         lang_key: str = "enUS",
         version: int = 0x69,
@@ -61,11 +66,7 @@ class GameDataResolver:
         else:
             raise TypeError(f"Invalid game_data: {type(game_data_or_version)}")
 
-        # `loc` is a LocalizedDataLoader accessed duck-typed throughout the codebase
-        # (current_lang, get_item_name, get_skill_name_by_id, ...). Annotate as Any so
-        # attribute access type-checks without forcing callers to narrow a None union
-        # (load()/for_version() always populate it in practice).
-        self.loc: Any = loc
+        self.loc: LocalizedDataLoader | None = loc
         self.modifiers = modifiers or {}
         self.lang_key = lang_key
 
@@ -76,8 +77,6 @@ class GameDataResolver:
         lang_key: str = "enUS",
         version: int = 0x69,
     ) -> GameDataResolver:
-        from d2savior.core.localized_data import LocalizedDataLoader
-
         if data_dir is None:
             data_res: Traversable = importlib.resources.files("d2savior").joinpath("data")
         elif isinstance(data_dir, str):
@@ -169,7 +168,7 @@ class GameDataResolver:
     def get_property(self, prop_id: int) -> PropertyInfo | None:
         return self.data.get_property(prop_id)
 
-    def get_item_meta(self, type_id: Any) -> ItemMetaData | None:
+    def get_item_meta(self, type_id: ItemTypeId) -> ItemMetaData | None:
         return self.data.get_item_meta(type_id)
 
     def get_property_meta(
@@ -201,24 +200,20 @@ class GameDataResolver:
         return self.data.get_hireling(hireling_id)
 
     def get_socket_properties(
-        self, parent_item: Any, socket_item: Any
+        self, parent_item: D2Item | None, socket_item: D2Item | None
     ) -> list[tuple[int, int, list[int]]]:
         """Return parsed properties (prop_id, value, params) granted by socket_item to parent_item."""
         if socket_item is None:
             return []
 
         # If it's a Jewel with its own property_list:
-        tp = getattr(getattr(socket_item, "item_info", None), "type_specific_info", None)
-        if tp and getattr(tp, "property_list", None):
+        tp = socket_item.type_specific_info
+        if tp and tp.property_list:
             props = tp.property_list.get_parsed_properties(self.version, data=self.data)
             if props:
                 return props
 
-        code = (
-            socket_item.type_name.decode("ascii", errors="replace").strip().lower()
-            if getattr(socket_item, "type_name", None)
-            else ""
-        )
+        code = socket_item.code_str.lower()
         if not code:
             return []
 
@@ -226,18 +221,10 @@ class GameDataResolver:
         if not gem_info:
             return []
 
-        parent_code = (
-            parent_item.type_name.decode("ascii", errors="replace").strip().lower()
-            if getattr(parent_item, "type_name", None)
-            else ""
-        )
+        parent_code = parent_item.code_str.lower() if parent_item else ""
         parent_info = self.data.items.get(parent_code)
         parent_type = (
-            (getattr(parent_info, "type", "") or getattr(parent_info, "item_type", ""))
-            .lower()
-            .strip()
-            if parent_info
-            else ""
+            (parent_info.type or parent_info.item_type).lower().strip() if parent_info else ""
         )
 
         if self.data.is_descendant(parent_type, "shld"):
@@ -293,8 +280,7 @@ class GameDataResolver:
         prop = self.data.get_property_by_code(code)
         if prop:
             res = []
-            for i in range(1, 6):
-                stat_name = getattr(prop, f"stat{i}")
+            for stat_name in (prop.stat1, prop.stat2, prop.stat3, prop.stat4, prop.stat5):
                 if stat_name:
                     stat_info = self.data.get_stat_by_name(stat_name)
                     if stat_info:

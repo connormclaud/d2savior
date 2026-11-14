@@ -534,7 +534,7 @@ class VersionData:
                 return True
         item_info = self.items.get(code)
         if item_info:
-            item_type = getattr(item_info, "type", "") or getattr(item_info, "item_type", "")
+            item_type = item_info.type or item_info.item_type
             if item_type:
                 it = item_type.lower().strip()
                 if it in self.type_beltable:
