@@ -29,9 +29,7 @@ PAIRED_STATS: frozendict[int, tuple[int, ...]] = frozendict(
         57: (58, 59),
     }
 )
-_PAIRED_STAT_IDS: frozenset[int] = frozenset(
-    pid for paired in PAIRED_STATS.values() for pid in paired
-)
+_PAIRED_STAT_IDS: frozenset[int] = frozenset({*p for p in PAIRED_STATS.values()})
 
 
 class PropertyList:

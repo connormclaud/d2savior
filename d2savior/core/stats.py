@@ -247,8 +247,8 @@ def collect_item_properties(
                     sources.append(set_prop_list.get_parsed_properties(version, data=resolver.data))
 
     if normalize_source is None:
-        return [prop for source in sources for prop in source]
-    return [prop for source in sources for prop in normalize_source(source)]
+        return [*source for source in sources]
+    return [*normalize_source(source) for source in sources]
 
 
 def _iter_item_properties(
