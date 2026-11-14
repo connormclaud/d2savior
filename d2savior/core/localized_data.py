@@ -7,6 +7,24 @@ from typing import ClassVar
 
 from d2savior.core.enums import CLASS_NAMES
 from d2savior.core.loader import open_resource
+from d2savior.core.models import LocalizedEntry
+
+
+def resolve_localized_text(
+    entry: LocalizedEntry, lang_key: str, *, fallback_to_english: bool = True
+) -> str:
+    """Extract localized text from an entry with zhCN/zhTW and optional enUS fallback."""
+    fallback_lang = "zhTW" if lang_key == "zhCN" else ("zhCN" if lang_key == "zhTW" else None)
+    candidates = (
+        (lang_key, fallback_lang, "enUS") if fallback_to_english else (lang_key, fallback_lang)
+    )
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        val = entry.get(candidate)
+        if isinstance(val, str) and val:
+            return val
+    return ""
 
 
 def clean_d2_text(text: str | None) -> str:
@@ -23,7 +41,7 @@ class LocalizedDataLoader:
     LANG_KEYS: ClassVar[list[str]] = ["enUS", "zhCN"]
 
     def __init__(self) -> None:
-        self._raw: dict[str, list[dict]] = {}
+        self._raw: dict[str, list[LocalizedEntry]] = {}
         self._data: dict[str, dict[str, str]] = {}
         self._current_lang: str = "enUS"
         self._data_dir: str | Traversable = ""
@@ -31,7 +49,7 @@ class LocalizedDataLoader:
     def load_json_file(self, filepath: str | Traversable, lang_key: str = "enUS") -> bool:
         p = Path(filepath) if isinstance(filepath, str) else filepath
         with open_resource(p, encoding="utf-8-sig") as f:
-            raw_data = json.load(f)
+            raw_data: list[LocalizedEntry] = json.load(f)
 
         file_key = p.name
         self._raw[file_key] = raw_data
@@ -41,23 +59,16 @@ class LocalizedDataLoader:
     def _build_index(self, file_key: str, lang_key: str) -> None:
         self._data[file_key] = {}
         raw = self._raw.get(file_key, [])
-        fallback_lang = "zhTW" if lang_key == "zhCN" else ("zhCN" if lang_key == "zhTW" else None)
         for item in raw:
             key = item.get("Key", "")
             if not key:
                 continue
-            text = item.get(lang_key, "")
-            if not text and fallback_lang:
-                text = item.get(fallback_lang, "")
-            if not text:
-                text = item.get("enUS", "")
+            text = resolve_localized_text(item, lang_key)
             if text:
                 self._data[file_key][key] = text
             en_us = item.get("enUS", "")
             if en_us and en_us != key and lang_key != "enUS":
-                translated = item.get(lang_key, "")
-                if not translated and fallback_lang:
-                    translated = item.get(fallback_lang, "")
+                translated = resolve_localized_text(item, lang_key, fallback_to_english=False)
                 if translated:
                     self._data[file_key][en_us] = translated
 
@@ -141,7 +152,7 @@ class LocalizedDataLoader:
         if file_key in self._raw:
             for item in self._raw[file_key]:
                 if item.get("id") == item_id:
-                    return item.get(self._current_lang, item.get("enUS", f"Item#{item_id}"))
+                    return resolve_localized_text(item, self._current_lang) or f"Item#{item_id}"
         return f"Item#{item_id}"
 
     def get_item_nameaffix(self, key: str, clean: bool = True) -> str:

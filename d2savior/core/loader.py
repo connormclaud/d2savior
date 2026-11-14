@@ -17,6 +17,7 @@ lazy from d2savior.core.models import (
     ItemMetaData,
     ItemMetaDataManager,
     ItemTypeInfo,
+    LocalizedEntry,
     MagicAffixInfo,
     PropertyField,
     PropertyInfo,
@@ -355,10 +356,10 @@ class D2DataLoader:
             runes_file = runes_path
             json_file = json_path
 
-        json_by_key: dict[str, dict] = {}
+        json_by_key: dict[str, LocalizedEntry] = {}
         if json_file:
             with _open_resource(json_file, encoding="utf-8-sig") as f:
-                data = json.load(f)
+                data: list[LocalizedEntry] = json.load(f)
             for item in data:
                 key = item.get("Key", "")
                 if key:
@@ -608,10 +609,10 @@ class D2DataLoader:
             table_file = setitems_path
             json_file = json_path
 
-        json_by_key: dict[str, dict] = {}
+        json_by_key: dict[str, LocalizedEntry] = {}
         if json_file:
             with _open_resource(json_file, encoding="utf-8-sig") as f:
-                data = json.load(f)
+                data: list[LocalizedEntry] = json.load(f)
             for item in data:
                 if isinstance(item, dict):
                     key = item.get("Key", "")

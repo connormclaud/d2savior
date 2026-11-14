@@ -3,8 +3,16 @@
 import copy
 from collections.abc import Buffer
 from dataclasses import dataclass, field
+from typing import NotRequired, TypedDict
 
 type ItemTypeId = Buffer | str
+
+
+class LocalizedEntry(TypedDict, extra_items=str):
+    """Raw localized JSON entry with optional metadata fields and language strings."""
+
+    id: NotRequired[int]
+    Key: NotRequired[str]
 
 
 @dataclass(slots=True)

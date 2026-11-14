@@ -8,7 +8,7 @@ lazy from pathlib import Path
 
 lazy from d2savior.core.enums import CLASS_NAMES
 lazy from d2savior.core.loader import GameData, open_resource
-lazy from d2savior.core.localized_data import LocalizedDataLoader
+lazy from d2savior.core.localized_data import LocalizedDataLoader, resolve_localized_text
 lazy from d2savior.core.models import (
     GemInfo,
     GemMod,
@@ -16,6 +16,7 @@ lazy from d2savior.core.models import (
     ItemMetaData,
     ItemTypeId,
     ItemTypeInfo,
+    LocalizedEntry,
     MagicAffixInfo,
     PropertyInfo,
     PropertyMetaDataItem,
@@ -104,16 +105,11 @@ class GameDataResolver:
     @staticmethod
     def _load_item_modifiers(filepath: Traversable, lang_key: str = "enUS") -> dict[str, str]:
         with open_resource(filepath, encoding="utf-8-sig") as f:
-            raw_data = json.load(f)
-        fallback_lang = "zhTW" if lang_key == "zhCN" else ("zhCN" if lang_key == "zhTW" else None)
+            raw_data: list[LocalizedEntry] = json.load(f)
         modifiers: dict[str, str] = {}
         for item in raw_data:
             key = item.get("Key", "")
-            text = item.get(lang_key, "")
-            if not text and fallback_lang:
-                text = item.get(fallback_lang, "")
-            if not text:
-                text = item.get("enUS", "")
+            text = resolve_localized_text(item, lang_key)
             if key and text:
                 modifiers[key] = text
         return modifiers
