@@ -664,13 +664,23 @@ class TestSummaryMode:
         char.merc_seed = 0x12345678
         char.merc_name_index = 10
         char.merc_hireling_id = 34
+        char._merc_experience = 67_392_000  # Level 80 (130 * 80^2 * 81)
 
         summary = format_char_summary(char, resolver=resolver)
         assert "Mercenary: Jemali (Act II Desert Mercenary, Hell, Holy Freeze)" in summary
+        assert "Level: 80 | Attributes: Str: 181, Dex: 146" in summary
+        assert "Resistances: Fire: +147%, Cold: +147%, Lightning: +147%, Poison: +147%" in summary
 
         full = format_char_info(char, resolver=resolver)
         assert (
             "Has mercenary: Jemali (Act II Desert Mercenary, Hell, Holy Freeze; Name: 10, Type: 34)"
+            in full
+        )
+        assert "Mercenary Level: 80" in full
+        assert "Mercenary Strength: 181" in full
+        assert "Mercenary Dexterity: 146" in full
+        assert (
+            "Mercenary Resistances: Fire: +147%, Cold: +147%, Lightning: +147%, Poison: +147%"
             in full
         )
 
@@ -697,8 +707,12 @@ class TestSummaryMode:
             in format_char_info(char, resolver=resolver)
         )
 
-        # Unknown type falls back to raw IDs
+        # Unknown type falls back to raw IDs without stat lines
         char.merc_name_index = 10
         char.merc_hireling_id = 999
-        assert "Mercenary: Name Index 10, Type 999" in format_char_summary(char, resolver=resolver)
-        assert "Has mercenary (Name: 10, Type: 999)" in format_char_info(char, resolver=resolver)
+        unknown_summary = format_char_summary(char, resolver=resolver)
+        unknown_full = format_char_info(char, resolver=resolver)
+        assert "Mercenary: Name Index 10, Type 999" in unknown_summary
+        assert "Attributes: Str:" not in unknown_summary.split("=== Mercenary ===")[1]
+        assert "Has mercenary (Name: 10, Type: 999)" in unknown_full
+        assert "Mercenary Level:" not in unknown_full

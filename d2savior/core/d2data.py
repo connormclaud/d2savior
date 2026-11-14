@@ -312,8 +312,28 @@ class GemInfo:
 
 
 @dataclass(slots=True)
+class HirelingLevelInfo:
+    """Level-breakpoint stat progression for a mercenary hireling from hireling.txt."""
+
+    level: int = 0
+    exp_per_lvl: int = 0
+    str_base: int = 0
+    str_per_lvl: int = 0
+    dex_base: int = 0
+    dex_per_lvl: int = 0
+    resist_fire: int = 0
+    resist_fire_per_lvl: int = 0
+    resist_cold: int = 0
+    resist_cold_per_lvl: int = 0
+    resist_lightning: int = 0
+    resist_lightning_per_lvl: int = 0
+    resist_poison: int = 0
+    resist_poison_per_lvl: int = 0
+
+
+@dataclass(slots=True)
 class HirelingInfo:
-    """Metadata for a mercenary hireling type from hireling.txt."""
+    """Metadata and level progression for a mercenary hireling type from hireling.txt."""
 
     hireling_id: int = 0
     hireling: str = ""
@@ -323,6 +343,18 @@ class HirelingInfo:
     name_last: str = ""
     hire_desc: str = ""
     skill_1: str = ""
+    levels: list[HirelingLevelInfo] = field(default_factory=list)
+
+    def level_stats_for(self, level: int) -> HirelingLevelInfo | None:
+        """Return the highest level breakpoint <= level (or the lowest available breakpoint)."""
+        if not self.levels:
+            return None
+        best = self.levels[0]
+        for entry in self.levels:
+            if entry.level > level:
+                break
+            best = entry
+        return best
 
 
 @dataclass(slots=True)
@@ -1375,13 +1407,13 @@ class D2DataLoader:
 
     def load_hirelings(self, filepath: str | Traversable) -> dict[int, HirelingInfo]:
         """Load hireling definitions from hireling.txt, preferring Version 100 entries."""
-        hirelings: dict[int, HirelingInfo] = {}
+        grouped: dict[int, dict[int, tuple[HirelingInfo, list[HirelingLevelInfo]]]] = {}
 
         with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
-            return hirelings
+            return {}
 
         header = lines[0].rstrip("\r\n").split("\t")
         col_map = {col: i for i, col in enumerate(header)}
@@ -1399,6 +1431,15 @@ class D2DataLoader:
                     return _parts[idx]
                 return default
 
+            def get_int(col_name: str, default: int = 0, _parts: list[str] = parts) -> int:
+                raw = get_col(col_name, _parts=_parts).strip()
+                if not raw:
+                    return default
+                try:
+                    return int(raw)
+                except ValueError:
+                    return default
+
             id_str = get_col("Id").strip()
             if not id_str:
                 continue
@@ -1407,23 +1448,47 @@ class D2DataLoader:
             except ValueError:
                 continue
 
-            ver_str = get_col("Version").strip()
-            version = int(ver_str) if ver_str else 0
-            if hireling_id in hirelings and version != 100:
-                continue
+            version = get_int("Version")
+            ver_map = grouped.setdefault(hireling_id, {})
+            if version not in ver_map:
+                info = HirelingInfo(
+                    hireling_id=hireling_id,
+                    hireling=get_col("Hireling").strip(),
+                    act=get_int("Act"),
+                    difficulty=get_int("Difficulty"),
+                    name_first=get_col("NameFirst").strip(),
+                    name_last=get_col("NameLast").strip(),
+                    hire_desc=get_col("HireDesc").strip(),
+                    skill_1=get_col("Skill1").strip(),
+                )
+                ver_map[version] = (info, [])
 
-            act_str = get_col("Act").strip()
-            diff_str = get_col("Difficulty").strip()
-            hirelings[hireling_id] = HirelingInfo(
-                hireling_id=hireling_id,
-                hireling=get_col("Hireling").strip(),
-                act=int(act_str) if act_str else 0,
-                difficulty=int(diff_str) if diff_str else 0,
-                name_first=get_col("NameFirst").strip(),
-                name_last=get_col("NameLast").strip(),
-                hire_desc=get_col("HireDesc").strip(),
-                skill_1=get_col("Skill1").strip(),
+            _, levels_list = ver_map[version]
+            levels_list.append(
+                HirelingLevelInfo(
+                    level=get_int("Level"),
+                    exp_per_lvl=get_int("Exp/Lvl"),
+                    str_base=get_int("Str"),
+                    str_per_lvl=get_int("Str/Lvl"),
+                    dex_base=get_int("Dex"),
+                    dex_per_lvl=get_int("Dex/Lvl"),
+                    resist_fire=get_int("ResistFire"),
+                    resist_fire_per_lvl=get_int("ResistFire/Lvl"),
+                    resist_cold=get_int("ResistCold"),
+                    resist_cold_per_lvl=get_int("ResistCold/Lvl"),
+                    resist_lightning=get_int("ResistLightning"),
+                    resist_lightning_per_lvl=get_int("ResistLightning/Lvl"),
+                    resist_poison=get_int("ResistPoison"),
+                    resist_poison_per_lvl=get_int("ResistPoison/Lvl"),
+                )
             )
+
+        hirelings: dict[int, HirelingInfo] = {}
+        for hireling_id, ver_map in grouped.items():
+            info, levels_list = ver_map[100] if 100 in ver_map else next(iter(ver_map.values()))
+            levels_list.sort(key=lambda entry: entry.level)
+            info.levels = levels_list
+            hirelings[hireling_id] = info
 
         return hirelings
 

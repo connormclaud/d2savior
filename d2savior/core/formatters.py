@@ -25,7 +25,7 @@ from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     SharedStash,
 )
-from d2savior.core.stats import calculate_advanced_stats
+from d2savior.core.stats import calculate_advanced_stats, calculate_mercenary_stats
 
 type SkillInfo = tuple[int, str, int]
 type FormattedLines = list[str]
@@ -873,6 +873,12 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
             else:
                 result.append(f"Mercenary Exp: {char_data.merc_experience}")
                 result.append(f"Merc Dead: {'Yes' if char_data.merc_is_dead else 'No'}")
+            merc_stats = calculate_mercenary_stats(char_data, resolver=char_resolver)
+            if merc_stats is not None:
+                result.append(f"Mercenary Level: {merc_stats.level}")
+                result.append(f"Mercenary Strength: {merc_stats.strength}")
+                result.append(f"Mercenary Dexterity: {merc_stats.dexterity}")
+                result.append(f"Mercenary Resistances: {merc_stats.resistances.format_summary()}")
             if char_data.mercenary.items:
                 result.append(f"Mercenary items: {char_data.mercenary.items.count}")
                 for i, item in enumerate(char_data.mercenary.items.items):
@@ -1011,6 +1017,12 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     result.append("=== Mercenary ===")
     if char_data.is_expansion() and char_data.has_mercenary():
         result.append(_format_mercenary_header(char_data, char_resolver, summary=True))
+        merc_stats = calculate_mercenary_stats(char_data, resolver=char_resolver)
+        if merc_stats is not None:
+            result.append(
+                f"Level: {merc_stats.level} | Attributes: Str: {merc_stats.strength}, Dex: {merc_stats.dexterity}"
+            )
+            result.append(f"Resistances: {merc_stats.resistances.format_summary()}")
         if char_data.mercenary.items and char_data.mercenary.items.items:
             result.append("Equipped:")
             for m_item in char_data.mercenary.items.items:

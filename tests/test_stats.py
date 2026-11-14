@@ -7,7 +7,13 @@ from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
 from d2savior.core.formatters import format_char_info, format_char_summary
 from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
 from d2savior.core.property_list import PropertyList
-from d2savior.core.stats import AdvancedStats, calculate_advanced_stats
+from d2savior.core.stats import (
+    AdvancedStats,
+    MercenaryStats,
+    calculate_advanced_stats,
+    calculate_mercenary_level,
+    calculate_mercenary_stats,
+)
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 SORK_D2S = os.path.join(FIXTURES_DIR, "sork.d2s")
@@ -259,3 +265,133 @@ def test_magic_find_flat_and_per_level(game_data_resolver: GameDataResolver):
     stats = calculate_advanced_stats(char, resolver=game_data_resolver)
     # 50 (armor flat) + (8 * 80 // 8 = 80) (armor per-level) + 7 (charm) = 137
     assert stats.mf == 137
+
+
+def test_sork_mercenary_stats(game_data_resolver: GameDataResolver):
+    """Test mercenary level, attributes, and resistances on sork.d2s."""
+    kind, char, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
+    assert kind == "char"
+    assert char is not None
+
+    merc_stats = calculate_mercenary_stats(char, resolver=game_data_resolver)
+    assert isinstance(merc_stats, MercenaryStats)
+    # Act II Nightmare Holy Freeze (Id=10), Exp=49287024 -> Level 74 (Exp(74)=49284000)
+    assert merc_stats.level == 74
+    # Base Str at 74: 117 + (31 * 14) // 8 = 171; Gear: Lionheart (+25) + Insight (+5) = 201
+    assert merc_stats.strength == 201
+    # Base Dex at 74: 91 + (31 * 12) // 8 = 137; Gear: Lionheart (+15) + Insight (+5) = 157
+    assert merc_stats.dexterity == 157
+    # Base Res at 74: 86 + (31 * 7) // 4 = 140; Gear: Lionheart (+30) + Tal's Crest (+15) = +185
+    assert merc_stats.resistances.fire == 185
+    assert merc_stats.resistances.cold == 185
+    assert merc_stats.resistances.lightning == 185
+    assert merc_stats.resistances.poison == 185
+
+
+def test_d2s_0x69_sorc_mercenary_stats(game_data_resolver: GameDataResolver):
+    """Test mercenary stat calculation on 0x69 Sorc.d2s (Act I Cold Rogue, Exp=43792)."""
+    kind, char, _ = parse_file(SORC_D2S, resolver=game_data_resolver)
+    assert kind == "char"
+    assert char is not None
+
+    merc_stats = calculate_mercenary_stats(char, resolver=game_data_resolver)
+    assert merc_stats is not None
+    # Act I Ice Normal (Id=1), Exp/Lvl=105 -> Exp(7)=41160 <= 43792 < Exp(8)=60480
+    assert merc_stats.level == 7
+    assert merc_stats.strength == 40
+    assert merc_stats.dexterity == 53
+    assert merc_stats.resistances.fire == 8
+    assert merc_stats.resistances.cold == 8
+    assert merc_stats.resistances.lightning == 8
+    assert merc_stats.resistances.poison == 8
+
+
+def test_mercenary_level_tiered_exp_and_cap(game_data_resolver: GameDataResolver):
+    """Test tiered Exp/Lvl progression across breakpoints and the level 98 cap."""
+    vd = game_data_resolver.for_version(0x69).data
+    rogue = vd.get_hireling(0)
+    assert rogue is not None
+    # Rogue Fire Normal (Version 100): Lv3 Exp/Lvl=100, Lv36 Exp/Lvl=110, Lv67 Exp/Lvl=120
+    assert [entry.level for entry in rogue.levels] == [3, 36, 67]
+    assert calculate_mercenary_level(0, rogue) == 1
+    # Threshold to reach Lv 36 uses Lv 3 row (Exp/Lvl=100): 100 * 36 * 36 * 37 = 4,795,200
+    assert calculate_mercenary_level(4_795_199, rogue) == 35
+    assert calculate_mercenary_level(4_795_200, rogue) == 36
+    # Threshold to reach Lv 37 uses Lv 36 row (Exp/Lvl=110): 110 * 37 * 37 * 38 = 5,722,420
+    assert calculate_mercenary_level(5_722_419, rogue) == 36
+    assert calculate_mercenary_level(5_722_420, rogue) == 37
+    # Capped at 98
+    assert calculate_mercenary_level(0xFFFFFFFF, rogue) == 98
+
+
+def test_mercenary_gear_negative_res_and_per_level_stats(game_data_resolver: GameDataResolver):
+    """Test negative item resistances, per-level scaling, and socketed runes on merc items."""
+    char = D2SStruct()
+    char.version = 0x69
+    char.game_version = 3
+    char.merc_seed = 0x12345678
+    char.merc_name_index = 10
+    char.merc_hireling_id = 34  # Act II Hell Holy Freeze (Id=34, Lv75 breakpoint, Exp/Lvl=130)
+    # Level 80: 130 * 80 * 80 * 81 = 67,392,000
+    char._merc_experience = 67_392_000
+
+    # Helmet with +20 Str (base=-32 -> 52), -30 Fire Res (base=-50 -> 20), +70 Poison Res (base=-50 -> 120),
+    # +4/8 Str/lvl (220), +4/8 Cold Res/lvl (230), socketed with Ko Rune (+10 Dex)
+    helm = D2Item()
+    helm.location = ItemLocation.EQUIPPED.value
+    helm.position = EquipSlot.HELMET.value
+    helm.type_name = b"usk "
+    helm.item_info = ItemInfo()
+    tp = TypeSpecificInfo()
+    pl = PropertyList()
+    pl.properties = [
+        (0, 0, 52),
+        (39, 0, 20),
+        (45, 0, 120),
+        (220, 0, 4),
+        (230, 0, 4),
+    ]
+    tp.property_list = pl
+    helm.item_info.type_specific_info = tp
+
+    ko = D2Item()
+    ko.type_name = b"r18 "
+    helm.gem_items = [ko]
+
+    char.mercenary.items = ItemList()
+    char.mercenary.items.items = [helm]
+    char.mercenary.items.count = 1
+
+    merc_stats = calculate_mercenary_stats(char, resolver=game_data_resolver)
+    assert merc_stats is not None
+    assert merc_stats.level == 80
+    # Base at 80 (from Lv75 row: level_ups=5): Str=173+(5*14)//8=181, Dex=139+(5*12)//8=146, Res=142+(5*4)//4=147
+    # Gear Str: +20 flat + (4 * 80 // 8 = +40) = +60 -> 241
+    assert merc_stats.strength == 241
+    # Gear Dex: +10 (Ko rune) -> 156
+    assert merc_stats.dexterity == 156
+    # Gear Res: Fire -30 -> 117, Cold +(4 * 80 // 8 = 40) -> 187, Lightning +0 -> 147, Poison +70 -> 217
+    assert merc_stats.resistances.fire == 117
+    assert merc_stats.resistances.cold == 187
+    assert merc_stats.resistances.lightning == 147
+    assert merc_stats.resistances.poison == 217
+
+
+def test_mercenary_stats_returns_none_when_unavailable(game_data_resolver: GameDataResolver):
+    """Non-expansion, unhired, and unknown-type mercenaries should return None."""
+    classic_char = D2SStruct()
+    classic_char.version = 0x63
+    classic_char.char_flags = 0
+    assert calculate_mercenary_stats(classic_char, resolver=game_data_resolver) is None
+
+    no_merc = D2SStruct()
+    no_merc.version = 0x69
+    no_merc.game_version = 3
+    assert calculate_mercenary_stats(no_merc, resolver=game_data_resolver) is None
+
+    unknown_merc = D2SStruct()
+    unknown_merc.version = 0x69
+    unknown_merc.game_version = 3
+    unknown_merc.merc_seed = 0x1
+    unknown_merc.merc_hireling_id = 999
+    assert calculate_mercenary_stats(unknown_merc, resolver=game_data_resolver) is None

@@ -1084,6 +1084,10 @@ Has mercenary: Waheed (Act II Desert Mercenary, Nightmare, Holy Freeze; Name: 19
 Mercenary Seed: 0x418DFA6C
 Mercenary Exp: 49287024
 Mercenary Flags: 0x00000000
+Mercenary Level: 74
+Mercenary Strength: 201
+Mercenary Dexterity: 157
+Mercenary Resistances: Fire: +185%, Cold: +185%, Lightning: +185%, Poison: +185%
 Mercenary items: 3
 --- Mercenary Item 0 ---
   Type: brs  (Breast Plate)
