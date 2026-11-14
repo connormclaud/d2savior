@@ -1,8 +1,9 @@
 from typing import Any
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
-from d2savior.core.d2data import GameData, GameDataResolver
+from d2savior.core.loader import GameData
 from d2savior.core.obitstream import OBitStream
+from d2savior.core.resolver import GameDataResolver
 
 STASH_TAB_MAGIC = 0xAA55AA55
 STASH_TAB_HEADER_SIZE = 64

@@ -5,8 +5,8 @@ from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import ClassVar
 
-from d2savior.core.d2data import open_resource
 from d2savior.core.enums import CLASS_NAMES
+from d2savior.core.loader import open_resource
 
 
 def clean_d2_text(text: str | None) -> str:

@@ -1,12 +1,12 @@
 import os
 
 from d2s_parse import parse_file
-from d2savior.core.d2data import GameDataResolver
 from d2savior.core.d2s_struct import D2SStruct, ItemList
 from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
 from d2savior.core.formatters import format_char_info, format_char_summary
 from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
 from d2savior.core.property_list import PropertyList
+from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stats import (
     AdvancedStats,
     MercenaryStats,

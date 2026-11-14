@@ -22,10 +22,11 @@ from d2savior.core.constants import (
     MIN_EFFECTIVE_RESIST,
     get_skill_tab_index,
 )
-from d2savior.core.d2data import GameDataResolver, HirelingInfo
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
+from d2savior.core.models import HirelingInfo
 from d2savior.core.property import get_skill_class_id
+from d2savior.core.resolver import GameDataResolver
 
 
 def _default_max_resistances() -> ResistanceStats:

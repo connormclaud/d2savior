@@ -5,15 +5,6 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from d2savior.core.d2data import (
-    D2DataLoader,
-    GameData,
-    ItemMetaData,
-    ItemMetaDataManager,
-    PropertyField,
-    PropertyMetaData,
-    PropertyMetaDataItem,
-)
 from d2savior.core.ear import Ear, is_ptr24_and_above
 from d2savior.core.huffman import DEFAULT_HUFFMAN
 from d2savior.core.ibitstream import IBitStream
@@ -25,6 +16,14 @@ from d2savior.core.item import (
     is_valid_version,
 )
 from d2savior.core.item_name import GoldQuantity, LongName
+from d2savior.core.loader import D2DataLoader, GameData
+from d2savior.core.models import (
+    ItemMetaData,
+    ItemMetaDataManager,
+    PropertyField,
+    PropertyMetaData,
+    PropertyMetaDataItem,
+)
 from d2savior.core.obitstream import OBitStream
 from d2savior.core.property_list import PropertyList, is_d2r
 

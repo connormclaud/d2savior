@@ -2,18 +2,15 @@ from collections.abc import Iterator
 from typing import ClassVar
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
-from d2savior.core.d2data import (
-    GameData,
-    GameDataResolver,
-    ItemMetaData,
-    VersionData,
-)
 from d2savior.core.ear import Ear, is_ptr24_and_above
 from d2savior.core.enums import ITEM_LIST_MAGIC
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item_name import GoldQuantity, LongName
+from d2savior.core.loader import GameData
+from d2savior.core.models import ItemMetaData, VersionData
 from d2savior.core.obitstream import OBitStream
 from d2savior.core.property_list import PropertyList, is_d2r
+from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import GEM_CODES, MATERIAL_CODES, RUNE_CODES
 
 VALID_VERSIONS = [0x69, 0x63, 0x62, 0x61, 0x60, 0x5C, 0x59, 0x57, 0x47]

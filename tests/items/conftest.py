@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from d2savior.core.d2data import GameDataResolver
+from d2savior.core.resolver import GameDataResolver
 
 
 @pytest.fixture(scope="session")

@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from d2savior.core.d2data import GameData, GameDataResolver, VersionData
+from d2savior.core.loader import GameData
+from d2savior.core.models import VersionData
+from d2savior.core.resolver import GameDataResolver
 
 
 @pytest.fixture(autouse=True)

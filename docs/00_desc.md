@@ -48,7 +48,7 @@ The project consists of modular components in the `core/` package and the CLI en
   Data models for items (`D2Item`), item lists (`ItemList`), extended information (`ExtItemInfo`), type-specific data (`TypeSpecificInfo`), ear data (`Ear`), rare/crafted names (`LongName`), and gold quantities (`GoldQuantity`).
 - **Shared Stash System** (`core/stash.py`):
   Shared stash tab parsing (`SharedStash`, `StashTab`) supporting standard tabs and advanced currency tabs (Gems, Runes, Materials).
-- **Game Data & Resolution** (`core/d2data.py`, `core/localized_data.py`, `core/property.py`):
+- **Game Data & Resolution** (`core/models.py`, `core/loader.py`, `core/resolver.py`, `core/localized_data.py`, `core/property.py`):
   Multi-version game data management (`D2DataManager`, `GameDataResolver`), localized strings loader (`LocalizedData`), and property formula evaluation.
 - **Formatters & CLI** (`core/formatters.py`, `core/constants.py`, `d2s_parse.py`):
   Output formatting for summary views, item inspection, quest progression, waypoints, and stash reports.

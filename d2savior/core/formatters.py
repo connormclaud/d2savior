@@ -17,10 +17,10 @@ from d2savior.core.constants import (
     TAB_TYPE_NAMES,
     WAYPOINTS_BY_ACT,
 )
-from d2savior.core.d2data import GameDataResolver
 from d2savior.core.d2s_struct import CharStatus, D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
 from d2savior.core.item import ITEM_FLAG_LABELS
+from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     SharedStash,

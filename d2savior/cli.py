@@ -11,7 +11,6 @@ if hasattr(signal, "SIGPIPE"):
 
 from d2savior.config import load_save_dir, update_save_dir
 from d2savior.core.bitstream_debug import _run_bitstream_searches
-from d2savior.core.d2data import GameDataResolver
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.formatters import (
     format_char_find,
@@ -27,6 +26,7 @@ from d2savior.core.formatters import (
     format_timestamp,
 )
 from d2savior.core.ibitstream import IBitStream
+from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
 
 

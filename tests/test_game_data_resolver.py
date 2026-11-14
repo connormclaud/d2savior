@@ -1,7 +1,9 @@
 import os
 from unittest.mock import MagicMock
 
-from d2savior.core.d2data import GameData, GameDataResolver, VersionData
+from d2savior.core.loader import GameData
+from d2savior.core.models import VersionData
+from d2savior.core.resolver import GameDataResolver
 
 
 class TestGameDataResolver:

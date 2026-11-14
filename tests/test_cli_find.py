@@ -1,12 +1,12 @@
 from pathlib import Path
 
 from d2savior.cli import cmd_stash, main, parse_d2i_file, parse_d2s_file
-from d2savior.core.d2data import GameDataResolver
 from d2savior.core.formatters import (
     format_char_find,
     format_stash_find,
     item_matches_pattern,
 )
+from d2savior.core.resolver import GameDataResolver
 
 
 def test_item_matches_pattern(game_data_resolver: GameDataResolver):

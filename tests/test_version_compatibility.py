@@ -5,9 +5,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from d2savior.core.d2data import GameData
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import D2Item
+from d2savior.core.loader import GameData
 from d2savior.core.obitstream import OBitStream
 from d2savior.core.property_list import PropertyList
 

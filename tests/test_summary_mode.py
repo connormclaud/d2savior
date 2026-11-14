@@ -4,7 +4,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from d2s_parse import main
-from d2savior.core.d2data import GameDataResolver
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
 from d2savior.core.formatters import (
@@ -23,6 +22,7 @@ from d2savior.core.item import (
 )
 from d2savior.core.item_name import GoldQuantity, LongName
 from d2savior.core.property_list import PropertyList
+from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     STASH_TAB_TYPE_NORMAL,
@@ -534,7 +534,7 @@ class TestSummaryMode:
             mock_print.assert_any_call("\n=== Search Results for bytes '4a4d' ===")
 
     def test_ensure_data_loaded(self):
-        from d2savior.core.d2data import GameDataResolver
+        from d2savior.core.resolver import GameDataResolver
 
         # Default language loaded
         resolver = GameDataResolver.load(lang_key="enUS")

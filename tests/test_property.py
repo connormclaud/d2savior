@@ -1,8 +1,8 @@
-from d2savior.core.d2data import GameDataResolver
 from d2savior.core.formatters import format_item_info
 from d2savior.core.item import D2Item, ItemInfo, TypeSpecificInfo
 from d2savior.core.property import format_property, get_time_name
 from d2savior.core.property_list import PropertyList
+from d2savior.core.resolver import GameDataResolver
 
 
 class TestGetTimeName:
@@ -123,7 +123,7 @@ class TestFormatPropertySpecialCases:
         assert "Magic Arrow" in result
 
     def test_format_property_skill_tab(self, game_data_resolver: GameDataResolver):
-        from d2savior.core.d2data import GameDataResolver as GResolver
+        from d2savior.core.resolver import GameDataResolver as GResolver
 
         result = format_property(188, [2, 0, 3], resolver=game_data_resolver)
         assert result == "+3 to Javelin and Spear Skills (Amazon Only)"
@@ -199,7 +199,7 @@ class TestFormatPropertySpecialCases:
         assert result == "+4 to Fire Claws (Druid Only)"
 
         # Stat 107 in Russian
-        from d2savior.core.d2data import GameDataResolver as GResolver
+        from d2savior.core.resolver import GameDataResolver as GResolver
 
         resolver_ru = GResolver.load(lang_key="ruRU")
         result_ru = format_property(107, [239, 4], resolver=resolver_ru)
@@ -228,7 +228,7 @@ class TestFormatPropertySpecialCases:
         assert formatted == "Level 1 Lower Resist (66/67 Charges)"
 
     def test_format_property_reanimate_monster(self, game_data_resolver: GameDataResolver):
-        from d2savior.core.d2data import GameDataResolver as GResolver
+        from d2savior.core.resolver import GameDataResolver as GResolver
 
         # hcIdx 575 -> BurningDeadArcher -> "Burning Dead Archer", single % (not %%)
         assert (
@@ -268,7 +268,7 @@ class TestFormatPropertySpecialCases:
     def test_format_property_chance_to_cast_no_double_percent(
         self, game_data_resolver: GameDataResolver
     ):
-        from d2savior.core.d2data import GameDataResolver as GResolver
+        from d2savior.core.resolver import GameDataResolver as GResolver
 
         # Stat 198 (on striking): level=3, skill=1 (Magic Arrow) -> enUS (%d%%)
         en = format_property(198, [3, 1, 12], resolver=game_data_resolver)

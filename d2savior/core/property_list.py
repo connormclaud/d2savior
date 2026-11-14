@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 
 if TYPE_CHECKING:
-    from d2savior.core.d2data import PropertyField, VersionData
     from d2savior.core.ibitstream import IBitStream
+    from d2savior.core.models import PropertyField, VersionData
     from d2savior.core.obitstream import OBitStream
 
 type RawProperty = tuple[int, int, int]

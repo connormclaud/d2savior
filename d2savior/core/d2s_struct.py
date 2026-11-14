@@ -2,7 +2,6 @@ from enum import FlagBoundary, IntFlag
 from typing import Any
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
-from d2savior.core.d2data import GameData, GameDataResolver
 from d2savior.core.enums import (
     CLASS_NAMES,
     DEMON_MAGIC,
@@ -15,7 +14,9 @@ from d2savior.core.enums import (
 )
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import D2Item, ItemList
+from d2savior.core.loader import GameData
 from d2savior.core.obitstream import OBitStream
+from d2savior.core.resolver import GameDataResolver
 
 
 class CharStatus(IntFlag, boundary=FlagBoundary.KEEP):

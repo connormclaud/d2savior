@@ -1,12 +1,7 @@
 import os
 
-from d2savior.core.d2data import (
-    D2DataLoader,
-    GameData,
-    StatInfo,
-    TsvReader,
-    VersionData,
-)
+from d2savior.core.loader import D2DataLoader, GameData, TsvReader
+from d2savior.core.models import StatInfo, VersionData
 
 
 class TestD2DataManager:
@@ -215,8 +210,8 @@ class TestD2DataManager:
             assert info_by_id.name == name
 
         # Localized set names from item-names.json via GameDataResolver
-        from d2savior.core.d2data import GameDataResolver
         from d2savior.core.localized_data import LocalizedDataLoader
+        from d2savior.core.resolver import GameDataResolver
 
         loc = LocalizedDataLoader.load(os.path.join(self.data_dir, "d2r", "local"), lang_key="enUS")
         resolver = GameDataResolver(game_data=self.manager, loc=loc, version=0x69)

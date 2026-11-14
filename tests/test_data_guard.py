@@ -3,8 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from d2savior.core.d2data import D2DataLoader, GameData, GameDataResolver
+from d2savior.core.loader import D2DataLoader, GameData
 from d2savior.core.localized_data import LocalizedDataLoader
+from d2savior.core.resolver import GameDataResolver
 
 
 class TestDataGuard:
