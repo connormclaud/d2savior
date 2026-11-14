@@ -331,8 +331,8 @@ class TestD2SStruct:
 
     def test_format_item_info_equipped_position(self, game_data_resolver):
         from d2savior.core.enums import ItemLocation
-        from d2savior.core.formatters import format_item_info
         from d2savior.core.item import D2Item, ItemInfo
+        from d2savior.core.item_formatter import format_item_info
 
         item = D2Item()
         item.item_info = ItemInfo()
@@ -356,7 +356,7 @@ class TestD2SStruct:
         assert "Weapon" not in full_text_stored
 
     def test_format_timestamp(self):
-        from d2savior.core.formatters import format_timestamp
+        from d2savior.core.char_formatter import format_timestamp
 
         assert format_timestamp(0) == "N/A"
         assert format_timestamp(4294967295) == "N/A"
@@ -364,7 +364,7 @@ class TestD2SStruct:
         assert format_timestamp(1793981148) == "2026-11-06 16:05:48 UTC"
 
     def test_format_duration(self):
-        from d2savior.core.formatters import format_duration
+        from d2savior.core.char_formatter import format_duration
 
         assert format_duration(4294967295) == "N/A"
         assert format_duration(-5) == "N/A"
@@ -375,7 +375,7 @@ class TestD2SStruct:
         assert format_duration(90061) == "1d 1h 1m 1s"
 
     def test_format_char_info_waypoints_and_quests(self, game_data_resolver):
-        from d2savior.core.formatters import format_char_info
+        from d2savior.core.char_formatter import format_char_info
 
         char = D2SStruct()
         char.version = 0x69
@@ -441,9 +441,9 @@ class TestD2SStruct:
         )
 
     def test_quest_reward_labels_and_fallback(self, game_data_resolver):
+        from d2savior.core.char_formatter import format_quests_info
         from d2savior.core.constants import QUEST_REWARDS, QUESTS_BY_ACT
         from d2savior.core.d2s_struct import D2SStruct
-        from d2savior.core.formatters import format_quests_info
 
         all_quest_names = {name for _, quests in QUESTS_BY_ACT for name, _ in quests}
         assert set(QUEST_REWARDS.keys()).issubset(all_quest_names)

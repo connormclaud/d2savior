@@ -9,9 +9,9 @@ Calculates aggregated stats from active equipped gear, inventory charms, and que
 """
 
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
 from d2savior.core.constants import (
     BASE_MAX_RESIST,
@@ -519,4 +519,332 @@ def calculate_mercenary_stats(
         dexterity=dexterity,
         resistances=res,
         max_resistances=_clamp_max_resistances(max_res),
+    )
+
+
+_DAMAGE_VARIANT_GROUPS: tuple[tuple[int, int, int], ...] = (
+    (21, 23, 159),  # 1H / 2H / Throw minimum damage
+    (22, 24, 160),  # 1H / 2H / Throw maximum damage
+)
+_DAMAGE_STAT_IDS: frozenset[int] = frozenset({21, 22, 23, 24, 159, 160})
+
+_ELEMENTAL_STAT_GROUPS: tuple[tuple[int, int, int | None, bool], ...] = (
+    (48, 49, None, False),  # Fire
+    (50, 51, None, False),  # Lightning
+    (52, 53, None, False),  # Magic
+    (54, 55, 56, False),  # Cold
+    (57, 58, 59, True),  # Poison (min/frame, max/frame, length frames)
+)
+_GROUPED_DAMAGE_STAT_IDS: frozenset[int] = frozenset(
+    {48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 17, 18}
+)
+
+
+class GroupedElementalDamage(NamedTuple):
+    """Resolved numeric min/max/(poison duration) values for a paired elemental stat group."""
+
+    min_id: int
+    d_min: int
+    d_max: int
+    seconds: int | None
+    present_ids: tuple[int, ...]
+
+
+class GroupedDamageValues(NamedTuple):
+    """Numeric elemental damage ranges and equal min/max enhanced damage extracted from stats."""
+
+    elemental: list[GroupedElementalDamage]
+    equal_enhanced_damage: int | None
+    ed_present_ids: tuple[int, ...]
+
+
+class AggregatedSummaryProps(NamedTuple):
+    """Aggregated item summary stats with collapsed 1H/2H/Throw damage and all-resistance floor."""
+
+    ordered_keys: list[Any]
+    aggregated: dict[Any, list[int]]
+    prop_id_map: dict[Any, int]
+    raw_val_map: dict[Any, int]
+    dmg_pair_map: dict[Any, tuple[Any, int, int]]
+    min_all_res: int
+    res_keys: tuple[tuple[int], ...]
+
+
+def calculate_effective_defence(
+    base_defence: int,
+    parsed_props: Sequence[tuple[int, int, list[int]]],
+) -> int:
+    """Compute effective armor defense from base defense, stat 16 (%ED), and stat 31 (+Def)."""
+    ed_pct = 0
+    flat_def = 0
+    for prop_id, value, params in parsed_props:
+        val = params[0] if params else value
+        if prop_id == 16:
+            ed_pct += val
+        elif prop_id == 31:
+            flat_def += val
+    return (base_defence * max(0, 100 + ed_pct) // 100) + flat_def
+
+
+def convert_poison_damage(d_min: int, d_max: int, frames: int) -> tuple[int, int, int] | None:
+    """Convert per-frame poison damage to (total_min, total_max, duration_seconds)."""
+    if frames <= 0:
+        return None
+    p_min = (d_min * frames + 128) >> 8 if d_min > 0 else 0
+    p_max = (d_max * frames + 128) >> 8 if d_max > 0 else 0
+    seconds = frames // 25
+    if p_max <= 0 or seconds <= 0:
+        return None
+    return p_min, p_max, seconds
+
+
+def _resolve_damage_group(
+    p_val: int | None,
+    s_val: int | None,
+    t_val: int | None,
+) -> tuple[int | None, int | None]:
+    """Collapse 1H/2H/Throw damage variants into canonical primary + optional throw values."""
+    non_throw = [v for v in (p_val, s_val) if v is not None]
+    if not non_throw:
+        return None, t_val
+    canonical = max(non_throw)
+    kept_throw = None if (t_val is not None and t_val in non_throw) else t_val
+    return canonical, kept_throw
+
+
+def normalize_damage_props(
+    parsed_props: list[tuple[int, int, list[int]]],
+) -> list[tuple[int, int, list[int]]]:
+    """Canonicalize flat damage stats within one property source before cross-source summing."""
+    if not any(prop_id in _DAMAGE_STAT_IDS for prop_id, _, _ in parsed_props):
+        return parsed_props
+
+    totals: dict[int, int] = {}
+    for prop_id, value, params in parsed_props:
+        if prop_id in _DAMAGE_STAT_IDS:
+            val = params[0] if params else value
+            totals[prop_id] = totals.get(prop_id, 0) + val
+
+    resolved: dict[int, int] = {}
+    for primary_id, secondary_id, throw_id in _DAMAGE_VARIANT_GROUPS:
+        canon, throw_val = _resolve_damage_group(
+            totals.get(primary_id),
+            totals.get(secondary_id),
+            totals.get(throw_id),
+        )
+        if canon is not None:
+            resolved[primary_id] = canon
+        if throw_val is not None:
+            resolved[throw_id] = throw_val
+
+    emitted_ids: set[int] = set()
+    normalized: list[tuple[int, int, list[int]]] = []
+    for prop_id, value, params in parsed_props:
+        if prop_id not in _DAMAGE_STAT_IDS:
+            normalized.append((prop_id, value, params))
+            continue
+        group_idx = 0 if prop_id in (21, 23, 159) else 1
+        primary_id, _, throw_id = _DAMAGE_VARIANT_GROUPS[group_idx]
+        target_id = throw_id if prop_id == throw_id else primary_id
+        if target_id not in emitted_ids and target_id in resolved:
+            emitted_ids.add(target_id)
+            val = resolved[target_id]
+            normalized.append((target_id, val, [val]))
+    return normalized
+
+
+def collapse_damage_stats(
+    aggregated: dict[Any, list[int]],
+    ordered_keys: list[Any],
+    prop_id_map: dict[Any, int],
+    raw_val_map: dict[Any, int],
+) -> dict[Any, tuple[Any, int, int]]:
+    """Canonicalize 1H/2H/Throw damage variants in-place and return combinable min+max pairs."""
+    for primary_id, secondary_id, throw_id in _DAMAGE_VARIANT_GROUPS:
+        p_key = (primary_id,)
+        s_key = (secondary_id,)
+        t_key = (throw_id,)
+        canon, throw_val = _resolve_damage_group(
+            aggregated[p_key][0] if p_key in aggregated else None,
+            aggregated[s_key][0] if s_key in aggregated else None,
+            aggregated[t_key][0] if t_key in aggregated else None,
+        )
+        if s_key in aggregated:
+            if p_key not in aggregated and p_key not in prop_id_map:
+                idx = ordered_keys.index(s_key)
+                ordered_keys[idx] = p_key
+                prop_id_map[p_key] = primary_id
+                if s_key in raw_val_map:
+                    raw_val_map[p_key] = raw_val_map[s_key]
+            del aggregated[s_key]
+        if canon is not None:
+            aggregated[p_key] = [canon]
+        if t_key in aggregated and throw_val is None:
+            del aggregated[t_key]
+
+    pair_map: dict[Any, tuple[Any, int, int]] = {}
+    min_key, max_key = (21,), (22,)
+    if min_key in aggregated and max_key in aggregated:
+        d_min = aggregated[min_key][0]
+        d_max = aggregated[max_key][0]
+        if 0 < d_min < d_max:
+            pair_map[min_key] = (max_key, d_min, d_max)
+            pair_map[max_key] = (min_key, d_min, d_max)
+    return pair_map
+
+
+def extract_grouped_damage_values(
+    parsed_props: list[tuple[int, int, list[int]]],
+) -> GroupedDamageValues:
+    """Sum grouped elemental and enhanced-damage stats and resolve numeric display ranges."""
+    if not any(prop_id in _GROUPED_DAMAGE_STAT_IDS for prop_id, _, _ in parsed_props):
+        return GroupedDamageValues([], None, ())
+
+    totals: dict[int, int] = {}
+    first_params: dict[int, list[int]] = {}
+    poison_len_count = 0
+
+    for prop_id, value, params in parsed_props:
+        if prop_id not in _GROUPED_DAMAGE_STAT_IDS:
+            continue
+        val = params[0] if params else value
+        totals[prop_id] = totals.get(prop_id, 0) + val
+        if prop_id not in first_params and params:
+            first_params[prop_id] = params
+        if prop_id == 59 and val > 0:
+            poison_len_count += 1
+
+    elemental: list[GroupedElementalDamage] = []
+    for min_id, max_id, len_id, is_poison in _ELEMENTAL_STAT_GROUPS:
+        if min_id in totals and max_id in totals:
+            d_min = totals[min_id]
+            d_max = totals[max_id]
+            raw_frames = totals.get(len_id, 0) if len_id is not None else 0
+            frames = (
+                raw_frames // poison_len_count if is_poison and poison_len_count > 1 else raw_frames
+            )
+        elif min_id in totals and max_id not in totals:
+            # Handle legacy (<=0x60) multi-field single tuple [min, max, (frames)].
+            p = first_params.get(min_id, [])
+            if len(p) < 2:
+                continue
+            d_min, d_max = p[0], p[1]
+            frames = p[2] if len(p) >= 3 else 0
+            if (is_poison and frames == 0) or (not is_poison and d_max == 0):
+                continue
+        else:
+            continue
+
+        seconds: int | None = None
+        if is_poison:
+            converted = convert_poison_damage(d_min, d_max, frames)
+            if converted is None:
+                continue
+            d_min, d_max, seconds = converted
+        elif d_max <= 0:
+            continue
+
+        if d_min != d_max and not (0 < d_min < d_max):
+            continue
+
+        present = tuple(
+            sid for sid in (min_id, max_id, len_id) if sid is not None and sid in totals
+        )
+        elemental.append(GroupedElementalDamage(min_id, d_min, d_max, seconds, present))
+
+    equal_ed: int | None = None
+    ed_present: tuple[int, ...] = ()
+    if 17 in totals and 18 in totals:
+        if totals[17] == totals[18]:
+            equal_ed = totals[17]
+            ed_present = (17, 18)
+    elif 17 in totals and 18 not in totals:
+        p = first_params.get(17, [])
+        if len(p) >= 2 and p[0] == p[1] and p[0] != 0:
+            equal_ed = p[0]
+            ed_present = (17,)
+
+    return GroupedDamageValues(elemental, equal_ed, ed_present)
+
+
+def aggregate_summary_properties(
+    parsed_props: list[tuple[int, int, list[int]]],
+    resolver: GameDataResolver,
+) -> AggregatedSummaryProps:
+    """Stack identical summary stats, collapse 1H/2H/Throw damage, and compute min resistance."""
+    ordered_keys: list[Any] = []
+    aggregated: dict[Any, list[int]] = {}
+    prop_id_map: dict[Any, int] = {}
+    raw_val_map: dict[Any, int] = {}
+
+    for idx, (prop_id, value, params) in enumerate(parsed_props):
+        p_list = list(params) if params else [value]
+        stat = resolver.data.get_stat(prop_id)
+        if stat is None:
+            key = (prop_id, idx)
+            ordered_keys.append(key)
+            aggregated[key] = p_list
+            prop_id_map[key] = prop_id
+            raw_val_map[key] = value
+        elif prop_id in (83, 97, 107):
+            key = (prop_id, p_list[0])
+            if key not in aggregated:
+                ordered_keys.append(key)
+                aggregated[key] = p_list
+                prop_id_map[key] = prop_id
+                raw_val_map[key] = value
+            else:
+                aggregated[key][1] += p_list[1]
+        elif prop_id == 188:
+            key = (prop_id, p_list[0], p_list[1])
+            if key not in aggregated:
+                ordered_keys.append(key)
+                aggregated[key] = p_list
+                prop_id_map[key] = prop_id
+                raw_val_map[key] = value
+            else:
+                aggregated[key][2] += p_list[2]
+        elif prop_id in (179, 180):
+            key = (prop_id, p_list[0])
+            if key not in aggregated:
+                ordered_keys.append(key)
+                aggregated[key] = p_list
+                prop_id_map[key] = prop_id
+                raw_val_map[key] = value
+            else:
+                aggregated[key][1] += p_list[1]
+        elif prop_id in (98, 151, 155, 195, 196, 197, 198, 199, 201, 204):
+            key = (prop_id, idx)
+            ordered_keys.append(key)
+            aggregated[key] = p_list
+            prop_id_map[key] = prop_id
+            raw_val_map[key] = value
+        else:
+            val = p_list[0]
+            key = (prop_id,)
+            if key not in aggregated:
+                ordered_keys.append(key)
+                aggregated[key] = [val]
+                prop_id_map[key] = prop_id
+                raw_val_map[key] = value
+            else:
+                aggregated[key][0] += val
+
+    dmg_pair_map = collapse_damage_stats(aggregated, ordered_keys, prop_id_map, raw_val_map)
+
+    res_keys = ((39,), (41,), (43,), (45,))
+    min_all_res = 0
+    if all(k in aggregated for k in res_keys):
+        res_vals = [aggregated[k][0] for k in res_keys]
+        if all(v > 0 for v in res_vals):
+            min_all_res = min(res_vals)
+
+    return AggregatedSummaryProps(
+        ordered_keys=ordered_keys,
+        aggregated=aggregated,
+        prop_id_map=prop_id_map,
+        raw_val_map=raw_val_map,
+        dmg_pair_map=dmg_pair_map,
+        min_all_res=min_all_res,
+        res_keys=res_keys,
     )

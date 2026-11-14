@@ -4,8 +4,10 @@ from unittest.mock import MagicMock, patch
 
 import d2s_parse
 import d2savior.core.bitstream_debug as bitstream_debug
+import d2savior.core.char_formatter as char_formatter
 import d2savior.core.constants as constants
-import d2savior.core.formatters as formatters
+import d2savior.core.item_formatter as item_formatter
+import d2savior.core.stash_formatter as stash_formatter
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import D2Item, ItemInfo, TypeSpecificInfo
@@ -42,10 +44,10 @@ class TestModularization:
             assert "BitStream Debug Test" in mock_out.getvalue()
 
     def test_formatters_module(self):
-        assert formatters.format_timestamp(0) == "N/A"
-        assert formatters.format_timestamp(4294967295) == "N/A"
-        assert formatters.format_duration(0) == "0s"
-        assert formatters.format_duration(3665) == "1h 1m 5s"
+        assert char_formatter.format_timestamp(0) == "N/A"
+        assert char_formatter.format_timestamp(4294967295) == "N/A"
+        assert char_formatter.format_duration(0) == "0s"
+        assert char_formatter.format_duration(3665) == "1h 1m 5s"
 
     def test_unified_parse_file_and_dispatch(self):
         mock_char = D2SStruct()
@@ -111,7 +113,7 @@ class TestModularization:
         def custom_formatter(pid, params, ver):
             return f"CUSTOM_PROP_{pid}:{params[0]}" if pid == 7 else None
 
-        res = formatters._format_parsed_properties(
+        res = item_formatter._format_parsed_properties(
             mock_prop_list, resolver=MagicMock(), property_formatter=custom_formatter
         )
         assert len(res) == 2
@@ -125,7 +127,7 @@ class TestModularization:
         item.item_info.type_specific_info = TypeSpecificInfo()
         item.item_info.type_specific_info.property_list = mock_prop_list
 
-        summary = formatters.format_item_summary(
+        summary = item_formatter.format_item_summary(
             item, resolver=MagicMock(), property_formatter=custom_formatter
         )
         assert "CUSTOM_PROP_7:25" in summary
@@ -133,13 +135,10 @@ class TestModularization:
     def test_no_sys_modules_d2s_parse_hack(self):
         import inspect
 
-        formatters_source = inspect.getsource(formatters)
-        bitstream_source = inspect.getsource(bitstream_debug)
-
-        assert "sys.modules.get('d2s_parse')" not in formatters_source
-        assert "sys.modules" not in formatters_source
-        assert "sys.modules.get('d2s_parse')" not in bitstream_source
-        assert "sys.modules" not in bitstream_source
+        for mod in (char_formatter, item_formatter, stash_formatter, bitstream_debug):
+            source = inspect.getsource(mod)
+            assert "sys.modules.get('d2s_parse')" not in source
+            assert "sys.modules" not in source
 
     def test_run_bitstream_searches_delegation(self):
         mock_bs = MagicMock()
@@ -163,8 +162,8 @@ class TestModularization:
 
     def test_formatter_return_types_consistent_str(self, game_data_resolver):
         char = D2SStruct()
-        res_wp = formatters.format_waypoints_info(char, resolver=game_data_resolver)
-        res_quests = formatters.format_quests_info(char, resolver=game_data_resolver)
+        res_wp = char_formatter.format_waypoints_info(char, resolver=game_data_resolver)
+        res_quests = char_formatter.format_quests_info(char, resolver=game_data_resolver)
 
         assert isinstance(res_wp, str)
         assert isinstance(res_quests, str)
@@ -172,10 +171,12 @@ class TestModularization:
         item = D2Item()
         item.item_info = ItemInfo()
         item.item_info.type_name = b"rin "
-        res_item = formatters.format_item_info(item, resolver=game_data_resolver)
+        res_item = item_formatter.format_item_info(item, resolver=game_data_resolver)
         assert isinstance(res_item, str)
 
         # Internal line helpers return lists
-        assert isinstance(formatters._format_waypoints_lines(char, game_data_resolver), list)
-        assert isinstance(formatters._format_quests_lines(char, game_data_resolver), list)
-        assert isinstance(formatters._format_item_lines(item, resolver=game_data_resolver), list)
+        assert isinstance(char_formatter._format_waypoints_lines(char, game_data_resolver), list)
+        assert isinstance(char_formatter._format_quests_lines(char, game_data_resolver), list)
+        assert isinstance(
+            item_formatter._format_item_lines(item, resolver=game_data_resolver), list
+        )

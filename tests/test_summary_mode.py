@@ -4,21 +4,22 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from d2s_parse import main
-from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
-from d2savior.core.formatters import (
+from d2savior.core.char_formatter import (
     format_char_summary,
-    format_item_info,
-    format_item_summary,
-    format_stash_summary,
     get_char_status_summary,
 )
+from d2savior.core.d2s_struct import D2SStruct
+from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
 from d2savior.core.item import (
     D2Item,
     ExtItemInfo,
     ItemInfo,
     ItemList,
     TypeSpecificInfo,
+)
+from d2savior.core.item_formatter import (
+    format_item_info,
+    format_item_summary,
 )
 from d2savior.core.item_name import GoldQuantity, LongName
 from d2savior.core.property_list import PropertyList
@@ -29,6 +30,7 @@ from d2savior.core.stash import (
     SharedStash,
     StashTab,
 )
+from d2savior.core.stash_formatter import format_stash_summary
 
 
 class TestSummaryMode:
@@ -455,7 +457,7 @@ class TestSummaryMode:
     def test_format_parsed_properties_helper(self, game_data_resolver):
         from unittest.mock import MagicMock
 
-        from d2savior.core.formatters import _format_parsed_properties
+        from d2savior.core.item_formatter import _format_parsed_properties
 
         assert _format_parsed_properties(None, resolver=game_data_resolver) == []
 
@@ -488,7 +490,7 @@ class TestSummaryMode:
         assert formatted[2] == "ID 998: 5"
 
     def test_get_character_skills_helper(self, game_data_resolver):
-        from d2savior.core.formatters import _get_character_skills
+        from d2savior.core.char_formatter import _get_character_skills
 
         char_data = D2SStruct()
         assert _get_character_skills(char_data, game_data_resolver) == []
@@ -551,11 +553,8 @@ class TestSummaryMode:
         assert resolver_en.loc.current_lang == "enUS"
 
     def test_ru_summary_mode(self):
+        from d2savior.core.char_formatter import format_char_summary
         from d2savior.core.d2s_struct import D2SStruct, ItemList
-        from d2savior.core.formatters import (
-            format_char_summary,
-            format_stash_summary,
-        )
         from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
         from d2savior.core.stash import (
             STASH_TAB_TYPE_ADVANCED,
@@ -563,6 +562,7 @@ class TestSummaryMode:
             SharedStash,
             StashTab,
         )
+        from d2savior.core.stash_formatter import format_stash_summary
 
         resolver = GameDataResolver.load(lang_key="ruRU")
 
@@ -620,8 +620,8 @@ class TestSummaryMode:
         assert "Волшебница" in char_out
 
     def test_detailed_mode_localization(self):
-        from d2savior.core.formatters import format_item_info
         from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo
+        from d2savior.core.item_formatter import format_item_info
 
         resolver_en = GameDataResolver.load(lang_key="enUS")
         resolver_zh = GameDataResolver.load(lang_key="zhCN")
@@ -653,7 +653,7 @@ class TestSummaryMode:
         assert "Set ID: 68 (艾尔多的律动)" in set_zh
 
     def test_mercenary_formatting(self):
-        from d2savior.core.formatters import format_char_info
+        from d2savior.core.char_formatter import format_char_info
 
         resolver = GameDataResolver.load(lang_key="enUS")
 
@@ -721,7 +721,7 @@ class TestSummaryMode:
         assert "Mercenary Level:" not in unknown_full
 
     def test_summary_properties_collapse_damage_variants(self, game_data_resolver):
-        from d2savior.core.formatters import _format_summary_properties
+        from d2savior.core.item_formatter import _format_summary_properties
 
         # Max damage only (1H/2H/Throw identical)
         max_only = _format_summary_properties(
@@ -826,7 +826,7 @@ class TestSummaryMode:
 
     def test_stash_find_summary_collapses_damage_stats(self, game_data_resolver):
         from d2s_parse import parse_file
-        from d2savior.core.formatters import format_stash_find
+        from d2savior.core.stash_formatter import format_stash_find
 
         stash_path = os.path.join(
             os.path.dirname(__file__), "fixtures", "ModernSharedStashSoftCoreV2.d2i"
@@ -902,7 +902,10 @@ class TestSummaryMode:
         assert "+30 to Maximum Damage" not in bow_sol_summary
 
     def test_elemental_and_poison_grouping(self, game_data_resolver):
-        from d2savior.core.formatters import _format_property_entries, _format_summary_properties
+        from d2savior.core.item_formatter import (
+            _format_property_entries,
+            _format_summary_properties,
+        )
 
         # Poison equal rate (Tal Rune: 154 rate * 125 frames / 256 = 75 over 5s)
         tal_props = [(57, 154, [154]), (58, 154, [154]), (59, 125, [125])]
@@ -978,7 +981,10 @@ class TestSummaryMode:
         ]
 
     def test_enhanced_damage_collapse_and_ohm_rune(self, game_data_resolver):
-        from d2savior.core.formatters import _format_property_entries, _format_summary_properties
+        from d2savior.core.item_formatter import (
+            _format_property_entries,
+            _format_summary_properties,
+        )
 
         # Equal 17 + 18 collapse into +% Enhanced Damage in both summary and full modes
         equal_ed = [(17, 64, [64]), (18, 64, [64])]
@@ -1033,7 +1039,7 @@ class TestSummaryMode:
         assert "Enhanced Minimum Damage" not in cta_summary
 
     def test_effective_armor_defence(self, game_data_resolver):
-        from d2savior.core.formatters import format_item_info
+        from d2savior.core.item_formatter import format_item_info
 
         def _make_prop_list(props):
             pl = PropertyList()

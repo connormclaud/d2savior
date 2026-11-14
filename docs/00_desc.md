@@ -50,5 +50,5 @@ The project consists of modular components in the `core/` package and the CLI en
   Shared stash tab parsing (`SharedStash`, `StashTab`) supporting standard tabs and advanced currency tabs (Gems, Runes, Materials).
 - **Game Data & Resolution** (`core/models.py`, `core/loader.py`, `core/resolver.py`, `core/localized_data.py`, `core/property.py`):
   Multi-version game data management (`D2DataManager`, `GameDataResolver`), localized strings loader (`LocalizedData`), and property formula evaluation.
-- **Formatters & CLI** (`core/formatters.py`, `core/constants.py`, `d2s_parse.py`):
+- **Formatters & CLI** (`core/item_formatter.py`, `core/char_formatter.py`, `core/stash_formatter.py`, `core/stats.py`, `core/constants.py`, `d2s_parse.py`):
   Output formatting for summary views, item inspection, quest progression, waypoints, and stash reports.

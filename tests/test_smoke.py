@@ -6,10 +6,12 @@ import sys
 import pytest
 
 from d2s_parse import parse_file
-from d2savior.core.formatters import (
+from d2savior.core.char_formatter import (
     format_char_find,
     format_char_info,
     format_char_summary,
+)
+from d2savior.core.stash_formatter import (
     format_stash_find,
     format_stash_info,
     format_stash_summary,

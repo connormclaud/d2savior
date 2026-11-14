@@ -121,4 +121,4 @@ Property string formatting is implemented in `core/property.py` (`format_propert
    - `9`: `+[value] to [tab] ([class] Only)`
    - `11`: `Repairs 1 Durability in [time] Seconds`
    - `12-24`: Chance to cast, elemental absorption, charged skills, level-based scaling, etc.
-2. Template strings are loaded from `data/local/item-modifiers.json` via `init_item_modifiers()`, supporting multi-language output in coordination with `GameDataResolver` and `core/formatters.py`.
+2. Template strings are loaded from `data/local/item-modifiers.json` via `init_item_modifiers()`, supporting multi-language output in coordination with `GameDataResolver` and `core/item_formatter.py`.

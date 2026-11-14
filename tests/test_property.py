@@ -1,5 +1,5 @@
-from d2savior.core.formatters import format_item_info
 from d2savior.core.item import D2Item, ItemInfo, TypeSpecificInfo
+from d2savior.core.item_formatter import format_item_info
 from d2savior.core.property import format_property, get_time_name
 from d2savior.core.property_list import PropertyList
 from d2savior.core.resolver import GameDataResolver
