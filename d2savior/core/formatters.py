@@ -25,7 +25,12 @@ from d2savior.core.stash import (
     STASH_TAB_TYPE_ADVANCED,
     SharedStash,
 )
-from d2savior.core.stats import calculate_advanced_stats, calculate_mercenary_stats
+from d2savior.core.stats import (
+    calculate_advanced_stats,
+    calculate_mercenary_stats,
+    get_current_difficulty,
+    get_difficulty_resist_penalty,
+)
 
 type SkillInfo = tuple[int, str, int]
 type FormattedLines = list[str]
@@ -1237,9 +1242,14 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     result.append("")
     result.extend(_format_quests_lines(char_data, char_resolver))
     result.append("")
+    diff_idx = get_current_difficulty(char_data)
+    diff_name = DIFFICULTY_NAMES[diff_idx]
+    resist_penalty = get_difficulty_resist_penalty(char_data, diff_idx)
     adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
     result.append("=== Advanced Stats ===")
-    result.append(f"Resistances: {adv_stats.resistances.format_summary()}")
+    result.append(
+        f"Resistances ({diff_name}): {adv_stats.resistances.format_summary(resist_penalty, adv_stats.max_resistances)}"
+    )
     result.append(
         f"Faster Hit Recovery: +{adv_stats.fhr}% | Faster Cast Rate: +{adv_stats.fcr}% | Magic Find: +{adv_stats.mf}%"
     )
@@ -1281,7 +1291,9 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
                 result.append(f"Mercenary Level: {merc_stats.level}")
                 result.append(f"Mercenary Strength: {merc_stats.strength}")
                 result.append(f"Mercenary Dexterity: {merc_stats.dexterity}")
-                result.append(f"Mercenary Resistances: {merc_stats.resistances.format_summary()}")
+                result.append(
+                    f"Mercenary Resistances ({diff_name}): {merc_stats.resistances.format_summary(resist_penalty, merc_stats.max_resistances)}"
+                )
             if char_data.mercenary.items:
                 result.append(f"Mercenary items: {char_data.mercenary.items.count}")
                 for i, item in enumerate(char_data.mercenary.items.items):
@@ -1368,9 +1380,14 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     result.append("")
     result.extend(_format_quests_lines(char_data, char_resolver))
     result.append("")
+    diff_idx = get_current_difficulty(char_data)
+    diff_name = DIFFICULTY_NAMES[diff_idx]
+    resist_penalty = get_difficulty_resist_penalty(char_data, diff_idx)
     adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
     result.append("=== Advanced Stats ===")
-    result.append(f"Resistances: {adv_stats.resistances.format_summary()}")
+    result.append(
+        f"Resistances ({diff_name}): {adv_stats.resistances.format_summary(resist_penalty, adv_stats.max_resistances)}"
+    )
     result.append(
         f"Faster Hit Recovery: +{adv_stats.fhr}% | Faster Cast Rate: +{adv_stats.fcr}% | Magic Find: +{adv_stats.mf}%"
     )
@@ -1425,7 +1442,9 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
             result.append(
                 f"Level: {merc_stats.level} | Attributes: Str: {merc_stats.strength}, Dex: {merc_stats.dexterity}"
             )
-            result.append(f"Resistances: {merc_stats.resistances.format_summary()}")
+            result.append(
+                f"Resistances ({diff_name}): {merc_stats.resistances.format_summary(resist_penalty, merc_stats.max_resistances)}"
+            )
         if char_data.mercenary.items and char_data.mercenary.items.items:
             result.append("Equipped:")
             for m_item in char_data.mercenary.items.items:

@@ -78,7 +78,7 @@ Nightmare (26/27 completed, 2 rewards unclaimed) — Akara Reset: Available
 Hell: Not started
 
 === Advanced Stats ===
-Resistances: Fire: +120%, Cold: +66%, Lightning: +119%, Poison: +128%
+Resistances (Nightmare): Fire: 75% (+120%), Cold: 26% (+66%), Lightning: 75% (+119%), Poison: 75% (+128%)
 Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%
 
 === Items ===
@@ -1082,7 +1082,7 @@ Mercenary Flags: 0x00000000
 Mercenary Level: 74
 Mercenary Strength: 201
 Mercenary Dexterity: 157
-Mercenary Resistances: Fire: +185%, Cold: +185%, Lightning: +185%, Poison: +185%
+Mercenary Resistances (Nightmare): Fire: 75% (+185%), Cold: 75% (+185%), Lightning: 75% (+185%), Poison: 75% (+185%)
 Mercenary items: 3
 --- Mercenary Item 0 ---
   Type: brs  (Breast Plate)

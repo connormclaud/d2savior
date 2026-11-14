@@ -669,7 +669,10 @@ class TestSummaryMode:
         summary = format_char_summary(char, resolver=resolver)
         assert "Mercenary: Jemali (Act II Desert Mercenary, Hell, Holy Freeze)" in summary
         assert "Level: 80 | Attributes: Str: 181, Dex: 146" in summary
-        assert "Resistances: Fire: +147%, Cold: +147%, Lightning: +147%, Poison: +147%" in summary
+        assert (
+            "Resistances (Normal): Fire: 75% (+147%), Cold: 75% (+147%), Lightning: 75% (+147%), Poison: 75% (+147%)"
+            in summary
+        )
 
         full = format_char_info(char, resolver=resolver)
         assert (
@@ -680,7 +683,7 @@ class TestSummaryMode:
         assert "Mercenary Strength: 181" in full
         assert "Mercenary Dexterity: 146" in full
         assert (
-            "Mercenary Resistances: Fire: +147%, Cold: +147%, Lightning: +147%, Poison: +147%"
+            "Mercenary Resistances (Normal): Fire: 75% (+147%), Cold: 75% (+147%), Lightning: 75% (+147%), Poison: 75% (+147%)"
             in full
         )
 

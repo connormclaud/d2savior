@@ -13,9 +13,20 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from d2savior.core.constants import (
+    BASE_MAX_RESIST,
+    DIFFICULTY_RESIST_PENALTIES_CLASSIC,
+    DIFFICULTY_RESIST_PENALTIES_EXPANSION,
+    HARD_MAX_RESIST,
+    MIN_EFFECTIVE_RESIST,
+)
 from d2savior.core.d2data import GameDataResolver, HirelingInfo
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
+
+
+def _default_max_resistances() -> ResistanceStats:
+    return ResistanceStats(BASE_MAX_RESIST, BASE_MAX_RESIST, BASE_MAX_RESIST, BASE_MAX_RESIST)
 
 
 @dataclass
@@ -25,16 +36,40 @@ class ResistanceStats:
     lightning: int = 0
     poison: int = 0
 
-    def format_summary(self) -> str:
+    def effective(
+        self, penalty: int = 0, max_res: ResistanceStats | None = None
+    ) -> ResistanceStats:
+        """Compute difficulty-adjusted resistances clamped to [MIN_EFFECTIVE_RESIST, cap]."""
+        cap = max_res if max_res is not None else _default_max_resistances()
+        return ResistanceStats(
+            fire=max(MIN_EFFECTIVE_RESIST, min(self.fire + penalty, cap.fire)),
+            cold=max(MIN_EFFECTIVE_RESIST, min(self.cold + penalty, cap.cold)),
+            lightning=max(MIN_EFFECTIVE_RESIST, min(self.lightning + penalty, cap.lightning)),
+            poison=max(MIN_EFFECTIVE_RESIST, min(self.poison + penalty, cap.poison)),
+        )
+
+    def format_summary(
+        self,
+        penalty: int | None = None,
+        max_res: ResistanceStats | None = None,
+    ) -> str:
+        if penalty is None:
+            return (
+                f"Fire: {self.fire:+d}%, Cold: {self.cold:+d}%, "
+                f"Lightning: {self.lightning:+d}%, Poison: {self.poison:+d}%"
+            )
+        eff = self.effective(penalty, max_res)
         return (
-            f"Fire: {self.fire:+d}%, Cold: {self.cold:+d}%, "
-            f"Lightning: {self.lightning:+d}%, Poison: {self.poison:+d}%"
+            f"Fire: {eff.fire}% ({self.fire:+d}%), Cold: {eff.cold}% ({self.cold:+d}%), "
+            f"Lightning: {eff.lightning}% ({self.lightning:+d}%), "
+            f"Poison: {eff.poison}% ({self.poison:+d}%)"
         )
 
 
 @dataclass
 class AdvancedStats:
     resistances: ResistanceStats = field(default_factory=ResistanceStats)
+    max_resistances: ResistanceStats = field(default_factory=_default_max_resistances)
     fhr: int = 0
     fcr: int = 0
     mf: int = 0
@@ -48,6 +83,96 @@ class MercenaryStats:
     strength: int = 0
     dexterity: int = 0
     resistances: ResistanceStats = field(default_factory=ResistanceStats)
+    max_resistances: ResistanceStats = field(default_factory=_default_max_resistances)
+
+
+_RESIST_STAT_FIELDS: dict[int, tuple[str, bool]] = {
+    39: ("fire", False),  # fireresist
+    41: ("lightning", False),  # lightresist
+    43: ("cold", False),  # coldresist
+    45: ("poison", False),  # poisonresist
+    40: ("fire", True),  # maxfireresist
+    42: ("lightning", True),  # maxlightresist
+    44: ("cold", True),  # maxcoldresist
+    46: ("poison", True),  # maxpoisonresist
+}
+
+
+def _apply_resist_stat(
+    res: ResistanceStats, max_res: ResistanceStats, prop_id: int, param_val: int
+) -> bool:
+    entry = _RESIST_STAT_FIELDS.get(prop_id)
+    if entry is None:
+        return False
+    field_name, is_max = entry
+    target = max_res if is_max else res
+    setattr(target, field_name, getattr(target, field_name) + param_val)
+    return True
+
+
+def _clamp_max_resistances(max_res: ResistanceStats) -> ResistanceStats:
+    return ResistanceStats(
+        fire=min(max_res.fire, HARD_MAX_RESIST),
+        cold=min(max_res.cold, HARD_MAX_RESIST),
+        lightning=min(max_res.lightning, HARD_MAX_RESIST),
+        poison=min(max_res.poison, HARD_MAX_RESIST),
+    )
+
+
+def get_current_difficulty(char_data: D2SStruct) -> int:
+    """Return the character's current difficulty index (0=Normal, 1=Nightmare, 2=Hell)."""
+    town = getattr(char_data, "town", b"")
+    if len(town) >= 3:
+        for diff_idx in (2, 1, 0):
+            if town[diff_idx] & 0x80:
+                return diff_idx
+
+    # Fallback when town bytes are unset (e.g., synthetic D2SStruct in unit tests).
+    quests = getattr(char_data, "quests", None)
+    if quests and getattr(quests, "magic", None) == 0x216F6F57:
+        for diff_idx in (2, 1):
+            if diff_idx < len(quests.qi_data):
+                qd = quests.qi_data[diff_idx]
+                if any(
+                    w != 0
+                    for words in (qd.act_1, qd.act_2, qd.act_3, qd.act_4, qd.act_5)
+                    for w in words
+                ):
+                    return diff_idx
+
+    waypoints = getattr(char_data, "waypoints", None)
+    if waypoints and getattr(waypoints, "magic", None) == 0x5357:
+        for diff_idx in (2, 1):
+            if diff_idx < len(waypoints.wp):
+                wp = waypoints.wp[diff_idx].waypoints
+                if wp and ((wp[0] & ~1) != 0 or any(b != 0 for b in wp[1:])):
+                    return diff_idx
+
+    char_title = getattr(char_data, "char_title", 0)
+    if char_title:
+        if char_data.is_expansion():
+            if char_title >= 10:
+                return 2
+            if char_title >= 5:
+                return 1
+        else:
+            if char_title >= 8:
+                return 2
+            if char_title >= 4:
+                return 1
+
+    return 0
+
+
+def get_difficulty_resist_penalty(char_data: D2SStruct, difficulty: int | None = None) -> int:
+    """Return the resistance penalty (e.g. 0, -40, -100) for the character's difficulty."""
+    diff_idx = get_current_difficulty(char_data) if difficulty is None else difficulty
+    penalties = (
+        DIFFICULTY_RESIST_PENALTIES_EXPANSION
+        if char_data.is_expansion()
+        else DIFFICULTY_RESIST_PENALTIES_CLASSIC
+    )
+    return penalties[max(0, min(diff_idx, len(penalties) - 1))]
 
 
 def _get_item_properties(
@@ -144,6 +269,7 @@ def calculate_advanced_stats(
                     inventory_items.append(it)
 
     res = ResistanceStats()
+    max_res = _default_max_resistances()
     fhr = 0
     fcr = 0
     mf = 0
@@ -160,17 +286,9 @@ def calculate_advanced_stats(
     for prop_id, param_val in _iter_item_stats(
         all_source_items, char_resolver, version, set_items=equipped_items
     ):
+        if _apply_resist_stat(res, max_res, prop_id, param_val):
+            continue
         match prop_id:
-            # Resistances
-            case 39:  # Fire Resist
-                res.fire += param_val
-            case 41:  # Lightning Resist
-                res.lightning += param_val
-            case 43:  # Cold Resist
-                res.cold += param_val
-            case 45:  # Poison Resist
-                res.poison += param_val
-
             # FHR / FCR / MF
             case 99:  # Faster Hit Recovery
                 fhr += param_val
@@ -182,6 +300,22 @@ def calculate_advanced_stats(
                 mf_per_level += param_val
 
     mf += (mf_per_level * char_level) // 8
+
+    # Paladin passive skills: Resist Fire (idx 4), Resist Cold (idx 9), Resist Lightning (idx 14)
+    # grant +1% maximum resistance per 2 hard points invested.
+    skills = getattr(char_data, "skills", None)
+    if (
+        getattr(char_data, "char_class", -1) == 3
+        and skills
+        and getattr(skills, "magic", None) == 0x6669
+    ):
+        levels = getattr(skills, "skill_levels", [])
+        if len(levels) > 4:
+            max_res.fire += levels[4] // 2
+        if len(levels) > 9:
+            max_res.cold += levels[9] // 2
+        if len(levels) > 14:
+            max_res.lightning += levels[14] // 2
 
     # Add quest resistance bonuses:
     # In Diablo II, completing the "Prison of Ice" quest (Anya, Act V quest index 2)
@@ -199,6 +333,7 @@ def calculate_advanced_stats(
 
     return AdvancedStats(
         resistances=res,
+        max_resistances=_clamp_max_resistances(max_res),
         fhr=fhr,
         fcr=fcr,
         mf=mf,
@@ -254,6 +389,7 @@ def calculate_mercenary_stats(
         ),
         poison=max(row.resist_poison + int((level_ups * row.resist_poison_per_lvl) / 4), 0),
     )
+    max_res = _default_max_resistances()
 
     merc_item_list = getattr(getattr(char_data, "mercenary", None), "items", None)
     merc_items = list(merc_item_list.items) if merc_item_list else []
@@ -266,19 +402,13 @@ def calculate_mercenary_stats(
         poison_per_lvl = 0
 
         for prop_id, param_val in _iter_item_stats(merc_items, char_resolver, version):
+            if _apply_resist_stat(res, max_res, prop_id, param_val):
+                continue
             match prop_id:
                 case 0:  # Strength
                     strength += param_val
                 case 2:  # Dexterity
                     dexterity += param_val
-                case 39:  # Fire Resist
-                    res.fire += param_val
-                case 41:  # Lightning Resist
-                    res.lightning += param_val
-                case 43:  # Cold Resist
-                    res.cold += param_val
-                case 45:  # Poison Resist
-                    res.poison += param_val
                 case 220:  # Strength per level (eighths)
                     str_per_lvl += param_val
                 case 221:  # Dexterity per level (eighths)
@@ -304,4 +434,5 @@ def calculate_mercenary_stats(
         strength=strength,
         dexterity=dexterity,
         resistances=res,
+        max_resistances=_clamp_max_resistances(max_res),
     )

@@ -10,9 +10,12 @@ from d2savior.core.property_list import PropertyList
 from d2savior.core.stats import (
     AdvancedStats,
     MercenaryStats,
+    ResistanceStats,
     calculate_advanced_stats,
     calculate_mercenary_level,
     calculate_mercenary_stats,
+    get_current_difficulty,
+    get_difficulty_resist_penalty,
 )
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -220,11 +223,17 @@ def test_format_char_advanced_stats_section(game_data_resolver: GameDataResolver
     info = format_char_info(char, resolver=game_data_resolver)
 
     assert "=== Advanced Stats ===" in summary
-    assert "Resistances: Fire: +120%, Cold: +66%, Lightning: +119%, Poison: +128%" in summary
+    assert (
+        "Resistances (Nightmare): Fire: 75% (+120%), Cold: 26% (+66%), Lightning: 75% (+119%), Poison: 75% (+128%)"
+        in summary
+    )
     assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%" in summary
 
     assert "=== Advanced Stats ===" in info
-    assert "Resistances: Fire: +120%, Cold: +66%, Lightning: +119%, Poison: +128%" in info
+    assert (
+        "Resistances (Nightmare): Fire: 75% (+120%), Cold: 26% (+66%), Lightning: 75% (+119%), Poison: 75% (+128%)"
+        in info
+    )
     assert "Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%" in info
 
 
@@ -395,3 +404,116 @@ def test_mercenary_stats_returns_none_when_unavailable(game_data_resolver: GameD
     unknown_merc.merc_seed = 0x1
     unknown_merc.merc_hireling_id = 999
     assert calculate_mercenary_stats(unknown_merc, resolver=game_data_resolver) is None
+
+
+def test_difficulty_detection_and_resist_penalties():
+    """Verify current difficulty resolution from town bytes / fallbacks and resist penalties."""
+    char = D2SStruct()
+    char.version = 0x69
+    char.game_version = 3
+    assert get_current_difficulty(char) == 0
+    assert get_difficulty_resist_penalty(char) == 0
+
+    char.town = b"\x00\x80\x00"  # Nightmare Act I
+    char.char_title = 10  # Champion (unlocked Hell, currently in Nightmare)
+    assert get_current_difficulty(char) == 1
+    assert get_difficulty_resist_penalty(char) == -40
+
+    char.town = b"\x00\x00\x84"  # Hell Act V
+    assert get_current_difficulty(char) == 2
+    assert get_difficulty_resist_penalty(char) == -100
+
+    # Fallback when town bytes are unset: char_title determines unlocked difficulty
+    no_town = D2SStruct()
+    no_town.version = 0x69
+    no_town.game_version = 3
+    no_town.char_title = 15
+    assert get_current_difficulty(no_town) == 2
+
+    # Classic difficulty penalties (-20 Nightmare, -50 Hell)
+    classic = D2SStruct()
+    classic.version = 0x69
+    classic.game_version = 0
+    classic.town = b"\x00\x80\x00"
+    assert get_difficulty_resist_penalty(classic) == -20
+    classic.town = b"\x00\x00\x80"
+    assert get_difficulty_resist_penalty(classic) == -50
+
+
+def test_effective_resistances_formatting_and_max_caps(game_data_resolver: GameDataResolver):
+    """Effective resistances apply difficulty penalties, min -100% floor, and max resist caps."""
+    raw = ResistanceStats(fire=170, cold=179, lightning=208, poison=167)
+    assert (
+        raw.format_summary(-100)
+        == "Fire: 70% (+170%), Cold: 75% (+179%), Lightning: 75% (+208%), Poison: 67% (+167%)"
+    )
+
+    # Boosted max resist (e.g. +10 max poison capped below hard 95%) and -100% minimum floor
+    extreme = ResistanceStats(fire=200, cold=-50, lightning=50, poison=200)
+    max_res = ResistanceStats(fire=95, cold=75, lightning=75, poison=85)
+    assert (
+        extreme.format_summary(-100, max_res)
+        == "Fire: 95% (+200%), Cold: -100% (-50%), Lightning: -50% (+50%), Poison: 85% (+200%)"
+    )
+
+    # Paladin character in Hell with gear +max fire resist, passive Resist Lightning (10 pts = +5% max),
+    # and mercenary with Andariel's Visage (-30% Fire, +10% Max Poison).
+    char = D2SStruct()
+    char.version = 0x69
+    char.game_version = 3
+    char.char_class = 3  # Paladin
+    char.char_level = 85
+    char.town = b"\x00\x00\x80"  # Hell
+    char.item_list = ItemList()
+    char.skills.magic = 0x6669
+    char.skills.skill_levels[14] = 10  # Resist Lightning -> +5% max lightning resist
+
+    armor = D2Item()
+    armor.location = ItemLocation.EQUIPPED.value
+    armor.position = EquipSlot.ARMOR.value
+    armor.type_name = b"xpl "
+    armor.item_info = ItemInfo()
+    tp = TypeSpecificInfo()
+    pl = PropertyList()
+    # raw fire +190, light +190, cold +120, poison +160 (Save Add=50), +5 max fire resist (stat 40, Save Add=0)
+    pl.properties = [(39, 0, 240), (41, 0, 240), (43, 0, 170), (45, 0, 210), (40, 0, 5)]
+    tp.property_list = pl
+    armor.item_info.type_specific_info = tp
+    char.item_list.items.append(armor)
+
+    # Mercenary with lvl 80 base (+147 all res) + helm (-30% fire, +70% poison, +10% max poison)
+    char.merc_seed = 0x12345678
+    char.merc_name_index = 10
+    char.merc_hireling_id = 34
+    char._merc_experience = 67_392_000
+
+    merc_helm = D2Item()
+    merc_helm.location = ItemLocation.EQUIPPED.value
+    merc_helm.position = EquipSlot.HELMET.value
+    merc_helm.type_name = b"usk "
+    merc_helm.item_info = ItemInfo()
+    merc_tp = TypeSpecificInfo()
+    merc_pl = PropertyList()
+    # Save Add=-50 for resists: 20 -> -30 fire, 120 -> +70 poison; Save Add=0 for max poison (+10)
+    merc_pl.properties = [(39, 0, 20), (45, 0, 120), (46, 0, 10)]
+    merc_tp.property_list = merc_pl
+    merc_helm.item_info.type_specific_info = merc_tp
+    char.mercenary.items = ItemList()
+    char.mercenary.items.items = [merc_helm]
+    char.mercenary.items.count = 1
+
+    summary = format_char_summary(char, resolver=game_data_resolver)
+    assert (
+        "Resistances (Hell): Fire: 80% (+190%), Cold: 20% (+120%), Lightning: 80% (+190%), Poison: 60% (+160%)"
+        in summary
+    )
+    assert (
+        "Resistances (Hell): Fire: 17% (+117%), Cold: 47% (+147%), Lightning: 47% (+147%), Poison: 85% (+217%)"
+        in summary
+    )
+
+    info = format_char_info(char, resolver=game_data_resolver)
+    assert (
+        "Mercenary Resistances (Hell): Fire: 17% (+117%), Cold: 47% (+147%), Lightning: 47% (+147%), Poison: 85% (+217%)"
+        in info
+    )
