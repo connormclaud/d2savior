@@ -378,8 +378,7 @@ Total items: 31
   Unique ID: 154 (Bloodletter)
   Durability: 17/24
   Properties:
-    - +140% Enhanced Maximum Damage
-    - +140% Enhanced Minimum Damage
+    - +140% Enhanced Damage
     - +90 to Attack Rating
     - +12 to Minimum Damage
     - +45 to Maximum Damage
@@ -405,8 +404,7 @@ Total items: 31
   Rune Word Properties:
     - +20 to Strength
     - +10 to Vitality
-    - +35% Enhanced Maximum Damage
-    - +35% Enhanced Minimum Damage
+    - +35% Enhanced Damage
     - +25% Chance of Crushing Blow
   Socketed Item [0]:
     Type: r11  (Amn Rune)
@@ -722,8 +720,7 @@ Total items: 26
   Set ID: 54 (Arctic Horn)
   Durability: 33/48
   Properties:
-    - +50% Enhanced Maximum Damage
-    - +50% Enhanced Minimum Damage
+    - +50% Enhanced Damage
     - 20% Bonus to Attack Rating
   Set Properties (2 Items):
     - +16 to Attack Rating (Based on Character Level)
@@ -794,8 +791,7 @@ Total items: 26
   Durability: 9/15
   Properties:
     - +25 to Mana
-    - +75% Enhanced Maximum Damage
-    - +75% Enhanced Minimum Damage
+    - +75% Enhanced Damage
     - Adds 25-75 cold damage
     - 8% Mana stolen per hit
     - +20% Faster Cast Rate
@@ -1148,8 +1144,7 @@ Total items: 26
   Set ID: 49 (Death's Touch)
   Durability: 36/44
   Properties:
-    - +25% Enhanced Maximum Damage
-    - +25% Enhanced Minimum Damage
+    - +25% Enhanced Damage
     - 4% Life stolen per hit
   Set Properties (2 Items):
     - Adds 25-75 cold damage
@@ -1169,8 +1164,7 @@ Total items: 17
   Durability: 29/30
   Properties:
     - +30 to Life
-    - +181% Enhanced Maximum Damage
-    - +181% Enhanced Minimum Damage
+    - +181% Enhanced Damage
     - +25 to Maximum Damage
     - Adds 1-212 lightning damage
     - 54% Better Chance of Getting Magic Items
@@ -1189,8 +1183,7 @@ Total items: 17
   Durability: 34/36
   Properties:
     - +40 to Mana
-    - +201% Enhanced Maximum Damage
-    - +201% Enhanced Minimum Damage
+    - +201% Enhanced Damage
     - +50 Defense vs. Missile
     - Cold Resist +35%
     - Adds 15-30 cold damage
@@ -1265,8 +1258,7 @@ Total items: 17
   Unique ID: 148 (Sureshrill Frost)
   Durability: 51/60
   Properties:
-    - +160% Enhanced Maximum Damage
-    - +160% Enhanced Minimum Damage
+    - +160% Enhanced Damage
     - +5 to Minimum Damage
     - +10 to Maximum Damage
     - Adds 63-112 cold damage
@@ -1288,8 +1280,7 @@ Total items: 17
   Properties:
     - +20 to Strength
     - +20 to Dexterity
-    - +172% Enhanced Maximum Damage
-    - +172% Enhanced Minimum Damage
+    - +172% Enhanced Damage
     - +25 to Minimum Damage
     - +50 to Maximum Damage
     - 7% Life stolen per hit
@@ -1331,8 +1322,7 @@ Total items: 17
     - +16 to Strength
     - +12 to Dexterity
     - +8 to Vitality
-    - +228% Enhanced Maximum Damage
-    - +228% Enhanced Minimum Damage
+    - +228% Enhanced Damage
     - +75 Defense
     - +100 to Maximum Durability
     - +2 to Paladin Skill Levels
@@ -1371,8 +1361,7 @@ Total items: 17
   Durability: 33/44
   Properties:
     - +50 to Life
-    - +214% Enhanced Maximum Damage
-    - +214% Enhanced Minimum Damage
+    - +214% Enhanced Damage
     - +9 to Minimum Damage
     - +30 to Maximum Damage
     - +80 Defense vs. Missile
@@ -1390,8 +1379,7 @@ Total items: 17
   Unique ID: 190 (Kuko Shakaku)
   Durability: 18/28
   Properties:
-    - +159% Enhanced Maximum Damage
-    - +159% Enhanced Minimum Damage
+    - +159% Enhanced Damage
     - Adds 40-180 fire damage
     - +3 to Immolation Arrow (Amazon Only)
     - +50% Piercing Attack
@@ -1410,8 +1398,7 @@ Total items: 17
   Durability: 22/32
   Properties:
     - +35 to Mana
-    - +214% Enhanced Maximum Damage
-    - +214% Enhanced Minimum Damage
+    - +214% Enhanced Damage
     - 8% Life stolen per hit
     - +30% Increased Attack Speed
     - +30% Chance of Open Wounds
@@ -1496,8 +1483,7 @@ Total items: 17
     - +5 to Energy
     - +5 to Dexterity
     - +5 to Vitality
-    - +254% Enhanced Maximum Damage
-    - +254% Enhanced Minimum Damage
+    - +254% Enhanced Damage
     - 23% Better Chance of Getting Magic Items
     - +1 to Critical Strike
     - +35% Faster Cast Rate

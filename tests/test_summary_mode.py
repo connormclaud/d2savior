@@ -973,3 +973,58 @@ class TestSummaryMode:
             "+1–50 урона от молнии",
             "+3–14 урона от льда",
         ]
+
+    def test_enhanced_damage_collapse_and_ohm_rune(self, game_data_resolver):
+        from d2savior.core.formatters import _format_property_entries, _format_summary_properties
+
+        # Equal 17 + 18 collapse into +% Enhanced Damage in both summary and full modes
+        equal_ed = [(17, 64, [64]), (18, 64, [64])]
+        assert _format_summary_properties(equal_ed, resolver=game_data_resolver) == [
+            "+64% Enhanced Damage"
+        ]
+        assert _format_property_entries(equal_ed, resolver=game_data_resolver) == [
+            "+64% Enhanced Damage"
+        ]
+
+        # Unequal 17 + 18 remain separate
+        assert _format_summary_properties(
+            [(17, 64, [64]), (18, 30, [30])], resolver=game_data_resolver
+        ) == ["+64% Enhanced Maximum Damage", "+30% Enhanced Minimum Damage"]
+
+        # Legacy 0x60 single-tuple [max%, min%] when equal
+        assert _format_summary_properties(
+            [(17, 0, [64, 64, 0, 0])], resolver=game_data_resolver
+        ) == ["+64% Enhanced Damage"]
+
+        # Localized ruRU
+        resolver_ru = GameDataResolver.load(lang_key="ruRU")
+        assert _format_summary_properties(equal_ed, resolver=resolver_ru) == ["+64% к урону"]
+
+        # Ohm Rune (r27) in weapon contributes both stat 17 (+50%) and stat 18 (+50%)
+        class _StaticPropertyList(PropertyList):
+            def __init__(self, props):
+                self.properties = [(0, 0, 0)]
+                self._props = props
+
+            def get_parsed_properties(self, version=0x63, data=None):
+                return self._props
+
+        cta = D2Item()
+        cta.type_name = b"crs "
+        ohm = D2Item()
+        ohm.type_name = b"r27 "
+        assert game_data_resolver.get_socket_properties(cta, ohm) == [
+            (17, 50, [50]),
+            (18, 50, [50]),
+        ]
+
+        cta.item_info = ItemInfo()
+        cta.item_info.type_specific_info = TypeSpecificInfo()
+        cta.item_info.type_specific_info.runeword_property_list = _StaticPropertyList(
+            [(17, 218, [218]), (18, 218, [218])]
+        )
+        cta.gem_items = [ohm]
+        cta_summary = format_item_summary(cta, resolver=game_data_resolver)
+        assert "+268% Enhanced Damage" in cta_summary
+        assert "Enhanced Maximum Damage" not in cta_summary
+        assert "Enhanced Minimum Damage" not in cta_summary

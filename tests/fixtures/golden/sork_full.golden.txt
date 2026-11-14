@@ -1104,8 +1104,7 @@ Mercenary items: 3
     - +15 to Dexterity
     - +20 to Vitality
     - +50 to Life
-    - +20% Enhanced Maximum Damage
-    - +20% Enhanced Minimum Damage
+    - +20% Enhanced Damage
     - Fire Resist +30%
     - Lightning Resist +30%
     - Cold Resist +30%
@@ -1176,8 +1175,7 @@ Mercenary items: 3
     - +5 to Energy
     - +5 to Dexterity
     - +5 to Vitality
-    - +235% Enhanced Maximum Damage
-    - +235% Enhanced Minimum Damage
+    - +235% Enhanced Damage
     - 23% Better Chance of Getting Magic Items
     - +5 to Critical Strike
     - +35% Faster Cast Rate

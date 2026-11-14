@@ -2238,7 +2238,7 @@ class GameDataResolver:
                         (s_len.stat_id, param, [param]),
                     ]
         elif code == "dmg%":
-            return [(17, min_val, [min_val])]
+            return [(17, min_val, [min_val]), (18, min_val, [min_val])]
         elif code == "dmg-min":
             return [(21, min_val, [min_val])]
         elif code == "dmg-max":

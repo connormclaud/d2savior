@@ -259,6 +259,7 @@ _ELEMENTAL_SPEC_BY_ID: dict[int, _ElementalSpec] = {
     for sid in (spec.min_id, spec.max_id, spec.len_id)
     if sid is not None
 }
+_GROUPED_STAT_IDS: frozenset[int] = frozenset(_ELEMENTAL_SPEC_BY_ID) | {17, 18}
 
 
 def _format_modifier_template(
@@ -278,7 +279,7 @@ def _format_modifier_template(
             result = result.replace("%+d", f"{val:+d}", 1)
         elif "%d" in result:
             result = result.replace("%d", str(val), 1)
-    return result
+    return result.replace("%%", "%")
 
 
 def _format_elemental_damage(
@@ -320,12 +321,12 @@ def _format_elemental_damage(
     return None
 
 
-def _extract_elemental_replacements(
+def _extract_grouped_replacements(
     parsed_props: list[tuple[int, int, list[int]]],
     resolver: GameDataResolver,
 ) -> dict[int, tuple[int, str]]:
-    """Map paired elemental stat IDs in parsed_props to (group_id, combined_text)."""
-    if not any(prop_id in _ELEMENTAL_SPEC_BY_ID for prop_id, _, _ in parsed_props):
+    """Map grouped elemental and enhanced-damage stat IDs to (group_id, combined_text)."""
+    if not any(prop_id in _GROUPED_STAT_IDS for prop_id, _, _ in parsed_props):
         return {}
 
     totals: dict[int, int] = {}
@@ -333,7 +334,7 @@ def _extract_elemental_replacements(
     poison_len_count = 0
 
     for prop_id, value, params in parsed_props:
-        if prop_id not in _ELEMENTAL_SPEC_BY_ID:
+        if prop_id not in _GROUPED_STAT_IDS:
             continue
         val = params[0] if params else value
         totals[prop_id] = totals.get(prop_id, 0) + val
@@ -374,6 +375,29 @@ def _extract_elemental_replacements(
             if sid is not None and sid in totals:
                 replacements[sid] = (spec.min_id, formatted)
 
+    if 17 in totals and 18 in totals:
+        if totals[17] == totals[18]:
+            ed_str = _format_modifier_template(
+                resolver,
+                "strModEnhancedDamage",
+                "%+d%% Enhanced Damage",
+                totals[17],
+                signed_first=True,
+            )
+            replacements[17] = (17, ed_str)
+            replacements[18] = (17, ed_str)
+    elif 17 in totals and 18 not in totals:
+        p = first_params.get(17, [])
+        if len(p) >= 2 and p[0] == p[1] and p[0] != 0:
+            ed_str = _format_modifier_template(
+                resolver,
+                "strModEnhancedDamage",
+                "%+d%% Enhanced Damage",
+                p[0],
+                signed_first=True,
+            )
+            replacements[17] = (17, ed_str)
+
     return replacements
 
 
@@ -383,12 +407,10 @@ def _format_property_entries(
     version: int = 0x63,
     property_formatter: Callable[..., str | None] | None = None,
 ) -> FormattedLines:
-    """Format parsed property tuples into strings, grouping paired elemental stats."""
+    """Format parsed property tuples into strings, grouping paired elemental/ED stats."""
     format_func = property_formatter or resolver.format_property
     elem_replacements = (
-        _extract_elemental_replacements(parsed_props, resolver)
-        if property_formatter is None
-        else {}
+        _extract_grouped_replacements(parsed_props, resolver) if property_formatter is None else {}
     )
     emitted_elem_groups: set[int] = set()
     result = []
@@ -602,9 +624,7 @@ def _format_summary_properties(
 
     dmg_pair_map = _collapse_damage_stats(aggregated, ordered_keys, prop_id_map, raw_val_map)
     elem_replacements = (
-        _extract_elemental_replacements(parsed_props, resolver)
-        if property_formatter is None
-        else {}
+        _extract_grouped_replacements(parsed_props, resolver) if property_formatter is None else {}
     )
 
     res_keys = [(39,), (41,), (43,), (45,)]
