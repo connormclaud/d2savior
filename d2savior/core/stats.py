@@ -9,7 +9,7 @@ Calculates aggregated stats from active equipped gear, inventory charms, and que
 """
 
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -208,38 +208,41 @@ def get_difficulty_resist_penalty(char_data: D2SStruct, difficulty: int | None =
     return penalties[max(0, min(diff_idx, len(penalties) - 1))]
 
 
-def _get_item_properties(
+def collect_item_properties(
     item: Any,
     resolver: GameDataResolver,
     version: int,
     set_counts: dict[int, int] | None = None,
+    *,
+    normalize_source: Callable[[list[tuple[int, int, list[int]]]], list[tuple[int, int, list[int]]]]
+    | None = None,
 ) -> list[tuple[int, int, list[int]]]:
-    """Retrieve all parsed properties for an item, including runewords, socketables, and active set bonuses."""
-    props: list[tuple[int, int, list[int]]] = []
+    """Retrieve parsed properties for an item, including runewords, socketables, and active set bonuses."""
     tp = getattr(getattr(item, "item_info", None), "type_specific_info", None)
-    if tp:
-        if getattr(tp, "property_list", None):
-            props.extend(tp.property_list.get_parsed_properties(version, data=resolver.data))
-        if getattr(tp, "runeword_property_list", None):
-            props.extend(
-                tp.runeword_property_list.get_parsed_properties(version, data=resolver.data)
-            )
-        if getattr(item, "gem_items", None):
-            for gem in item.gem_items:
-                props.extend(resolver.get_socket_properties(item, gem))
+    if not tp:
+        return []
 
-        # Check for activated set item properties:
-        # Each index i in set_properties requires (i + 2) pieces of the set to be equipped.
-        if set_counts and getattr(tp, "set_properties", None):
-            ext = getattr(getattr(item, "item_info", None), "ext_info", None)
-            if ext and ext.set_id is not None:
-                equipped_count = set_counts.get(ext.set_id, 0)
-                for idx, set_prop_list in enumerate(tp.set_properties):
-                    if set_prop_list is not None and equipped_count >= idx + 2:
-                        props.extend(
-                            set_prop_list.get_parsed_properties(version, data=resolver.data)
-                        )
-    return props
+    sources: list[list[tuple[int, int, list[int]]]] = []
+    if getattr(tp, "property_list", None):
+        sources.append(tp.property_list.get_parsed_properties(version, data=resolver.data))
+    if getattr(tp, "runeword_property_list", None):
+        sources.append(tp.runeword_property_list.get_parsed_properties(version, data=resolver.data))
+    if getattr(item, "gem_items", None):
+        for gem in item.gem_items:
+            sources.append(resolver.get_socket_properties(item, gem))
+
+    # Each index i in set_properties requires (i + 2) pieces of the set to be equipped.
+    if set_counts and getattr(tp, "set_properties", None):
+        ext = getattr(getattr(item, "item_info", None), "ext_info", None)
+        if ext and ext.set_id is not None:
+            equipped_count = set_counts.get(ext.set_id, 0)
+            for idx, set_prop_list in enumerate(tp.set_properties):
+                if set_prop_list is not None and equipped_count >= idx + 2:
+                    sources.append(set_prop_list.get_parsed_properties(version, data=resolver.data))
+
+    if normalize_source is None:
+        return [prop for source in sources for prop in source]
+    return [prop for source in sources for prop in normalize_source(source)]
 
 
 def _iter_item_properties(
@@ -257,7 +260,7 @@ def _iter_item_properties(
             set_counts[ext.set_id] += 1
 
     for item in items:
-        yield from _get_item_properties(
+        yield from collect_item_properties(
             item, resolver=resolver, version=version, set_counts=set_counts
         )
 

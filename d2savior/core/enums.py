@@ -10,6 +10,17 @@ DEMON_MAGIC = 0x666C
 
 PLAYER_STATS_BITS_COUNT = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25]
 
+CLASS_NAMES: tuple[str, ...] = (
+    "Amazon",
+    "Sorceress",
+    "Necromancer",
+    "Paladin",
+    "Barbarian",
+    "Druid",
+    "Assassin",
+    "Warlock",
+)
+
 
 class D2IntEnum(IntEnum):
     """Base integer enum for Diablo II constants with display name support and fallback for unknown values."""

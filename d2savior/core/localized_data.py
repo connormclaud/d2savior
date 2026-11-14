@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from d2savior.core.d2data import open_resource
+from d2savior.core.enums import CLASS_NAMES
 
 
 def clean_d2_text(text: str | None) -> str:
@@ -215,19 +216,9 @@ class LocalizedDataLoader:
         return self.get_string("ui.json", key)
 
     def get_class_name(self, class_id: int) -> str:
-        class_keys = [
-            "Amazon",
-            "Sorceress",
-            "Necromancer",
-            "Paladin",
-            "Barbarian",
-            "Druid",
-            "Assassin",
-            "Warlock",
-        ]
-        if 0 <= class_id < len(class_keys):
-            result = self.get_ui_string(class_keys[class_id])
-            if result and result != class_keys[class_id]:
+        if 0 <= class_id < len(CLASS_NAMES):
+            result = self.get_ui_string(CLASS_NAMES[class_id])
+            if result and result != CLASS_NAMES[class_id]:
                 return result
         return ""
 

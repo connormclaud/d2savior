@@ -4,6 +4,7 @@ from typing import Any
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 from d2savior.core.d2data import GameData, GameDataResolver
 from d2savior.core.enums import (
+    CLASS_NAMES,
     DEMON_MAGIC,
     GOLEM_MAGIC_1,
     GOLEM_MAGIC_2,
@@ -702,18 +703,8 @@ class D2SStruct:
         return bool(self.char_flags & CharStatus.HARDCORE)
 
     def get_char_class_name(self) -> str:
-        class_names = [
-            "Amazon",
-            "Sorceress",
-            "Necromancer",
-            "Paladin",
-            "Barbarian",
-            "Druid",
-            "Assassin",
-            "Warlock",
-        ]
-        if 0 <= self.char_class < len(class_names):
-            return class_names[self.char_class]
+        if 0 <= self.char_class < len(CLASS_NAMES):
+            return CLASS_NAMES[self.char_class]
         return "Unknown"
 
     def get_char_name(self) -> str:

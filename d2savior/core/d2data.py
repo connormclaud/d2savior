@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import IO, Any, ClassVar
 from warnings import deprecated
 
+from d2savior.core.enums import CLASS_NAMES
+
 type ItemTypeId = Buffer | str
 
 
@@ -2194,17 +2196,7 @@ class GameDataResolver:
         return eng_name[:-5] if eng_name.endswith(" Rune") else eng_name
 
     def get_localized_class_name(self, class_id: int) -> str:
-        class_keys = [
-            "Amazon",
-            "Sorceress",
-            "Necromancer",
-            "Paladin",
-            "Barbarian",
-            "Druid",
-            "Assassin",
-            "Warlock",
-        ]
-        default_name = class_keys[class_id] if 0 <= class_id < len(class_keys) else "Unknown"
+        default_name = CLASS_NAMES[class_id] if 0 <= class_id < len(CLASS_NAMES) else "Unknown"
         if self.loc:
             name = self.loc.get_class_name(class_id)
             if name:

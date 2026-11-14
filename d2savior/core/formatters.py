@@ -29,6 +29,7 @@ from d2savior.core.stats import (
     AdvancedStats,
     calculate_advanced_stats,
     calculate_mercenary_stats,
+    collect_item_properties,
     get_current_difficulty,
     get_difficulty_resist_penalty,
 )
@@ -702,34 +703,6 @@ def _format_summary_properties(
     return result
 
 
-def _collect_item_parsed_properties(
-    item: Any,
-    tp: Any,
-    resolver: GameDataResolver,
-    version: int,
-) -> list[tuple[int, int, list[int]]]:
-    """Collect normalized parsed property tuples from item, runeword, and socketed items."""
-    all_parsed: list[tuple[int, int, list[int]]] = []
-    if not tp:
-        return all_parsed
-    if getattr(tp, "property_list", None):
-        all_parsed.extend(
-            _normalize_damage_props(
-                tp.property_list.get_parsed_properties(version, data=resolver.data)
-            )
-        )
-    if getattr(tp, "runeword_property_list", None):
-        all_parsed.extend(
-            _normalize_damage_props(
-                tp.runeword_property_list.get_parsed_properties(version, data=resolver.data)
-            )
-        )
-    if getattr(item, "gem_items", None):
-        for gem in item.gem_items:
-            all_parsed.extend(_normalize_damage_props(resolver.get_socket_properties(item, gem)))
-    return all_parsed
-
-
 def _calculate_effective_defence(
     base_defence: int,
     parsed_props: Sequence[tuple[int, int, list[int]]],
@@ -762,7 +735,11 @@ def format_item_summary(
     meta_tags = []
     tp = getattr(info, "type_specific_info", None)
     need_parsed = tp is not None and (include_properties or tp.defence is not None)
-    all_parsed = _collect_item_parsed_properties(item, tp, resolver, version) if need_parsed else []
+    all_parsed = (
+        collect_item_properties(item, resolver, version, normalize_source=_normalize_damage_props)
+        if need_parsed
+        else []
+    )
 
     if tp:
         if tp.defence is not None:
@@ -923,7 +900,10 @@ def _format_item_lines(
             if tp.defence is not None:
                 base_def = tp.get_defence()
                 eff_def = _calculate_effective_defence(
-                    base_def, _collect_item_parsed_properties(item, tp, item_resolver, version)
+                    base_def,
+                    collect_item_properties(
+                        item, item_resolver, version, normalize_source=_normalize_damage_props
+                    ),
                 )
                 def_suffix = f" (effective: {eff_def})" if eff_def != base_def else ""
                 result.append(f"{indent}Defence: {base_def}{def_suffix}")
