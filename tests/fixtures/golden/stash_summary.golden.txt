@@ -13,14 +13,14 @@ Tabs: Tab 1: Normal, Tab 2: Normal, Tab 3: Normal, Tab 4: Normal, Tab 5: Normal,
   - Strangling Gas Potion [Qty: 7]
   - Pain Hood (Rare Circlet) [Def: 25]
   - Warpspear (Gothic Staff)
-  - The Face of Horror (Mask) [Def: 17]
-  - Treads of Cthon (Chain Boots) [Def: 10]
+  - The Face of Horror (Mask) [Def: 42]
+  - Treads of Cthon (Chain Boots) [Def: 25]
   - Breast Plate [Def: 67, Sockets: 3, Socketed: Ort Rune+Ral Rune+Thul Rune]
   - Amber Heavy Boots of Haste [Def: 6]
   - Eagle Harness (Rare Belt) [Def: 5]
-  - Superior Leather Armor [Def: 18, Sockets: 2]
+  - Superior Leather Armor [Def: 20, Sockets: 2]
   - Hawk Branded Amulet
-  - The Ward (Gothic Shield) [Def: 36, Sockets: 1]
+  - The Ward (Gothic Shield) [Def: 112, Sockets: 1]
   - Bloodletter (Gladius)
   - Strength (Spetum) [Sockets: 2, Socketed: Amn Rune+Tir Rune]
   - Storm Beads (Rare Amulet)
@@ -38,23 +38,23 @@ Tabs: Tab 1: Normal, Tab 2: Normal, Tab 3: Normal, Tab 4: Normal, Tab 5: Normal,
 === Tab 2 (Normal) ===
   - Sigon's Gage (Gauntlets) [Def: 15]
   - Sigon's Wrap (Plated Belt) [Def: 8]
-  - Isenhart's Case (Breast Plate) [Def: 66]
+  - Isenhart's Case (Breast Plate) [Def: 106]
   - Arctic Horn (Short War Bow)
-  - Arctic Binding (Light Belt) [Def: 3]
+  - Arctic Binding (Light Belt) [Def: 33]
   - Lenymo (Sash) [Def: 2]
-  - Berserker's Headgear (Helm) [Def: 18]
+  - Berserker's Headgear (Helm) [Def: 33]
   - Sander's Superstition (Bone Wand)
-  - M'avina's Tenet (Sharkskin Belt) [Def: 35]
+  - M'avina's Tenet (Sharkskin Belt) [Def: 85]
   - Sander's Riprap (Heavy Boots) [Def: 5]
   - Flail [Sockets: 3]
   - Assault Helmet [Def: 31, Sockets: 3]
   - Stealth (Quilted Armor) [Def: 10, Sockets: 2, Socketed: Tal Rune+Eth Rune]
   - Flail [Sockets: 4]
   - Darksight Helm (Basinet) [Def: 82]
-  - Razortail (Sharkskin Belt) [Def: 37]
+  - Razortail (Sharkskin Belt) [Def: 104]
   - Hsarus' Iron Stay (Belt) [Def: 5]
   - Iratha's Cuff (Light Gauntlets) [Def: 10]
-  - Cure (Crown) [Def: 25, Sockets: 3, Socketed: Shael Rune+Io Rune+Tal Rune]
+  - Cure (Crown) [Def: 48, Sockets: 3, Socketed: Shael Rune+Io Rune+Tal Rune]
   - Aldur's Rhythm (Jagged Star) [Sockets: 3]
   - Iratha's Coil (Crown) [Def: 42]
   - Arcanna's Head (Skull Cap) [Def: 10]
@@ -67,17 +67,17 @@ Tabs: Tab 1: Normal, Tab 2: Normal, Tab 3: Normal, Tab 4: Normal, Tab 5: Normal,
   - Langer Briser (Arbalest)
   - Endlesshail (Double Bow)
   - Suicide Branch (Burnt Wand)
-  - Goblin Toe (Light Plated Boots) [Def: 12]
-  - Stealskull (Casque) [Def: 73]
+  - Goblin Toe (Light Plated Boots) [Def: 34]
+  - Stealskull (Casque) [Def: 227]
   - Sureshrill Frost (Flanged Mace)
   - Titan's Revenge (Ceremonial Javelin) [Qty: 180]
   - Cleglaw's Pincers (Chain Gloves) [Def: 8]
   - The Atlantean (Ancient Sword)
-  - Moser's Blessed Circle (Round Shield) [Def: 56, Sockets: 2]
+  - Moser's Blessed Circle (Round Shield) [Def: 164, Sockets: 2]
   - Cliffkiller (Large Siege Bow)
   - Kuko Shakaku (Cedar Bow)
   - Riphook (Razor Bow)
-  - Horazon's Dominion (Russet Armor) [Def: 244]
+  - Horazon's Dominion (Russet Armor) [Def: 448]
   - Horazon's Hold (Demonhide Gloves) [Def: 30]
   - Ashwood Bow [Sockets: 4]
   - Insight (Bill) [Sockets: 4, Socketed: Ral Rune+Tir Rune+Tal Rune+Sol Rune]

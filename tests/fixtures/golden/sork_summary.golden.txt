@@ -45,14 +45,14 @@ Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%
 === Equipped Gear ===
 - Helmet: Lore (Cap) [Def: 6, Sockets: 2, Socketed: Ort Rune+Sol Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +10 to Energy, +2 to Light Radius, +1 to All Skills, +2 to Mana after each Kill, Lightning Resist +30%, Damage Reduced by 7)
 - Amulet: Prismatic Amulet of the Sentinel (Magic Damage Reduced by 2, All Resistances +18)
-- Armor: Stealth (Studded Leather) [Def: 36, Sockets: 2, Socketed: Tal Rune+Eth Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +6 to Dexterity, +15 Maximum Stamina, Magic Damage Reduced by 3, +25% Faster Run/Walk, +25% Faster Hit Recovery, +25% Faster Cast Rate, Poison Resist +30%, Regenerate Mana 15%)
+- Armor: Stealth (Studded Leather) [Def: 40, Sockets: 2, Socketed: Tal Rune+Eth Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +6 to Dexterity, +15 Maximum Stamina, Magic Damage Reduced by 3, +25% Faster Run/Walk, +25% Faster Hit Recovery, +25% Faster Cast Rate, Poison Resist +30%, Regenerate Mana 15%)
 - Weapon I: Spirit (Broad Sword) [Sockets: 4, Socketed: Tal Rune+Thul Rune+Ort Rune+Amn Rune] (+22 to Vitality, +93 to Mana, +250 Defense vs. Missile, +55% Faster Hit Recovery, +34% Faster Cast Rate, +2 to All Skills, +6 Magic Absorb, +75 poison damage over 5 seconds, Adds 3-14 cold damage, Adds 1-50 lightning damage, 7% Life stolen per hit)
-- Shield I: Visceratuant (Defender) [Def: 50] (+116% Enhanced Defense, 30% Increased Chance of Blocking, +1 to Sorceress Skill Levels, +30% Faster Block Rate, Attacker Takes Lightning Damage of 10)
+- Shield I: Visceratuant (Defender) [Def: 108] (+116% Enhanced Defense, 30% Increased Chance of Blocking, +1 to Sorceress Skill Levels, +30% Faster Block Rate, Attacker Takes Lightning Damage of 10)
 - Ring (Right): Manald Heal (Ring) (+20 to Life, Regenerate Mana 20%, 6% Mana stolen per hit, Replenish Life +5, +10% Faster Cast Rate)
 - Ring (Left): Entropy Finger (Rare Ring) (+2 to Strength, +9 to Energy, Fire Resist +17%, Lightning Resist +16%, Poison Resist +9%, Poison Length Reduced by 25%)
 - Belt: Demon Clasp (Crafted Sharkskin Belt) [Def: 32] (+7 to Life, +13 to Mana, Regenerate Mana 9%, Poison Resist +18%, +8% Faster Cast Rate)
 - Boots: Rune Nails (Rare Chain Boots) [Def: 8] (+5 to Dexterity, Fire Resist +17%, Cold Resist +20%, +20% Faster Run/Walk, Repairs 20% durability per second)
-- Gloves: Shadow Claw (Rare Heavy Gloves) [Def: 7] (+6 to Dexterity, +52% Enhanced Defense, Fire Resist +16%, Poison Resist +25%, 3% Mana stolen per hit, +5 to Light Radius, 5% Bonus to Attack Rating)
+- Gloves: Shadow Claw (Rare Heavy Gloves) [Def: 10] (+6 to Dexterity, +52% Enhanced Defense, Fire Resist +16%, Poison Resist +25%, 3% Mana stolen per hit, +5 to Light Radius, 5% Bonus to Attack Rating)
 - Weapon II: Bone Wand of Lower Resistance (Level 1 Lower Resist (66/67 Charges))
 - Shield II: Rhyme (Kite Shield) [Def: 16, Sockets: 2, Socketed: Shael Rune+Eth Rune] (20% Increased Chance of Blocking, All Resistances +25, 50% Extra Gold from Monsters, 25% Better Chance of Getting Magic Items, +40% Faster Block Rate, Cannot Be Frozen, Regenerate Mana 15%)
 
@@ -61,8 +61,8 @@ Mercenary: Waheed (Act II Desert Mercenary, Nightmare, Holy Freeze)
 Level: 74 | Attributes: Str: 201, Dex: 157
 Resistances: Fire: +185%, Cold: +185%, Lightning: +185%, Poison: +185%
 Equipped:
-  - Armor: Lionheart (Breast Plate) [Def: 69, Sockets: 3, Socketed: Hel Rune+Lum Rune+Fal Rune] (+11% Enhanced Defense, +25 to Strength, +15 to Dexterity, +20 to Vitality, +50 to Life, +20% Enhanced Damage, All Resistances +30, Requirements -15%, +10 to Energy)
-  - Helmet: Tal Rasha's Horadric Crest (Death Mask) [Def: 86] (+60 to Life, +30 to Mana, +45 Defense, All Resistances +15, 10% Life stolen per hit, 10% Mana stolen per hit)
+  - Armor: Lionheart (Breast Plate) [Def: 76, Sockets: 3, Socketed: Hel Rune+Lum Rune+Fal Rune] (+11% Enhanced Defense, +25 to Strength, +15 to Dexterity, +20 to Vitality, +50 to Life, +20% Enhanced Damage, All Resistances +30, Requirements -15%, +10 to Energy)
+  - Helmet: Tal Rasha's Horadric Crest (Death Mask) [Def: 131] (+60 to Life, +30 to Mana, +45 Defense, All Resistances +15, 10% Life stolen per hit, 10% Mana stolen per hit)
   - Weapon I: Insight (Bill) [Sockets: 4, Socketed: Ral Rune+Tir Rune+Tal Rune+Sol Rune] (+5 to Strength, +5 to Energy, +5 to Dexterity, +5 to Vitality, +235% Enhanced Damage, 23% Better Chance of Getting Magic Items, +5 to Critical Strike, +35% Faster Cast Rate, 229% Bonus to Attack Rating, Level 15 Meditation Aura When Equipped, Adds 5-30 fire damage, +2 to Mana after each Kill, +75 poison damage over 5 seconds, +9 to Minimum Damage)
 
 === Inventory & Stash ===
@@ -85,13 +85,13 @@ Equipped:
 - [Stash] Broad Sword [Sockets: 4]
 - [Stash] Glowing Ring of the Apprentice (+2 to Light Radius, +10% Faster Cast Rate)
 - [Stash] Raven Song (Rare Sacred Globe) (+8 to Energy, +13 to Life, +31 to Mana, Fire Resist +38%, +20% Faster Cast Rate, +1 to Fire Wall (Sorceress Only), 12% Chance to cast level 4 Nova on striking)
-- [Stash] Raven Knuckle (Rare Light Gauntlets) [Def: 12] (+1 to Dexterity, +55% Enhanced Defense, Cold Resist +25%, 76% Extra Gold from Monsters, +1 to Bow and Crossbow Skills (Amazon Only), Repairs 33% durability per second)
+- [Stash] Raven Knuckle (Rare Light Gauntlets) [Def: 18] (+1 to Dexterity, +55% Enhanced Defense, Cold Resist +25%, 76% Extra Gold from Monsters, +1 to Bow and Crossbow Skills (Amazon Only), Repairs 33% durability per second)
 - [Stash] Russet Leather Gloves of Chance [Def: 3] (Fire Resist +18%, 11% Better Chance of Getting Magic Items)
 - [Stash] Beryl Amulet of Luck (Poison Resist +6%, 34% Better Chance of Getting Magic Items)
 - [Stash] Large Charm of Strength (+3 to Strength)
 - [Stash] Cuirass [Def: 191, Sockets: 3]
 - [Stash] Bitter Buckle (Rare Belt) [Def: 5] (+41 to Life, Fire Resist +16%, Poison Resist +7%, 58% Extra Gold from Monsters, +17% Faster Hit Recovery)
-- [Stash] Superior Breast Plate [Def: 69, Sockets: 3] (+6% Enhanced Defense)
+- [Stash] Superior Breast Plate [Def: 73, Sockets: 3] (+6% Enhanced Defense)
 - [Stash] Coral Belt of the Mammoth [Def: 5] (+36 to Life, Lightning Resist +27%)
 - [Stash] Greater Mana Potion
 - [Stash] Amulet of the Apprentice (+10% Faster Cast Rate)
@@ -99,9 +99,9 @@ Equipped:
 - [Stash] Coral Chain Gloves of Dexterity [Def: 8] (+2 to Dexterity, Lightning Resist +27%)
 - [Stash] Tal Rasha's Fine-Spun Cloth (Mesh Belt) [Def: 36] (+20 to Dexterity, +30 to Mana, 13% Better Chance of Getting Magic Items, Requirements -20%, +37% Damage Taken Goes To Mana)
 - [Stash] Tal Rasha's Lidless Eye (Swirling Crystal) (+10 to Energy, +57 to Life, +77 to Mana, +20% Faster Cast Rate, +1 to Fire Mastery (Sorceress Only), +1 to Lightning Mastery (Sorceress Only), +2 to Cold Mastery (Sorceress Only))
-- [Stash] Peasant Crown (War Hat) [Def: 54] (+20 to Energy, +20 to Vitality, +100% Enhanced Defense, Replenish Life +6, +15% Faster Run/Walk, +1 to All Skills)
-- [Stash] Undead Crown (Crown) [Def: 46] (+52% Enhanced Defense, +40 Defense, Poison Resist +50%, 5% Life stolen per hit, +3 to Skeleton Mastery (Necromancer Only), Half Freeze Duration, +50% Damage to Undead, +74 to Attack Rating against Undead)
-- [Stash] Ancients' Pledge (Large Shield) [Def: 14, Sockets: 3, Socketed: Ral Rune+Ort Rune+Tal Rune] (+50% Enhanced Defense, All Resistances +43, Fire Resist +5%, Lightning Resist +5%, Poison Resist +5%, +10% Damage Taken Goes To Mana)
+- [Stash] Peasant Crown (War Hat) [Def: 108] (+20 to Energy, +20 to Vitality, +100% Enhanced Defense, Replenish Life +6, +15% Faster Run/Walk, +1 to All Skills)
+- [Stash] Undead Crown (Crown) [Def: 109] (+52% Enhanced Defense, +40 Defense, Poison Resist +50%, 5% Life stolen per hit, +3 to Skeleton Mastery (Necromancer Only), Half Freeze Duration, +50% Damage to Undead, +74 to Attack Rating against Undead)
+- [Stash] Ancients' Pledge (Large Shield) [Def: 21, Sockets: 3, Socketed: Ral Rune+Ort Rune+Tal Rune] (+50% Enhanced Defense, All Resistances +43, Fire Resist +5%, Lightning Resist +5%, Poison Resist +5%, +10% Damage Taken Goes To Mana)
 - [Stash] Coral Chain Gloves of Wealth [Def: 8] (Lightning Resist +24%, 43% Extra Gold from Monsters)
 - [Stash] Triumphant Ring of the Apprentice (+10% Faster Cast Rate, +1 to Mana after each Kill)
 - [Stash] Amber Amulet of Protection (Damage Reduced by 2, Lightning Resist +37%)

@@ -220,7 +220,7 @@ Total items: 31
   GUID: 0x36504915
   Drop Level: 60
   Unique ID: 78 (The Face of Horror)
-  Defence: 17
+  Defence: 17 (effective: 42)
   Durability: 19/20
   Properties:
     - +20 to Strength
@@ -240,7 +240,7 @@ Total items: 31
   GUID: 0xCCF610EE
   Drop Level: 49
   Unique ID: 109 (Treads of Cthon)
-  Defence: 10
+  Defence: 10 (effective: 25)
   Durability: 8/16
   Properties:
     - +10 to Life
@@ -327,7 +327,7 @@ Total items: 31
   Flags: Identified, Socketed, JustSaved
   GUID: 0xFE640CF0
   Drop Level: 1
-  Defence: 18
+  Defence: 18 (effective: 20)
   Durability: 27/24
   Sockets: 2
   Properties:
@@ -353,7 +353,7 @@ Total items: 31
   GUID: 0x28D9E3A9
   Drop Level: 60
   Unique ID: 101 (The Ward)
-  Defence: 36
+  Defence: 36 (effective: 112)
   Durability: 31/40
   Sockets: 1
   Properties:
@@ -702,7 +702,7 @@ Total items: 26
   GUID: 0xF16496A7
   Drop Level: 59
   Set ID: 15 (Isenhart's Case)
-  Defence: 66
+  Defence: 66 (effective: 106)
   Durability: 30/50
   Properties:
     - +40 Defense
@@ -735,7 +735,7 @@ Total items: 26
   GUID: 0x454293EE
   Drop Level: 11
   Set ID: 56 (Arctic Binding)
-  Defence: 3
+  Defence: 3 (effective: 33)
   Durability: 10/14
   Properties:
     - +30 Defense
@@ -772,7 +772,7 @@ Total items: 26
   GUID: 0x47021E78
   Drop Level: 59
   Set ID: 44 (Berserker's Headgear)
-  Defence: 18
+  Defence: 18 (effective: 33)
   Durability: 14/24
   Properties:
     - +15 Defense
@@ -805,7 +805,7 @@ Total items: 26
   GUID: 0xD06D89F2
   Drop Level: 59
   Set ID: 93 (M'avina's Tenet)
-  Defence: 35
+  Defence: 35 (effective: 85)
   Durability: 9/14
   Properties:
     - +50 Defense
@@ -935,7 +935,7 @@ Total items: 26
   GUID: 0x0E50FD57
   Drop Level: 59
   Unique ID: 243 (Razortail)
-  Defence: 37
+  Defence: 37 (effective: 104)
   Durability: 11/14
   Properties:
     - +15 to Dexterity
@@ -988,7 +988,7 @@ Total items: 26
   Drop Level: 43
   Rune Word ID: 27367 (Cure)
   Runes: Shael Rune(13)+Io Rune(16)+Tal Rune(7)
-  Defence: 25
+  Defence: 25 (effective: 48)
   Durability: 49/50
   Sockets: 3
   Rune Word Properties:
@@ -1218,7 +1218,7 @@ Total items: 17
   GUID: 0x2EC167A1
   Drop Level: 59
   Unique ID: 110 (Goblin Toe)
-  Defence: 12
+  Defence: 12 (effective: 34)
   Durability: 9/18
   Properties:
     - +60% Enhanced Defense
@@ -1237,7 +1237,7 @@ Total items: 17
   GUID: 0xCD1B188B
   Drop Level: 59
   Unique ID: 203 (Stealskull)
-  Defence: 73
+  Defence: 73 (effective: 227)
   Durability: 17/24
   Properties:
     - +211% Enhanced Defense
@@ -1337,7 +1337,7 @@ Total items: 17
   GUID: 0xCB6D50AF
   Drop Level: 59
   Unique ID: 225 (Moser's Blessed Circle)
-  Defence: 56
+  Defence: 56 (effective: 164)
   Durability: 37/64
   Sockets: 2
   Properties:
@@ -1413,7 +1413,7 @@ Total items: 17
   GUID: 0x30961661
   Drop Level: 59
   Set ID: 136 (Horazon's Dominion)
-  Defence: 244
+  Defence: 244 (effective: 448)
   Durability: 21/30
   Properties:
     - +100 to Mana

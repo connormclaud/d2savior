@@ -220,7 +220,7 @@ Total items: 31
   GUID: 0x36504915
   Drop Level: 60
   Unique ID: 78 (Лик ужаса)
-  Defence: 17
+  Defence: 17 (effective: 42)
   Durability: 19/20
   Properties:
     - +20 к силе
@@ -240,7 +240,7 @@ Total items: 31
   GUID: 0xCCF610EE
   Drop Level: 49
   Unique ID: 109 (Крепкоступы Ктона)
-  Defence: 10
+  Defence: 10 (effective: 25)
   Durability: 8/16
   Properties:
     - +10 к здоровью
@@ -327,7 +327,7 @@ Total items: 31
   Flags: Identified, Socketed, JustSaved
   GUID: 0xFE640CF0
   Drop Level: 1
-  Defence: 18
+  Defence: 18 (effective: 20)
   Durability: 27/24
   Sockets: 2
   Properties:
@@ -353,7 +353,7 @@ Total items: 31
   GUID: 0x28D9E3A9
   Drop Level: 60
   Unique ID: 101 (Охранитель)
-  Defence: 36
+  Defence: 36 (effective: 112)
   Durability: 31/40
   Sockets: 1
   Properties:
@@ -702,7 +702,7 @@ Total items: 26
   GUID: 0xF16496A7
   Drop Level: 59
   Set ID: 15 (Нагрудник Изенхарта)
-  Defence: 66
+  Defence: 66 (effective: 106)
   Durability: 30/50
   Properties:
     - +40 к защите
@@ -735,7 +735,7 @@ Total items: 26
   GUID: 0x454293EE
   Drop Level: 11
   Set ID: 56 (Арктический пояс)
-  Defence: 3
+  Defence: 3 (effective: 33)
   Durability: 10/14
   Properties:
     - +30 к защите
@@ -772,7 +772,7 @@ Total items: 26
   GUID: 0x47021E78
   Drop Level: 59
   Set ID: 44 (Головной убор берсерка)
-  Defence: 18
+  Defence: 18 (effective: 33)
   Durability: 14/24
   Properties:
     - +15 к защите
@@ -805,7 +805,7 @@ Total items: 26
   GUID: 0xD06D89F2
   Drop Level: 59
   Set ID: 93 (Сети М'авины)
-  Defence: 35
+  Defence: 35 (effective: 85)
   Durability: 9/14
   Properties:
     - +50 к защите
@@ -935,7 +935,7 @@ Total items: 26
   GUID: 0x0E50FD57
   Drop Level: 59
   Unique ID: 243 (Острый хвост)
-  Defence: 37
+  Defence: 37 (effective: 104)
   Durability: 11/14
   Properties:
     - +15 к ловкости
@@ -988,7 +988,7 @@ Total items: 26
   Drop Level: 43
   Rune Word ID: 27367 (Лекарство)
   Runes: Shael Rune(13)+Io Rune(16)+Tal Rune(7)
-  Defence: 25
+  Defence: 25 (effective: 48)
   Durability: 49/50
   Sockets: 3
   Rune Word Properties:
@@ -1218,7 +1218,7 @@ Total items: 17
   GUID: 0x2EC167A1
   Drop Level: 59
   Unique ID: 110 (Пальцы гоблина)
-  Defence: 12
+  Defence: 12 (effective: 34)
   Durability: 9/18
   Properties:
     - +60% к защите
@@ -1237,7 +1237,7 @@ Total items: 17
   GUID: 0xCD1B188B
   Drop Level: 59
   Unique ID: 203 (Череп похитителя)
-  Defence: 73
+  Defence: 73 (effective: 227)
   Durability: 17/24
   Properties:
     - +211% к защите
@@ -1337,7 +1337,7 @@ Total items: 17
   GUID: 0xCB6D50AF
   Drop Level: 59
   Unique ID: 225 (Священный круг Мозера)
-  Defence: 56
+  Defence: 56 (effective: 164)
   Durability: 37/64
   Sockets: 2
   Properties:
@@ -1413,7 +1413,7 @@ Total items: 17
   GUID: 0x30961661
   Drop Level: 59
   Set ID: 136 (Господство Хоразона)
-  Defence: 244
+  Defence: 244 (effective: 448)
   Durability: 21/30
   Properties:
     - +100 к мане

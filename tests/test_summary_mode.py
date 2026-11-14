@@ -1028,3 +1028,57 @@ class TestSummaryMode:
         assert "+268% Enhanced Damage" in cta_summary
         assert "Enhanced Maximum Damage" not in cta_summary
         assert "Enhanced Minimum Damage" not in cta_summary
+
+    def test_effective_armor_defence(self, game_data_resolver):
+        from d2savior.core.formatters import format_item_info
+
+        def _make_prop_list(props):
+            pl = PropertyList()
+            pl._version = 0x69
+            pl._use_stat_cost = True
+            pl._data = game_data_resolver.data
+            pl.properties = props
+            return pl
+
+        # Que-Hegan's Wisdom (Mage Plate): base 262 + 160% ED -> 681
+        armor = D2Item()
+        armor.type_name = b"xtp "
+        armor.version = 0x69
+        armor.item_info = ItemInfo()
+        armor.item_info.ext_info = ExtItemInfo()
+        armor.item_info.ext_info.quality = 7
+        armor.item_info.ext_info.unique_id = 223
+        armor.item_info.type_specific_info = TypeSpecificInfo()
+        armor.item_info.type_specific_info.defence = 272  # save_add=10 -> base 262
+        armor.item_info.type_specific_info.property_list = _make_prop_list([(16, 0, 160)])
+
+        assert "[Def: 681]" in format_item_summary(armor, resolver=game_data_resolver, version=0x69)
+        assert "[Def: 681]" in format_item_summary(
+            armor, resolver=game_data_resolver, version=0x69, include_properties=False
+        )
+        assert "Defence: 262 (effective: 681)" in format_item_info(
+            armor, resolver=game_data_resolver, version=0x69
+        )
+
+        # Combined %ED (stat 16) + flat +Defense (stat 31) + socketed Pul Rune (+30% ED)
+        pul = D2Item()
+        pul.type_name = b"r21 "
+        armor.item_info.type_specific_info.property_list = _make_prop_list(
+            [(16, 0, 160), (31, 0, 40)]
+        )
+        armor.gem_items = [pul]
+        # 262 * (100 + 160 + 30) // 100 + 40 = 262 * 290 // 100 + 40 = 759 + 40 = 799
+        assert "[Def: 799," in format_item_summary(armor, resolver=game_data_resolver, version=0x69)
+        assert "Defence: 262 (effective: 799)" in format_item_info(
+            armor, resolver=game_data_resolver, version=0x69
+        )
+
+        # Plain armor without ED or +Defense keeps plain Defence output
+        plain = D2Item()
+        plain.type_name = b"xtp "
+        plain.item_info = ItemInfo()
+        plain.item_info.type_specific_info = TypeSpecificInfo()
+        plain.item_info.type_specific_info.defence = 260  # base 250
+        full_plain = format_item_info(plain, resolver=game_data_resolver)
+        assert "Defence: 250" in full_plain
+        assert "(effective:" not in full_plain

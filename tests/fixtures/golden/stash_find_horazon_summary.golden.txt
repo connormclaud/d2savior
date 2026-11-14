@@ -1,4 +1,4 @@
 === Diablo II Shared Stash Summary ===
 === Tab 3 (Normal) ===
-  - Horazon's Dominion (Russet Armor) [Def: 244] (+100 to Mana, +84% Enhanced Defense, Fire Resist +23%, Lightning Resist +24%, Cold Resist +22%, +2 to Demon Skills (Warlock Only))
+  - Horazon's Dominion (Russet Armor) [Def: 448] (+100 to Mana, +84% Enhanced Defense, Fire Resist +23%, Lightning Resist +24%, Cold Resist +22%, +2 to Demon Skills (Warlock Only))
   - Horazon's Hold (Demonhide Gloves) [Def: 30] (+11 to Dexterity, +35 to Life, +104 to Attack Rating, Adds 140-270 fire damage, +10% Chance of Crushing Blow)

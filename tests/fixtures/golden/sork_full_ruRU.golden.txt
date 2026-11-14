@@ -185,7 +185,7 @@ Total items: 69
   GUID: 0xECFA2199
   Drop Level: 40
   Rare Name: 158-99 (ворон накулачники)
-  Defence: 12
+  Defence: 12 (effective: 18)
   Durability: 18/18
   Properties:
     - +1 к ловкости
@@ -304,7 +304,7 @@ Total items: 69
   Drop Level: 58
   Rune Word ID: 20638 (Незаметность)
   Runes: Tal Rune(7)+Eth Rune(5)
-  Defence: 36
+  Defence: 36 (effective: 40)
   Durability: 30/32
   Sockets: 2
   Properties:
@@ -343,7 +343,7 @@ Total items: 69
   Flags: Identified, Socketed, JustSaved
   GUID: 0x0B832F7A
   Drop Level: 64
-  Defence: 69
+  Defence: 69 (effective: 73)
   Durability: 33/50
   Sockets: 3
   Properties:
@@ -499,7 +499,7 @@ Total items: 69
   GUID: 0x4BD2B0EF
   Drop Level: 49
   Rare Name: 168-92 (Тень когти)
-  Defence: 7
+  Defence: 7 (effective: 10)
   Durability: 10/14
   Properties:
     - +6 к ловкости
@@ -710,7 +710,7 @@ Total items: 69
   GUID: 0x1E8282AD
   Drop Level: 59
   Unique ID: 201 (Корона бедняка)
-  Defence: 54
+  Defence: 54 (effective: 108)
   Durability: 11/12
   Properties:
     - +20 к энергии
@@ -728,7 +728,7 @@ Total items: 69
   GUID: 0xA9F50F6D
   Drop Level: 59
   Unique ID: 77 (Корона нежити)
-  Defence: 46
+  Defence: 46 (effective: 109)
   Durability: 49/50
   Properties:
     - +52% к защите
@@ -749,7 +749,7 @@ Total items: 69
   Drop Level: 20
   Rune Word ID: 20507 (Клятва Древних)
   Runes: Ral Rune(8)+Ort Rune(9)+Tal Rune(7)
-  Defence: 14
+  Defence: 14 (effective: 21)
   Durability: 23/24
   Sockets: 3
   Rune Word Properties:
@@ -1062,7 +1062,7 @@ Total items: 69
   GUID: 0xE04DB47B
   Drop Level: 67
   Unique ID: 224 (Щит потрошения)
-  Defence: 50
+  Defence: 50 (effective: 108)
   Durability: 41/68
   Properties:
     - +116% к защите
@@ -1094,7 +1094,7 @@ Mercenary items: 3
   Drop Level: 21
   Rune Word ID: 20580 (Львиное сердце)
   Runes: Hel Rune(15)+Lum Rune(17)+Fal Rune(19)
-  Defence: 69
+  Defence: 69 (effective: 76)
   Durability: 45/50
   Sockets: 3
   Properties:
@@ -1145,7 +1145,7 @@ Mercenary items: 3
   GUID: 0xEBC99131
   Drop Level: 59
   Set ID: 80 (Хорадримский плюмаж Тал Раши)
-  Defence: 86
+  Defence: 86 (effective: 131)
   Durability: 13/20
   Properties:
     - +60 к здоровью
