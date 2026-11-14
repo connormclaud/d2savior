@@ -1,0 +1,3 @@
+=== Diablo II Character Summary: mule_unique (Paladin, Level 1) ===
+=== Inventory & Stash ===
+- [Stash] Grim's Burning Dead (Grim Scythe) (+20% Enhanced Defense, +178% Enhanced Damage, +218 to Attack Rating, Fire Resist +45%, Adds 131-232 fire damage, Attacker Takes Damage of 8, +4 to Necromancer Skill Levels, Requirements -50%, +4 to Fire Golem (Necromancer Only), -50% Target Defense, 15% Reanimate as: Burning Dead Archer)

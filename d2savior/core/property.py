@@ -166,9 +166,10 @@ def format_property(
             tpl = resolver.get_item_modifier("Moditemreanimas")
             if tpl and ("%0" in tpl or "%1" in tpl):
                 return (
-                    tpl.replace("%0%%", f"{a[1]}%%")
+                    tpl.replace("%0%%", f"{a[1]}%")
                     .replace("%1", monster_name)
                     .replace("%0", str(a[1]))
+                    .replace("%%", "%")
                 )
             return f"{a[1]}% Reanimate as: {monster_name}"
         case 159:
@@ -188,11 +189,12 @@ def format_property(
             if stat and stat.descstrpos:
                 tpl = resolver.get_item_modifier(stat.descstrpos)
                 if tpl and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
-                    return (
-                        tpl.replace("%+d", f"{a[1]:+d}")
-                        .replace("%d", str(a[1]))
-                        .replace("%s", monster_name)
+                    result = (
+                        tpl.replace("%+d", f"{a[1]:+d}").replace("%d", str(a[1])).replace("%%", "%")
                     )
+                    if "%s" in result:
+                        return result.replace("%s", monster_name)
+                    return f"{result} {monster_name}"
             if prop_id == 179:
                 return f"+{a[1]}% to Attack Rating versus {monster_name}"
             return f"+{a[1]}% to Damage versus {monster_name}"
@@ -207,15 +209,15 @@ def format_property(
             tpl_key = _CHANCE_CAST_KEYS.get(prop_id)
             if tpl_key:
                 tpl = resolver.get_item_modifier(tpl_key)
-                if tpl and ("%d" in tpl or "%s" in tpl):
+                if tpl and ("%d" in tpl or "%s" in tpl or "%0" in tpl):
                     result = tpl
                     if "%0" in result:
-                        result = result.replace("%0%%", f"{chance}%%").replace("%0", str(chance))
+                        result = result.replace("%0%%", f"{chance}%").replace("%0", str(chance))
                         result = result.replace("%1", str(level)).replace("%2", skill_name)
                     else:
                         result = result.replace("%d%%", f"{chance}%").replace("%d", str(level))
                         result = result.replace("%s", skill_name)
-                    return result
+                    return result.replace("%%", "%")
             match prop_id:
                 case 195:
                     return f"{chance}% Chance to cast level {level} {skill_name} on attack"

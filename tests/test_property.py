@@ -188,6 +188,70 @@ class TestFormatPropertySpecialCases:
         formatted = format_property(prop_id, params, resolver=game_data_resolver)
         assert formatted == "Level 1 Lower Resist (66/67 Charges)"
 
+    def test_format_property_reanimate_monster(self, game_data_resolver: GameDataResolver):
+        from d2savior.core.d2data import GameDataResolver as GResolver
+
+        # hcIdx 575 -> BurningDeadArcher -> "Burning Dead Archer", single % (not %%)
+        assert (
+            format_property(155, [575, 15], resolver=game_data_resolver)
+            == "15% Reanimate as: Burning Dead Archer"
+        )
+        # hcIdx 1 -> Returned (key == enUS translation)
+        assert format_property(155, [1, 10], resolver=game_data_resolver) == (
+            "10% Reanimate as: Returned"
+        )
+        # Unknown monster ID falls back cleanly
+        assert format_property(155, [9999, 5], resolver=game_data_resolver) == (
+            "5% Reanimate as: Monster9999"
+        )
+
+        # Bitstream PropertyList decoding for stat 155 (layer=monster_id, val=chance)
+        pl = PropertyList()
+        pl._version = 0x69
+        pl._use_stat_cost = True
+        pl._data = game_data_resolver.data
+        pl.properties = [(155, 575, 15)]
+        parsed = pl.get_parsed_properties()
+        assert len(parsed) == 1
+        prop_id, _val, params = parsed[0]
+        assert (
+            format_property(prop_id, params, resolver=game_data_resolver)
+            == "15% Reanimate as: Burning Dead Archer"
+        )
+
+        # Localized template in Russian also resolves monster name without %%
+        resolver_ru = GResolver.load(lang_key="ruRU")
+        assert (
+            format_property(155, [575, 15], resolver=resolver_ru)
+            == "С вероятностью 15% возрождает как: Горящий скелет-лучник"
+        )
+
+    def test_format_property_chance_to_cast_no_double_percent(
+        self, game_data_resolver: GameDataResolver
+    ):
+        from d2savior.core.d2data import GameDataResolver as GResolver
+
+        # Stat 198 (on striking): level=3, skill=1 (Magic Arrow) -> enUS (%d%%)
+        en = format_property(198, [3, 1, 12], resolver=game_data_resolver)
+        assert "%%" not in en
+        assert "12%" in en
+
+        # Russian locale uses %0%%/%1/%2 placeholders; must render single % and localized template
+        resolver_ru = GResolver.load(lang_key="ruRU")
+        ru = format_property(198, [3, 1, 12], resolver=resolver_ru)
+        assert "%%" not in ru
+        assert "Вероятность 12%" in ru
+
+    def test_format_property_vs_monster_type(self, game_data_resolver: GameDataResolver):
+        assert (
+            format_property(179, [575, 25], resolver=game_data_resolver)
+            == "25% to Attack Rating versus Burning Dead Archer"
+        )
+        assert (
+            format_property(180, [1, 30], resolver=game_data_resolver)
+            == "30% to Damage versus Returned"
+        )
+
 
 class TestFormatItemInfoSetProperties:
     def test_format_item_info_with_set_properties(self, game_data_resolver: GameDataResolver):

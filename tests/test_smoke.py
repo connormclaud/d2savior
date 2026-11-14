@@ -7,6 +7,7 @@ import pytest
 
 from d2s_parse import parse_file
 from d2savior.core.formatters import (
+    format_char_find,
     format_char_info,
     format_char_summary,
     format_stash_find,
@@ -22,6 +23,7 @@ FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 GOLDEN_DIR = os.path.join(FIXTURES_DIR, "golden")
 
 SORK_D2S = os.path.join(FIXTURES_DIR, "sork.d2s")
+MULE_UNIQUE_D2S = os.path.join(FIXTURES_DIR, "mule_unique.d2s")
 STASH_D2I = os.path.join(FIXTURES_DIR, "ModernSharedStashSoftCoreV2.d2i")
 
 SORK_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "sork_summary.golden.txt")
@@ -33,11 +35,18 @@ STASH_FULL_RURU_GOLDEN = os.path.join(GOLDEN_DIR, "stash_full_ruRU.golden.txt")
 STASH_FIND_CHARM_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_find_charm_summary.golden.txt")
 STASH_FIND_JEWEL_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_find_jewel_summary.golden.txt")
 STASH_FIND_TITAN_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_find_titan_summary.golden.txt")
+MULE_UNIQUE_FIND_GRIM_SUMMARY_GOLDEN = os.path.join(
+    GOLDEN_DIR, "mule_unique_find_grim_summary.golden.txt"
+)
 
 STASH_FIND_CASES = [
     ("Charm", STASH_FIND_CHARM_SUMMARY_GOLDEN),
     ("Jewel", STASH_FIND_JEWEL_SUMMARY_GOLDEN),
     ("Titan", STASH_FIND_TITAN_SUMMARY_GOLDEN),
+]
+
+CHAR_FIND_CASES = [
+    ("Grim's Burning Dead", MULE_UNIQUE_D2S, MULE_UNIQUE_FIND_GRIM_SUMMARY_GOLDEN),
 ]
 
 CLI_SCRIPT = os.path.join(REPO_ROOT, "d2s_parse.py")
@@ -119,6 +128,15 @@ class TestSmokeAPI:
         assert found is not None
         assert_matches_golden(found + "\n", golden_path, f"stash_find_{pattern.lower()}_api")
 
+    @pytest.mark.parametrize(("pattern", "char_path", "golden_path"), CHAR_FIND_CASES)
+    def test_char_find_summary(self, game_data_resolver, pattern, char_path, golden_path):
+        kind, data, _ = parse_file(char_path, resolver=game_data_resolver)
+        assert kind == "char"
+        assert data is not None
+        found = format_char_find(data, pattern, resolver=game_data_resolver, summary=True)
+        assert found is not None
+        assert_matches_golden(found + "\n", golden_path, "char_find_api")
+
 
 class TestSmokeCLI:
     """Smoke tests validating end-to-end command-line interface execution."""
@@ -193,6 +211,17 @@ class TestSmokeCLI:
             cwd=REPO_ROOT,
         )
         assert_matches_golden(res.stdout, golden_path, f"cli_stash_find_{pattern.lower()}_summary")
+
+    @pytest.mark.parametrize(("pattern", "char_path", "golden_path"), CHAR_FIND_CASES)
+    def test_cli_char_find_summary(self, pattern, char_path, golden_path):
+        res = subprocess.run(
+            [sys.executable, CLI_SCRIPT, "--summary", "--find", pattern, char_path],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=REPO_ROOT,
+        )
+        assert_matches_golden(res.stdout, golden_path, "cli_char_find_summary")
 
     def test_cli_multi_file_summary(self):
         res = subprocess.run(

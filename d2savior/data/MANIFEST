@@ -18,6 +18,7 @@ Raw TSV tables extracted from Blizzard CASC game storage:
 - runes.txt (runeword compositions, sockets, and rune requirements)
 - gems.txt (gem and rune socket modifiers for weapons, armor, and shields)
 - hireling.txt (mercenary hireling definitions, acts, difficulties, skills, and name ranges)
+- monstats.txt (monster definitions and localization keys indexed by hcIdx)
 - skills.txt (character and monster skill definitions, aura identifiers)
 
 ## Localized String Tables (data/d2r/local/)

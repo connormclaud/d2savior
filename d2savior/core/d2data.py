@@ -418,6 +418,7 @@ class VersionData:
     runewords: dict[int, RuneWordInfo] = field(default_factory=dict)
     gems: dict[str, GemInfo] = field(default_factory=dict)
     hirelings: dict[int, HirelingInfo] = field(default_factory=dict)
+    monsters: dict[int, str] = field(default_factory=dict)
     skills: dict[int, str] = field(default_factory=dict)
     aura_skill_ids: set[int] = field(default_factory=set)
     type_ancestors: dict[str, set[str]] = field(default_factory=dict)
@@ -1492,6 +1493,40 @@ class D2DataLoader:
 
         return hirelings
 
+    def load_monsters(self, filepath: str | Traversable) -> dict[int, str]:
+        """Load monster NameStr localization keys indexed by *hcIdx from monstats.txt."""
+        monsters: dict[int, str] = {}
+
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+
+        if not lines:
+            return monsters
+
+        header = lines[0].rstrip("\r\n").split("\t")
+        col_map = {col.strip(): i for i, col in enumerate(header)}
+        idx_col = col_map.get("*hcIdx", -1)
+        name_col = col_map.get("NameStr", -1)
+        if idx_col < 0 or name_col < 0:
+            return monsters
+
+        for line in lines[1:]:
+            stripped = line.rstrip("\r\n")
+            if not stripped or stripped.startswith(("*", "Expansion")):
+                continue
+            parts = stripped.split("\t")
+            if idx_col >= len(parts) or name_col >= len(parts):
+                continue
+            try:
+                monster_id = int(parts[idx_col].strip())
+            except ValueError:
+                continue
+            name_str = parts[name_col].strip()
+            if name_str and name_str != "unused":
+                monsters[monster_id] = name_str
+
+        return monsters
+
     BODYLOC_MAP: ClassVar[dict[str, int]] = {
         "head": 1,
         "neck": 2,
@@ -1716,6 +1751,10 @@ class D2DataLoader:
         # Load hireling.txt
         hireling_path = self._resolve_path("hireling.txt", dirs)
         version_data.hirelings = self.load_hirelings(hireling_path)
+
+        # Load monstats.txt
+        monstats_path = self._resolve_path("monstats.txt", dirs)
+        version_data.monsters = self.load_monsters(monstats_path)
 
         # Load skills.txt
         skills_path = self._resolve_path("skills.txt", dirs)
@@ -2273,12 +2312,15 @@ class GameDataResolver:
         return f"SkillTab{tab}"
 
     def get_localized_monster_name(self, monster_id: int) -> str:
-        if self.loc:
-            mon = getattr(self.data, "monsters", {}).get(monster_id)
-            if mon and hasattr(mon, "name") and mon.name:
-                result = self.loc.get_monster_name(mon.name)
-                if result and result != mon.name:
-                    return result
+        """Resolve a monster's localized name from monstats.txt *hcIdx and localization tables."""
+        name_str = self.data.monsters.get(monster_id)
+        if name_str:
+            if self.loc:
+                for table in ("monsters.json", "npcs.json"):
+                    loc_val = self.loc.get_string(table, name_str, "")
+                    if loc_val:
+                        return loc_val
+            return name_str
         return f"Monster{monster_id}"
 
     def get_localized_item_name(self, code_or_name: str, fallback: str = "") -> str:
