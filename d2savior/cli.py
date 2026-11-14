@@ -107,12 +107,13 @@ def parse_file(
     """Dispatch file parsing based on extension, returning (kind, data, bs) or (None, None, None)."""
     if resolver is None:
         resolver = GameDataResolver.load()
-    if file_path.endswith(".d2i"):
+    lower_path = file_path.lower()
+    if lower_path.endswith(".d2i"):
         res = parse_d2i_file(file_path, resolver=resolver, debug=debug)
         if res[0]:
             _, data, kind, bs = res
             return kind, data, bs
-    elif file_path.endswith(".d2s"):
+    elif lower_path.endswith(".d2s"):
         res = parse_d2s_file(file_path, resolver=resolver, debug=debug)
         if res[0]:
             _, data, bs = res
@@ -155,18 +156,21 @@ def format_output(
     return None
 
 
-def process_file(file_path: str, args: Any, resolver: GameDataResolver) -> bool:
+def _evaluate_file(
+    file_path: str, args: Any, resolver: GameDataResolver
+) -> tuple[bool, str | None]:
+    """Validate, parse, search, and format a single save or stash file."""
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' does not exist", file=sys.stderr)
-        return False
+        return False, None
 
     if not file_path.lower().endswith((".d2s", ".d2i")):
         print(f"Error: File '{file_path}' is not a .d2s or .d2i file", file=sys.stderr)
-        return False
+        return False, None
 
     kind, data, bs = parse_file(file_path, resolver=resolver, debug=getattr(args, "debug", False))
     if not kind or not data:
-        return False
+        return False, None
 
     _run_bitstream_searches(bs, args)
 
@@ -177,9 +181,47 @@ def process_file(file_path: str, args: Any, resolver: GameDataResolver) -> bool:
         resolver=resolver,
         find_pattern=getattr(args, "find", None),
     )
+    return True, output
+
+
+def process_file(file_path: str, args: Any, resolver: GameDataResolver) -> bool:
+    ok, output = _evaluate_file(file_path, args, resolver)
+    if not ok:
+        return False
     if output:
         print(output)
     return True
+
+
+def _process_files(files: list[str], args: Any, resolver: GameDataResolver) -> int:
+    """Process multiple save/stash files in either search (--find) or normal display mode."""
+    has_error = False
+    if getattr(args, "find", None):
+        printed_count = 0
+        for path in files:
+            ok, output = _evaluate_file(path, args, resolver)
+            if not ok:
+                has_error = True
+                continue
+            if output:
+                if len(files) > 1:
+                    if printed_count > 0:
+                        print()
+                    print(f"=== File: {path} ===")
+                print(output)
+                printed_count += 1
+        if printed_count == 0 and not has_error:
+            print("No matching items found")
+        return 1 if has_error else 0
+
+    for idx, path in enumerate(files):
+        if len(files) > 1:
+            if idx > 0:
+                print()
+            print(f"=== File: {path} ===")
+        if process_file(path, args, resolver=resolver) is False:
+            has_error = True
+    return 1 if has_error else 0
 
 
 def find_saves_in_dir(dir_path: Path) -> list[str]:
@@ -332,6 +374,14 @@ _common_parser.add_argument(
 )
 
 
+def _resolve_and_save_targets(args: Any) -> list[str]:
+    """Resolve input targets and persist the inferred save directory if not yet configured."""
+    files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
+    if not args.no_config and dir_to_save:
+        update_save_dir(dir_to_save, if_empty=True)
+    return files_to_process
+
+
 def cmd_list(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="d2savior list",
@@ -339,10 +389,7 @@ def cmd_list(argv: list[str]) -> int:
         parents=[_common_parser],
     )
     args = parser.parse_args(argv)
-    files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
-
-    if not args.no_config and dir_to_save:
-        update_save_dir(dir_to_save, if_empty=True)
+    files_to_process = _resolve_and_save_targets(args)
 
     if not files_to_process:
         return 1
@@ -375,10 +422,7 @@ def cmd_stash(argv: list[str]) -> int:
     parser.add_argument("-d", "--debug", action="store_true", help="Show debug info")
 
     args = parser.parse_args(argv)
-    files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
-
-    if not args.no_config and dir_to_save:
-        update_save_dir(dir_to_save, if_empty=True)
+    files_to_process = _resolve_and_save_targets(args)
 
     if not files_to_process:
         return 1
@@ -389,51 +433,7 @@ def cmd_stash(argv: list[str]) -> int:
         return 1
 
     resolver = GameDataResolver.load(lang_key=args.lang or "enUS")
-
-    find_pattern = getattr(args, "find", None)
-    has_error = False
-
-    if find_pattern:
-        printed_count = 0
-        for path in stash_files:
-            if not os.path.exists(path):
-                print(f"Error: File '{path}' does not exist", file=sys.stderr)
-                has_error = True
-                continue
-            kind, data, bs = parse_file(
-                path, resolver=resolver, debug=getattr(args, "debug", False)
-            )
-            if not kind or not data:
-                has_error = True
-                continue
-            _run_bitstream_searches(bs, args)
-            output = format_output(
-                kind,
-                data,
-                getattr(args, "summary", False),
-                resolver=resolver,
-                find_pattern=find_pattern,
-            )
-            if output:
-                if len(stash_files) > 1:
-                    if printed_count > 0:
-                        print()
-                    print(f"=== File: {path} ===")
-                print(output)
-                printed_count += 1
-        if printed_count == 0 and not has_error:
-            print("No matching items found")
-        return 1 if has_error else 0
-
-    for idx, path in enumerate(stash_files):
-        if len(stash_files) > 1:
-            if idx > 0:
-                print()
-            print(f"=== File: {path} ===")
-        if not process_file(path, args, resolver=resolver):
-            has_error = True
-
-    return 1 if has_error else 0
+    return _process_files(stash_files, args, resolver)
 
 
 COMMANDS = {
@@ -497,66 +497,13 @@ Examples:
     )
 
     args = parser.parse_args(argv)
-    files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
-
-    if not args.no_config and dir_to_save:
-        update_save_dir(dir_to_save, if_empty=True)
+    files_to_process = _resolve_and_save_targets(args)
 
     if not files_to_process:
         sys.exit(1)
 
     resolver = GameDataResolver.load(lang_key=args.lang or "enUS")
-
-    find_pattern = getattr(args, "find", None)
-    has_error = False
-
-    if find_pattern:
-        printed_count = 0
-        for path in files_to_process:
-            if not os.path.exists(path):
-                print(f"Error: File '{path}' does not exist", file=sys.stderr)
-                has_error = True
-                continue
-            if not path.lower().endswith((".d2s", ".d2i")):
-                print(f"Error: File '{path}' is not a .d2s or .d2i file", file=sys.stderr)
-                has_error = True
-                continue
-            kind, data, bs = parse_file(
-                path, resolver=resolver, debug=getattr(args, "debug", False)
-            )
-            if not kind or not data:
-                has_error = True
-                continue
-            _run_bitstream_searches(bs, args)
-            output = format_output(
-                kind,
-                data,
-                getattr(args, "summary", False),
-                resolver=resolver,
-                find_pattern=find_pattern,
-            )
-            if output:
-                if len(files_to_process) > 1:
-                    if printed_count > 0:
-                        print()
-                    print(f"=== File: {path} ===")
-                print(output)
-                printed_count += 1
-        if printed_count == 0 and not has_error:
-            print("No matching items found")
-        if has_error:
-            sys.exit(1)
-        return
-
-    for idx, path in enumerate(files_to_process):
-        if len(files_to_process) > 1:
-            if idx > 0:
-                print()
-            print(f"=== File: {path} ===")
-        if process_file(path, args, resolver=resolver) is False:
-            has_error = True
-
-    if has_error:
+    if _process_files(files_to_process, args, resolver) != 0:
         sys.exit(1)
 
 

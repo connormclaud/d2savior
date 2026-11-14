@@ -55,19 +55,21 @@ class TestModularization:
         mock_item = D2Item()
         mock_bs = MagicMock()
 
-        # Test parse_file with .d2s
+        # Test parse_file with .d2s (case-insensitive)
         with patch("d2s_parse.parse_d2s_file", return_value=(True, mock_char, mock_bs)):
-            kind, data, bs = d2s_parse.parse_file("test.d2s")
-            assert kind == "char"
-            assert data is mock_char
-            assert bs is mock_bs
+            for fname in ("test.d2s", "test.D2S"):
+                kind, data, bs = d2s_parse.parse_file(fname)
+                assert kind == "char"
+                assert data is mock_char
+                assert bs is mock_bs
 
-        # Test parse_file with .d2i stash
+        # Test parse_file with .d2i stash (case-insensitive)
         with patch("d2s_parse.parse_d2i_file", return_value=(True, mock_stash, "stash", mock_bs)):
-            kind, data, bs = d2s_parse.parse_file("stash.d2i")
-            assert kind == "stash"
-            assert data is mock_stash
-            assert bs is mock_bs
+            for fname in ("stash.d2i", "stash.D2I"):
+                kind, data, bs = d2s_parse.parse_file(fname)
+                assert kind == "stash"
+                assert data is mock_stash
+                assert bs is mock_bs
 
         # Test parse_file with .d2i item
         with patch("d2s_parse.parse_d2i_file", return_value=(True, mock_item, "item", mock_bs)):
