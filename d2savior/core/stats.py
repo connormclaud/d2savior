@@ -15,14 +15,17 @@ from typing import Any
 
 from d2savior.core.constants import (
     BASE_MAX_RESIST,
+    CLASS_SKILL_BASES,
     DIFFICULTY_RESIST_PENALTIES_CLASSIC,
     DIFFICULTY_RESIST_PENALTIES_EXPANSION,
     HARD_MAX_RESIST,
     MIN_EFFECTIVE_RESIST,
+    get_skill_tab_index,
 )
 from d2savior.core.d2data import GameDataResolver, HirelingInfo
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
+from d2savior.core.property import get_skill_class_id
 
 
 def _default_max_resistances() -> ResistanceStats:
@@ -72,7 +75,37 @@ class AdvancedStats:
     max_resistances: ResistanceStats = field(default_factory=_default_max_resistances)
     fhr: int = 0
     fcr: int = 0
+    frw: int = 0
+    ias: int = 0
     mf: int = 0
+    all_skills: int = 0
+    class_skills: int = 0
+    skill_tab_bonuses: dict[int, int] = field(default_factory=dict)
+    single_skill_bonuses: dict[int, int] = field(default_factory=dict)
+    oskill_bonuses: dict[int, int] = field(default_factory=dict)
+    fire_skills: int = 0
+
+    def skill_bonus_for(
+        self,
+        char_class: int,
+        skill_offset: int,
+        resolver: GameDataResolver | None = None,
+        version: int = 0x63,
+    ) -> int:
+        """Compute total active skill-level bonus for a character class skill slot."""
+        bonus = self.all_skills + self.class_skills
+        tab = get_skill_tab_index(char_class, skill_offset)
+        if tab is not None:
+            bonus += self.skill_tab_bonuses.get(tab, 0)
+        if 0 <= char_class < len(CLASS_SKILL_BASES):
+            skill_id = CLASS_SKILL_BASES[char_class] + skill_offset
+            bonus += self.single_skill_bonuses.get(skill_id, 0)
+            bonus += min(self.oskill_bonuses.get(skill_id, 0), 3)
+            if self.fire_skills and resolver is not None:
+                vd = resolver.for_version(version).data
+                if skill_id in vd.fire_skill_ids:
+                    bonus += self.fire_skills
+        return bonus
 
 
 @dataclass
@@ -209,6 +242,26 @@ def _get_item_properties(
     return props
 
 
+def _iter_item_properties(
+    items: list[Any],
+    resolver: GameDataResolver,
+    version: int,
+    *,
+    set_items: list[Any] | None = None,
+) -> Iterator[tuple[int, int, list[int]]]:
+    """Yield (prop_id, val, params) across items, counting set bonuses from set_items."""
+    set_counts: Counter[int] = Counter()
+    for it in items if set_items is None else set_items:
+        ext = getattr(getattr(it, "item_info", None), "ext_info", None)
+        if ext and ext.set_id is not None:
+            set_counts[ext.set_id] += 1
+
+    for item in items:
+        yield from _get_item_properties(
+            item, resolver=resolver, version=version, set_counts=set_counts
+        )
+
+
 def _iter_item_stats(
     items: list[Any],
     resolver: GameDataResolver,
@@ -217,18 +270,10 @@ def _iter_item_stats(
     set_items: list[Any] | None = None,
 ) -> Iterator[tuple[int, int]]:
     """Yield (prop_id, param_val) across items, counting set bonuses from set_items."""
-    set_counts: Counter[int] = Counter()
-    for it in items if set_items is None else set_items:
-        ext = getattr(getattr(it, "item_info", None), "ext_info", None)
-        if ext and ext.set_id is not None:
-            set_counts[ext.set_id] += 1
-
-    for item in items:
-        props = _get_item_properties(
-            item, resolver=resolver, version=version, set_counts=set_counts
-        )
-        for prop_id, val, params in props:
-            yield prop_id, params[0] if params else val
+    for prop_id, val, params in _iter_item_properties(
+        items, resolver=resolver, version=version, set_items=set_items
+    ):
+        yield prop_id, params[0] if params else val
 
 
 def calculate_advanced_stats(
@@ -272,9 +317,18 @@ def calculate_advanced_stats(
     max_res = _default_max_resistances()
     fhr = 0
     fcr = 0
+    frw = 0
+    ias = 0
     mf = 0
     mf_per_level = 0
+    all_skills = 0
+    class_skills = 0
+    skill_tab_bonuses: Counter[int] = Counter()
+    single_skill_bonuses: Counter[int] = Counter()
+    oskill_bonuses: Counter[int] = Counter()
+    fire_skills = 0
 
+    char_class = getattr(char_data, "char_class", -1)
     char_level = getattr(char_data, "char_level", 0)
     if not char_level:
         p_stats = getattr(char_data, "player_stats", None)
@@ -283,13 +337,18 @@ def calculate_advanced_stats(
 
     all_source_items: list[Any] = equipped_items + inventory_items
 
-    for prop_id, param_val in _iter_item_stats(
+    for prop_id, val, params in _iter_item_properties(
         all_source_items, char_resolver, version, set_items=equipped_items
     ):
+        param_val = params[0] if params else val
         if _apply_resist_stat(res, max_res, prop_id, param_val):
             continue
         match prop_id:
-            # FHR / FCR / MF
+            # Speeds & MF
+            case 93:  # Increased Attack Speed
+                ias += param_val
+            case 96:  # Faster Run/Walk
+                frw += param_val
             case 99:  # Faster Hit Recovery
                 fhr += param_val
             case 105:  # Faster Cast Rate
@@ -298,6 +357,19 @@ def calculate_advanced_stats(
                 mf += param_val
             case 240:  # Magic Find per level (eighths per level)
                 mf_per_level += param_val
+            # Skill bonuses
+            case 127:  # All Skills
+                all_skills += param_val
+            case 83 if len(params) >= 2 and params[0] == char_class:  # Class Skill Levels
+                class_skills += params[1]
+            case 188 if len(params) >= 3 and params[1] == char_class:  # Skill Tab Levels
+                skill_tab_bonuses[params[0]] += params[2]
+            case 107 if len(params) >= 2 and get_skill_class_id(params[0]) == char_class:
+                single_skill_bonuses[params[0]] += params[1]
+            case 97 if len(params) >= 2:  # Oskills
+                oskill_bonuses[params[0]] += params[1]
+            case 126 if len(params) >= 2 and params[0] == 1:  # +X to Fire Skills
+                fire_skills += params[1]
 
     mf += (mf_per_level * char_level) // 8
 
@@ -336,7 +408,15 @@ def calculate_advanced_stats(
         max_resistances=_clamp_max_resistances(max_res),
         fhr=fhr,
         fcr=fcr,
+        frw=frw,
+        ias=ias,
         mf=mf,
+        all_skills=all_skills,
+        class_skills=class_skills,
+        skill_tab_bonuses=dict(skill_tab_bonuses),
+        single_skill_bonuses=dict(single_skill_bonuses),
+        oskill_bonuses=dict(oskill_bonuses),
+        fire_skills=fire_skills,
     )
 
 

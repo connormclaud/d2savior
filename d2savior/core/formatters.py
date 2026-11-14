@@ -26,13 +26,14 @@ from d2savior.core.stash import (
     SharedStash,
 )
 from d2savior.core.stats import (
+    AdvancedStats,
     calculate_advanced_stats,
     calculate_mercenary_stats,
     get_current_difficulty,
     get_difficulty_resist_penalty,
 )
 
-type SkillInfo = tuple[int, str, int]
+type SkillInfo = tuple[int, str, int, int]
 type FormattedLines = list[str]
 
 
@@ -1128,19 +1129,68 @@ def format_quests_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     return "\n".join(_format_quests_lines(char_data, resolver))
 
 
-def _get_character_skills(char_data: D2SStruct, resolver: GameDataResolver) -> list[SkillInfo]:
-    """Return invested skills as a list of (skill_index, skill_name, level) tuples."""
+def _get_character_skills(
+    char_data: D2SStruct,
+    resolver: GameDataResolver,
+    adv_stats: AdvancedStats | None = None,
+) -> list[SkillInfo]:
+    """Return invested skills as a list of (skill_index, skill_name, base_level, effective_level) tuples."""
     if not getattr(char_data, "skills", None) or char_data.skills.magic != 0x6669:
         return []
-    skills = []
+    version = char_data.version if char_data.version else 0x63
+    skills: list[SkillInfo] = []
     for i, level in enumerate(char_data.skills.skill_levels):
         if level > 0:
             skill_name = ""
             if 0 <= char_data.char_class < len(CLASS_SKILL_BASES):
                 skill_id = CLASS_SKILL_BASES[char_data.char_class] + i
                 skill_name = resolver.get_skill_name(skill_id)
-            skills.append((i, skill_name, level))
+            bonus = (
+                adv_stats.skill_bonus_for(
+                    char_data.char_class, i, resolver=resolver, version=version
+                )
+                if adv_stats is not None
+                else 0
+            )
+            skills.append((i, skill_name, level, level + bonus))
     return skills
+
+
+def _format_skill_level(base_level: int, effective_level: int) -> str:
+    return f"{base_level} ({effective_level})" if effective_level != base_level else str(base_level)
+
+
+def _format_advanced_stats_lines(
+    char_data: D2SStruct,
+    char_resolver: GameDataResolver,
+    adv_stats: AdvancedStats,
+    *,
+    diff_name: str,
+    resist_penalty: int,
+) -> FormattedLines:
+    char_class = char_resolver.get_localized_class_name(char_data.char_class)
+    skill_parts = [
+        f"All Skills: {adv_stats.all_skills:+d}",
+        f"{char_class} Skills: {adv_stats.class_skills:+d}",
+    ]
+    for tab_idx, bonus in sorted(adv_stats.skill_tab_bonuses.items()):
+        if bonus:
+            tab_name = char_resolver.get_localized_skill_tab_name(tab_idx, char_data.char_class)
+            label = tab_name if tab_name else f"Skill Tab {tab_idx}"
+            skill_parts.append(f"{label}: {bonus:+d}")
+    if adv_stats.fire_skills:
+        skill_parts.append(f"Fire Skills: {adv_stats.fire_skills:+d}")
+
+    return [
+        "=== Advanced Stats ===",
+        f"Resistances ({diff_name}): {adv_stats.resistances.format_summary(resist_penalty, adv_stats.max_resistances)}",
+        " | ".join(skill_parts),
+        (
+            f"Faster Hit Recovery: +{adv_stats.fhr}% | Faster Cast Rate: +{adv_stats.fcr}% | "
+            f"Faster Run/Walk: +{adv_stats.frw}% | Increased Attack Speed: +{adv_stats.ias}% | "
+            f"Magic Find: +{adv_stats.mf}%"
+        ),
+    ]
 
 
 def _format_mercenary_header(
@@ -1227,31 +1277,31 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
         result.append(f"Experience: {stats.experience}")
         result.append(f"Gold on Person: {stats.gold}")
         result.append(f"Gold in Stash: {stats.gold_stash}")
+    diff_idx = get_current_difficulty(char_data)
+    diff_name = DIFFICULTY_NAMES[diff_idx]
+    resist_penalty = get_difficulty_resist_penalty(char_data, diff_idx)
+    adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
+
     result.append("")
     result.append("=== Skills ===")
-    skills = _get_character_skills(char_data, char_resolver)
+    skills = _get_character_skills(char_data, char_resolver, adv_stats=adv_stats)
     if skills:
         result.append("Skill levels:")
-        for i, skill_name, level in skills:
+        for i, skill_name, level, effective in skills:
+            lvl_str = _format_skill_level(level, effective)
             if skill_name:
-                result.append(f"Skill {i} ({skill_name}): {level}")
+                result.append(f"Skill {i} ({skill_name}): {lvl_str}")
             else:
-                result.append(f"Skill {i}: {level}")
+                result.append(f"Skill {i}: {lvl_str}")
     result.append("")
     result.extend(_format_waypoints_lines(char_data, char_resolver))
     result.append("")
     result.extend(_format_quests_lines(char_data, char_resolver))
     result.append("")
-    diff_idx = get_current_difficulty(char_data)
-    diff_name = DIFFICULTY_NAMES[diff_idx]
-    resist_penalty = get_difficulty_resist_penalty(char_data, diff_idx)
-    adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
-    result.append("=== Advanced Stats ===")
-    result.append(
-        f"Resistances ({diff_name}): {adv_stats.resistances.format_summary(resist_penalty, adv_stats.max_resistances)}"
-    )
-    result.append(
-        f"Faster Hit Recovery: +{adv_stats.fhr}% | Faster Cast Rate: +{adv_stats.fcr}% | Magic Find: +{adv_stats.mf}%"
+    result.extend(
+        _format_advanced_stats_lines(
+            char_data, char_resolver, adv_stats, diff_name=diff_name, resist_penalty=resist_penalty
+        )
     )
     result.append("")
     result.append("=== Items ===")
@@ -1363,13 +1413,18 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
                 f"Remaining Points: {stats.stat_points_remaining} Stat, {stats.skill_points_remaining} Skill"
             )
 
+    diff_idx = get_current_difficulty(char_data)
+    diff_name = DIFFICULTY_NAMES[diff_idx]
+    resist_penalty = get_difficulty_resist_penalty(char_data, diff_idx)
+    adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
+
     result.append("")
     result.append("=== Skills ===")
-    skills = _get_character_skills(char_data, char_resolver)
+    skills = _get_character_skills(char_data, char_resolver, adv_stats=adv_stats)
     if skills:
         active_skills = [
-            f"{skill_name if skill_name else f'Skill {i}'}: {level}"
-            for i, skill_name, level in skills
+            f"{skill_name if skill_name else f'Skill {i}'}: {_format_skill_level(level, effective)}"
+            for i, skill_name, level, effective in skills
         ]
         result.append(", ".join(active_skills))
     else:
@@ -1380,16 +1435,10 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     result.append("")
     result.extend(_format_quests_lines(char_data, char_resolver))
     result.append("")
-    diff_idx = get_current_difficulty(char_data)
-    diff_name = DIFFICULTY_NAMES[diff_idx]
-    resist_penalty = get_difficulty_resist_penalty(char_data, diff_idx)
-    adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
-    result.append("=== Advanced Stats ===")
-    result.append(
-        f"Resistances ({diff_name}): {adv_stats.resistances.format_summary(resist_penalty, adv_stats.max_resistances)}"
-    )
-    result.append(
-        f"Faster Hit Recovery: +{adv_stats.fhr}% | Faster Cast Rate: +{adv_stats.fcr}% | Magic Find: +{adv_stats.mf}%"
+    result.extend(
+        _format_advanced_stats_lines(
+            char_data, char_resolver, adv_stats, diff_name=diff_name, resist_penalty=resist_penalty
+        )
     )
     result.append("")
 

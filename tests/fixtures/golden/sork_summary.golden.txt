@@ -6,7 +6,7 @@ Attributes: Str: 55, Dex: 25, Vit: 340, Ene: 35
 Life: 906/813 | Mana: 353/181 | Gold: 0 (Person), 532437 (Stash)
 
 === Skills ===
-Warmth: 1, Ice Bolt: 1, Frozen Armor: 1, Static Field: 1, Telekinesis: 1, Frost Nova: 1, Ice Blast: 14, Teleport: 1, Glacial Spike: 20, Blizzard: 20, Cold Mastery: 20
+Warmth: 1 (5), Ice Bolt: 1 (5), Frozen Armor: 1 (5), Static Field: 1 (5), Telekinesis: 1 (5), Frost Nova: 1 (5), Ice Blast: 14 (18), Teleport: 1 (5), Glacial Spike: 20 (24), Blizzard: 20 (24), Cold Mastery: 20 (24)
 
 === Waypoints ===
 Normal (36/39 unlocked, 3 missing):
@@ -40,7 +40,8 @@ Hell: Not started
 
 === Advanced Stats ===
 Resistances (Nightmare): Fire: 75% (+120%), Cold: 26% (+66%), Lightning: 75% (+119%), Poison: 75% (+128%)
-Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%
+All Skills: +3 | Sorceress Skills: +1
+Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Faster Run/Walk: +50% | Increased Attack Speed: +0% | Magic Find: +0%
 
 === Equipped Gear ===
 - Helmet: Lore (Cap) [Def: 6, Sockets: 2, Socketed: Ort Rune+Sol Rune] (+13% Enhanced Defense, Increase Maximum Durability 11%, +10 to Energy, +2 to Light Radius, +1 to All Skills, +2 to Mana after each Kill, Lightning Resist +30%, Damage Reduced by 7)

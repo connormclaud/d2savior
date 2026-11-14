@@ -421,6 +421,7 @@ class VersionData:
     monsters: dict[int, str] = field(default_factory=dict)
     skills: dict[int, str] = field(default_factory=dict)
     aura_skill_ids: set[int] = field(default_factory=set)
+    fire_skill_ids: set[int] = field(default_factory=set)
     type_ancestors: dict[str, set[str]] = field(default_factory=dict)
     type_descendants: dict[str, set[str]] = field(default_factory=dict)
     type_bodyloc: dict[str, tuple[int, int]] = field(default_factory=dict)
@@ -1358,15 +1359,18 @@ class D2DataLoader:
 
         return set_items
 
-    def load_skills(self, filepath: str | Traversable) -> tuple[dict[int, str], set[int]]:
-        skills = {}
-        aura_skill_ids = set()
+    def _load_skills_with_metadata(
+        self, filepath: str | Traversable
+    ) -> tuple[dict[int, str], set[int], set[int]]:
+        skills: dict[int, str] = {}
+        aura_skill_ids: set[int] = set()
+        fire_skill_ids: set[int] = set()
 
         with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) < 1:
-            return skills, aura_skill_ids
+            return skills, aura_skill_ids, fire_skill_ids
 
         header = lines[0].strip().split("\t")
         col_map = {}
@@ -1400,10 +1404,15 @@ class D2DataLoader:
             if skill_id >= 0 and skill_name:
                 skills[skill_id] = skill_name
 
-            aura_val = get_int("aura")
-            if aura_val == 1:
+            if get_int("aura") == 1:
                 aura_skill_ids.add(skill_id)
+            if skill_id >= 0 and get_col("EType") == "fire":
+                fire_skill_ids.add(skill_id)
 
+        return skills, aura_skill_ids, fire_skill_ids
+
+    def load_skills(self, filepath: str | Traversable) -> tuple[dict[int, str], set[int]]:
+        skills, aura_skill_ids, _fire_skill_ids = self._load_skills_with_metadata(filepath)
         return skills, aura_skill_ids
 
     def load_hirelings(self, filepath: str | Traversable) -> dict[int, HirelingInfo]:
@@ -1758,7 +1767,9 @@ class D2DataLoader:
 
         # Load skills.txt
         skills_path = self._resolve_path("skills.txt", dirs)
-        version_data.skills, version_data.aura_skill_ids = self.load_skills(skills_path)
+        version_data.skills, version_data.aura_skill_ids, version_data.fire_skill_ids = (
+            self._load_skills_with_metadata(skills_path)
+        )
 
         # Load itemdata.txt
         itemdata_path = self._resolve_path("itemdata.txt", dirs)

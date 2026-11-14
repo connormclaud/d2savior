@@ -35,17 +35,17 @@ Gold in Stash: 532437
 
 === Skills ===
 Skill levels:
-Skill 1 (Warmth): 1
-Skill 3 (Ice Bolt): 1
-Skill 4 (Frozen Armor): 1
-Skill 6 (Static Field): 1
-Skill 7 (Telekinesis): 1
-Skill 8 (Frost Nova): 1
-Skill 9 (Ice Blast): 14
-Skill 18 (Teleport): 1
-Skill 19 (Glacial Spike): 20
-Skill 23 (Blizzard): 20
-Skill 29 (Cold Mastery): 20
+Skill 1 (Warmth): 1 (5)
+Skill 3 (Ice Bolt): 1 (5)
+Skill 4 (Frozen Armor): 1 (5)
+Skill 6 (Static Field): 1 (5)
+Skill 7 (Telekinesis): 1 (5)
+Skill 8 (Frost Nova): 1 (5)
+Skill 9 (Ice Blast): 14 (18)
+Skill 18 (Teleport): 1 (5)
+Skill 19 (Glacial Spike): 20 (24)
+Skill 23 (Blizzard): 20 (24)
+Skill 29 (Cold Mastery): 20 (24)
 
 === Waypoints ===
 Normal (36/39 unlocked, 3 missing):
@@ -79,7 +79,8 @@ Hell: Not started
 
 === Advanced Stats ===
 Resistances (Nightmare): Fire: 75% (+120%), Cold: 26% (+66%), Lightning: 75% (+119%), Poison: 75% (+128%)
-Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%
+All Skills: +3 | Sorceress Skills: +1
+Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Faster Run/Walk: +50% | Increased Attack Speed: +0% | Magic Find: +0%
 
 === Items ===
 Total items: 69

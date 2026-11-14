@@ -35,17 +35,17 @@ Gold in Stash: 532437
 
 === Skills ===
 Skill levels:
-Skill 1 (Тепло): 1
-Skill 3 (Стрела льда): 1
-Skill 4 (Ледяной доспех): 1
-Skill 6 (Статическое поле): 1
-Skill 7 (Телекинез): 1
-Skill 8 (Кольцо льда): 1
-Skill 9 (Ледяной удар): 14
-Skill 18 (Телепортация): 1
-Skill 19 (Ледяной шип): 20
-Skill 23 (Снежная буря): 20
-Skill 29 (Мастер льда): 20
+Skill 1 (Тепло): 1 (5)
+Skill 3 (Стрела льда): 1 (5)
+Skill 4 (Ледяной доспех): 1 (5)
+Skill 6 (Статическое поле): 1 (5)
+Skill 7 (Телекинез): 1 (5)
+Skill 8 (Кольцо льда): 1 (5)
+Skill 9 (Ледяной удар): 14 (18)
+Skill 18 (Телепортация): 1 (5)
+Skill 19 (Ледяной шип): 20 (24)
+Skill 23 (Снежная буря): 20 (24)
+Skill 29 (Мастер льда): 20 (24)
 
 === Waypoints ===
 Normal (36/39 unlocked, 3 missing):
@@ -79,7 +79,8 @@ Hell: Not started
 
 === Advanced Stats ===
 Resistances (Nightmare): Fire: 75% (+120%), Cold: 26% (+66%), Lightning: 75% (+119%), Poison: 75% (+128%)
-Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Magic Find: +0%
+All Skills: +3 | Волшебница Skills: +1
+Faster Hit Recovery: +80% | Faster Cast Rate: +77% | Faster Run/Walk: +50% | Increased Attack Speed: +0% | Magic Find: +0%
 
 === Items ===
 Total items: 69

@@ -79,6 +79,34 @@ CLASS_SKILL_BASES = [
     373,  # Warlock (7)
 ]
 
+# Skill tab index (0, 1, 2) for each class's 30 skill slots (matching stat 188 tab indices).
+SKILL_TAB_MAP: tuple[tuple[int, ...], ...] = (
+    # 0 Amazon: 0=Bow & Crossbow, 1=Passive & Magic, 2=Javelin & Spear
+    (0, 0, 1, 1, 2, 0, 0, 1, 2, 2, 0, 1, 1, 2, 2, 0, 0, 1, 2, 2, 0, 0, 1, 1, 2, 0, 1, 1, 2, 2),
+    # 1 Sorceress: 0=Fire, 1=Lightning, 2=Cold
+    (0, 0, 1, 2, 2, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 0, 0, 1, 1, 2, 0, 1, 1, 2, 2, 0, 0, 1, 2, 2),
+    # 2 Necromancer: 0=Curses, 1=Poison & Bone, 2=Summoning
+    (0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 0, 0, 1, 2, 2, 0, 0, 1, 1, 2, 0, 0, 1, 2, 2, 0, 1, 1, 2, 2),
+    # 3 Paladin: 0=Combat, 1=Offensive Auras, 2=Defensive Auras
+    (0, 0, 1, 2, 2, 0, 1, 1, 2, 2, 0, 0, 1, 2, 2, 0, 0, 1, 1, 2, 0, 0, 1, 1, 2, 0, 1, 1, 2, 2),
+    # 4 Barbarian: 0=Combat, 1=Masteries, 2=Warcries
+    (0, 1, 1, 1, 2, 2, 0, 0, 1, 1, 1, 2, 2, 0, 0, 1, 2, 0, 0, 1, 2, 0, 1, 2, 2, 0, 0, 1, 2, 2),
+    # 5 Druid: 0=Summoning, 1=Shape Shifting, 2=Elemental
+    (0, 0, 1, 1, 2, 0, 0, 1, 2, 2, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 0, 1, 1, 2, 2, 0, 0, 1, 2, 2),
+    # 6 Assassin: 0=Traps, 1=Shadow Disciplines, 2=Martial Arts
+    (0, 1, 1, 2, 2, 0, 0, 1, 2, 2, 0, 0, 1, 1, 2, 0, 1, 1, 2, 2, 0, 0, 1, 2, 2, 0, 0, 1, 1, 2),
+    # 7 Warlock: 0=Demon, 1=Eldritch, 2=Chaos
+    (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2),
+)
+
+
+def get_skill_tab_index(char_class: int, skill_offset: int) -> int | None:
+    """Return the skill tab index (0..2) for a class skill offset (0..29), or None."""
+    if 0 <= char_class < len(SKILL_TAB_MAP) and 0 <= skill_offset < len(SKILL_TAB_MAP[char_class]):
+        return SKILL_TAB_MAP[char_class][skill_offset]
+    return None
+
+
 DIFFICULTY_NAMES = ["Normal", "Nightmare", "Hell"]
 DIFFICULTY_RESIST_PENALTIES_EXPANSION = (0, -40, -100)
 DIFFICULTY_RESIST_PENALTIES_CLASSIC = (0, -20, -50)
