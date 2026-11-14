@@ -1,35 +1,37 @@
 #!/usr/bin/env python3
 import argparse
-import os
 import signal
-import struct
 import sys
-import traceback
-from pathlib import Path
-from typing import Any
 
 if hasattr(signal, "SIGPIPE"):
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
-from d2savior.config import load_save_dir, update_save_dir
-from d2savior.core.bitstream_debug import _run_bitstream_searches
-from d2savior.core.char_formatter import (
+lazy import os
+lazy import struct
+lazy import traceback
+lazy from pathlib import Path
+lazy from typing import Any
+
+lazy from d2savior.config import load_save_dir, update_save_dir
+lazy from d2savior.core.bitstream_debug import _run_bitstream_searches
+lazy from d2savior.core.char_formatter import (
     format_char_find,
     format_char_info,
     format_char_list,
     format_char_summary,
     format_timestamp,
 )
-from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.ibitstream import IBitStream
-from d2savior.core.item_formatter import (
+lazy from d2savior.core.d2s_struct import D2SStruct
+lazy from d2savior.core.ibitstream import IBitStream
+lazy from d2savior.core.item import D2Item
+lazy from d2savior.core.item_formatter import (
     format_item_find,
     format_item_info,
     format_item_summary,
 )
-from d2savior.core.resolver import GameDataResolver
-from d2savior.core.stash import SharedStash
-from d2savior.core.stash_formatter import (
+lazy from d2savior.core.resolver import GameDataResolver
+lazy from d2savior.core.stash import SharedStash
+lazy from d2savior.core.stash_formatter import (
     format_stash_find,
     format_stash_info,
     format_stash_summary,
@@ -55,8 +57,6 @@ def parse_d2i_file(
 
         bs = IBitStream(data)
         if data.startswith(b"JM"):
-            from d2savior.core.item import D2Item
-
             item = D2Item()
             item.deserialize(bs, data=resolver.game_data)
             return True, item, "item", bs

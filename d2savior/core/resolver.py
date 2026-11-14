@@ -1,15 +1,15 @@
 """Unified lookup, localization, and socket resolution facade for game data."""
 
-import importlib.resources
-import json
-from importlib.resources.abc import Traversable
-from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
+lazy import importlib.resources
+lazy import json
+lazy from importlib.resources.abc import Traversable
+lazy from pathlib import Path
 
-from d2savior.core.enums import CLASS_NAMES
-from d2savior.core.loader import GameData, open_resource
-from d2savior.core.localized_data import LocalizedDataLoader
-from d2savior.core.models import (
+lazy from d2savior.core.enums import CLASS_NAMES
+lazy from d2savior.core.loader import GameData, open_resource
+lazy from d2savior.core.localized_data import LocalizedDataLoader
+lazy from d2savior.core.models import (
     GemInfo,
     GemMod,
     HirelingInfo,

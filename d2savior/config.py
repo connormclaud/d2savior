@@ -1,9 +1,9 @@
-import sys
-from pathlib import Path
+lazy import sys
+lazy from pathlib import Path
 
-import platformdirs
-import tomlkit
-from tomlkit.exceptions import TOMLKitError
+lazy import platformdirs
+lazy import tomlkit
+lazy from tomlkit.exceptions import TOMLKitError
 
 
 def get_config_path() -> Path:

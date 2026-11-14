@@ -1,15 +1,15 @@
 """TSV/JSON table loaders and version overlay management for Diablo II game data."""
 
-import importlib.resources
-import json
 from collections.abc import Iterator, Sequence
-from importlib.resources.abc import Traversable
-from itertools import batched
-from pathlib import Path
-from typing import IO, ClassVar
 from warnings import deprecated
+lazy import importlib.resources
+lazy import json
+lazy from importlib.resources.abc import Traversable
+lazy from itertools import batched
+lazy from pathlib import Path
+lazy from typing import IO, ClassVar
 
-from d2savior.core.models import (
+lazy from d2savior.core.models import (
     GemInfo,
     GemMod,
     HirelingInfo,
