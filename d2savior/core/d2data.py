@@ -312,6 +312,20 @@ class GemInfo:
 
 
 @dataclass(slots=True)
+class HirelingInfo:
+    """Metadata for a mercenary hireling type from hireling.txt."""
+
+    hireling_id: int = 0
+    hireling: str = ""
+    act: int = 0
+    difficulty: int = 0
+    name_first: str = ""
+    name_last: str = ""
+    hire_desc: str = ""
+    skill_1: str = ""
+
+
+@dataclass(slots=True)
 class ItemTypeInfo:
     code: str = ""
     name: str = ""
@@ -371,6 +385,7 @@ class VersionData:
     set_items: dict[int, SetItemInfo] = field(default_factory=dict)
     runewords: dict[int, RuneWordInfo] = field(default_factory=dict)
     gems: dict[str, GemInfo] = field(default_factory=dict)
+    hirelings: dict[int, HirelingInfo] = field(default_factory=dict)
     skills: dict[int, str] = field(default_factory=dict)
     aura_skill_ids: set[int] = field(default_factory=set)
     type_ancestors: dict[str, set[str]] = field(default_factory=dict)
@@ -437,6 +452,9 @@ class VersionData:
         if not code:
             return None
         return self.gems.get(code.lower().strip())
+
+    def get_hireling(self, hireling_id: int) -> HirelingInfo | None:
+        return self.hirelings.get(hireling_id)
 
     def get_skill_name(self, skill_id: int) -> str:
         return self.skills.get(skill_id, "")
@@ -1355,6 +1373,60 @@ class D2DataLoader:
 
         return skills, aura_skill_ids
 
+    def load_hirelings(self, filepath: str | Traversable) -> dict[int, HirelingInfo]:
+        """Load hireling definitions from hireling.txt, preferring Version 100 entries."""
+        hirelings: dict[int, HirelingInfo] = {}
+
+        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+
+        if len(lines) < 1:
+            return hirelings
+
+        header = lines[0].rstrip("\r\n").split("\t")
+        col_map = {col: i for i, col in enumerate(header)}
+
+        for line in lines[1:]:
+            raw_line = line.rstrip("\r\n")
+            if not raw_line or raw_line.startswith("*"):
+                continue
+
+            parts = raw_line.split("\t")
+
+            def get_col(col_name: str, default: str = "", _parts: list[str] = parts) -> str:
+                idx = col_map.get(col_name)
+                if idx is not None and idx < len(_parts):
+                    return _parts[idx]
+                return default
+
+            id_str = get_col("Id").strip()
+            if not id_str:
+                continue
+            try:
+                hireling_id = int(id_str)
+            except ValueError:
+                continue
+
+            ver_str = get_col("Version").strip()
+            version = int(ver_str) if ver_str else 0
+            if hireling_id in hirelings and version != 100:
+                continue
+
+            act_str = get_col("Act").strip()
+            diff_str = get_col("Difficulty").strip()
+            hirelings[hireling_id] = HirelingInfo(
+                hireling_id=hireling_id,
+                hireling=get_col("Hireling").strip(),
+                act=int(act_str) if act_str else 0,
+                difficulty=int(diff_str) if diff_str else 0,
+                name_first=get_col("NameFirst").strip(),
+                name_last=get_col("NameLast").strip(),
+                hire_desc=get_col("HireDesc").strip(),
+                skill_1=get_col("Skill1").strip(),
+            )
+
+        return hirelings
+
     BODYLOC_MAP: ClassVar[dict[str, int]] = {
         "head": 1,
         "neck": 2,
@@ -1575,6 +1647,10 @@ class D2DataLoader:
         # Load gems.txt
         gems_path = self._resolve_path("gems.txt", dirs)
         version_data.gems = self.load_gems(gems_path)
+
+        # Load hireling.txt
+        hireling_path = self._resolve_path("hireling.txt", dirs)
+        version_data.hirelings = self.load_hirelings(hireling_path)
 
         # Load skills.txt
         skills_path = self._resolve_path("skills.txt", dirs)
@@ -2012,6 +2088,9 @@ class GameDataResolver:
     def get_gem_info(self, code: str) -> GemInfo | None:
         return self.data.get_gem_info(code)
 
+    def get_hireling(self, hireling_id: int) -> HirelingInfo | None:
+        return self.data.get_hireling(hireling_id)
+
     def get_socket_properties(
         self, parent_item: Any, socket_item: Any
     ) -> list[tuple[int, int, list[int]]]:
@@ -2308,3 +2387,87 @@ class GameDataResolver:
             if name:
                 return name
         return default_name
+
+    _MERC_ACT_ROMAN: ClassVar[dict[int, str]] = {
+        1: "Act I",
+        2: "Act II",
+        3: "Act III",
+        4: "Act IV",
+        5: "Act V",
+    }
+    _MERC_DIFFICULTIES: ClassVar[dict[int, str]] = {
+        1: "Normal",
+        2: "Nightmare",
+        3: "Hell",
+    }
+    _MERC_CLASS_LOC: ClassVar[dict[int, tuple[str, str]]] = {
+        1: ("monsters", "RogueScout"),
+        2: ("ui", "DesertMerc"),
+        3: ("monsters", "Iron Wolf"),
+        5: ("ui", "Barbarian"),
+    }
+    _MERC_DESC_FALLBACK: ClassVar[dict[str, str]] = {
+        "strhirespecial1": "Fire Arrow",
+        "strhirespecial2": "Cold Arrow",
+        "strhirespecial5": "Lightning",
+        "strhirespecial6": "Cold",
+        "strhirespecial7": "Fire",
+    }
+
+    def get_localized_mercenary_name(self, hireling_id: int, name_index: int) -> str:
+        """Resolve a mercenary's localized name from hireling_id and name_index."""
+        info = self.get_hireling(hireling_id)
+        if not info or not self.loc:
+            return ""
+        return self.loc.get_mercenary_name_in_range(info.name_first, info.name_last, name_index)
+
+    def get_localized_mercenary_details(self, hireling_id: int) -> str:
+        """Return localized 'Act <roman> <Type>, <Difficulty>, <Specialty>' for hireling_id."""
+        info = self.get_hireling(hireling_id)
+        if not info:
+            return ""
+
+        merc_class = "Iron Wolf" if info.hireling == "Eastern Sorceror" else info.hireling
+        if self.loc and info.act in self._MERC_CLASS_LOC:
+            table, key = self._MERC_CLASS_LOC[info.act]
+            loc_val = (
+                self.loc.get_monster_name(key)
+                if table == "monsters"
+                else self.loc.get_ui_string(key)
+            )
+            if loc_val and loc_val != key:
+                merc_class = loc_val
+
+        act_str = self._MERC_ACT_ROMAN.get(info.act, f"Act {info.act}" if info.act else "")
+        head = f"{act_str} {merc_class}".strip()
+        diff_str = self._MERC_DIFFICULTIES.get(info.difficulty, "")
+        specialty = self._resolve_mercenary_specialty(info)
+
+        return ", ".join(p for p in (head, diff_str, specialty) if p)
+
+    def _resolve_mercenary_specialty(self, info: HirelingInfo) -> str:
+        """Resolve a hireling's localized aura, element, or primary combat skill."""
+        desc = info.hire_desc
+        if desc:
+            if self.loc:
+                val = (
+                    self.loc.get_skill_name(desc)
+                    if desc.startswith("skillname")
+                    else self.loc.get_ui_string(desc)
+                )
+                if val and val != desc:
+                    return val
+            if desc in self._MERC_DESC_FALLBACK:
+                return self._MERC_DESC_FALLBACK[desc]
+        if info.skill_1:
+            if self.loc:
+                skill_id = next(
+                    (sid for sid, sname in self.data.skills.items() if sname == info.skill_1),
+                    None,
+                )
+                if skill_id is not None:
+                    loc_skill = self.loc.get_skill_name_by_id(skill_id)
+                    if loc_skill:
+                        return loc_skill
+            return info.skill_1
+        return ""

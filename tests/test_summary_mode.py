@@ -651,3 +651,54 @@ class TestSummaryMode:
 
         set_zh = format_item_info(item_set, resolver=resolver_zh)
         assert "Set ID: 68 (艾尔多的律动)" in set_zh
+
+    def test_mercenary_formatting(self):
+        from d2savior.core.formatters import format_char_info
+
+        resolver = GameDataResolver.load(lang_key="enUS")
+
+        # Resolved mercenary (0x69 expansion): Name Index 10, Type 34 -> Jemali
+        char = D2SStruct()
+        char.version = 0x69
+        char.game_version = 3
+        char.merc_seed = 0x12345678
+        char.merc_name_index = 10
+        char.merc_hireling_id = 34
+
+        summary = format_char_summary(char, resolver=resolver)
+        assert "Mercenary: Jemali (Act II Desert Mercenary, Hell, Holy Freeze)" in summary
+
+        full = format_char_info(char, resolver=resolver)
+        assert (
+            "Has mercenary: Jemali (Act II Desert Mercenary, Hell, Holy Freeze; Name: 10, Type: 34)"
+            in full
+        )
+
+        # Dead flag preserved in summary (0x63)
+        char_dead = D2SStruct()
+        char_dead.version = 0x63
+        char_dead.char_flags = 0x20
+        char_dead.merc_control = 1
+        char_dead.merc_name = 19
+        char_dead.merc_type = 10
+        char_dead.merc_dead = 1
+        assert (
+            "Mercenary: Waheed (Act II Desert Mercenary, Nightmare, Holy Freeze) (Dead)"
+            in format_char_summary(char_dead, resolver=resolver)
+        )
+
+        # Out-of-range name index omits name cleanly
+        char.merc_name_index = 999
+        assert "Mercenary: Act II Desert Mercenary, Hell, Holy Freeze" in format_char_summary(
+            char, resolver=resolver
+        )
+        assert (
+            "Has mercenary: Act II Desert Mercenary, Hell, Holy Freeze (Name: 999, Type: 34)"
+            in format_char_info(char, resolver=resolver)
+        )
+
+        # Unknown type falls back to raw IDs
+        char.merc_name_index = 10
+        char.merc_hireling_id = 999
+        assert "Mercenary: Name Index 10, Type 999" in format_char_summary(char, resolver=resolver)
+        assert "Has mercenary (Name: 10, Type: 999)" in format_char_info(char, resolver=resolver)

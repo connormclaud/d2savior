@@ -735,6 +735,30 @@ def _get_character_skills(char_data: D2SStruct, resolver: GameDataResolver) -> l
     return skills
 
 
+def _format_mercenary_header(
+    char_data: D2SStruct, resolver: GameDataResolver, *, summary: bool
+) -> str:
+    """Format the mercenary header line for summary or full character output."""
+    name_id = char_data.merc_name_id
+    type_id = char_data.merc_type_id
+    details = resolver.get_localized_mercenary_details(type_id)
+    merc_name = resolver.get_localized_mercenary_name(type_id, name_id) if details else ""
+
+    if summary:
+        dead_suffix = " (Dead)" if char_data.merc_is_dead else ""
+        if not details:
+            return f"Mercenary: Name Index {name_id}, Type {type_id}{dead_suffix}"
+        if merc_name:
+            return f"Mercenary: {merc_name} ({details}){dead_suffix}"
+        return f"Mercenary: {details}{dead_suffix}"
+
+    if not details:
+        return f"Has mercenary (Name: {name_id}, Type: {type_id})"
+    if merc_name:
+        return f"Has mercenary: {merc_name} ({details}; Name: {name_id}, Type: {type_id})"
+    return f"Has mercenary: {details} (Name: {name_id}, Type: {type_id})"
+
+
 def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     result = []
     result.append("=== Diablo II Character Info ===")
@@ -839,9 +863,7 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     result.append("=== Mercenary ===")
     if char_data.is_expansion():
         if char_data.has_mercenary():
-            result.append(
-                f"Has mercenary (Name: {char_data.merc_name_id}, Type: {char_data.merc_type_id})"
-            )
+            result.append(_format_mercenary_header(char_data, char_resolver, summary=False))
             if char_data.version >= 0x69:
                 merc_seed = getattr(char_data, "merc_seed", 0)
                 merc_flags = getattr(char_data, "merc_flags", 0)
@@ -988,9 +1010,7 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     result.append("")
     result.append("=== Mercenary ===")
     if char_data.is_expansion() and char_data.has_mercenary():
-        result.append(
-            f"Mercenary: Name Index {char_data.merc_name_id}, Type {char_data.merc_type_id}{' (Dead)' if char_data.merc_is_dead else ''}"
-        )
+        result.append(_format_mercenary_header(char_data, char_resolver, summary=True))
         if char_data.mercenary.items and char_data.mercenary.items.items:
             result.append("Equipped:")
             for m_item in char_data.mercenary.items.items:

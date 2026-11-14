@@ -133,3 +133,47 @@ class TestGameDataResolver:
         assert r_en.get_localized_rare_name(9999, 9999) == ""
         assert r_en.get_localized_rare_name(164, 9999) == "Doom"
         assert r_en.get_localized_rare_name(9999, 128) == "Gyre"
+
+    def test_mercenary_resolution(self):
+        r_en = GameDataResolver.load(lang_key="enUS")
+        # Type 34 (Act II Hell Holy Freeze), Name Index 10 -> Jemali
+        assert (
+            r_en.get_localized_mercenary_details(34) == "Act II Desert Mercenary, Hell, Holy Freeze"
+        )
+        assert r_en.get_localized_mercenary_name(34, 10) == "Jemali"
+
+        # Type 10 (Act II Nightmare Holy Freeze), Name Index 19 -> Waheed
+        assert (
+            r_en.get_localized_mercenary_details(10)
+            == "Act II Desert Mercenary, Nightmare, Holy Freeze"
+        )
+        assert r_en.get_localized_mercenary_name(10, 19) == "Waheed"
+
+        # Type 1 (Act I Normal Cold Arrow), Name Index 1 -> Amplisa
+        assert r_en.get_localized_mercenary_details(1) == "Act I Rogue Scout, Normal, Cold Arrow"
+        assert r_en.get_localized_mercenary_name(1, 1) == "Amplisa"
+
+        # Type 17 (Act III Normal Lightning), Name Index 0 -> Jelani
+        assert r_en.get_localized_mercenary_details(17) == "Act III Iron Wolf, Normal, Lightning"
+        assert r_en.get_localized_mercenary_name(17, 0) == "Jelani"
+
+        # Type 38 (Act V Hell Frenzy), Name Index 0 -> Varaya
+        assert r_en.get_localized_mercenary_details(38) == "Act V Barbarian, Hell, Frenzy"
+        assert r_en.get_localized_mercenary_name(38, 0) == "Varaya"
+
+        # Unknown type and out-of-range name index fallbacks
+        assert r_en.get_localized_mercenary_details(9999) == ""
+        assert r_en.get_localized_mercenary_name(9999, 0) == ""
+        assert r_en.get_localized_mercenary_name(34, 9999) == ""
+
+        # Localization (ruRU & zhCN)
+        r_ru = GameDataResolver.load(lang_key="ruRU")
+        assert (
+            r_ru.get_localized_mercenary_details(34)
+            == "Act II Пустынный наемник, Hell, Священный холод"
+        )
+        assert r_ru.get_localized_mercenary_name(34, 10) == "Джемали"
+
+        r_zh = GameDataResolver.load(lang_key="zhCN")
+        assert r_zh.get_localized_mercenary_details(34) == "Act II 沙漠佣兵, Hell, 神圣之冰"
+        assert r_zh.get_localized_mercenary_name(34, 10) == "杰马里"

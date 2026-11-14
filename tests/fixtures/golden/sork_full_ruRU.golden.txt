@@ -1080,7 +1080,7 @@ Total items: 69
 No corpse
 
 === Mercenary ===
-Has mercenary (Name: 19, Type: 10)
+Has mercenary: Вахид (Act II Пустынный наемник, Nightmare, Священный холод; Name: 19, Type: 10)
 Mercenary Seed: 0x418DFA6C
 Mercenary Exp: 49287024
 Mercenary Flags: 0x00000000

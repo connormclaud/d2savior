@@ -187,6 +187,21 @@ class LocalizedDataLoader:
     def get_mercenary_name(self, key: str) -> str:
         return self.get_string("mercenaries.json", key)
 
+    def get_mercenary_name_in_range(self, name_first: str, name_last: str, index: int) -> str:
+        """Resolve a localized mercenary name by 0-based index within [name_first..name_last]."""
+        if index < 0 or not name_first or not name_last:
+            return ""
+        raw = self._raw.get("mercenaries.json", [])
+        start_idx = next((i for i, item in enumerate(raw) if item.get("Key") == name_first), None)
+        end_idx = next((i for i, item in enumerate(raw) if item.get("Key") == name_last), None)
+        if start_idx is not None and end_idx is not None and start_idx <= end_idx:
+            target = start_idx + index
+            if target <= end_idx:
+                key = raw[target].get("Key", "")
+                if key:
+                    return self.get_mercenary_name(key)
+        return ""
+
     def get_command_name(self, key: str) -> str:
         return self.get_string("commands.json", key)
 
