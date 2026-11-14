@@ -716,3 +716,184 @@ class TestSummaryMode:
         assert "Attributes: Str:" not in unknown_summary.split("=== Mercenary ===")[1]
         assert "Has mercenary (Name: 10, Type: 999)" in unknown_full
         assert "Mercenary Level:" not in unknown_full
+
+    def test_summary_properties_collapse_damage_variants(self, game_data_resolver):
+        from d2savior.core.formatters import _format_summary_properties
+
+        # Max damage only (1H/2H/Throw identical)
+        max_only = _format_summary_properties(
+            [(19, 33, [33]), (22, 6, [6]), (24, 6, [6]), (160, 6, [6])],
+            resolver=game_data_resolver,
+        )
+        assert max_only == ["+33 to Attack Rating", "+6 to Maximum Damage"]
+
+        # Min damage only (1H/2H/Throw identical)
+        min_only = _format_summary_properties(
+            [(2, 8, [8]), (21, 2, [2]), (23, 2, [2]), (159, 2, [2])],
+            resolver=game_data_resolver,
+        )
+        assert min_only == ["+8 to Dexterity", "+2 to Minimum Damage"]
+
+        # Matching min + max (1H + Throw) combines into Adds X-Y damage
+        t_revenge = _format_summary_properties(
+            [(21, 25, [25]), (22, 50, [50]), (159, 25, [25]), (160, 50, [50])],
+            resolver=game_data_resolver,
+        )
+        assert t_revenge == ["Adds 25-50 damage"]
+
+        # Matching min + max (all 6 stats) and reverse max-before-min order
+        all_six = _format_summary_properties(
+            [
+                (21, 3, [3]),
+                (23, 3, [3]),
+                (159, 3, [3]),
+                (22, 8, [8]),
+                (24, 8, [8]),
+                (160, 8, [8]),
+            ],
+            resolver=game_data_resolver,
+        )
+        assert all_six == ["Adds 3-8 damage"]
+
+        reversed_pair = _format_summary_properties(
+            [(22, 25, [25]), (21, 15, [15])],
+            resolver=game_data_resolver,
+        )
+        assert reversed_pair == ["Adds 15-25 damage"]
+
+        # Distinct throw values remain visible
+        diff_throw = _format_summary_properties(
+            [(21, 10, [10]), (22, 20, [20]), (159, 12, [12]), (160, 25, [25])],
+            resolver=game_data_resolver,
+        )
+        assert diff_throw == [
+            "Adds 10-20 damage",
+            "+12 to Minimum Throw Damage",
+            "+25 to Maximum Throw Damage",
+        ]
+
+        # Pre-summed 1H + dmg-min on one property list collapses to canonical 1H total
+        diff_2h = _format_summary_properties(
+            [(21, 14, [14]), (23, 5, [5]), (159, 5, [5])],
+            resolver=game_data_resolver,
+        )
+        assert diff_2h == ["+14 to Minimum Damage"]
+
+        # Pre-summed 1H dmg-norm + dmg-max on one property list collapses duplicate 2H/Throw max
+        mixed_1h = _format_summary_properties(
+            [(21, 12, [12]), (22, 53, [53]), (24, 8, [8]), (160, 8, [8])],
+            resolver=game_data_resolver,
+        )
+        assert mixed_1h == ["Adds 12-53 damage"]
+
+        # Pre-summed 2H dmg-norm + dmg-min on one property list collapses duplicate 1H/Throw min
+        mixed_2h = _format_summary_properties(
+            [(21, 6, [6]), (23, 15, [15]), (24, 30, [30]), (159, 6, [6])],
+            resolver=game_data_resolver,
+        )
+        assert mixed_2h == ["Adds 15-30 damage"]
+
+        # 2H min (23) + 1H max (22, e.g. Ith Rune) combine cleanly
+        bow_plus_ith = _format_summary_properties(
+            [(23, 10, [10]), (22, 15, [15])],
+            resolver=game_data_resolver,
+        )
+        assert bow_plus_ith == ["Adds 10-15 damage"]
+
+        # Inverted min > max does not emit nonsensical "Adds 9-4 damage"
+        min_gt_max = _format_summary_properties(
+            [
+                (21, 9, [9]),
+                (23, 9, [9]),
+                (159, 9, [9]),
+                (22, 4, [4]),
+                (24, 4, [4]),
+                (160, 4, [4]),
+            ],
+            resolver=game_data_resolver,
+        )
+        assert min_gt_max == ["+9 to Minimum Damage", "+4 to Maximum Damage"]
+
+        # Localized damage range formatting (ruRU)
+        resolver_ru = GameDataResolver.load(lang_key="ruRU")
+        assert _format_summary_properties(
+            [(21, 25, [25]), (22, 50, [50])],
+            resolver=resolver_ru,
+        ) == ["+25–50 урона"]
+
+    def test_stash_find_summary_collapses_damage_stats(self, game_data_resolver):
+        from d2s_parse import parse_file
+        from d2savior.core.formatters import format_stash_find
+
+        stash_path = os.path.join(
+            os.path.dirname(__file__), "fixtures", "ModernSharedStashSoftCoreV2.d2i"
+        )
+        kind, stash, _ = parse_file(stash_path, resolver=game_data_resolver)
+        assert kind == "stash"
+        assert stash is not None
+
+        fine_gc = format_stash_find(stash, "Fine Grand Charm", resolver=game_data_resolver)
+        assert fine_gc is not None
+        assert "Fine Grand Charm (+33 to Attack Rating, +6 to Maximum Damage)" in fine_gc
+        assert "Throw Damage" not in fine_gc
+
+        scarlet_jewel = format_stash_find(
+            stash, "Scarlet Jewel of Daring", resolver=game_data_resolver
+        )
+        assert scarlet_jewel is not None
+        assert "Scarlet Jewel of Daring (+8 to Dexterity, +2 to Minimum Damage)" in scarlet_jewel
+        assert "Throw Damage" not in scarlet_jewel
+
+        razortail = format_stash_find(stash, "Razortail", resolver=game_data_resolver)
+        assert razortail is not None
+        assert razortail.count("+10 to Maximum Damage") == 1
+        assert "Throw Damage" not in razortail
+
+        titans = format_stash_find(stash, "Titan's Revenge", resolver=game_data_resolver)
+        assert titans is not None
+        assert "Adds 25-50 damage" in titans
+        assert "Throw Damage" not in titans
+        assert "to Minimum Damage" not in titans
+        assert "to Maximum Damage" not in titans
+
+    def test_item_summary_socketed_flat_damage_sources(self, game_data_resolver):
+        class _StaticPropertyList(PropertyList):
+            def __init__(self, props):
+                self.properties = [(0, 0, 0)]
+                self._props = props
+
+            def get_parsed_properties(self, version=0x63, data=None):
+                return self._props
+
+        def _make_item(type_name: bytes, props, gems=None):
+            item = D2Item()
+            item.type_name = type_name
+            item.item_info = ItemInfo()
+            item.item_info.type_specific_info = TypeSpecificInfo()
+            if props:
+                item.item_info.type_specific_info.property_list = _StaticPropertyList(props)
+            if gems:
+                item.gem_items = gems
+            return item
+
+        # 1H weapon (Bloodletter-like) socketed with flat +max damage jewel
+        jewel_max = _make_item(b"jew ", [(22, 8, [8]), (24, 8, [8]), (160, 8, [8])])
+        sword_jewel = _make_item(b"9ss ", [(21, 12, [12]), (22, 45, [45])], gems=[jewel_max])
+        sword_summary = format_item_summary(sword_jewel, resolver=game_data_resolver)
+        assert "Adds 12-53 damage" in sword_summary
+        assert "+8 to Maximum Damage" not in sword_summary
+
+        # 2H bow (Cliffkiller-like) socketed with flat +min damage jewel
+        jewel_min = _make_item(b"jew ", [(21, 6, [6]), (23, 6, [6]), (159, 6, [6])])
+        bow_jewel = _make_item(b"8l8 ", [(23, 9, [9]), (24, 30, [30])], gems=[jewel_min])
+        bow_jewel_summary = format_item_summary(bow_jewel, resolver=game_data_resolver)
+        assert "Adds 15-30 damage" in bow_jewel_summary
+        assert "+6 to Minimum Damage" not in bow_jewel_summary
+
+        # 2H bow (Cliffkiller-like) socketed with Sol Rune (+9 min via stat 21)
+        sol_rune = _make_item(b"r12 ", [])
+        bow_sol = _make_item(b"8l8 ", [(23, 9, [9]), (24, 30, [30])], gems=[sol_rune])
+        bow_sol_summary = format_item_summary(bow_sol, resolver=game_data_resolver)
+        assert "Adds 18-30 damage" in bow_sol_summary
+        assert "+9 to Minimum Damage" not in bow_sol_summary
+        assert "+30 to Maximum Damage" not in bow_sol_summary

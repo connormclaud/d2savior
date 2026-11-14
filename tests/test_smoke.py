@@ -9,6 +9,7 @@ from d2s_parse import parse_file
 from d2savior.core.formatters import (
     format_char_info,
     format_char_summary,
+    format_stash_find,
     format_stash_info,
     format_stash_summary,
 )
@@ -29,6 +30,15 @@ SORK_FULL_RURU_GOLDEN = os.path.join(GOLDEN_DIR, "sork_full_ruRU.golden.txt")
 STASH_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_summary.golden.txt")
 STASH_FULL_GOLDEN = os.path.join(GOLDEN_DIR, "stash_full.golden.txt")
 STASH_FULL_RURU_GOLDEN = os.path.join(GOLDEN_DIR, "stash_full_ruRU.golden.txt")
+STASH_FIND_CHARM_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_find_charm_summary.golden.txt")
+STASH_FIND_JEWEL_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_find_jewel_summary.golden.txt")
+STASH_FIND_TITAN_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "stash_find_titan_summary.golden.txt")
+
+STASH_FIND_CASES = [
+    ("Charm", STASH_FIND_CHARM_SUMMARY_GOLDEN),
+    ("Jewel", STASH_FIND_JEWEL_SUMMARY_GOLDEN),
+    ("Titan", STASH_FIND_TITAN_SUMMARY_GOLDEN),
+]
 
 CLI_SCRIPT = os.path.join(REPO_ROOT, "d2s_parse.py")
 
@@ -100,6 +110,15 @@ class TestSmokeAPI:
         output = format_stash_info(data, resolver=game_data_resolver_ru) + "\n"
         assert_matches_golden(output, STASH_FULL_RURU_GOLDEN, "stash_full_ru_api")
 
+    @pytest.mark.parametrize(("pattern", "golden_path"), STASH_FIND_CASES)
+    def test_stash_find_summary(self, game_data_resolver, pattern, golden_path):
+        kind, data, _ = parse_file(STASH_D2I, resolver=game_data_resolver)
+        assert kind == "stash"
+        assert data is not None
+        found = format_stash_find(data, pattern, resolver=game_data_resolver, summary=True)
+        assert found is not None
+        assert_matches_golden(found + "\n", golden_path, f"stash_find_{pattern.lower()}_api")
+
 
 class TestSmokeCLI:
     """Smoke tests validating end-to-end command-line interface execution."""
@@ -163,6 +182,17 @@ class TestSmokeCLI:
             cwd=REPO_ROOT,
         )
         assert_matches_golden(res.stdout, STASH_FULL_RURU_GOLDEN, "cli_stash_full_ru")
+
+    @pytest.mark.parametrize(("pattern", "golden_path"), STASH_FIND_CASES)
+    def test_cli_stash_find_summary(self, pattern, golden_path):
+        res = subprocess.run(
+            [sys.executable, CLI_SCRIPT, "--summary", "--find", pattern, STASH_D2I],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=REPO_ROOT,
+        )
+        assert_matches_golden(res.stdout, golden_path, f"cli_stash_find_{pattern.lower()}_summary")
 
     def test_cli_multi_file_summary(self):
         res = subprocess.run(

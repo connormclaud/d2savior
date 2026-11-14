@@ -218,13 +218,115 @@ def _format_parsed_properties(
     return result
 
 
+_DAMAGE_VARIANT_GROUPS: tuple[tuple[int, int, int], ...] = (
+    (21, 23, 159),  # 1H / 2H / Throw minimum damage
+    (22, 24, 160),  # 1H / 2H / Throw maximum damage
+)
+_DAMAGE_STAT_IDS: frozenset[int] = frozenset({21, 22, 23, 24, 159, 160})
+
+
+def _resolve_damage_group(
+    p_val: int | None,
+    s_val: int | None,
+    t_val: int | None,
+) -> tuple[int | None, int | None]:
+    """Collapse 1H/2H/Throw damage variants into canonical primary + optional throw values."""
+    non_throw = [v for v in (p_val, s_val) if v is not None]
+    if not non_throw:
+        return None, t_val
+    canonical = max(non_throw)
+    kept_throw = None if (t_val is not None and t_val in non_throw) else t_val
+    return canonical, kept_throw
+
+
+def _normalize_damage_props(
+    parsed_props: list[tuple[int, int, list[int]]],
+) -> list[tuple[int, int, list[int]]]:
+    """Canonicalize flat damage stats within one property source before cross-source summing."""
+    if not any(prop_id in _DAMAGE_STAT_IDS for prop_id, _, _ in parsed_props):
+        return parsed_props
+
+    totals: dict[int, int] = {}
+    for prop_id, value, params in parsed_props:
+        if prop_id in _DAMAGE_STAT_IDS:
+            val = params[0] if params else value
+            totals[prop_id] = totals.get(prop_id, 0) + val
+
+    resolved: dict[int, int] = {}
+    for primary_id, secondary_id, throw_id in _DAMAGE_VARIANT_GROUPS:
+        canon, throw_val = _resolve_damage_group(
+            totals.get(primary_id),
+            totals.get(secondary_id),
+            totals.get(throw_id),
+        )
+        if canon is not None:
+            resolved[primary_id] = canon
+        if throw_val is not None:
+            resolved[throw_id] = throw_val
+
+    emitted_ids: set[int] = set()
+    normalized: list[tuple[int, int, list[int]]] = []
+    for prop_id, value, params in parsed_props:
+        if prop_id not in _DAMAGE_STAT_IDS:
+            normalized.append((prop_id, value, params))
+            continue
+        group_idx = 0 if prop_id in (21, 23, 159) else 1
+        primary_id, _, throw_id = _DAMAGE_VARIANT_GROUPS[group_idx]
+        target_id = throw_id if prop_id == throw_id else primary_id
+        if target_id not in emitted_ids and target_id in resolved:
+            emitted_ids.add(target_id)
+            val = resolved[target_id]
+            normalized.append((target_id, val, [val]))
+    return normalized
+
+
+def _collapse_damage_stats(
+    aggregated: dict[Any, list[int]],
+    ordered_keys: list[Any],
+    prop_id_map: dict[Any, int],
+    raw_val_map: dict[Any, int],
+) -> dict[Any, tuple[Any, int, int]]:
+    """Canonicalize 1H/2H/Throw damage variants in-place and return combinable min+max pairs."""
+    for primary_id, secondary_id, throw_id in _DAMAGE_VARIANT_GROUPS:
+        p_key = (primary_id,)
+        s_key = (secondary_id,)
+        t_key = (throw_id,)
+        canon, throw_val = _resolve_damage_group(
+            aggregated[p_key][0] if p_key in aggregated else None,
+            aggregated[s_key][0] if s_key in aggregated else None,
+            aggregated[t_key][0] if t_key in aggregated else None,
+        )
+        if s_key in aggregated:
+            if p_key not in aggregated and p_key not in prop_id_map:
+                idx = ordered_keys.index(s_key)
+                ordered_keys[idx] = p_key
+                prop_id_map[p_key] = primary_id
+                if s_key in raw_val_map:
+                    raw_val_map[p_key] = raw_val_map[s_key]
+            del aggregated[s_key]
+        if canon is not None:
+            aggregated[p_key] = [canon]
+        if t_key in aggregated and throw_val is None:
+            del aggregated[t_key]
+
+    pair_map: dict[Any, tuple[Any, int, int]] = {}
+    min_key, max_key = (21,), (22,)
+    if min_key in aggregated and max_key in aggregated:
+        d_min = aggregated[min_key][0]
+        d_max = aggregated[max_key][0]
+        if 0 < d_min < d_max:
+            pair_map[min_key] = (max_key, d_min, d_max)
+            pair_map[max_key] = (min_key, d_min, d_max)
+    return pair_map
+
+
 def _format_summary_properties(
     parsed_props: list[tuple[int, int, list[int]]],
     resolver: GameDataResolver,
     version: int = 0x63,
     property_formatter: Callable[..., str | None] | None = None,
 ) -> FormattedLines:
-    """Format summary properties with numeric stat stacking and resistance collapsing."""
+    """Format summary properties with numeric stat stacking and resistance/damage collapsing."""
     if not parsed_props:
         return []
 
@@ -288,6 +390,8 @@ def _format_summary_properties(
             else:
                 aggregated[key][0] += val
 
+    dmg_pair_map = _collapse_damage_stats(aggregated, ordered_keys, prop_id_map, raw_val_map)
+
     res_keys = [(39,), (41,), (43,), (45,)]
     all_res_present = all(k in aggregated for k in res_keys)
     min_res = 0
@@ -298,6 +402,7 @@ def _format_summary_properties(
 
     result: list[str] = []
     all_res_inserted = False
+    emitted_dmg_pairs: set[Any] = set()
 
     for key in ordered_keys:
         if key not in aggregated:
@@ -305,6 +410,17 @@ def _format_summary_properties(
 
         prop_id = prop_id_map[key]
         params = aggregated[key]
+
+        if key in dmg_pair_map:
+            if key not in emitted_dmg_pairs:
+                partner_key, d_min, d_max = dmg_pair_map[key]
+                emitted_dmg_pairs.add(key)
+                emitted_dmg_pairs.add(partner_key)
+                tpl = resolver.get_item_modifier("strModMinDamageRange")
+                if not tpl or tpl == "strModMinDamageRange":
+                    tpl = "Adds %d-%d damage"
+                result.append(tpl.replace("%d", str(d_min), 1).replace("%d", str(d_max), 1))
+            continue
 
         if min_res > 0 and key in res_keys:
             if not all_res_inserted:
@@ -381,14 +497,22 @@ def format_item_summary(
     if include_properties and tp:
         all_parsed: list[tuple[int, int, list[int]]] = []
         if getattr(tp, "property_list", None):
-            all_parsed.extend(tp.property_list.get_parsed_properties(version, data=resolver.data))
+            all_parsed.extend(
+                _normalize_damage_props(
+                    tp.property_list.get_parsed_properties(version, data=resolver.data)
+                )
+            )
         if getattr(tp, "runeword_property_list", None):
             all_parsed.extend(
-                tp.runeword_property_list.get_parsed_properties(version, data=resolver.data)
+                _normalize_damage_props(
+                    tp.runeword_property_list.get_parsed_properties(version, data=resolver.data)
+                )
             )
         if getattr(item, "gem_items", None):
             for gem in item.gem_items:
-                all_parsed.extend(resolver.get_socket_properties(item, gem))
+                all_parsed.extend(
+                    _normalize_damage_props(resolver.get_socket_properties(item, gem))
+                )
 
         props = _format_summary_properties(
             all_parsed,

@@ -1,0 +1,13 @@
+=== Diablo II Shared Stash Summary ===
+=== Tab 5 (Normal) ===
+  - Iron Grand Charm of Greed (+77 to Attack Rating, 40% Extra Gold from Monsters)
+  - Burly Small Charm of Strength (+2 to Strength, +18 Defense)
+  - Small Charm of Strength (+1 to Strength)
+  - Bronze Small Charm of Balance (+6 to Attack Rating, +5% Faster Hit Recovery)
+  - Iron Large Charm of Sustenance (+22 to Life, +37 to Attack Rating)
+  - Grand Charm of Inertia (+7% Faster Run/Walk)
+  - Small Charm of Greed (10% Extra Gold from Monsters)
+  - Fine Grand Charm (+33 to Attack Rating, +6 to Maximum Damage)
+  - Fine Small Charm (+18 to Attack Rating, +3 to Maximum Damage)
+  - Large Charm of Balance (+8% Faster Hit Recovery)
+  - Small Charm of Fortune (3% Better Chance of Getting Magic Items)
