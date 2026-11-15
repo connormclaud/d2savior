@@ -384,7 +384,12 @@ def _format_info_items_lines(
         for i, item in enumerate(items):
             result.append(f"--- Item {i} ---")
             result.extend(
-                _format_item_lines(item, resolver=char_resolver, version=char_data.version)
+                _format_item_lines(
+                    item,
+                    resolver=char_resolver,
+                    version=char_data.version,
+                    char_level=char_data.char_level,
+                )
             )
     return result
 
@@ -442,11 +447,17 @@ def _format_info_mercenary_lines(
             ]
         )
     if char_data.mercenary.items:
+        merc_level = merc_stats.level if merc_stats is not None else None
         result.append(f"Mercenary items: {char_data.mercenary.items.count}")
         for i, item in enumerate(char_data.mercenary.items.items):
             result.append(f"--- Mercenary Item {i} ---")
             result.extend(
-                _format_item_lines(item, resolver=char_resolver, version=char_data.version)
+                _format_item_lines(
+                    item,
+                    resolver=char_resolver,
+                    version=char_data.version,
+                    char_level=merc_level,
+                )
             )
     return result
 
@@ -547,10 +558,13 @@ def _format_summary_skills_lines(
 
 
 def _format_summary_equipped_lines(
-    equipped_items: dict[int, D2Item], char_resolver: GameDataResolver, version: int
+    equipped_items: dict[int, D2Item],
+    char_resolver: GameDataResolver,
+    version: int,
+    char_level: int | None = None,
 ) -> FormattedLines:
     lines = [
-        f"- {slot.display_name}: {format_item_summary(equipped_items[slot.value], resolver=char_resolver, version=version)}"
+        f"- {slot.display_name}: {format_item_summary(equipped_items[slot.value], resolver=char_resolver, version=version, char_level=char_level)}"
         for slot in EquipSlot
         if slot.value in equipped_items
     ]
@@ -577,6 +591,7 @@ def _format_summary_mercenary_lines(
             f"Resistances ({diff_name}): {merc_stats.resistances.format_summary(resist_penalty, merc_stats.max_resistances)}"
         )
     if char_data.mercenary.items and char_data.mercenary.items.items:
+        merc_level = merc_stats.level if merc_stats is not None else None
         result.append("Equipped:")
         for m_item in char_data.mercenary.items.items:
             loc = ItemLocation(m_item.location)
@@ -586,7 +601,7 @@ def _format_summary_mercenary_lines(
                 else ""
             )
             result.append(
-                f"  - {slot_str}{format_item_summary(m_item, resolver=char_resolver, version=version)}"
+                f"  - {slot_str}{format_item_summary(m_item, resolver=char_resolver, version=version, char_level=merc_level)}"
             )
     else:
         result.append("Equipped: None")
@@ -594,10 +609,13 @@ def _format_summary_mercenary_lines(
 
 
 def _format_summary_stored_lines(
-    cats: CategorizedItems, char_resolver: GameDataResolver, version: int
+    cats: CategorizedItems,
+    char_resolver: GameDataResolver,
+    version: int,
+    char_level: int | None = None,
 ) -> FormattedLines:
     stored_lines: FormattedLines = [
-        f"- {label} {format_item_summary(it, resolver=char_resolver, version=version)}"
+        f"- {label} {format_item_summary(it, resolver=char_resolver, version=version, char_level=char_level)}"
         for label, bucket in (
             ("[Inventory]", cats.inventory),
             ("[Stash]", cats.stash),
@@ -608,14 +626,16 @@ def _format_summary_stored_lines(
     if cats.belt:
         belt_counts: dict[str, int] = {}
         for it in cats.belt:
-            summary = format_item_summary(it, resolver=char_resolver, version=version)
+            summary = format_item_summary(
+                it, resolver=char_resolver, version=version, char_level=char_level
+            )
             belt_counts[summary] = belt_counts.get(summary, 0) + 1
         stored_lines.extend(
             f"- [Belt] {summary}{f' (x{count})' if count > 1 else ''}"
             for summary, count in belt_counts.items()
         )
     stored_lines.extend(
-        f"- [Cursor] {format_item_summary(it, resolver=char_resolver, version=version)}"
+        f"- [Cursor] {format_item_summary(it, resolver=char_resolver, version=version, char_level=char_level)}"
         for it in cats.cursor
     )
     return ["=== Inventory & Stash ===", *(stored_lines or ["No stored items"])]
@@ -638,11 +658,11 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
         _format_advanced_stats_lines(
             char_data, char_resolver, adv_stats, diff_name=diff_name, resist_penalty=resist_penalty
         ),
-        _format_summary_equipped_lines(cats.equipped, char_resolver, version),
+        _format_summary_equipped_lines(cats.equipped, char_resolver, version, char_data.char_level),
         _format_summary_mercenary_lines(
             char_data, char_resolver, version, diff_name, resist_penalty
         ),
-        _format_summary_stored_lines(cats, char_resolver, version),
+        _format_summary_stored_lines(cats, char_resolver, version, char_data.char_level),
     ]
     result: FormattedLines = []
     for i, section in enumerate(sections):
@@ -773,30 +793,32 @@ def _format_find_summary_lines(
     stored_matches: list[tuple[str, D2Item]],
     char_resolver: GameDataResolver,
     version: int,
+    char_level: int | None = None,
+    merc_level: int | None = None,
 ) -> FormattedLines:
     result: FormattedLines = []
     if equipped_matches:
         result.append("=== Equipped Gear ===")
         result.extend(
-            f"- {slot.display_name}: {format_item_summary(it, resolver=char_resolver, version=version)}"
+            f"- {slot.display_name}: {format_item_summary(it, resolver=char_resolver, version=version, char_level=char_level)}"
             for slot, it in equipped_matches
         )
     if merc_matches:
         result.extend(["=== Mercenary ===", "Equipped:"])
         result.extend(
-            f"  - {slot_str}{format_item_summary(m_it, resolver=char_resolver, version=version)}"
+            f"  - {slot_str}{format_item_summary(m_it, resolver=char_resolver, version=version, char_level=merc_level)}"
             for slot_str, m_it in merc_matches
         )
     if corpse_matches:
         result.append("=== Corpse ===")
         result.extend(
-            f"- [Corpse] {format_item_summary(c_it, resolver=char_resolver, version=version)}"
+            f"- [Corpse] {format_item_summary(c_it, resolver=char_resolver, version=version, char_level=char_level)}"
             for c_it in corpse_matches
         )
     if stored_matches:
         result.append("=== Inventory & Stash ===")
         result.extend(
-            f"- {label} {format_item_summary(it, resolver=char_resolver, version=version)}"
+            f"- {label} {format_item_summary(it, resolver=char_resolver, version=version, char_level=char_level)}"
             for label, it in stored_matches
         )
     return result
@@ -809,12 +831,15 @@ def _format_find_detail_lines(
     stored_matches: list[tuple[str, D2Item]],
     char_resolver: GameDataResolver,
     version: int,
+    char_level: int | None = None,
+    merc_level: int | None = None,
 ) -> FormattedLines:
-    sections: list[tuple[str, list[tuple[str, D2Item]]]] = []
+    sections: list[tuple[str, int | None, list[tuple[str, D2Item]]]] = []
     if equipped_matches:
         sections.append(
             (
                 "=== Equipped Gear ===",
+                char_level,
                 [(f"--- Equipped: {slot.display_name} ---", it) for slot, it in equipped_matches],
             )
         )
@@ -822,6 +847,7 @@ def _format_find_detail_lines(
         sections.append(
             (
                 "=== Mercenary ===",
+                merc_level,
                 [
                     (f"--- Mercenary: {slot_str.rstrip(': ') or 'Item'} ---", m_it)
                     for slot_str, m_it in merc_matches
@@ -830,22 +856,31 @@ def _format_find_detail_lines(
         )
     if corpse_matches:
         sections.append(
-            ("=== Corpse ===", [("--- Corpse Item ---", c_it) for c_it in corpse_matches])
+            (
+                "=== Corpse ===",
+                char_level,
+                [("--- Corpse Item ---", c_it) for c_it in corpse_matches],
+            )
         )
     if stored_matches:
         sections.append(
             (
                 "=== Inventory & Stash ===",
+                char_level,
                 [(f"--- {label} ---", it) for label, it in stored_matches],
             )
         )
 
     result: FormattedLines = []
-    for heading, entries in sections:
+    for heading, entry_level, entries in sections:
         result.append(heading)
         for subheading, item in entries:
             result.append(subheading)
-            result.extend(_format_item_lines(item, resolver=char_resolver, version=version))
+            result.extend(
+                _format_item_lines(
+                    item, resolver=char_resolver, version=version, char_level=entry_level
+                )
+            )
     return result
 
 
@@ -865,6 +900,11 @@ def format_char_find(
     if not (equipped_matches or merc_matches or corpse_matches or stored_matches):
         return None
 
+    merc_level = None
+    if merc_matches:
+        merc_stats = calculate_mercenary_stats(char_data, resolver=char_resolver)
+        merc_level = merc_stats.level if merc_stats is not None else None
+
     char_name = char_data.get_char_name().strip() or "Unknown"
     char_class = char_resolver.get_localized_class_name(char_data.char_class)
     header_mode = "Summary" if summary else "Info"
@@ -881,6 +921,8 @@ def format_char_find(
             stored_matches,
             char_resolver,
             version,
+            char_level=char_data.char_level,
+            merc_level=merc_level,
         )
     )
     return "\n".join(result).rstrip()

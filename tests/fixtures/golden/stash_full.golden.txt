@@ -104,7 +104,7 @@ Total items: 31
     - +20 to Life
     - Replenish Life +6
   Set Properties (2 Items):
-    - +24 to Attack Rating (Based on Character Level)
+    - +12 to Attack Rating (Based on Character Level)
   Set Properties (3 Items):
     - 50% Better Chance of Getting Magic Items
 --- Item 5 ---
@@ -692,7 +692,7 @@ Total items: 26
     - +20 to Life
     - Fire Resist +20%
   Set Properties (2 Items):
-    - +5.33 Defense (Based on Character Level)
+    - +2 Defense (Based on Character Level)
 --- Item 2 ---
   Type: brs  (Breast Plate)
   Location: STORED, Position: 0
@@ -708,7 +708,7 @@ Total items: 26
     - +40 Defense
     - Magic Damage Reduced by 2
   Set Properties (2 Items):
-    - +5.33 Defense (Based on Character Level)
+    - +2 Defense (Based on Character Level)
 --- Item 3 ---
   Type: swb  (Short War Bow)
   Location: STORED, Position: 0
@@ -723,7 +723,7 @@ Total items: 26
     - +50% Enhanced Damage
     - 20% Bonus to Attack Rating
   Set Properties (2 Items):
-    - +16 to Attack Rating (Based on Character Level)
+    - +8 to Attack Rating (Based on Character Level)
   Set Properties (3 Items):
     - Adds 20-30 cold damage
 --- Item 4 ---
@@ -778,7 +778,7 @@ Total items: 26
     - +15 Defense
     - Fire Resist +25%
   Set Properties (2 Items):
-    - +16 to Attack Rating (Based on Character Level)
+    - +8 to Attack Rating (Based on Character Level)
 --- Item 7 ---
   Type: bwn  (Bone Wand)
   Location: STORED, Position: 0
@@ -924,7 +924,7 @@ Total items: 26
     - Cannot Be Frozen
     - 6% Chance to cast level 3 Dim Vision when struck
     - Level 5 Cloak of Shadows (22/30 Charges)
-    - +5.33 Defense (Based on Character Level)
+    - +2 Defense (Based on Character Level)
 --- Item 15 ---
   Type: zvb  (Sharkskin Belt)
   Required Level: 25
@@ -945,7 +945,7 @@ Total items: 26
     - +15 Defense
     - +33% Piercing Attack
     - +10 to Maximum Throw Damage
-    - Attacker Takes Damage of 2.67 (Based on Character Level)
+    - Attacker Takes Damage of 1 (Based on Character Level)
 --- Item 16 ---
   Type: mbl  (Belt)
   Location: STORED, Position: 0
@@ -961,7 +961,7 @@ Total items: 26
     - +20 to Life
     - Cold Resist +20%
   Set Properties (2 Items):
-    - +6.67 Defense (Based on Character Level)
+    - +2.5 Defense (Based on Character Level)
 --- Item 17 ---
   Type: tgl  (Light Gauntlets)
   Location: STORED, Position: 0
@@ -1065,7 +1065,7 @@ Total items: 26
     - Fire Resist +30%
     - Lightning Resist +30%
   Set Properties (2 Items):
-    - +5.33 Defense (Based on Character Level)
+    - +2 Defense (Based on Character Level)
 --- Item 21 ---
   Type: skp  (Skull Cap)
   Location: STORED, Position: 0
@@ -1081,7 +1081,7 @@ Total items: 26
     - Replenish Life +4
     - Attacker Takes Damage of 2
   Set Properties (2 Items):
-    - +8 Defense (Based on Character Level)
+    - +3 Defense (Based on Character Level)
   Set Properties (3 Items):
     - Lightning Resist +15%
 --- Item 22 ---
@@ -1096,7 +1096,7 @@ Total items: 26
   Durability: 12/24
   Properties:
     - +20% Faster Run/Walk
-    - +2.67 to Maximum Damage (Based on Character Level)
+    - +1 to Maximum Damage (Based on Character Level)
   Set Properties (2 Items):
     - +3 to Mana after each Kill
   Set Properties (3 Items):
@@ -1306,7 +1306,7 @@ Total items: 17
     - Knockback
     - Slows Target by 25%
   Set Properties (2 Items):
-    - +20 to Attack Rating (Based on Character Level)
+    - +10 to Attack Rating (Based on Character Level)
 --- Item 8 ---
   Type: 9wd  (Ancient Sword)
   Required Level: 25

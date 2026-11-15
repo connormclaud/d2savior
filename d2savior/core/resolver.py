@@ -167,10 +167,18 @@ class GameDataResolver:
             return self.loc.get_item_modifier(key)
         return key
 
-    def format_property(self, prop_id: int, params: list[int], version: int | None = None) -> str:
+    def format_property(
+        self,
+        prop_id: int,
+        params: list[int],
+        version: int | None = None,
+        char_level: int | None = None,
+    ) -> str:
         from d2savior.core.property import format_property as _format_property
 
-        return _format_property(prop_id, params, resolver=self, version=version or self.version)
+        return _format_property(
+            prop_id, params, resolver=self, version=version or self.version, char_level=char_level
+        )
 
     def get_gem_info(self, code: str) -> GemInfo | None:
         return self.data.get_gem_info(code)

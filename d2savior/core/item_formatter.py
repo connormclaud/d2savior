@@ -193,9 +193,12 @@ def _format_property_entries(
     resolver: GameDataResolver,
     version: int = 0x63,
     property_formatter: Callable[..., str | None] | None = None,
+    char_level: int | None = None,
 ) -> FormattedLines:
     """Format parsed property tuples into strings, grouping paired elemental/ED stats."""
-    format_func = property_formatter or resolver.format_property
+    format_func = property_formatter or (
+        lambda pid, p, ver: resolver.format_property(pid, p, ver, char_level=char_level)
+    )
     elem_replacements = (
         _extract_grouped_replacements(parsed_props, resolver) if property_formatter is None else {}
     )
@@ -224,6 +227,7 @@ def _format_parsed_properties(
     resolver: GameDataResolver,
     version: int = 0x63,
     property_formatter: Callable[..., str | None] | None = None,
+    char_level: int | None = None,
 ) -> FormattedLines:
     """Format a property list into human-readable strings, falling back to raw IDs."""
     if not prop_list or not prop_list.properties:
@@ -234,6 +238,7 @@ def _format_parsed_properties(
         resolver=resolver,
         version=version,
         property_formatter=property_formatter,
+        char_level=char_level,
     )
 
 
@@ -242,12 +247,15 @@ def _format_summary_properties(
     resolver: GameDataResolver,
     version: int = 0x63,
     property_formatter: Callable[..., str | None] | None = None,
+    char_level: int | None = None,
 ) -> FormattedLines:
     """Format summary properties with numeric stat stacking and resistance/damage collapsing."""
     if not parsed_props:
         return []
 
-    format_func = property_formatter or resolver.format_property
+    format_func = property_formatter or (
+        lambda pid, p, ver: resolver.format_property(pid, p, ver, char_level=char_level)
+    )
     agg = aggregate_summary_properties(parsed_props, resolver)
     elem_replacements = (
         _extract_grouped_replacements(parsed_props, resolver) if property_formatter is None else {}
@@ -322,6 +330,7 @@ def format_item_summary(
     version: int = 0x63,
     include_properties: bool = True,
     property_formatter: Callable[..., str | None] | None = None,
+    char_level: int | None = None,
 ) -> str:
     info = item.item_info
     if info and info.gold:
@@ -372,6 +381,7 @@ def format_item_summary(
             resolver=resolver,
             version=version,
             property_formatter=property_formatter,
+            char_level=char_level,
         )
 
     return f"{title}{f' [{", ".join(meta_tags)}]' if meta_tags else ''}{f' ({", ".join(props)})' if props else ''}"
@@ -505,6 +515,7 @@ def _format_type_specific_lines(
     item_resolver: GameDataResolver,
     version: int,
     indent: str,
+    char_level: int | None = None,
 ) -> FormattedLines:
     result: FormattedLines = []
     if tp.defence is not None:
@@ -529,16 +540,16 @@ def _format_type_specific_lines(
         result.append(f"{indent}Sockets: {sockets}")
 
     if props := _format_parsed_properties(
-        tp.property_list, resolver=item_resolver, version=version
+        tp.property_list, resolver=item_resolver, version=version, char_level=char_level
     ):
         result.extend(_format_prop_section(indent, "Properties", props))
     if rw_props := _format_parsed_properties(
-        tp.runeword_property_list, resolver=item_resolver, version=version
+        tp.runeword_property_list, resolver=item_resolver, version=version, char_level=char_level
     ):
         result.extend(_format_prop_section(indent, "Rune Word Properties", rw_props))
     for idx, set_prop_list in enumerate(tp.set_properties):
         if set_props := _format_parsed_properties(
-            set_prop_list, resolver=item_resolver, version=version
+            set_prop_list, resolver=item_resolver, version=version, char_level=char_level
         ):
             result.extend(
                 _format_prop_section(indent, f"Set Properties ({idx + 2} Items)", set_props)
@@ -552,6 +563,7 @@ def _format_item_lines(
     indent: str = "  ",
     version: int | None = None,
     parent_item: D2Item | None = None,
+    char_level: int | None = None,
 ) -> FormattedLines:
     if version is None:
         version = item.version if item.version else 0x63
@@ -564,7 +576,11 @@ def _format_item_lines(
         if info.ext_info:
             result.extend(_format_ext_info_lines(info.ext_info, item, item_resolver, indent))
         if tp := info.type_specific_info:
-            result.extend(_format_type_specific_lines(tp, item, item_resolver, version, indent))
+            result.extend(
+                _format_type_specific_lines(
+                    tp, item, item_resolver, version, indent, char_level=char_level
+                )
+            )
         if info.stash_stack_size > 0:
             result.append(f"{indent}Stack Size: {info.stash_stack_size}")
         if info.gold:
@@ -576,7 +592,7 @@ def _format_item_lines(
         and (socket_props := item_resolver.get_socket_properties(parent_item, item))
     ):
         formatted_props = _format_property_entries(
-            socket_props, resolver=item_resolver, version=version
+            socket_props, resolver=item_resolver, version=version, char_level=char_level
         )
         result.extend(_format_prop_section(indent, "Properties", formatted_props))
 
@@ -589,6 +605,7 @@ def _format_item_lines(
                 indent=indent + "  ",
                 version=version,
                 parent_item=item,
+                char_level=char_level,
             )
         )
 
@@ -600,8 +617,13 @@ def format_item_info(
     resolver: GameDataResolver,
     indent: str = "  ",
     version: int | None = None,
+    char_level: int | None = None,
 ) -> str:
-    return "\n".join(_format_item_lines(item, resolver=resolver, indent=indent, version=version))
+    return "\n".join(
+        _format_item_lines(
+            item, resolver=resolver, indent=indent, version=version, char_level=char_level
+        )
+    )
 
 
 def format_item_find(

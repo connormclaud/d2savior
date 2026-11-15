@@ -351,7 +351,7 @@ _PERCENT_DESCFUNC = frozenset({2, 4, 5, 6, 8, 10, 11, 16, 20, 22})
 
 
 def _adjust_property_values(
-    prop_id: int, a: list[int], stat: StatInfo | None
+    prop_id: int, a: list[int], stat: StatInfo | None, char_level: int | None = None
 ) -> int | float | None:
     if prop_id == 54:
         a[2] = a[2] // 25 if a[2] else 0
@@ -364,10 +364,11 @@ def _adjust_property_values(
     elif prop_id == 126:
         a[0], a[1] = a[1], a[0]
     elif prop_id in range(214, 251):
-        if stat and stat.op_param > 0:
-            return round(a[0] / stat.op_param, 2)
-        if stat and stat.val_shift > 0:
-            return a[0] / (1 << stat.val_shift)
+        shift = stat.op_param if stat and stat.op_param > 0 else (stat.val_shift if stat else 0)
+        if shift > 0:
+            if char_level is not None:
+                return (a[0] * char_level) >> shift
+            return round(a[0] / (1 << shift), 3)
     elif prop_id in (252, 253):
         a[0] = 100 // a[0] if a[0] else 0
     elif prop_id in _NEGATE_PROP_IDS:
@@ -388,6 +389,7 @@ def format_property(
     params: list[int],
     resolver: GameDataResolver,
     version: int = 0x60,
+    char_level: int | None = None,
 ) -> str:
     vd = (
         resolver.game_data.for_version(version) if resolver.game_data is not None else resolver.data
@@ -407,7 +409,7 @@ def format_property(
     ) is not None:
         return handled
 
-    scaled_val = _adjust_property_values(prop_id, a, stat)
+    scaled_val = _adjust_property_values(prop_id, a, stat, char_level=char_level)
     if prop_id == 237:
         val = scaled_val if scaled_val is not None else a[0]
         return format_modifier_template(

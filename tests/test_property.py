@@ -312,3 +312,33 @@ class TestFormatItemInfoSetProperties:
         assert "Set Properties (3 Items):" in full_text
         assert "Defense" in full_text
         assert "Faster Cast Rate" in full_text
+
+    def test_per_level_op_param_bit_shift(self, game_data_resolver: GameDataResolver):
+        assert (
+            format_property(216, [8], resolver=game_data_resolver, version=0x69)
+            == "+1 to Life (Based on Character Level)"
+        )
+        assert (
+            format_property(218, [8], resolver=game_data_resolver, version=0x69)
+            == "+1 to Maximum Damage (Based on Character Level)"
+        )
+        assert (
+            format_property(224, [24], resolver=game_data_resolver, version=0x69)
+            == "+12 to Attack Rating (Based on Character Level)"
+        )
+        assert (
+            format_property(214, [20], resolver=game_data_resolver, version=0x69)
+            == "+2.5 Defense (Based on Character Level)"
+        )
+        assert (
+            format_property(216, [8], resolver=game_data_resolver, version=0x69, char_level=89)
+            == "+89 to Life (Based on Character Level)"
+        )
+        assert (
+            format_property(218, [8], resolver=game_data_resolver, version=0x69, char_level=89)
+            == "+89 to Maximum Damage (Based on Character Level)"
+        )
+        assert (
+            format_property(214, [20], resolver=game_data_resolver, version=0x69, char_level=89)
+            == "+222 Defense (Based on Character Level)"
+        )
