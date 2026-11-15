@@ -586,8 +586,8 @@ class D2Item:
 
         self._flags = 0
         self._has_quantity = False
-        self._is_chronicle = False
-        self._is_chronicle_compact = False
+        self.is_chronicle = False
+        self.is_chronicle_compact = False
 
         self.chronicle_id: int | None = None
         self.chronicle_compact_data: int | None = None
@@ -794,8 +794,8 @@ class D2Item:
             flags = _sync_bit(flags, 0x00400000, self.is_ethereal)
             flags = _sync_bit(flags, 0x01000000, self.is_personalized)
             flags = _sync_bit(flags, 0x04000000, self.is_runeword)
-            flags = _sync_bit(flags, 0x10000000, self._is_chronicle)
-            flags = _sync_bit(flags, 0x20000000, self._is_chronicle_compact)
+            flags = _sync_bit(flags, 0x10000000, self.is_chronicle)
+            flags = _sync_bit(flags, 0x20000000, self.is_chronicle_compact)
             self._flags = flags
             io.bits(32, flags)
 
@@ -817,8 +817,8 @@ class D2Item:
             self.is_ethereal = bool(flags & 0x00400000)
             self.is_personalized = bool(flags & 0x01000000)
             self.is_runeword = bool(flags & 0x04000000)
-            self._is_chronicle = bool(flags & 0x10000000)
-            self._is_chronicle_compact = bool(flags & 0x20000000)
+            self.is_chronicle = bool(flags & 0x10000000)
+            self.is_chronicle_compact = bool(flags & 0x20000000)
 
             hf = io.bit()
             vv = io.bits(2)
@@ -934,9 +934,9 @@ class D2Item:
                 data=d,
             )
 
-        if self._is_chronicle:
+        if self.is_chronicle:
             self.chronicle_id = io.bits(16, self.chronicle_id or 0)
-            if self._is_chronicle_compact:
+            if self.is_chronicle_compact:
                 self.chronicle_compact_data = io.qword(self.chronicle_compact_data or 0)
             else:
                 self.chronicle_data_header = io.dword(self.chronicle_data_header or 0)

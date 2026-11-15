@@ -81,7 +81,6 @@ class TestCStashTabHeader:
         assert tab.reserved == b"\x00" * 43
         assert tab.items is None
         assert tab.chronicle is None
-        assert tab._tab_size == 0
 
     def test_read_classic_header(self):
         header = _build_stash_tab_header(

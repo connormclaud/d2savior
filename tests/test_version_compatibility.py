@@ -1,14 +1,9 @@
 import os
 import sys
 
-import pytest
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from d2savior.core.ibitstream import IBitStream
-from d2savior.core.item import D2Item
-from d2savior.core.loader import GameData
-from d2savior.core.obitstream import OBitStream
+from d2savior import D2Item, GameData, IBitStream, OBitStream
 from d2savior.core.property_list import PropertyList
 
 
@@ -18,15 +13,11 @@ class TestMergedDataCompatibility:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
         self.manager = GameData.load(data_dir)
-        self.v63 = self.manager.for_version(0x63) if self.manager else None
-        self.v69 = self.manager.for_version(0x69) if self.manager else None
-        self._has_merged_data = self.manager is not None and len(self.manager.version_data) > 0
+        self.v63 = self.manager.for_version(0x63)
+        self.v69 = self.manager.for_version(0x69)
 
     def test_merged_data_loading(self):
         """测试版本化数据文件是否能正确加载"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         item_meta = self.v63.get_item_meta(b"elx ")
         assert item_meta is not None
         assert item_meta.simple
@@ -38,9 +29,6 @@ class TestMergedDataCompatibility:
 
     def test_version_specific_properties(self):
         """测试版本特定的属性定义"""
-        if not self._has_merged_data or not self.v63 or not self.v69:
-            pytest.skip("Version data not loaded")
-
         prop_151_63 = self.v63.get_property_meta(151)
         assert prop_151_63 is not None
         assert prop_151_63.bits_sum == 14
@@ -52,9 +40,6 @@ class TestMergedDataCompatibility:
 
     def test_common_properties(self):
         """测试通用属性在不同版本下的解析"""
-        if not self._has_merged_data or not self.v63 or not self.v69:
-            pytest.skip("Version data not loaded")
-
         prop_0_63 = self.v63.get_property_meta(0)
         assert prop_0_63 is not None
         assert prop_0_63.bits_sum == 8
@@ -73,9 +58,6 @@ class TestMergedDataCompatibility:
 
     def test_ipad_bits_compatibility(self):
         """测试 iPadBits 的版本兼容性"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         items_with_ipad_1 = [b"bks ", b"qey ", b"qhr ", b"qbr "]
 
         for item_type in items_with_ipad_1:
@@ -94,9 +76,6 @@ class TestMergedDataCompatibility:
         0x63 版本中这些物品的 iPadBits=1。
         版本化数据加载后，各版本使用自己的 itemdata。
         """
-        if not self._has_merged_data or not self.v63 or not self.v69:
-            pytest.skip("Version data not loaded")
-
         items_with_version_diff = [b"vip ", b"bks ", b"qey ", b"qhr ", b"qbr "]
 
         for item_type in items_with_version_diff:
@@ -111,9 +90,6 @@ class TestMergedDataCompatibility:
 
     def test_stat_cost_item_aura(self):
         """测试 stat 151 (item_aura) 在 ItemStatCost 中的定义"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         stat_151 = self.v63.get_stat(151)
         if stat_151:
             assert stat_151.stat_name == "item_aura"
@@ -122,9 +98,6 @@ class TestMergedDataCompatibility:
 
     def test_stat_cost_item_indesctructible(self):
         """测试 stat 152 (item_indesctructible) 在 ItemStatCost 中的定义"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         stat_152 = self.v63.get_stat(152)
         if stat_152:
             assert stat_152.stat_name == "item_indesctructible"
@@ -138,15 +111,11 @@ class TestVersionCompatibility:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
         self.manager = GameData.load(data_dir)
-        self.v63 = self.manager.for_version(0x63) if self.manager else None
-        self.v60 = self.manager.for_version(0x60) if self.manager else None
-        self._has_merged_data = self.manager is not None and len(self.manager.version_data) > 0
+        self.v63 = self.manager.for_version(0x63)
+        self.v60 = self.manager.for_version(0x60)
 
     def test_property_list_classic_mode(self):
         """测试 Classic 模式 (<0x61) 属性解析"""
-        if not self._has_merged_data or not self.v60:
-            pytest.skip("Version data not loaded")
-
         obs = OBitStream()
         obs.write_bits(9, 0)
         obs.write_bits(8, 32)
@@ -160,16 +129,11 @@ class TestVersionCompatibility:
         assert len(prop_list.properties) == 1
         assert prop_list.properties[0][0] == 0
         assert prop_list.properties[0][2] == 32
-        assert not prop_list._use_stat_cost
 
     def test_property_list_d2r_mode(self):
         """测试 D2R 模式 (>=0x61) 属性解析: 使用 ItemStatCost.txt"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         stat_0 = self.v63.get_stat(0)
-        if not stat_0:
-            pytest.skip("ItemStatCost not loaded")
+        assert stat_0 is not None
 
         obs = OBitStream()
         obs.write_bits(9, 0)
@@ -181,18 +145,14 @@ class TestVersionCompatibility:
         prop_list = PropertyList()
         prop_list.deserialize(bs, 0x63, data=self.v63)
 
-        assert prop_list._use_stat_cost
         assert len(prop_list.properties) >= 1
         assert prop_list.properties[0][0] == 0
+        assert prop_list.properties[0][2] == 32
 
     def test_property_list_d2r_aura_stat(self):
         """测试 D2R 模式下 stat 151 (item_aura) 解析: save_bits=5, save_param_bits=9"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         stat_151 = self.v63.get_stat(151)
-        if not stat_151:
-            pytest.skip("ItemStatCost not loaded")
+        assert stat_151 is not None
 
         assert stat_151.save_bits == 5
         assert stat_151.save_param_bits == 9
@@ -208,19 +168,15 @@ class TestVersionCompatibility:
         prop_list = PropertyList()
         prop_list.deserialize(bs, 0x63, data=self.v63)
 
-        assert prop_list._use_stat_cost
         found_151 = [p for p in prop_list.properties if p[0] == 151]
         assert len(found_151) == 1
         assert found_151[0][1] == 10
+        assert found_151[0][2] == 3
 
     def test_property_list_d2r_indestructible(self):
         """测试 D2R 模式下 stat 152 (item_indesctructible) 解析: save_bits=1"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         stat_152 = self.v63.get_stat(152)
-        if not stat_152:
-            pytest.skip("ItemStatCost not loaded")
+        assert stat_152 is not None
 
         assert stat_152.save_bits == 1
 
@@ -234,20 +190,16 @@ class TestVersionCompatibility:
         prop_list = PropertyList()
         prop_list.deserialize(bs, 0x63, data=self.v63)
 
-        assert prop_list._use_stat_cost
         found_152 = [p for p in prop_list.properties if p[0] == 152]
         assert len(found_152) == 1
         assert prop_list.is_indestructible()
 
     def test_property_list_paired_stats(self):
         """测试 D2R 模式下配对属性解析 (如 stat 17→18)"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         stat_17 = self.v63.get_stat(17)
         stat_18 = self.v63.get_stat(18)
-        if not stat_17 or not stat_18:
-            pytest.skip("ItemStatCost not loaded")
+        assert stat_17 is not None
+        assert stat_18 is not None
 
         obs = OBitStream()
         obs.write_bits(9, 17)
@@ -260,22 +212,21 @@ class TestVersionCompatibility:
         prop_list = PropertyList()
         prop_list.deserialize(bs, 0x63, data=self.v63)
 
-        assert prop_list._use_stat_cost
         found_17 = [p for p in prop_list.properties if p[0] == 17]
         found_18 = [p for p in prop_list.properties if p[0] == 18]
         assert len(found_17) == 1
         assert len(found_18) == 1
+        assert found_17[0][2] == 10
+        assert found_18[0][2] == 5
 
     def test_property_list_poison_does_not_inject_stat_88(self):
         """Poison stat 57 must read paired 58/59 without injecting stat 88 (Double Potion)."""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         stat_57 = self.v63.get_stat(57)
         stat_58 = self.v63.get_stat(58)
         stat_59 = self.v63.get_stat(59)
-        if not stat_57 or not stat_58 or not stat_59:
-            pytest.skip("ItemStatCost not loaded")
+        assert stat_57 is not None
+        assert stat_58 is not None
+        assert stat_59 is not None
 
         obs = OBitStream()
         obs.write_bits(9, 57)
@@ -298,9 +249,6 @@ class TestVersionCompatibility:
 
     def test_item_creation(self):
         """测试不同版本的物品创建"""
-        if not self._has_merged_data:
-            pytest.skip("Version data not loaded")
-
         item_63 = D2Item()
         assert item_63.magic == 19786
 
@@ -314,14 +262,10 @@ class TestDataFileCoverage:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
         self.manager = GameData.load(data_dir)
-        self.v63 = self.manager.for_version(0x63) if self.manager else None
-        self._has_merged_data = self.manager is not None and len(self.manager.version_data) > 0
+        self.v63 = self.manager.for_version(0x63)
 
     def test_key_properties_coverage(self):
         """测试关键属性是否都能找到"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         key_props = [
             0,
             1,
@@ -402,9 +346,6 @@ class TestDataFileCoverage:
 
     def test_key_items_coverage(self):
         """测试关键物品是否都能找到"""
-        if not self._has_merged_data or not self.v63:
-            pytest.skip("Version data not loaded")
-
         key_items = [
             b"skp ",
             b"jew ",

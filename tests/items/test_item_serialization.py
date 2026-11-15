@@ -4,12 +4,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.ibitstream import IBitStream
-from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
-from d2savior.core.loader import GameData
-from d2savior.core.obitstream import OBitStream
-from d2savior.core.stash import SharedStash
+from d2savior import D2Item, D2SStruct, GameData, IBitStream, OBitStream, SharedStash
+from d2savior.core.item import ExtItemInfo, ItemInfo, TypeSpecificInfo
 
 
 class TestItemSerialization(unittest.TestCase):
@@ -130,7 +126,7 @@ class TestItemSerialization(unittest.TestCase):
         jm_pos = raw_data.find(b"JM")
         assert jm_pos != -1
         bs_raw = IBitStream(raw_data)
-        bs_raw._offset = jm_pos * 8
+        bs_raw.seek_bytes(jm_pos)
         assert bs_raw.read_word() == 0x4D4A
         count = bs_raw.read_word()
 
@@ -142,7 +138,7 @@ class TestItemSerialization(unittest.TestCase):
             bit_len = end - start
 
             bs_slice = IBitStream(raw_data)
-            bs_slice._offset = start
+            bs_slice.seek_bits(start)
             orig_bits = [bs_slice.read_bits(1) for _ in range(bit_len)]
 
             obs = OBitStream()
@@ -202,13 +198,13 @@ class TestItemSerialization(unittest.TestCase):
                 try:
                     item.deserialize(bs_raw, item_format, False, data=vd)
                 except ValueError:
-                    bs_raw._offset = start
+                    bs_raw.seek_bits(start)
                     continue
                 end = bs_raw.get_offset()
                 bit_len = end - start
 
                 bs_slice = IBitStream(raw_data)
-                bs_slice._offset = start
+                bs_slice.seek_bits(start)
                 orig_bits = [bs_slice.read_bits(1) for _ in range(bit_len)]
 
                 obs = OBitStream()
@@ -251,8 +247,10 @@ class TestItemSerialization(unittest.TestCase):
         new_item = D2Item()
         new_item.deserialize(IBitStream(item_bytes), data=self.game_data)
         assert new_item.version == char.version
-        assert new_item._data is not None
-        assert new_item._data.version == char.version
+        assert new_item.type_name == first_item.type_name
+        obs2 = OBitStream()
+        new_item.serialize(obs2, char.version, write_magic=True, data=self.game_data)
+        assert obs2.get_data() == item_bytes
 
     def test_roundtrip_gold_item_d2r(self):
         vd = self.game_data.for_version(0x69)
@@ -262,7 +260,6 @@ class TestItemSerialization(unittest.TestCase):
         item = D2Item()
         item.version = 0x69
         item.is_simple = False
-        item._meta = meta
         item.item_info = ItemInfo(meta)
         item.item_info.type_name = b"gld "
         item.item_info.ext_info = ExtItemInfo(meta)
@@ -300,13 +297,12 @@ class TestItemSerialization(unittest.TestCase):
         item = D2Item()
         item.version = 0x69
         item.is_simple = False
-        item._meta = meta
         item.item_info = ItemInfo(meta)
         item.item_info.type_name = b"rin "
         item.item_info.ext_info = ExtItemInfo(meta)
         item.item_info.type_specific_info = TypeSpecificInfo(meta)
-        item._is_chronicle = True
-        item._is_chronicle_compact = True
+        item.is_chronicle = True
+        item.is_chronicle_compact = True
         item.chronicle_id = 42
         item.chronicle_compact_data = 0x123456789ABCDEF0
 
@@ -317,8 +313,8 @@ class TestItemSerialization(unittest.TestCase):
         item2 = D2Item()
         item2.deserialize(IBitStream(data), data=self.game_data)
 
-        assert item2._is_chronicle
-        assert item2._is_chronicle_compact
+        assert item2.is_chronicle
+        assert item2.is_chronicle_compact
         assert item2.chronicle_id == 42
         assert item2.chronicle_compact_data == 0x123456789ABCDEF0
 
@@ -334,13 +330,12 @@ class TestItemSerialization(unittest.TestCase):
         item = D2Item()
         item.version = 0x69
         item.is_simple = False
-        item._meta = meta
         item.item_info = ItemInfo(meta)
         item.item_info.type_name = b"amu "
         item.item_info.ext_info = ExtItemInfo(meta)
         item.item_info.type_specific_info = TypeSpecificInfo(meta)
-        item._is_chronicle = True
-        item._is_chronicle_compact = False
+        item.is_chronicle = True
+        item.is_chronicle_compact = False
         item.chronicle_id = 99
         item.chronicle_data_header = 0xAABBCCDD
         item.chronicle_entries = [0x1111222233334444, 0x5555666677778888]
@@ -352,8 +347,8 @@ class TestItemSerialization(unittest.TestCase):
         item2 = D2Item()
         item2.deserialize(IBitStream(data), data=self.game_data)
 
-        assert item2._is_chronicle
-        assert not item2._is_chronicle_compact
+        assert item2.is_chronicle
+        assert not item2.is_chronicle_compact
         assert item2.chronicle_id == 99
         assert item2.chronicle_data_header == 0xAABBCCDD
         assert item2.chronicle_entries == [0x1111222233334444, 0x5555666677778888]
