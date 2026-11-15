@@ -1,11 +1,9 @@
 import os
-from pathlib import Path
 
 import pytest
 
 from d2savior.core.loader import D2DataLoader, GameData
 from d2savior.core.localized_data import LocalizedDataLoader
-from d2savior.core.resolver import GameDataResolver
 
 
 class TestDataGuard:
@@ -70,9 +68,6 @@ class TestDataGuard:
         loc_loader = LocalizedDataLoader()
         with pytest.raises(FileNotFoundError):
             loc_loader.load_json_file(bogus_path)
-
-        with pytest.raises(FileNotFoundError):
-            GameDataResolver._load_item_modifiers(Path(bogus_path))
 
     def test_game_data_loaded_tables_non_empty(self):
         game_data = GameData.load(self.data_dir)

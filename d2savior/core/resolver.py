@@ -2,13 +2,12 @@
 
 from typing import TYPE_CHECKING, ClassVar
 lazy import importlib.resources
-lazy import json
 lazy from importlib.resources.abc import Traversable
 lazy from pathlib import Path
 
 lazy from d2savior.core.enums import CLASS_NAMES
-lazy from d2savior.core.loader import GameData, open_resource
-lazy from d2savior.core.localized_data import LocalizedDataLoader, resolve_localized_text
+lazy from d2savior.core.loader import GameData
+lazy from d2savior.core.localized_data import LocalizedDataLoader
 lazy from d2savior.core.models import (
     GemInfo,
     GemMod,
@@ -16,7 +15,6 @@ lazy from d2savior.core.models import (
     ItemMetaData,
     ItemTypeId,
     ItemTypeInfo,
-    LocalizedEntry,
     MagicAffixInfo,
     PropertyInfo,
     PropertyMetaDataItem,
@@ -39,7 +37,6 @@ class GameDataResolver:
         game_data_or_version: GameData | VersionData | int | None = None,
         game_data: GameData | None = None,
         loc: LocalizedDataLoader | None = None,
-        modifiers: dict[str, str] | None = None,
         lang_key: str = "enUS",
         version: int = 0x69,
     ) -> None:
@@ -68,7 +65,6 @@ class GameDataResolver:
             raise TypeError(f"Invalid game_data: {type(game_data_or_version)}")
 
         self.loc: LocalizedDataLoader | None = loc
-        self.modifiers = modifiers or {}
         self.lang_key = lang_key
 
     @classmethod
@@ -92,27 +88,13 @@ class GameDataResolver:
             local_dir = data_res.joinpath("local")
 
         loc = LocalizedDataLoader.load(local_dir, lang_key=lang_key)
-        modifiers = cls._load_item_modifiers(local_dir.joinpath("item-modifiers.json"), lang_key)
 
         return cls(
             game_data_or_version=game_data,
             loc=loc,
-            modifiers=modifiers,
             lang_key=lang_key,
             version=version,
         )
-
-    @staticmethod
-    def _load_item_modifiers(filepath: Traversable, lang_key: str = "enUS") -> dict[str, str]:
-        with open_resource(filepath, encoding="utf-8-sig") as f:
-            raw_data: list[LocalizedEntry] = json.load(f)
-        modifiers: dict[str, str] = {}
-        for item in raw_data:
-            key = item.get("Key", "")
-            text = resolve_localized_text(item, lang_key)
-            if key and text:
-                modifiers[key] = text
-        return modifiers
 
     def for_version(self, version: int) -> GameDataResolver:
         if self.version == version:
@@ -122,7 +104,6 @@ class GameDataResolver:
         return GameDataResolver(
             game_data_or_version=self.game_data,
             loc=self.loc,
-            modifiers=self.modifiers,
             lang_key=self.lang_key,
             version=version,
         )
@@ -182,7 +163,9 @@ class GameDataResolver:
         return self.data.is_descendant(item_type_code, ancestor_code)
 
     def get_item_modifier(self, key: str) -> str:
-        return self.modifiers.get(key, key)
+        if self.loc is not None:
+            return self.loc.get_item_modifier(key)
+        return key
 
     def format_property(self, prop_id: int, params: list[int], version: int | None = None) -> str:
         from d2savior.core.property import format_property as _format_property

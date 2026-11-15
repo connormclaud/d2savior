@@ -5,10 +5,10 @@ from warnings import deprecated
 lazy import importlib.resources
 lazy import json
 lazy from importlib.resources.abc import Traversable
-lazy from itertools import batched
 lazy from pathlib import Path
 lazy from typing import IO, ClassVar
 
+lazy from d2savior.core.constants import SET_ITEM_NAMES
 lazy from d2savior.core.models import (
     GemInfo,
     GemMod,
@@ -74,11 +74,13 @@ class TsvRow:
         return default
 
     def get_int(self, col_name: str, default: int = 0) -> int:
-        """Return cell value parsed as int, or default if empty or non-numeric."""
+        """Return cell value parsed as int (supports 0x hex), or default if empty or non-numeric."""
         raw = self.get(col_name).strip()
         if not raw:
             return default
         try:
+            if raw.startswith(("0x", "0X")):
+                return int(raw, 16)
             return int(raw)
         except ValueError:
             return default
@@ -97,6 +99,7 @@ class TsvReader:
         *,
         skip_expansion: bool = True,
         strip_cells: bool = True,
+        header_prefix: str | None = None,
     ) -> None:
         self._skip_expansion = skip_expansion
         self._strip_cells = strip_cells
@@ -109,9 +112,21 @@ class TsvReader:
             self._data_lines: list[str] = []
             return
 
-        header = lines[0].rstrip("\r\n").split("\t")
+        header_idx = 0
+        if header_prefix is not None:
+            found = next(
+                (i for i, line in enumerate(lines) if line.strip().startswith(header_prefix)),
+                None,
+            )
+            if found is None:
+                self._col_map = {}
+                self._data_lines = []
+                return
+            header_idx = found
+
+        header = lines[header_idx].rstrip("\r\n").split("\t")
         self._col_map = {col.strip().lower(): i for i, col in enumerate(header)}
-        self._data_lines = lines[1:]
+        self._data_lines = lines[header_idx + 1 :]
 
     def has_columns(self, *col_names: str) -> bool:
         """Return True if all specified column names exist in the table header."""
@@ -341,19 +356,18 @@ class D2DataLoader:
 
         return unique_items
 
-    def load_runewords(
-        self, runes_path: str | Traversable, json_path: str | Traversable | None = None
-    ) -> dict[int, RuneWordInfo]:
-        """Load runewords from game table (runes.txt) with localized names from item-runes.json."""
-        name_str = runes_path if isinstance(runes_path, str) else runes_path.name
+    @staticmethod
+    def _resolve_table_and_json(
+        primary_path: str | Traversable,
+        json_path: str | Traversable | None = None,
+    ) -> tuple[str | Traversable | None, dict[str, LocalizedEntry]]:
+        """Resolve optional .txt table path and load localized JSON entries keyed by 'Key'."""
+        name_str = primary_path if isinstance(primary_path, str) else primary_path.name
         if json_path is None and name_str.endswith(".json"):
-            json_file: str | Traversable | None = runes_path
-            runes_file: str | Traversable | None = None
-        elif json_path is None:
-            json_file = None
-            runes_file = runes_path
+            table_file: str | Traversable | None = None
+            json_file: str | Traversable | None = primary_path
         else:
-            runes_file = runes_path
+            table_file = primary_path
             json_file = json_path
 
         json_by_key: dict[str, LocalizedEntry] = {}
@@ -361,9 +375,16 @@ class D2DataLoader:
             with _open_resource(json_file, encoding="utf-8-sig") as f:
                 data: list[LocalizedEntry] = json.load(f)
             for item in data:
-                key = item.get("Key", "")
-                if key:
+                if isinstance(item, dict) and (key := item.get("Key", "")):
                     json_by_key[key] = item
+
+        return table_file, json_by_key
+
+    def load_runewords(
+        self, runes_path: str | Traversable, json_path: str | Traversable | None = None
+    ) -> dict[int, RuneWordInfo]:
+        """Load runewords from game table (runes.txt) with localized names from item-runes.json."""
+        runes_file, json_by_key = self._resolve_table_and_json(runes_path, json_path)
 
         runewords: dict[int, RuneWordInfo] = {}
 
@@ -449,175 +470,13 @@ class D2DataLoader:
             if rw_id in runewords and rw.rune_codes and not runewords[rw_id].rune_codes:
                 runewords[rw_id].rune_codes = rw.rune_codes
 
-    SET_ITEM_NAMES: ClassVar[tuple[str, ...]] = (
-        "Civerb's Ward",
-        "Civerb's Icon",
-        "Civerb's Cudgel",
-        "Hsarus' Iron Heel",
-        "Hsarus' Iron Fist",
-        "Hsarus' Iron Stay",
-        "Cleglaw's Tooth",
-        "Cleglaw's Claw",
-        "Cleglaw's Pincers",
-        "Iratha's Collar",
-        "Iratha's Cuff",
-        "Iratha's Coil",
-        "Iratha's Cord",
-        "Isenhart's Lightbrand",
-        "Isenhart's Parry",
-        "Isenhart's Case",
-        "Isenhart's Horns",
-        "Vidala's Barb",
-        "Vidala's Fetlock",
-        "Vidala's Ambush",
-        "Vidala's Snare",
-        "Milabrega's Orb",
-        "Milabrega's Rod",
-        "Milabrega's Diadem",
-        "Milabrega's Robe",
-        "Cathan's Rule",
-        "Cathan's Mesh",
-        "Cathan's Visage",
-        "Cathan's Sigil",
-        "Cathan's Seal",
-        "Tancred's Crowbill",
-        "Tancred's Spine",
-        "Tancred's Hobnails",
-        "Tancred's Weird",
-        "Tancred's Skull",
-        "Sigon's Gage",
-        "Sigon's Visor",
-        "Sigon's Shelter",
-        "Sigon's Sabot",
-        "Sigon's Wrap",
-        "Sigon's Guard",
-        "Infernal Cranium",
-        "Infernal Torch",
-        "Infernal Sign",
-        "Berserker's Headgear",
-        "Berserker's Hauberk",
-        "Berserker's Hatchet",
-        "Death's Hand",
-        "Death's Guard",
-        "Death's Touch",
-        "Angelic Sickle",
-        "Angelic Mantle",
-        "Angelic Halo",
-        "Angelic Wings",
-        "Arctic Horn",
-        "Arctic Furs",
-        "Arctic Binding",
-        "Arctic Mitts",
-        "Arcanna's Sign",
-        "Arcanna's Deathwand",
-        "Arcanna's Head",
-        "Arcanna's Flesh",
-        "Natalya's Totem",
-        "Natalya's Mark",
-        "Natalya's Shadow",
-        "Natalya's Soul",
-        "Aldur's Stony Gaze",
-        "Aldur's Deception",
-        "Aldur's Gauntlet",
-        "Aldur's Advance",
-        "Immortal King's Will",
-        "Immortal King's Soul Cage",
-        "Immortal King's Detail",
-        "Immortal King's Forge",
-        "Immortal King's Pillar",
-        "Immortal King's Stone Crusher",
-        "Tal Rasha's Fine-Spun Cloth",
-        "Tal Rasha's Adjudication",
-        "Tal Rasha's Lidless Eye",
-        "Tal Rasha's Guardianship",
-        "Tal Rasha's Horadric Crest",
-        "Griswold's Valor",
-        "Griswold's Heart",
-        "Griswold's Redemption",
-        "Griswold's Honor",
-        "Trang-Oul's Guise",
-        "Trang-Oul's Scales",
-        "Trang-Oul's Wing",
-        "Trang-Oul's Claws",
-        "Trang-Oul's Girth",
-        "M'avina's True Sight",
-        "M'avina's Embrace",
-        "M'avina's Icy Clutch",
-        "M'avina's Tenet",
-        "M'avina's Caster",
-        "Telling of Beads",
-        "Laying of Hands",
-        "Rite of Passage",
-        "Spiritual Custodian",
-        "Credendum",
-        "Dangoon's Teaching",
-        "Heaven's Taebaek",
-        "Haemosu's Adament",
-        "Ondal's Almighty",
-        "Guillaume's Face",
-        "Wilhelm's Pride",
-        "Magnus' Skin",
-        "Wihtstan's Guard",
-        "Hwanin's Splendor",
-        "Hwanin's Refuge",
-        "Hwanin's Seal",
-        "Hwanin's Justice",
-        "Sazabi's Cobalt Redeemer",
-        "Sazabi's Ghost Liberator",
-        "Sazabi's Mental Sheath",
-        "Bul-Kathos' Sacred Charge",
-        "Bul-Kathos' Tribal Guardian",
-        "Cow King's Horns",
-        "Cow King's Hide",
-        "Cow King's Hoofs",
-        "Naj's Puzzler",
-        "Naj's Light Plate",
-        "Naj's Circlet",
-        "McAuley's Paragon",
-        "McAuley's Riprap",
-        "McAuley's Taboo",
-        "McAuley's Superstition",
-        "Warlord's Lust",
-        "Warlord's Conquest",
-        "Warlord's Mantle",
-        "Warlord's Crushers",
-        "Warlord's Authority",
-        "Bane's Oathmaker",
-        "Bane's Wraithskin",
-        "Bane's Authority",
-        "Horazon's Countenance",
-        "Horazon's Dominion",
-        "Horazon's Hold",
-        "Horazon's Legacy",
-        "Horazon's Secrets",
-    )
-
     def load_set_items(
         self,
         setitems_path: str | Traversable,
         json_path: str | Traversable | None = None,
     ) -> dict[int, SetItemInfo]:
         """Load set items from game table (setitems.txt) with localized names from item-names.json."""
-        name_str = setitems_path if isinstance(setitems_path, str) else setitems_path.name
-        if json_path is None and name_str.endswith(".json"):
-            json_file: str | Traversable | None = setitems_path
-            table_file: str | Traversable | None = None
-        elif json_path is None:
-            json_file = None
-            table_file = setitems_path
-        else:
-            table_file = setitems_path
-            json_file = json_path
-
-        json_by_key: dict[str, LocalizedEntry] = {}
-        if json_file:
-            with _open_resource(json_file, encoding="utf-8-sig") as f:
-                data: list[LocalizedEntry] = json.load(f)
-            for item in data:
-                if isinstance(item, dict):
-                    key = item.get("Key", "")
-                    if key:
-                        json_by_key[key] = item
+        table_file, json_by_key = self._resolve_table_and_json(setitems_path, json_path)
 
         set_items: dict[int, SetItemInfo] = {}
 
@@ -628,7 +487,7 @@ class D2DataLoader:
                 if (key := row.get("index")) and (row_id := row.get_int("*ID", -1)) >= 0
             )
         else:
-            entries = ((name, idx) for idx, name in enumerate(self.SET_ITEM_NAMES))
+            entries = ((name, idx) for idx, name in enumerate(SET_ITEM_NAMES))
 
         for name, row_id in entries:
             json_entry = json_by_key.get(name, {})
@@ -964,65 +823,34 @@ class D2DataLoader:
     def load_property_meta(self, filepath: str | Traversable) -> dict[int, PropertyMetaData]:
         properties: dict[int, PropertyMetaData] = {}
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith("*"):
+        for row in TsvReader(filepath, header_prefix="*ID"):
+            prop_id = row.get_int("*ID", -1)
+            if prop_id < 0:
                 continue
 
-            parts = line.split("\t")
-            if len(parts) < 1:
-                continue
-
-            try:
-                prop_id = int(parts[0])
-            except ValueError:
-                continue
-
-            ver_min = 0
-            if len(parts) > 1 and parts[1]:
-                if parts[1].startswith("0x"):
-                    ver_min = int(parts[1], 16)
-                else:
-                    try:
-                        ver_min = int(parts[1])
-                    except ValueError:
-                        ver_min = 0
-
-            default_value = 0
-            if len(parts) > 2 and parts[2]:
-                if parts[2].startswith("0x"):
-                    default_value = int(parts[2], 16)
-                else:
-                    try:
-                        default_value = int(parts[2])
-                    except ValueError:
-                        default_value = 0
+            ver_min = row.get_int("VersionMin")
+            default_value = row.get_int("DefaultValue")
 
             fields: list[PropertyField] = []
             bits_sum = 0
 
-            for chunk in batched(parts[3:], 4, strict=False):
-                bits_str = chunk[0]
+            for i in range(1, 5):
+                bits_str = row.get(f"Arg{i}Bits")
                 if not bits_str:
                     break
-
                 try:
                     bits = int(bits_str)
-                    base_str = chunk[1] if len(chunk) > 1 else ""
-                    min_str = chunk[2] if len(chunk) > 2 else ""
-                    max_str = chunk[3] if len(chunk) > 3 else ""
-
-                    base = int(base_str) if base_str else 0
-                    min_val = int(min_str) if min_str else 0
-                    max_val = int(max_str) if max_str else 0
-
-                    fields.append(PropertyField(bits, base, min_val, max_val))
-                    bits_sum += bits
                 except ValueError:
                     break
+                fields.append(
+                    PropertyField(
+                        bits,
+                        row.get_int(f"Base{i}"),
+                        row.get_int(f"Min{i}"),
+                        row.get_int(f"Max{i}"),
+                    )
+                )
+                bits_sum += bits
 
             while len(fields) < 4:
                 fields.append(PropertyField())
@@ -1038,91 +866,38 @@ class D2DataLoader:
     def load_itemdata(self, filepath: str | Traversable) -> ItemMetaDataManager:
         manager = ItemMetaDataManager()
 
-        with _open_resource(filepath, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-
-        has_version_min = False
-        for line in lines:
-            if line.strip().startswith("*ID"):
-                if "VersionMin" in line:
-                    has_version_min = True
-                break
-
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith("*"):
+        for row in TsvReader(filepath, header_prefix="*ID"):
+            raw_type_id = row.get("*ID")
+            if not raw_type_id:
                 continue
-
-            parts = line.split("\t")
-            if len(parts) < 2:
-                continue
-
-            type_id = parts[0].ljust(4)[:4].encode("ascii")
-
-            def parse_int(s: str, default: int = 0) -> int:
-                if not s:
-                    return default
-                try:
-                    return int(s)
-                except ValueError:
-                    return default
-
-            def parse_bool(s: str) -> bool:
-                return s == "1"
-
-            def parse_version(s: str) -> int:
-                if not s:
-                    return 0
-                if s.startswith("0x"):
-                    return int(s, 16)
-                try:
-                    return int(s)
-                except ValueError:
-                    return 0
-
-            idx_offset = 1 if has_version_min else 0
-            ver_min = parse_version(parts[1]) if has_version_min and len(parts) > 1 else 0
+            type_id = raw_type_id.ljust(4)[:4].encode("ascii")
 
             item = ItemMetaData(
                 type_id=type_id,
-                ver_min=ver_min,
-                pic_index=parse_int(parts[1 + idx_offset]) if len(parts) > 1 + idx_offset else 0,
-                name_index=parse_int(parts[2 + idx_offset]) if len(parts) > 2 + idx_offset else 0,
-                range_val=parse_int(parts[3 + idx_offset]) if len(parts) > 3 + idx_offset else 0,
-                equip=parse_int(parts[4 + idx_offset]) if len(parts) > 4 + idx_offset else 0,
-                simple=parse_bool(parts[5 + idx_offset]) if len(parts) > 5 + idx_offset else False,
-                normal=parse_bool(parts[6 + idx_offset]) if len(parts) > 6 + idx_offset else False,
-                white=parse_bool(parts[7 + idx_offset]) if len(parts) > 7 + idx_offset else False,
-                is_new=parse_bool(parts[8 + idx_offset]) if len(parts) > 8 + idx_offset else False,
-                has_def=parse_bool(parts[9 + idx_offset]) if len(parts) > 9 + idx_offset else False,
-                has_dur=parse_bool(parts[10 + idx_offset])
-                if len(parts) > 10 + idx_offset
-                else False,
-                is_stacked=parse_bool(parts[11 + idx_offset])
-                if len(parts) > 11 + idx_offset
-                else False,
-                has_monster_id=parse_bool(parts[12 + idx_offset])
-                if len(parts) > 12 + idx_offset
-                else False,
-                is_charm=parse_bool(parts[13 + idx_offset])
-                if len(parts) > 13 + idx_offset
-                else False,
-                spell_id=parse_int(parts[14 + idx_offset]) if len(parts) > 14 + idx_offset else 0,
-                is_unique=parse_bool(parts[15 + idx_offset])
-                if len(parts) > 15 + idx_offset
-                else False,
-                is_craft=parse_bool(parts[16 + idx_offset])
-                if len(parts) > 16 + idx_offset
-                else False,
-                is_gem=parse_bool(parts[17 + idx_offset])
-                if len(parts) > 17 + idx_offset
-                else False,
-                dmg1_min=parse_int(parts[18 + idx_offset]) if len(parts) > 18 + idx_offset else 0,
-                dmg1_max=parse_int(parts[19 + idx_offset]) if len(parts) > 19 + idx_offset else 0,
-                dmg2_min=parse_int(parts[20 + idx_offset]) if len(parts) > 20 + idx_offset else 0,
-                dmg2_max=parse_int(parts[21 + idx_offset]) if len(parts) > 21 + idx_offset else 0,
-                ipad_bits=parse_int(parts[22 + idx_offset]) if len(parts) > 22 + idx_offset else 0,
-                ipad=parse_int(parts[23 + idx_offset]) if len(parts) > 23 + idx_offset else 0,
+                ver_min=row.get_int("VersionMin"),
+                pic_index=row.get_int("Pic"),
+                name_index=row.get_int("Name"),
+                range_val=row.get_int("Range"),
+                equip=row.get_int("Equip"),
+                simple=row.get_bool("bSimple"),
+                normal=row.get_bool("bNormal"),
+                white=row.get_bool("bWhite"),
+                is_new=row.get_bool("bNew"),
+                has_def=row.get_bool("bDef"),
+                has_dur=row.get_bool("bDur"),
+                is_stacked=row.get_bool("bStack"),
+                has_monster_id=row.get_bool("bMonst"),
+                is_charm=row.get_bool("bCharm"),
+                spell_id=row.get_int("iSpell"),
+                is_unique=row.get_bool("bUnique"),
+                is_craft=row.get_bool("bCraft"),
+                is_gem=row.get_bool("bGem"),
+                dmg1_min=row.get_int("Dmg1Min"),
+                dmg1_max=row.get_int("Dmg1Max"),
+                dmg2_min=row.get_int("Dmg2Min"),
+                dmg2_max=row.get_int("Dmg2Max"),
+                ipad_bits=row.get_int("iPadBits"),
+                ipad=row.get_int("bPad"),
             )
             manager.add_item(item)
 
