@@ -651,16 +651,17 @@ def format_char_list(records: Sequence[CharListRow] | Sequence[Mapping[str, obje
     return "\n".join(lines)
 
 
-def format_char_find(
+def _collect_char_find_matches(
     char_data: D2SStruct,
     pattern: str,
-    resolver: GameDataResolver,
-    summary: bool = True,
-) -> str | None:
-    """Format matching items found in a character save file."""
-    version = char_data.version
-    char_resolver = resolver.for_version(version)
-
+    char_resolver: GameDataResolver,
+    version: int,
+) -> tuple[
+    list[tuple[EquipSlot, D2Item]],
+    list[tuple[str, D2Item]],
+    list[D2Item],
+    list[tuple[str, D2Item]],
+]:
     cats = char_data.item_list.categorize()
     equipped_matches: list[tuple[EquipSlot, D2Item]] = [
         (EquipSlot(pos), it)
@@ -668,8 +669,9 @@ def format_char_find(
         if pos in EquipSlot
         and item_matches_pattern(it, pattern, resolver=char_resolver, version=version)
     ]
-    merc_matches: list[tuple[str, D2Item]] = []
-    corpse_matches: list[D2Item] = []
+    slot_order = {slot: idx for idx, slot in enumerate(EquipSlot)}
+    equipped_matches.sort(key=lambda pair: slot_order.get(pair[0], 999))
+
     stored_matches: list[tuple[str, D2Item]] = [
         (label, it)
         for label, bucket in (
@@ -683,9 +685,7 @@ def format_char_find(
         if item_matches_pattern(it, pattern, resolver=char_resolver, version=version)
     ]
 
-    slot_order = {slot: idx for idx, slot in enumerate(EquipSlot)}
-    equipped_matches.sort(key=lambda pair: slot_order.get(pair[0], 999))
-
+    merc_matches: list[tuple[str, D2Item]] = []
     if (
         char_data.is_expansion()
         and char_data.has_mercenary()
@@ -695,80 +695,143 @@ def format_char_find(
         for m_item in char_data.mercenary.items.items:
             if item_matches_pattern(m_item, pattern, resolver=char_resolver, version=version):
                 loc = ItemLocation(m_item.location)
-                slot_str = ""
-                if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot:
-                    slot_str = f"{EquipSlot(m_item.position).display_name}: "
+                slot_str = (
+                    f"{EquipSlot(m_item.position).display_name}: "
+                    if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot
+                    else ""
+                )
                 merc_matches.append((slot_str, m_item))
 
+    corpse_matches: list[D2Item] = []
     if (
         char_data.corpse.has_corpse()
         and char_data.corpse.corpse_data
         and char_data.corpse.corpse_data.items
     ):
-        for c_item in char_data.corpse.corpse_data.items.items:
-            if item_matches_pattern(c_item, pattern, resolver=char_resolver, version=version):
-                corpse_matches.append(c_item)
+        corpse_matches = [
+            c_item
+            for c_item in char_data.corpse.corpse_data.items.items
+            if item_matches_pattern(c_item, pattern, resolver=char_resolver, version=version)
+        ]
 
-    if not equipped_matches and not merc_matches and not corpse_matches and not stored_matches:
+    return equipped_matches, merc_matches, corpse_matches, stored_matches
+
+
+def _format_find_summary_lines(
+    equipped_matches: list[tuple[EquipSlot, D2Item]],
+    merc_matches: list[tuple[str, D2Item]],
+    corpse_matches: list[D2Item],
+    stored_matches: list[tuple[str, D2Item]],
+    char_resolver: GameDataResolver,
+    version: int,
+) -> FormattedLines:
+    result: FormattedLines = []
+    if equipped_matches:
+        result.append("=== Equipped Gear ===")
+        result.extend(
+            f"- {slot.display_name}: {format_item_summary(it, resolver=char_resolver, version=version)}"
+            for slot, it in equipped_matches
+        )
+    if merc_matches:
+        result.extend(["=== Mercenary ===", "Equipped:"])
+        result.extend(
+            f"  - {slot_str}{format_item_summary(m_it, resolver=char_resolver, version=version)}"
+            for slot_str, m_it in merc_matches
+        )
+    if corpse_matches:
+        result.append("=== Corpse ===")
+        result.extend(
+            f"- [Corpse] {format_item_summary(c_it, resolver=char_resolver, version=version)}"
+            for c_it in corpse_matches
+        )
+    if stored_matches:
+        result.append("=== Inventory & Stash ===")
+        result.extend(
+            f"- {label} {format_item_summary(it, resolver=char_resolver, version=version)}"
+            for label, it in stored_matches
+        )
+    return result
+
+
+def _format_find_detail_lines(
+    equipped_matches: list[tuple[EquipSlot, D2Item]],
+    merc_matches: list[tuple[str, D2Item]],
+    corpse_matches: list[D2Item],
+    stored_matches: list[tuple[str, D2Item]],
+    char_resolver: GameDataResolver,
+    version: int,
+) -> FormattedLines:
+    sections: list[tuple[str, list[tuple[str, D2Item]]]] = []
+    if equipped_matches:
+        sections.append(
+            (
+                "=== Equipped Gear ===",
+                [(f"--- Equipped: {slot.display_name} ---", it) for slot, it in equipped_matches],
+            )
+        )
+    if merc_matches:
+        sections.append(
+            (
+                "=== Mercenary ===",
+                [
+                    (f"--- Mercenary: {slot_str.rstrip(': ') or 'Item'} ---", m_it)
+                    for slot_str, m_it in merc_matches
+                ],
+            )
+        )
+    if corpse_matches:
+        sections.append(
+            ("=== Corpse ===", [("--- Corpse Item ---", c_it) for c_it in corpse_matches])
+        )
+    if stored_matches:
+        sections.append(
+            (
+                "=== Inventory & Stash ===",
+                [(f"--- {label} ---", it) for label, it in stored_matches],
+            )
+        )
+
+    result: FormattedLines = []
+    for heading, entries in sections:
+        result.append(heading)
+        for subheading, item in entries:
+            result.append(subheading)
+            result.extend(_format_item_lines(item, resolver=char_resolver, version=version))
+    return result
+
+
+def format_char_find(
+    char_data: D2SStruct,
+    pattern: str,
+    resolver: GameDataResolver,
+    summary: bool = True,
+) -> str | None:
+    """Format matching items found in a character save file."""
+    version = char_data.version
+    char_resolver = resolver.for_version(version)
+
+    equipped_matches, merc_matches, corpse_matches, stored_matches = _collect_char_find_matches(
+        char_data, pattern, char_resolver, version
+    )
+    if not (equipped_matches or merc_matches or corpse_matches or stored_matches):
         return None
 
     char_name = char_data.get_char_name().strip() or "Unknown"
     char_class = char_resolver.get_localized_class_name(char_data.char_class)
-    char_level = char_data.char_level
-
-    result = []
     header_mode = "Summary" if summary else "Info"
-    result.append(
-        f"=== Diablo II Character {header_mode}: {char_name} ({char_class}, Level {char_level}) ==="
+    result = [
+        f"=== Diablo II Character {header_mode}: {char_name} ({char_class}, Level {char_data.char_level}) ==="
+    ]
+
+    formatter = _format_find_summary_lines if summary else _format_find_detail_lines
+    result.extend(
+        formatter(
+            equipped_matches,
+            merc_matches,
+            corpse_matches,
+            stored_matches,
+            char_resolver,
+            version,
+        )
     )
-
-    if summary:
-        if equipped_matches:
-            result.append("=== Equipped Gear ===")
-            for slot, it in equipped_matches:
-                result.append(
-                    f"- {slot.display_name}: {format_item_summary(it, resolver=char_resolver, version=version)}"
-                )
-        if merc_matches:
-            result.append("=== Mercenary ===")
-            result.append("Equipped:")
-            for slot_str, m_it in merc_matches:
-                result.append(
-                    f"  - {slot_str}{format_item_summary(m_it, resolver=char_resolver, version=version)}"
-                )
-        if corpse_matches:
-            result.append("=== Corpse ===")
-            for c_it in corpse_matches:
-                result.append(
-                    f"- [Corpse] {format_item_summary(c_it, resolver=char_resolver, version=version)}"
-                )
-        if stored_matches:
-            result.append("=== Inventory & Stash ===")
-            for label, it in stored_matches:
-                result.append(
-                    f"- {label} {format_item_summary(it, resolver=char_resolver, version=version)}"
-                )
-    else:
-        if equipped_matches:
-            result.append("=== Equipped Gear ===")
-            for slot, it in equipped_matches:
-                result.append(f"--- Equipped: {slot.display_name} ---")
-                result.extend(_format_item_lines(it, resolver=char_resolver, version=version))
-        if merc_matches:
-            result.append("=== Mercenary ===")
-            for slot_str, m_it in merc_matches:
-                slot_label = slot_str.rstrip(": ") or "Item"
-                result.append(f"--- Mercenary: {slot_label} ---")
-                result.extend(_format_item_lines(m_it, resolver=char_resolver, version=version))
-        if corpse_matches:
-            result.append("=== Corpse ===")
-            for c_it in corpse_matches:
-                result.append("--- Corpse Item ---")
-                result.extend(_format_item_lines(c_it, resolver=char_resolver, version=version))
-        if stored_matches:
-            result.append("=== Inventory & Stash ===")
-            for label, it in stored_matches:
-                result.append(f"--- {label} ---")
-                result.extend(_format_item_lines(it, resolver=char_resolver, version=version))
-
     return "\n".join(result).rstrip()
