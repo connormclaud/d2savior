@@ -160,6 +160,27 @@ class ExtItemInfo:
         )
 
 
+def _resolve_version_data(
+    data: VersionData | GameData | GameDataResolver | None, version: int
+) -> VersionData:
+    if isinstance(data, GameDataResolver):
+        return data.game_data.for_version(version)
+    if isinstance(data, GameData):
+        return data.for_version(version)
+    if data is not None:
+        return data
+    raise ValueError(
+        f"VersionData or GameData is required to parse item properties for version {version:#x}"
+    )
+
+
+def _stat_save_bits(d: VersionData, stat_id: int, default: int, use_stat_cost: bool) -> int:
+    if not use_stat_cost:
+        return default
+    stat = d.get_stat(stat_id)
+    return stat.save_bits if stat else default
+
+
 class TypeSpecificInfo:
     def __init__(self, meta: ItemMetaData | None = None) -> None:
         self.defence: int | None = None
@@ -194,6 +215,57 @@ class TypeSpecificInfo:
     def is_indestructible(self) -> bool:
         return self.max_durability == 0 or self.property_list.is_indestructible()
 
+    def _codec_defence(self, io: BitIO, d: VersionData, use_stat_cost: bool) -> None:
+        def_bits = _stat_save_bits(d, 31, 11, use_stat_cost)
+        self.defence = io.bits(def_bits, self.defence or 0)
+
+    def _codec_durability(self, io: BitIO, d: VersionData, use_stat_cost: bool) -> None:
+        max_dur_bits = _stat_save_bits(d, 73, 8, use_stat_cost)
+        dur_bits = _stat_save_bits(d, 72, 9, use_stat_cost)
+        self.max_durability = io.bits(max_dur_bits, self.max_durability or 0)
+        if self.max_durability and self.max_durability > 0:
+            self.current_durability = io.bits(dur_bits, self.current_durability or 0)
+
+    def _codec_quantity(self, io: BitIO, version: int, is_stacked: bool) -> None:
+        if version >= 0x69:
+            self.quantity = io.opt_bits(9, self.quantity)
+        elif is_stacked:
+            self.quantity = io.bits(9, self.quantity or 0)
+
+    def _codec_sockets(self, io: BitIO, d: VersionData, use_stat_cost: bool) -> None:
+        sock_bits = _stat_save_bits(d, 194, 3, use_stat_cost) if use_stat_cost else 4
+        self.sockets_count = io.bits(
+            sock_bits,
+            self.sockets_count if self.sockets_count is not None else 1,
+        )
+        if io.is_reading and self.sockets_count < 1:
+            self.sockets_count = 1
+
+    def _codec_set_flags(self, io: BitIO, is_set: bool) -> None:
+        if not is_set:
+            self.has_set_prop_list = [False] * 5
+            return
+        if io.is_reading:
+            self.has_set_prop_list = [io.bit() for _ in range(5)]
+        else:
+            for has_prop in self.has_set_prop_list:
+                io.bit(has_prop)
+
+    def _codec_set_properties(self, io: BitIO, version: int, d: VersionData) -> None:
+        if io.is_reading:
+            self.set_properties = []
+            for has_prop in self.has_set_prop_list[:5]:
+                if has_prop:
+                    prop_list = PropertyList()
+                    prop_list.codec(io, version, d)
+                    self.set_properties.append(prop_list)
+                else:
+                    self.set_properties.append(None)
+        else:
+            for i, prop_list in enumerate(self.set_properties):
+                if i < len(self.has_set_prop_list) and self.has_set_prop_list[i] and prop_list:
+                    prop_list.codec(io, version, d)
+
     def codec(
         self,
         io: BitIO,
@@ -203,101 +275,32 @@ class TypeSpecificInfo:
         is_runeword: bool = False,
         data: VersionData | GameData | GameDataResolver | None = None,
     ) -> None:
-        if isinstance(data, GameDataResolver):
-            d = data.game_data.for_version(version)
-        elif isinstance(data, GameData):
-            d = data.for_version(version)
-        elif data is not None:
-            d = data
-        else:
-            d = None
-
-        if d is None:
-            raise ValueError(
-                f"VersionData or GameData is required to parse item properties for version {version:#x}"
-            )
+        d = _resolve_version_data(data, version)
         self._data = d
 
         meta = self._meta
-        has_def = meta.has_def if meta else False
-        has_dur = meta.has_dur if meta else False
-        is_stacked = meta.is_stacked if meta else False
         use_stat_cost = is_d2r(version)
-        d2r_order = is_d2r(version)
 
-        if has_def:
-            if use_stat_cost:
-                ac_stat = d.get_stat(31)
-                def_bits = ac_stat.save_bits if ac_stat else 11
-            else:
-                def_bits = 11
-            self.defence = io.bits(def_bits, self.defence or 0)
+        if meta and meta.has_def:
+            self._codec_defence(io, d, use_stat_cost)
+        if meta and meta.has_dur:
+            self._codec_durability(io, d, use_stat_cost)
 
-        if has_dur:
-            if use_stat_cost:
-                max_dur_stat = d.get_stat(73)
-                max_dur_bits = max_dur_stat.save_bits if max_dur_stat else 8
-                dur_stat = d.get_stat(72)
-                dur_bits = dur_stat.save_bits if dur_stat else 9
-            else:
-                max_dur_bits = 8
-                dur_bits = 9
-            self.max_durability = io.bits(max_dur_bits, self.max_durability or 0)
-            if self.max_durability and self.max_durability > 0:
-                self.current_durability = io.bits(dur_bits, self.current_durability or 0)
-
-        def _rw_quantity() -> None:
-            if version >= 0x69:
-                self.quantity = io.opt_bits(9, self.quantity)
-            elif is_stacked:
-                self.quantity = io.bits(9, self.quantity or 0)
-
-        def _rw_sockets() -> None:
+        is_stacked = meta.is_stacked if meta else False
+        if use_stat_cost:
+            self._codec_quantity(io, version, is_stacked)
             if is_socketed:
-                if use_stat_cost:
-                    sock_stat = d.get_stat(194)
-                    sock_bits = sock_stat.save_bits if sock_stat else 3
-                else:
-                    sock_bits = 4
-                self.sockets_count = io.bits(
-                    sock_bits,
-                    self.sockets_count if self.sockets_count is not None else 1,
-                )
-                if io.is_reading and self.sockets_count < 1:
-                    self.sockets_count = 1
-
-        if d2r_order:
-            _rw_quantity()
-            _rw_sockets()
+                self._codec_sockets(io, d, use_stat_cost)
         else:
-            _rw_sockets()
-            _rw_quantity()
+            if is_socketed:
+                self._codec_sockets(io, d, use_stat_cost)
+            self._codec_quantity(io, version, is_stacked)
 
-        if is_set:
-            if io.is_reading:
-                self.has_set_prop_list = [io.bit() for _ in range(5)]
-            else:
-                for has_prop in self.has_set_prop_list:
-                    io.bit(has_prop)
-        else:
-            self.has_set_prop_list = [False] * 5
-
+        self._codec_set_flags(io, is_set)
         self.property_list.codec(io, version, d)
 
         if is_set:
-            if io.is_reading:
-                self.set_properties = []
-                for i in range(5):
-                    if self.has_set_prop_list[i]:
-                        prop_list = PropertyList()
-                        prop_list.codec(io, version, d)
-                        self.set_properties.append(prop_list)
-                    else:
-                        self.set_properties.append(None)
-            else:
-                for i, prop_list in enumerate(self.set_properties):
-                    if i < len(self.has_set_prop_list) and self.has_set_prop_list[i] and prop_list:
-                        prop_list.codec(io, version, d)
+            self._codec_set_properties(io, version, d)
 
         if is_runeword:
             if io.is_reading:
