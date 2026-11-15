@@ -857,7 +857,7 @@ Total items: 69
   Suffix: 594 (сниженного сопротивления)
   Durability: 15/15
   Properties:
-    - Level 1 Снижение сопротивления (66/67 Charges)
+    - «Снижение сопротивления» 1-го уровня (66/67 зарядов)
 --- Item 51 ---
   Type: mgl  (Chain Gloves)
   Location: STORED, Position: 0
@@ -1181,7 +1181,7 @@ Mercenary items: 3
     - +5 к умению «Критический удар»
     - +35% к скорости применения умений
     - +229% к рейтингу атаки
-    - Level 15 Медитация Aura When Equipped
+    - При надевании дает ауру «Медитация» 15-го уровня
   Socketed Item [0]:
     Type: r08  (Ral Rune)
     Required Level: 19

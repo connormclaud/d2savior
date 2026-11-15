@@ -85,6 +85,67 @@ def get_time_name(time_id: int) -> str:
     return f"Time{time_id}"
 
 
+_CHANCE_CAST_FALLBACKS: frozendict[int, str] = frozendict(
+    {
+        195: "%d%% Chance to cast level %d %s on attack",
+        196: "%d%% Chance to cast level %d %s when you Kill an Enemy",
+        197: "%d%% Chance to cast level %d %s when you Die",
+        198: "%d%% Chance to cast level %d %s on striking",
+        199: "%d%% Chance to cast level %d %s when you Level-Up",
+        201: "%d%% Chance to cast level %d %s when struck",
+    }
+)
+
+_SIMPLE_STAT_FALLBACKS: frozendict[int, str] = frozendict(
+    {
+        73: "+%d to Maximum Durability",
+        159: "+%d to Minimum Throw Damage",
+        160: "+%d to Maximum Throw Damage",
+    }
+)
+
+
+def _apply_num_placeholder(tpl: str, val: int | float, suffix: str = "") -> str:
+    """Replace %+d/%d/%+g/%g placeholders in a D2 modifier template with val."""
+    if isinstance(val, float):
+        return (
+            tpl.replace("%+g", f"{val:+g}{suffix}")
+            .replace("%g", f"{val:g}{suffix}")
+            .replace("%+d", f"{val:+g}{suffix}")
+            .replace("%d", f"{val:g}{suffix}")
+        )
+    return tpl.replace("%+d", f"{val:+d}{suffix}").replace("%d", f"{val}{suffix}")
+
+
+def format_modifier_template(
+    resolver: GameDataResolver,
+    key: str | None,
+    fallback: str,
+    *values: int | float | str,
+    signed_first: bool = False,
+) -> str:
+    """Resolve a localized modifier key (or fallback) and substitute positional placeholders."""
+    tpl = resolver.get_item_modifier(key) if key else ""
+    has_placeholder = any(p in tpl for p in ("%d", "%+d", "%g", "%+g", "%s", "%0"))
+    if not tpl or tpl == key or not has_placeholder:
+        tpl = fallback
+    result = tpl
+    if "%0" in result:
+        for i, val in enumerate(values):
+            result = result.replace(f"%{i}", str(val))
+    else:
+        for i, val in enumerate(values):
+            if isinstance(val, str):
+                result = result.replace("%s", val, 1)
+            elif i == 0 and signed_first and ("%+d" in result or "%+g" in result):
+                fmt = f"{val:+g}" if isinstance(val, float) else f"{val:+d}"
+                result = result.replace("%+g", fmt, 1).replace("%+d", fmt, 1)
+            else:
+                fmt = f"{val:g}" if isinstance(val, float) else str(val)
+                result = result.replace("%g", fmt, 1).replace("%d", fmt, 1)
+    return result.replace("%%", "%")
+
+
 def _get_class_only_str(class_id: int, resolver: GameDataResolver) -> str:
     """Return localized class restriction string such as '(Warlock Only)', or '' if unknown."""
     class_only_key = _CLASS_ONLY_KEYS.get(class_id)
@@ -140,186 +201,145 @@ def format_property(
                 a[2] = a[2] // 25
         case 83:
             class_name = resolver.get_localized_class_name(a[0])
-            tpl_key = _CLASS_SKILL_LEVEL_KEYS.get(a[0])
-            if tpl_key:
-                tpl = resolver.get_item_modifier(tpl_key)
-                if tpl and ("%+d" in tpl or "%d" in tpl):
-                    return tpl.replace("%+d", f"{a[1]:+d}").replace("%d", str(a[1]))
-            return f"+{a[1]} to {class_name} Skill Levels"
+            return format_modifier_template(
+                resolver,
+                _CLASS_SKILL_LEVEL_KEYS.get(a[0]),
+                f"+{a[1]} to {class_name} Skill Levels",
+                a[1],
+                signed_first=True,
+            )
         case 97:
             skill_name = resolver.get_skill_name(a[0])
-            if stat and stat.descstrpos:
-                tpl = resolver.get_item_modifier(stat.descstrpos)
-                if tpl and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
-                    return (
-                        tpl.replace("%+d", f"{a[1]:+d}")
-                        .replace("%d", str(a[1]))
-                        .replace("%s", skill_name)
-                    )
-            return f"+{a[1]} to {skill_name}"
+            return format_modifier_template(
+                resolver,
+                stat.descstrpos if stat else None,
+                f"+{a[1]} to {skill_name}",
+                a[1],
+                skill_name,
+                signed_first=True,
+            )
         case 151:
             skill_name = resolver.get_skill_name(a[0])
-            tpl = resolver.get_item_modifier("ModitemAura")
-            if tpl and ("%d" in tpl or "%s" in tpl):
-                return tpl.replace("%d", str(a[1])).replace("%s", skill_name)
-            return f"Level {a[1]} {skill_name} Aura When Equipped"
+            return format_modifier_template(
+                resolver,
+                "ModitemAura",
+                f"Level {a[1]} {skill_name} Aura When Equipped",
+                a[1],
+                skill_name,
+            )
         case 98:
-            time_name = get_time_name(a[0])
-            return time_name or prop_name
-        case 73:
-            if stat and stat.descstrpos:
-                tpl = resolver.get_item_modifier(stat.descstrpos)
-                if tpl and ("%+d" in tpl or "%d" in tpl):
-                    return tpl.replace("%+d", f"{a[0]:+d}").replace("%d", str(a[0]))
-            return f"+{a[0]} to Maximum Durability"
+            return get_time_name(a[0]) or prop_name
+        case 73 | 159 | 160:
+            return format_modifier_template(
+                resolver,
+                stat.descstrpos if stat else None,
+                _SIMPLE_STAT_FALLBACKS[prop_id],
+                a[0],
+                signed_first=True,
+            )
         case 88:
             return "Double Potion Duration"
         case 92:
-            tpl = resolver.get_item_modifier("ItemStats1p")
-            if tpl and "%d" in tpl:
-                return tpl % a[0]
-            return f"Required Level: {a[0]}"
+            return format_modifier_template(
+                resolver, "ItemStats1p", f"Required Level: {a[0]}", a[0]
+            )
         case 107:
             skill_name = resolver.get_skill_name(a[0])
-            class_id = get_skill_class_id(a[0])
-            class_only_str = _get_class_only_str(class_id, resolver)
-            if stat and stat.descstrpos:
-                tpl = resolver.get_item_modifier(stat.descstrpos)
-                if tpl and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
-                    if (
-                        "(%s)" in tpl
-                        and class_only_str.startswith("(")
-                        and class_only_str.endswith(")")
-                    ):
-                        class_only_str = class_only_str[1:-1]
-                    res = tpl.replace("%+d", f"{a[1]:+d}").replace("%d", str(a[1]))
-                    res = res.replace("%s", skill_name, 1)
-                    res = res.replace("%s", class_only_str, 1)
-                    return res.strip()
-            if class_only_str:
-                return f"+{a[1]} to {skill_name} {class_only_str}"
-            return f"+{a[1]} to {skill_name}"
+            class_only_str = _get_class_only_str(get_skill_class_id(a[0]), resolver)
+            tpl_key = stat.descstrpos if stat else None
+            tpl = resolver.get_item_modifier(tpl_key) if tpl_key else ""
+            if (
+                tpl
+                and tpl != tpl_key
+                and "(%s)" in tpl
+                and class_only_str.startswith("(")
+                and class_only_str.endswith(")")
+            ):
+                class_only_str = class_only_str[1:-1]
+            fallback = f"+{a[1]} to {skill_name} {class_only_str}".strip()
+            return format_modifier_template(
+                resolver,
+                tpl_key,
+                fallback,
+                a[1],
+                skill_name,
+                class_only_str,
+                signed_first=True,
+            ).strip()
         case 112:
             a[0] = a[0] * 100 // 127 if a[0] else 0
         case 126:
             a[0], a[1] = a[1], a[0]
         case 155:
             monster_name = resolver.get_localized_monster_name(a[0])
-            tpl = resolver.get_item_modifier("Moditemreanimas")
-            if tpl and ("%0" in tpl or "%1" in tpl):
-                return (
-                    tpl.replace("%0%%", f"{a[1]}%")
-                    .replace("%1", monster_name)
-                    .replace("%0", str(a[1]))
-                    .replace("%%", "%")
-                )
-            return f"{a[1]}% Reanimate as: {monster_name}"
-        case 159:
-            if stat and stat.descstrpos:
-                tpl = resolver.get_item_modifier(stat.descstrpos)
-                if tpl and ("%+d" in tpl or "%d" in tpl):
-                    return tpl.replace("%+d", f"{a[0]:+d}").replace("%d", str(a[0]))
-            return f"+{a[0]} to Minimum Throw Damage"
-        case 160:
-            if stat and stat.descstrpos:
-                tpl = resolver.get_item_modifier(stat.descstrpos)
-                if tpl and ("%+d" in tpl or "%d" in tpl):
-                    return tpl.replace("%+d", f"{a[0]:+d}").replace("%d", str(a[0]))
-            return f"+{a[0]} to Maximum Throw Damage"
+            return format_modifier_template(
+                resolver,
+                "Moditemreanimas",
+                f"{a[1]}% Reanimate as: {monster_name}",
+                a[1],
+                monster_name,
+            )
         case 179 | 180:
             monster_name = resolver.get_localized_monster_name(a[0])
-            if stat and stat.descstrpos:
-                tpl = resolver.get_item_modifier(stat.descstrpos)
-                if tpl and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
-                    result = (
-                        tpl.replace("%+d", f"{a[1]:+d}").replace("%d", str(a[1])).replace("%%", "%")
-                    )
-                    if "%s" in result:
-                        return result.replace("%s", monster_name)
-                    return f"{result} {monster_name}"
-            if prop_id == 179:
-                return f"+{a[1]}% to Attack Rating versus {monster_name}"
-            return f"+{a[1]}% to Damage versus {monster_name}"
+            fallback = (
+                f"+{a[1]}% to Attack Rating versus {monster_name}"
+                if prop_id == 179
+                else f"+{a[1]}% to Damage versus {monster_name}"
+            )
+            tpl_key = stat.descstrpos if stat else None
+            tpl = resolver.get_item_modifier(tpl_key) if tpl_key else ""
+            if tpl and tpl != tpl_key and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
+                res = format_modifier_template(
+                    resolver, tpl_key, fallback, a[1], monster_name, signed_first=True
+                )
+                return res if "%s" in tpl else f"{res} {monster_name}"
+            return fallback
         case 188:
             tab, class_id, level = a[0], a[1], a[2]
             class_only_str = _get_class_only_str(class_id, resolver)
             tpl_key = _SKILL_TAB_MODIFIER_KEYS.get((class_id, tab))
-            if tpl_key:
-                tpl = resolver.get_item_modifier(tpl_key)
-                if tpl and ("%+d" in tpl or "%d" in tpl):
-                    formatted = tpl.replace("%+d", f"{level:+d}").replace("%d", str(level))
-                    return f"{formatted} {class_only_str}".strip()
             skill_tab_name = resolver.get_localized_skill_tab_name(tab, class_id)
-            if skill_tab_name:
-                base = f"+{level} to {skill_tab_name}"
-                return f"{base} {class_only_str}".strip()
+            fallback = f"+{level} to {skill_tab_name}" if skill_tab_name else ""
+            formatted = format_modifier_template(
+                resolver, tpl_key, fallback, level, signed_first=True
+            )
+            if formatted:
+                return f"{formatted} {class_only_str}".strip()
         case 195 | 196 | 197 | 198 | 199 | 201:
-            level = a[0]
-            skill_name = resolver.get_skill_name(a[1])
-            chance = a[2]
-            tpl_key = _CHANCE_CAST_KEYS.get(prop_id)
-            if tpl_key:
-                tpl = resolver.get_item_modifier(tpl_key)
-                if tpl and ("%d" in tpl or "%s" in tpl or "%0" in tpl):
-                    result = tpl
-                    if "%0" in result:
-                        result = result.replace("%0%%", f"{chance}%").replace("%0", str(chance))
-                        result = result.replace("%1", str(level)).replace("%2", skill_name)
-                    else:
-                        result = result.replace("%d%%", f"{chance}%").replace("%d", str(level))
-                        result = result.replace("%s", skill_name)
-                    return result.replace("%%", "%")
-            match prop_id:
-                case 195:
-                    return f"{chance}% Chance to cast level {level} {skill_name} on attack"
-                case 196:
-                    return f"{chance}% Chance to cast level {level} {skill_name} when you Kill an Enemy"
-                case 197:
-                    return f"{chance}% Chance to cast level {level} {skill_name} when you Die"
-                case 198:
-                    return f"{chance}% Chance to cast level {level} {skill_name} on striking"
-                case 199:
-                    return f"{chance}% Chance to cast level {level} {skill_name} when you Level-Up"
-                case 201:
-                    return f"{chance}% Chance to cast level {level} {skill_name} when struck"
+            return format_modifier_template(
+                resolver,
+                _CHANCE_CAST_KEYS.get(prop_id),
+                _CHANCE_CAST_FALLBACKS[prop_id],
+                a[2],
+                a[0],
+                resolver.get_skill_name(a[1]),
+            )
         case 204:
             level = a[0]
             skill_name = resolver.get_skill_name(a[1])
-            if stat and stat.descstrpos:
-                tpl = resolver.get_item_modifier(stat.descstrpos)
-                if tpl and ("%d" in tpl or "%s" in tpl):
-                    result = tpl
-                    if "%0" in result:
-                        result = result.replace("%0", str(level)).replace("%1", skill_name)
-                        result = result.replace("%2", str(a[2])).replace("%3", str(a[3]))
-                    else:
-                        result = result.replace("%d", str(level), 1)
-                        result = result.replace("%s", skill_name, 1)
-                        remaining = result
-                        for val in [a[2], a[3]]:
-                            if "%d" in remaining:
-                                remaining = remaining.replace("%d", str(val), 1)
-                        result = remaining
-                    return result
-            return f"Level {level} {skill_name} ({a[2]}/{a[3]} Charges)"
+            return format_modifier_template(
+                resolver,
+                stat.descstrpos if stat else None,
+                f"Level {level} {skill_name} ({a[2]}/{a[3]} Charges)",
+                level,
+                skill_name,
+                a[2],
+                a[3],
+            )
         case _ if prop_id in range(214, 251):
-            sc = vd.get_stat(prop_id)
-            if sc and sc.op_param > 0:
-                scaled_val = round(a[0] / sc.op_param, 2)
-            elif sc and sc.val_shift > 0:
-                scaled_val = a[0] / (1 << sc.val_shift)
+            if stat and stat.op_param > 0:
+                scaled_val = round(a[0] / stat.op_param, 2)
+            elif stat and stat.val_shift > 0:
+                scaled_val = a[0] / (1 << stat.val_shift)
             if prop_id == 237:
                 val = scaled_val if scaled_val is not None else a[0]
-                if stat and stat.descstrpos:
-                    tpl = resolver.get_item_modifier(stat.descstrpos)
-                    if tpl and ("%+d" in tpl or "%d" in tpl or "%g" in tpl or "%+g" in tpl):
-                        return (
-                            tpl.replace("%+g", f"{val:+g}")
-                            .replace("%g", f"{val:g}")
-                            .replace("%+d", f"{val:+g}")
-                            .replace("%d", f"{val:g}")
-                        )
-                return f"+{val:g} Poison Absorb (Based on Character Level)"
+                return format_modifier_template(
+                    resolver,
+                    stat.descstrpos if stat else None,
+                    f"+{val:g} Poison Absorb (Based on Character Level)",
+                    float(val),
+                    signed_first=True,
+                )
         case 252 | 253:
             a[0] = 100 // a[0] if a[0] else 0
         case _ if prop_id in range(268, 304):
@@ -337,31 +357,17 @@ def format_property(
         template_key = stat.descstrpos if value >= 0 else (stat.descstrneg or stat.descstrpos)
         template = resolver.get_item_modifier(template_key)
         if template:
-            descfunc = stat.descfunc
-
-            match descfunc:
-                case 1 | 3 | 7 | 9 | 12 | 13 | 14 | 15 | 17 | 18 | 21 | 23 | 24:
-                    result = template.replace("%+d", f"{value:+d}").replace("%d", str(value))
-                case 2 | 4 | 5 | 6 | 8 | 10 | 11 | 16 | 20 | 22:
-                    result = template.replace("%+d", f"{value:+d}%").replace("%d", f"{value}%")
-                case 19:
-                    if isinstance(value, float):
-                        result = template.replace("%+d", f"{value:+g}").replace("%d", f"{value:g}")
-                    else:
-                        result = template.replace("%+d", f"{value:+d}").replace("%d", str(value))
-                    if stat.descstr2:
-                        extra = resolver.get_item_modifier(stat.descstr2)
-                        if extra:
-                            result = result + " " + extra
-                case _:
-                    result = template.replace("%+d", f"{value:+d}").replace("%d", str(value))
-
+            suffix = "%" if stat.descfunc in {2, 4, 5, 6, 8, 10, 11, 16, 20, 22} else ""
+            result = _apply_num_placeholder(template, value, suffix)
+            if (
+                stat.descfunc == 19
+                and stat.descstr2
+                and (extra := resolver.get_item_modifier(stat.descstr2))
+            ):
+                result = f"{result} {extra}"
             if "%d" in result or "%+d" in result:
-                result = result.replace("%+d", f"{a[1]:+d}").replace("%d", str(a[1]))
-
-            result = result.replace("%%", "%")
-
-            return result
+                result = _apply_num_placeholder(result, a[1])
+            return result.replace("%%", "%")
 
     return _format_template(prop_name, [value, a[1], a[2], a[3]])
 
@@ -385,18 +391,3 @@ def _format_template(template: str, values: list[int | float]) -> str:
         return template
     except TypeError, ValueError:
         return template
-
-
-def _format_with_strings(template: str, int_values: list[int], str_values: list[str]) -> str:
-    if not template:
-        return ""
-
-    result = template
-    for val in int_values:
-        if "%d" in result:
-            result = result.replace("%d", str(val), 1)
-    for val in str_values:
-        if "%s" in result:
-            result = result.replace("%s", val, 1)
-
-    return result

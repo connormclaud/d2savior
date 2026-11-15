@@ -5,6 +5,7 @@ from typing import NamedTuple
 
 from d2savior.core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
 from d2savior.core.item import D2Item
+from d2savior.core.property import format_modifier_template as _format_modifier_template
 from d2savior.core.property_list import PropertyList
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stats import (
@@ -139,26 +140,6 @@ def item_matches_pattern(
             return True
 
     return False
-
-
-def _format_modifier_template(
-    resolver: GameDataResolver,
-    key: str,
-    fallback: str,
-    *values: int,
-    signed_first: bool = False,
-) -> str:
-    """Resolve and format a localized item-modifier template with integer arguments."""
-    tpl = resolver.get_item_modifier(key)
-    if not tpl or tpl == key:
-        tpl = fallback
-    result = tpl
-    for i, val in enumerate(values):
-        if i == 0 and signed_first and "%+d" in result:
-            result = result.replace("%+d", f"{val:+d}", 1)
-        elif "%d" in result:
-            result = result.replace("%d", str(val), 1)
-    return result.replace("%%", "%")
 
 
 def _extract_grouped_replacements(
