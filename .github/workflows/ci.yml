@@ -21,4 +21,4 @@ jobs:
       - name: Run static type checker
         run: uv run ty check
       - name: Run tests
-        run: uv run pytest tests/ -v
+        run: uv run pytest tests/ -v --cov=d2savior --cov-report=term-missing
