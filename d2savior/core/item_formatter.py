@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import NamedTuple
 
 from d2savior.core.enums import EquipSlot, ItemLocation, ItemQuality, StoredIn
-from d2savior.core.item import D2Item
+from d2savior.core.item import D2Item, ExtItemInfo, TypeSpecificInfo
 from d2savior.core.property import format_modifier_template as _format_modifier_template
 from d2savior.core.property_list import PropertyList
 from d2savior.core.resolver import GameDataResolver
@@ -377,19 +377,21 @@ def format_item_summary(
     return f"{title}{f' [{", ".join(meta_tags)}]' if meta_tags else ''}{f' ({", ".join(props)})' if props else ''}"
 
 
-def _format_item_lines(
-    item: D2Item,
-    resolver: GameDataResolver,
-    indent: str = "  ",
-    version: int | None = None,
-    parent_item: D2Item | None = None,
-) -> FormattedLines:
-    result = []
-    type_name = item.type_name.decode("ascii", errors="replace") if item.type_name else "Unknown"
+def _format_labeled_id(indent: str, label: str, item_id: int, name: str) -> str:
+    return f"{indent}{label}: {item_id}{f' ({name})' if name else ''}"
 
-    if version is None:
-        version = item.version if item.version else 0x63
-    item_resolver = resolver.for_version(version)
+
+def _format_prop_section(indent: str, heading: str, props: list[str]) -> FormattedLines:
+    lines = [f"{indent}{heading}:"]
+    lines.extend(f"{indent}  - {p}" for p in props)
+    return lines
+
+
+def _format_item_header_lines(
+    item: D2Item, item_resolver: GameDataResolver, indent: str
+) -> FormattedLines:
+    result: FormattedLines = []
+    type_name = item.type_name.decode("ascii", errors="replace") if item.type_name else "Unknown"
 
     item_full_name = ""
     req_level = 0
@@ -398,7 +400,6 @@ def _format_item_lines(
         req_level = type_info.levelreq
 
     result.append(f"{indent}Type: {type_name}{f' ({item_full_name})' if item_full_name else ''}")
-
     if req_level > 0:
         result.append(f"{indent}Required Level: {req_level}")
 
@@ -411,152 +412,185 @@ def _format_item_lines(
         result.append(f"{indent}Location: {location}, Position: {item.position}")
     storedin = StoredIn(item.stored_in)
     result.append(f"{indent}Column: {item.column}, Row: {item.row}, StoredIn: {storedin}")
-    quality = ItemQuality(item.quality())
-    result.append(f"{indent}Quality: {quality}")
+    result.append(f"{indent}Quality: {ItemQuality(item.quality())}")
 
-    flags = item.get_flag_names()
-    if flags:
+    if flags := item.get_flag_names():
         result.append(f"{indent}Flags: {', '.join(flags)}")
+    return result
+
+
+def _format_runeword_runes(
+    item: D2Item, item_resolver: GameDataResolver, indent: str
+) -> str | None:
+    rune_names: list[str] = []
+    for gem in item.gem_items:
+        gem_type = gem.code_str
+        if not gem_type.startswith("r"):
+            continue
+        try:
+            rune_num = int(gem_type[1:])
+        except ValueError:
+            continue
+        rune_info = item_resolver.get_item(gem_type)
+        rune_name = rune_info.name if rune_info else ""
+        rune_names.append(f"{rune_name}({rune_num})")
+    return f"{indent}Runes: {'+'.join(rune_names)}" if rune_names else None
+
+
+def _format_ext_info_lines(
+    ext: ExtItemInfo, item: D2Item, item_resolver: GameDataResolver, indent: str
+) -> FormattedLines:
+    result: FormattedLines = []
+    if ext.guid:
+        result.append(f"{indent}GUID: 0x{ext.guid:08X}")
+    if ext.drop_level:
+        result.append(f"{indent}Drop Level: {ext.drop_level}")
+    if ext.magic_prefix:
+        result.append(
+            _format_labeled_id(
+                indent,
+                "Prefix",
+                ext.magic_prefix,
+                item_resolver.get_localized_magic_prefix(ext.magic_prefix),
+            )
+        )
+    if ext.magic_suffix:
+        result.append(
+            _format_labeled_id(
+                indent,
+                "Suffix",
+                ext.magic_suffix,
+                item_resolver.get_localized_magic_suffix(ext.magic_suffix),
+            )
+        )
+    if ext.set_id is not None:
+        result.append(
+            _format_labeled_id(
+                indent, "Set ID", ext.set_id, item_resolver.get_localized_set_name(ext.set_id)
+            )
+        )
+    if ext.unique_id is not None:
+        result.append(
+            _format_labeled_id(
+                indent,
+                "Unique ID",
+                ext.unique_id,
+                item_resolver.get_localized_unique_name(ext.unique_id),
+            )
+        )
+    if ext.rune_id is not None:
+        runeword_id = ext.rune_word_id()
+        result.append(
+            _format_labeled_id(
+                indent,
+                "Rune Word ID",
+                runeword_id,
+                item_resolver.get_localized_runeword_name(runeword_id),
+            )
+        )
+        if item.gem_items and (runes_line := _format_runeword_runes(item, item_resolver, indent)):
+            result.append(runes_line)
+    for label, name_pair in (("Rare Name", ext.rare_name), ("Craft Name", ext.craft_name)):
+        if name_pair:
+            loc_name = item_resolver.get_localized_rare_name(name_pair.name_1, name_pair.name_2)
+            result.append(
+                f"{indent}{label}: {name_pair.name_1}-{name_pair.name_2}{f' ({loc_name})' if loc_name else ''}"
+            )
+    return result
+
+
+def _format_type_specific_lines(
+    tp: TypeSpecificInfo,
+    item: D2Item,
+    item_resolver: GameDataResolver,
+    version: int,
+    indent: str,
+) -> FormattedLines:
+    result: FormattedLines = []
+    if tp.defence is not None:
+        base_def = tp.get_defence()
+        eff_def = calculate_effective_defence(
+            base_def,
+            collect_item_properties(
+                item, item_resolver, version, normalize_source=normalize_damage_props
+            ),
+        )
+        def_suffix = f" (effective: {eff_def})" if eff_def != base_def else ""
+        result.append(f"{indent}Defence: {base_def}{def_suffix}")
+    if tp.max_durability is not None:
+        if tp.is_indestructible():
+            result.append(f"{indent}Durability: Indestructible")
+        else:
+            cur = tp.current_durability if tp.current_durability is not None else 0
+            result.append(f"{indent}Durability: {cur}/{tp.max_durability}")
+    if tp.quantity is not None:
+        result.append(f"{indent}Quantity: {tp.quantity}")
+    if (sockets := tp.total_sockets()) > 0:
+        result.append(f"{indent}Sockets: {sockets}")
+
+    if props := _format_parsed_properties(
+        tp.property_list, resolver=item_resolver, version=version
+    ):
+        result.extend(_format_prop_section(indent, "Properties", props))
+    if rw_props := _format_parsed_properties(
+        tp.runeword_property_list, resolver=item_resolver, version=version
+    ):
+        result.extend(_format_prop_section(indent, "Rune Word Properties", rw_props))
+    for idx, set_prop_list in enumerate(tp.set_properties):
+        if set_props := _format_parsed_properties(
+            set_prop_list, resolver=item_resolver, version=version
+        ):
+            result.extend(
+                _format_prop_section(indent, f"Set Properties ({idx + 2} Items)", set_props)
+            )
+    return result
+
+
+def _format_item_lines(
+    item: D2Item,
+    resolver: GameDataResolver,
+    indent: str = "  ",
+    version: int | None = None,
+    parent_item: D2Item | None = None,
+) -> FormattedLines:
+    if version is None:
+        version = item.version if item.version else 0x63
+    item_resolver = resolver.for_version(version)
+
+    result = _format_item_header_lines(item, item_resolver, indent)
 
     tp = None
     if info := item.item_info:
-        if ext := info.ext_info:
-            if ext.guid:
-                result.append(f"{indent}GUID: 0x{ext.guid:08X}")
-            if ext.drop_level:
-                result.append(f"{indent}Drop Level: {ext.drop_level}")
-            if ext.magic_prefix:
-                prefix_id = ext.magic_prefix
-                prefix_name = item_resolver.get_localized_magic_prefix(prefix_id)
-                result.append(
-                    f"{indent}Prefix: {prefix_id}{f' ({prefix_name})' if prefix_name else ''}"
-                )
-            if ext.magic_suffix:
-                suffix_id = ext.magic_suffix
-                suffix_name = item_resolver.get_localized_magic_suffix(suffix_id)
-                result.append(
-                    f"{indent}Suffix: {suffix_id}{f' ({suffix_name})' if suffix_name else ''}"
-                )
-            if ext.set_id is not None:
-                set_id = ext.set_id
-                set_name = item_resolver.get_localized_set_name(set_id)
-                result.append(f"{indent}Set ID: {set_id}{f' ({set_name})' if set_name else ''}")
-            if ext.unique_id is not None:
-                unique_id = ext.unique_id
-                unique_name = item_resolver.get_localized_unique_name(unique_id)
-                result.append(
-                    f"{indent}Unique ID: {unique_id}{f' ({unique_name})' if unique_name else ''}"
-                )
-            if ext.rune_id is not None:
-                runeword_id = ext.rune_word_id()
-                rw_name = item_resolver.get_localized_runeword_name(runeword_id)
-                result.append(
-                    f"{indent}Rune Word ID: {runeword_id}{f' ({rw_name})' if rw_name else ''}"
-                )
-                if item.gem_items:
-                    rune_names = []
-                    for gem in item.gem_items:
-                        gem_type = gem.code_str
-                        if gem_type.startswith("r"):
-                            try:
-                                rune_num = int(gem_type[1:])
-                                rune_name = (
-                                    rune_info.name
-                                    if (rune_info := resolver.get_item(gem_type))
-                                    else ""
-                                )
-                                rune_names.append(f"{rune_name}({rune_num})")
-                            except ValueError:
-                                pass
-                    if rune_names:
-                        result.append(f"{indent}Runes: {'+'.join(rune_names)}")
-            if ext.rare_name:
-                rare_name = item_resolver.get_localized_rare_name(
-                    ext.rare_name.name_1, ext.rare_name.name_2
-                )
-                result.append(
-                    f"{indent}Rare Name: {ext.rare_name.name_1}-{ext.rare_name.name_2}{f' ({rare_name})' if rare_name else ''}"
-                )
-            if ext.craft_name:
-                craft_name = item_resolver.get_localized_rare_name(
-                    ext.craft_name.name_1, ext.craft_name.name_2
-                )
-                result.append(
-                    f"{indent}Craft Name: {ext.craft_name.name_1}-{ext.craft_name.name_2}{f' ({craft_name})' if craft_name else ''}"
-                )
-
+        if info.ext_info:
+            result.extend(_format_ext_info_lines(info.ext_info, item, item_resolver, indent))
         if tp := info.type_specific_info:
-            if tp.defence is not None:
-                base_def = tp.get_defence()
-                eff_def = calculate_effective_defence(
-                    base_def,
-                    collect_item_properties(
-                        item, item_resolver, version, normalize_source=normalize_damage_props
-                    ),
-                )
-                def_suffix = f" (effective: {eff_def})" if eff_def != base_def else ""
-                result.append(f"{indent}Defence: {base_def}{def_suffix}")
-            if tp.max_durability is not None:
-                if tp.is_indestructible():
-                    result.append(f"{indent}Durability: Indestructible")
-                else:
-                    cur = tp.current_durability if tp.current_durability is not None else 0
-                    result.append(f"{indent}Durability: {cur}/{tp.max_durability}")
-            if tp.quantity is not None:
-                result.append(f"{indent}Quantity: {tp.quantity}")
-            if (sockets := tp.total_sockets()) > 0:
-                result.append(f"{indent}Sockets: {sockets}")
-
-            if props := _format_parsed_properties(
-                tp.property_list, resolver=item_resolver, version=version
-            ):
-                result.append(f"{indent}Properties:")
-                for p in props:
-                    result.append(f"{indent}  - {p}")
-
-            if rw_props := _format_parsed_properties(
-                tp.runeword_property_list, resolver=item_resolver, version=version
-            ):
-                result.append(f"{indent}Rune Word Properties:")
-                for p in rw_props:
-                    result.append(f"{indent}  - {p}")
-
-            if tp.set_properties:
-                for idx, set_prop_list in enumerate(tp.set_properties):
-                    if set_props := _format_parsed_properties(
-                        set_prop_list, resolver=item_resolver, version=version
-                    ):
-                        piece_count = idx + 2
-                        result.append(f"{indent}Set Properties ({piece_count} Items):")
-                        for p in set_props:
-                            result.append(f"{indent}  - {p}")
-
+            result.extend(_format_type_specific_lines(tp, item, item_resolver, version, indent))
         if info.stash_stack_size > 0:
             result.append(f"{indent}Stack Size: {info.stash_stack_size}")
         if info.gold:
             result.append(f"{indent}Gold: {info.gold.quantity}")
 
-    if parent_item and not (tp and tp.property_list):
-        socket_props = item_resolver.get_socket_properties(parent_item, item)
-        if socket_props:
-            result.append(f"{indent}Properties:")
-            for formatted in _format_property_entries(
-                socket_props, resolver=item_resolver, version=version
-            ):
-                result.append(f"{indent}  - {formatted}")
+    if (
+        parent_item
+        and not (tp and tp.property_list)
+        and (socket_props := item_resolver.get_socket_properties(parent_item, item))
+    ):
+        formatted_props = _format_property_entries(
+            socket_props, resolver=item_resolver, version=version
+        )
+        result.extend(_format_prop_section(indent, "Properties", formatted_props))
 
-    if item.gem_items:
-        for j, gem in enumerate(item.gem_items):
-            result.append(f"{indent}Socketed Item [{j}]:")
-            result.extend(
-                _format_item_lines(
-                    gem,
-                    resolver=item_resolver,
-                    indent=indent + "  ",
-                    version=version,
-                    parent_item=item,
-                )
+    for j, gem in enumerate(item.gem_items):
+        result.append(f"{indent}Socketed Item [{j}]:")
+        result.extend(
+            _format_item_lines(
+                gem,
+                resolver=item_resolver,
+                indent=indent + "  ",
+                version=version,
+                parent_item=item,
             )
+        )
 
     return result
 
