@@ -297,37 +297,30 @@ def _format_mercenary_header(
     return f"Has mercenary: {details} (Name: {name_id}, Type: {type_id})"
 
 
-def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
-    result = []
-    result.append("=== Diablo II Character Info ===")
+def _format_info_header_lines(
+    char_data: D2SStruct, char_resolver: GameDataResolver
+) -> FormattedLines:
     char_name = char_data.get_char_name()
-    result.append(f"Name: {char_name}")
-    char_resolver = resolver.for_version(char_data.version)
-    result.append(f"Class: {char_resolver.get_localized_class_name(char_data.char_class)}")
-    result.append(f"Level: {char_data.char_level}")
-    result.append(f"Version: 0x{char_data.version:X}")
-    result.append(f"Hardcore: {'Yes' if char_data.is_hardcore() else 'No'}")
-    result.append(f"Ladder: {'Yes' if char_data.is_ladder() else 'No'}")
-    result.append(f"Expansion: {'Yes' if char_data.is_expansion() else 'No'}")
-    result.append(f"Died before: {'Yes' if char_data.is_died_before() else 'No'}")
-
     char_type_name = get_char_type_name(char_data.char_flags)
-    result.append(f"Character Flags: 0x{char_data.char_flags:X} ({char_type_name})")
-
     char_title = char_data.char_title
-    char_title_name = char_data.get_char_title_name()
-    result.append(f"Character Title: 0x{char_title:X} ({char_title_name})")
-
-    result.append(f"Weapon Set: {'I' if char_data.weapon_set == 0 else 'II'}")
-
-    create_time = char_data.create_time
     last_save_time = char_data.last_save_time or char_data.dw_time
-    play_time = char_data.play_time
-
-    result.append(f"Create Time: {format_timestamp(create_time)}")
-    result.append(f"Last Save Time: {format_timestamp(last_save_time)}")
-    result.append(f"Play Time: {format_duration(play_time)}")
-
+    result = [
+        "=== Diablo II Character Info ===",
+        f"Name: {char_name}",
+        f"Class: {char_resolver.get_localized_class_name(char_data.char_class)}",
+        f"Level: {char_data.char_level}",
+        f"Version: 0x{char_data.version:X}",
+        f"Hardcore: {'Yes' if char_data.is_hardcore() else 'No'}",
+        f"Ladder: {'Yes' if char_data.is_ladder() else 'No'}",
+        f"Expansion: {'Yes' if char_data.is_expansion() else 'No'}",
+        f"Died before: {'Yes' if char_data.is_died_before() else 'No'}",
+        f"Character Flags: 0x{char_data.char_flags:X} ({char_type_name})",
+        f"Character Title: 0x{char_title:X} ({char_data.get_char_title_name()})",
+        f"Weapon Set: {'I' if char_data.weapon_set == 0 else 'II'}",
+        f"Create Time: {format_timestamp(char_data.create_time)}",
+        f"Last Save Time: {format_timestamp(last_save_time)}",
+        f"Play Time: {format_duration(char_data.play_time)}",
+    ]
     if char_data.version >= 0x69:
         result.append(f"Game Version: {char_data.game_version}")
     else:
@@ -336,55 +329,54 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
         result.append(
             f"Merc Flags: 0x{char_data.merc_flags_low:04X}{char_data.merc_flags_high:02X}"
         )
+    return result
 
-    result.append("")
-    result.append("=== Player Stats ===")
+
+def _format_info_player_stats_lines(char_data: D2SStruct) -> FormattedLines:
+    result = ["=== Player Stats ==="]
     stats = char_data.player_stats
     if stats.is_valid:
-        result.append(f"Strength: {stats.strength}")
-        result.append(f"Energy: {stats.energy}")
-        result.append(f"Dexterity: {stats.dexterity}")
-        result.append(f"Vitality: {stats.vitality}")
-        result.append(f"Stat Points Remaining: {stats.stat_points_remaining}")
-        result.append(f"Skill Points Remaining: {stats.skill_points_remaining}")
-        result.append(f"Current Life: {stats.current_life}")
-        result.append(f"Maximum Life: {stats.max_life}")
-        result.append(f"Current Mana: {stats.current_mana}")
-        result.append(f"Maximum Mana: {stats.max_mana}")
-        result.append(f"Current Stamina: {stats.current_stamina}")
-        result.append(f"Maximum Stamina: {stats.max_stamina}")
-        result.append(f"Level: {stats.level}")
-        result.append(f"Experience: {stats.experience}")
-        result.append(f"Gold on Person: {stats.gold}")
-        result.append(f"Gold in Stash: {stats.gold_stash}")
-    diff_idx = get_current_difficulty(char_data)
-    diff_name = DIFFICULTY_NAMES[diff_idx]
-    resist_penalty = get_difficulty_resist_penalty(char_data, diff_idx)
-    adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
+        result.extend(
+            [
+                f"Strength: {stats.strength}",
+                f"Energy: {stats.energy}",
+                f"Dexterity: {stats.dexterity}",
+                f"Vitality: {stats.vitality}",
+                f"Stat Points Remaining: {stats.stat_points_remaining}",
+                f"Skill Points Remaining: {stats.skill_points_remaining}",
+                f"Current Life: {stats.current_life}",
+                f"Maximum Life: {stats.max_life}",
+                f"Current Mana: {stats.current_mana}",
+                f"Maximum Mana: {stats.max_mana}",
+                f"Current Stamina: {stats.current_stamina}",
+                f"Maximum Stamina: {stats.max_stamina}",
+                f"Level: {stats.level}",
+                f"Experience: {stats.experience}",
+                f"Gold on Person: {stats.gold}",
+                f"Gold in Stash: {stats.gold_stash}",
+            ]
+        )
+    return result
 
-    result.append("")
-    result.append("=== Skills ===")
+
+def _format_info_skills_lines(
+    char_data: D2SStruct, char_resolver: GameDataResolver, adv_stats: AdvancedStats
+) -> FormattedLines:
+    result = ["=== Skills ==="]
     skills = _get_character_skills(char_data, char_resolver, adv_stats=adv_stats)
     if skills:
         result.append("Skill levels:")
         for i, skill_name, level, effective in skills:
             lvl_str = _format_skill_level(level, effective)
-            if skill_name:
-                result.append(f"Skill {i} ({skill_name}): {lvl_str}")
-            else:
-                result.append(f"Skill {i}: {lvl_str}")
-    result.append("")
-    result.extend(_format_waypoints_lines(char_data, char_resolver))
-    result.append("")
-    result.extend(_format_quests_lines(char_data, char_resolver))
-    result.append("")
-    result.extend(
-        _format_advanced_stats_lines(
-            char_data, char_resolver, adv_stats, diff_name=diff_name, resist_penalty=resist_penalty
-        )
-    )
-    result.append("")
-    result.append("=== Items ===")
+            prefix = f"Skill {i} ({skill_name})" if skill_name else f"Skill {i}"
+            result.append(f"{prefix}: {lvl_str}")
+    return result
+
+
+def _format_info_items_lines(
+    char_data: D2SStruct, char_resolver: GameDataResolver
+) -> FormattedLines:
+    result = ["=== Items ==="]
     item_list = char_data.item_list
     if item_list.magic == 0x4D4A:
         items = item_list.items
@@ -394,60 +386,110 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
             result.extend(
                 _format_item_lines(item, resolver=char_resolver, version=char_data.version)
             )
-    result.append("")
-    result.append("=== Corpse ===")
+    return result
+
+
+def _format_info_corpse_lines(char_data: D2SStruct) -> FormattedLines:
+    result = ["=== Corpse ==="]
     if char_data.corpse.has_corpse():
         result.append("Has corpse")
         if char_data.corpse.corpse_data and char_data.corpse.corpse_data.items:
             result.append(f"Corpse items: {char_data.corpse.corpse_data.items.count}")
     else:
         result.append("No corpse")
-    result.append("")
-    result.append("=== Mercenary ===")
-    if char_data.is_expansion():
-        if char_data.has_mercenary():
-            result.append(_format_mercenary_header(char_data, char_resolver, summary=False))
-            if char_data.version >= 0x69:
-                result.append(f"Mercenary Seed: 0x{char_data.merc_seed:08X}")
-                result.append(f"Mercenary Exp: {char_data.merc_experience}")
-                result.append(f"Mercenary Flags: 0x{char_data.merc_flags:08X}")
-            else:
-                result.append(f"Mercenary Exp: {char_data.merc_experience}")
-                result.append(f"Merc Dead: {'Yes' if char_data.merc_is_dead else 'No'}")
-            merc_stats = calculate_mercenary_stats(char_data, resolver=char_resolver)
-            if merc_stats is not None:
-                result.append(f"Mercenary Level: {merc_stats.level}")
-                result.append(f"Mercenary Strength: {merc_stats.strength}")
-                result.append(f"Mercenary Dexterity: {merc_stats.dexterity}")
-                result.append(
-                    f"Mercenary Resistances ({diff_name}): {merc_stats.resistances.format_summary(resist_penalty, merc_stats.max_resistances)}"
-                )
-            if char_data.mercenary.items:
-                result.append(f"Mercenary items: {char_data.mercenary.items.count}")
-                for i, item in enumerate(char_data.mercenary.items.items):
-                    result.append(f"--- Mercenary Item {i} ---")
-                    result.extend(
-                        _format_item_lines(item, resolver=char_resolver, version=char_data.version)
-                    )
-        else:
-            result.append("No mercenary")
+    return result
+
+
+def _format_info_mercenary_lines(
+    char_data: D2SStruct,
+    char_resolver: GameDataResolver,
+    diff_name: str,
+    resist_penalty: int,
+) -> FormattedLines:
+    if not char_data.is_expansion():
+        return ["=== Mercenary ===", "Not expansion character"]
+    if not char_data.has_mercenary():
+        return ["=== Mercenary ===", "No mercenary"]
+
+    result = [
+        "=== Mercenary ===",
+        _format_mercenary_header(char_data, char_resolver, summary=False),
+    ]
+    if char_data.version >= 0x69:
+        result.extend(
+            [
+                f"Mercenary Seed: 0x{char_data.merc_seed:08X}",
+                f"Mercenary Exp: {char_data.merc_experience}",
+                f"Mercenary Flags: 0x{char_data.merc_flags:08X}",
+            ]
+        )
     else:
-        result.append("Not expansion character")
-    result.append("")
-    result.append("=== Golem ===")
-    if char_data.is_expansion():
-        if char_data.golem.has_golem:
-            result.append("Has golem")
-        else:
-            result.append("No golem")
-    else:
-        result.append("Not expansion character")
-    result.append("")
-    result.append("=== Demon ===")
-    if char_data.demon.has_demon:
-        result.append(f"Has demon (Magic: 0x{char_data.demon.magic:X})")
-    else:
-        result.append("No demon")
+        result.extend(
+            [
+                f"Mercenary Exp: {char_data.merc_experience}",
+                f"Merc Dead: {'Yes' if char_data.merc_is_dead else 'No'}",
+            ]
+        )
+
+    merc_stats = calculate_mercenary_stats(char_data, resolver=char_resolver)
+    if merc_stats is not None:
+        result.extend(
+            [
+                f"Mercenary Level: {merc_stats.level}",
+                f"Mercenary Strength: {merc_stats.strength}",
+                f"Mercenary Dexterity: {merc_stats.dexterity}",
+                f"Mercenary Resistances ({diff_name}): {merc_stats.resistances.format_summary(resist_penalty, merc_stats.max_resistances)}",
+            ]
+        )
+    if char_data.mercenary.items:
+        result.append(f"Mercenary items: {char_data.mercenary.items.count}")
+        for i, item in enumerate(char_data.mercenary.items.items):
+            result.append(f"--- Mercenary Item {i} ---")
+            result.extend(
+                _format_item_lines(item, resolver=char_resolver, version=char_data.version)
+            )
+    return result
+
+
+def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
+    char_resolver = resolver.for_version(char_data.version)
+    diff_idx = get_current_difficulty(char_data)
+    diff_name = DIFFICULTY_NAMES[diff_idx]
+    resist_penalty = get_difficulty_resist_penalty(char_data, diff_idx)
+    adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
+
+    golem_status = (
+        ("Has golem" if char_data.golem.has_golem else "No golem")
+        if char_data.is_expansion()
+        else "Not expansion character"
+    )
+    demon_status = (
+        f"Has demon (Magic: 0x{char_data.demon.magic:X})"
+        if char_data.demon.has_demon
+        else "No demon"
+    )
+
+    sections: list[FormattedLines] = [
+        _format_info_header_lines(char_data, char_resolver),
+        _format_info_player_stats_lines(char_data),
+        _format_info_skills_lines(char_data, char_resolver, adv_stats),
+        _format_waypoints_lines(char_data, char_resolver),
+        _format_quests_lines(char_data, char_resolver),
+        _format_advanced_stats_lines(
+            char_data, char_resolver, adv_stats, diff_name=diff_name, resist_penalty=resist_penalty
+        ),
+        _format_info_items_lines(char_data, char_resolver),
+        _format_info_corpse_lines(char_data),
+        _format_info_mercenary_lines(char_data, char_resolver, diff_name, resist_penalty),
+        ["=== Golem ===", golem_status],
+        ["=== Demon ===", demon_status],
+    ]
+
+    result: FormattedLines = []
+    for i, section in enumerate(sections):
+        if i > 0:
+            result.append("")
+        result.extend(section)
     return "\n".join(result)
 
 
