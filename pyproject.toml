@@ -65,10 +65,14 @@ select = [
     "N",
     "PT",
     "ANN",
+    "C90",
 ]
 ignore = [
     "E501",
 ]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 43
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN", "RUF001", "RUF002", "RUF003"]
