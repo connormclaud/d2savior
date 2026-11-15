@@ -242,6 +242,38 @@ def find_saves_in_dir(dir_path: Path) -> list[str]:
     return [str(p) for p in saves]
 
 
+def _resolve_default_dir_files(configured_dir: Path | None, no_config: bool) -> list[str]:
+    if no_config:
+        print("Error: No save path provided and --no-config was specified", file=sys.stderr)
+        return []
+    if not configured_dir or not configured_dir.is_dir():
+        print(
+            "Error: No save path provided and no save directory configured. "
+            "Provide a path to a save file or directory.",
+            file=sys.stderr,
+        )
+        return []
+    files = find_saves_in_dir(configured_dir)
+    if not files:
+        print(f"Error: No .d2s or .d2i files found in '{configured_dir}'", file=sys.stderr)
+        return []
+    return files
+
+
+def _lookup_in_configured_dir(configured_dir: Path | None, raw_path: str) -> str | None:
+    if not (configured_dir and configured_dir.is_dir()):
+        return None
+    for candidate in (raw_path, f"{raw_path}.d2s", f"{raw_path}.d2i"):
+        cand_path = configured_dir / candidate
+        if cand_path.is_file():
+            return str(cand_path)
+    target_names = {raw_path.lower(), f"{raw_path.lower()}.d2s", f"{raw_path.lower()}.d2i"}
+    for item in sorted(configured_dir.iterdir()):
+        if item.is_file() and item.name.lower() in target_names:
+            return str(item)
+    return None
+
+
 def resolve_target_files(
     input_paths: list[str], no_config: bool = False
 ) -> tuple[list[str], Path | None]:
@@ -252,61 +284,28 @@ def resolve_target_files(
     configured_dir = None if no_config else load_save_dir()
 
     if not input_paths:
-        if no_config:
-            print("Error: No save path provided and --no-config was specified", file=sys.stderr)
-            return [], None
-        if not configured_dir or not configured_dir.is_dir():
-            print(
-                "Error: No save path provided and no save directory configured. "
-                "Provide a path to a save file or directory.",
-                file=sys.stderr,
-            )
-            return [], None
-        files = find_saves_in_dir(configured_dir)
-        if not files:
-            print(f"Error: No .d2s or .d2i files found in '{configured_dir}'", file=sys.stderr)
-            return [], None
-        return files, None
+        return _resolve_default_dir_files(configured_dir, no_config), None
 
     resolved_files: list[str] = []
     dir_to_save: Path | None = None
+    should_remember = configured_dir is None and not no_config
 
     for raw_path in input_paths:
         p = Path(raw_path)
         if p.is_dir():
-            dir_files = find_saves_in_dir(p)
-            if not dir_files:
-                print(f"Error: No .d2s or .d2i files found in '{raw_path}'", file=sys.stderr)
-            else:
+            if dir_files := find_saves_in_dir(p):
                 resolved_files.extend(dir_files)
-                if configured_dir is None and not no_config and dir_to_save is None:
+                if should_remember and dir_to_save is None:
                     dir_to_save = p.resolve()
+            else:
+                print(f"Error: No .d2s or .d2i files found in '{raw_path}'", file=sys.stderr)
         elif p.is_file():
             resolved_files.append(str(p))
-            if configured_dir is None and not no_config and dir_to_save is None:
+            if should_remember and dir_to_save is None:
                 dir_to_save = p.resolve().parent
         else:
-            found_in_config = False
-            if configured_dir and configured_dir.is_dir():
-                for candidate in (raw_path, f"{raw_path}.d2s", f"{raw_path}.d2i"):
-                    cand_path = configured_dir / candidate
-                    if cand_path.is_file():
-                        resolved_files.append(str(cand_path))
-                        found_in_config = True
-                        break
-                if not found_in_config:
-                    target_names = {
-                        raw_path.lower(),
-                        f"{raw_path.lower()}.d2s",
-                        f"{raw_path.lower()}.d2i",
-                    }
-                    for item in sorted(configured_dir.iterdir()):
-                        if item.is_file() and item.name.lower() in target_names:
-                            resolved_files.append(str(item))
-                            found_in_config = True
-                            break
-            if not found_in_config:
-                resolved_files.append(raw_path)
+            matched = _lookup_in_configured_dir(configured_dir, raw_path)
+            resolved_files.append(matched or raw_path)
 
     return resolved_files, dir_to_save
 
