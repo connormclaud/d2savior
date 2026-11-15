@@ -416,6 +416,33 @@ class ItemInfo:
             if has_stash:
                 self.stash_stack_size = io.bits(8, self.stash_stack_size)
 
+    def _codec_type_name(self, io: BitIO, is_d2r_: bool) -> None:
+        if is_d2r_:
+            if io.is_reading:
+                self.type_name = bytes(io.huffman_char() for _ in range(4))
+            else:
+                for c in self.type_name:
+                    io.huffman_char(c)
+        elif io.is_reading:
+            self.type_name = bytes(io.byte() for _ in range(4))
+        else:
+            for b in self.type_name:
+                io.byte(b)
+
+    def _codec_rand_data(self, io: BitIO, version: int, is_d2r_: bool, is_simple: bool) -> None:
+        has_rand = io.bit(self.has_rand or bool(self.realm_data) or bool(self.timestamp_flag))
+        self.has_rand = has_rand
+        if not has_rand:
+            return
+        if is_d2r_ and version > 86:
+            self._codec_realm_data(io, version)
+        elif not is_simple:
+            if io.is_reading:
+                self.timestamp_flag = [io.bits(32) for _ in range(4)]
+            else:
+                for ts in self.timestamp_flag:
+                    io.bits(32, ts)
+
     def codec(
         self,
         io: BitIO,
@@ -429,22 +456,9 @@ class ItemInfo:
         self._data = data
         is_d2r_ = is_d2r(version)
 
-        if is_d2r_:
-            if io.is_reading:
-                self.type_name = bytes(io.huffman_char() for _ in range(4))
-            else:
-                for c in self.type_name:
-                    io.huffman_char(c)
-        else:
-            if io.is_reading:
-                self.type_name = bytes([io.byte() for _ in range(4)])
-            else:
-                for b in self.type_name:
-                    io.byte(b)
+        self._codec_type_name(io, is_d2r_)
 
-        meta = data.get_item_meta(self.type_name) if data else None
-        if meta is None:
-            meta = self._meta
+        meta = (data.get_item_meta(self.type_name) if data else None) or self._meta
         self._meta = meta
 
         if not is_simple and meta:
@@ -463,18 +477,7 @@ class ItemInfo:
                 self.gold = GoldQuantity()
             self.gold.codec(io)
 
-        has_rand = io.bit(self.has_rand or bool(self.realm_data) or bool(self.timestamp_flag))
-        self.has_rand = has_rand
-        if has_rand:
-            if is_d2r_ and version > 86:
-                self._codec_realm_data(io, version)
-            elif not is_simple:
-                if io.is_reading:
-                    self.timestamp_flag = [io.bits(32) for _ in range(4)]
-                else:
-                    for ts in self.timestamp_flag:
-                        io.bits(32, ts)
-
+        self._codec_rand_data(io, version, is_d2r_, is_simple)
         self._codec_stash_stack_size(io, version)
 
         if not is_simple and meta:
