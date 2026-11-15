@@ -121,4 +121,6 @@ uv run pytest
 
 ## License
 
-[MIT](LICENSE)
+The `d2savior` source code is licensed under the [MIT License](LICENSE).
+
+The bundled game data tables and localized strings in [`d2savior/data/`](d2savior/data/README.md) are **© Blizzard Entertainment, Inc.** (*Diablo II: Resurrected*), are **not** covered by the MIT License, and are included solely for interoperability with *Diablo II: Resurrected* save and stash files.

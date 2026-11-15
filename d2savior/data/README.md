@@ -18,3 +18,7 @@ The `GameData` loader uses an overlay priority chain (`OVERLAY_CHAIN`):
 - Version `0x69`: loads directly from `d2r/`.
 
 Every file stored here is strictly required and loaded by `d2savior`. Guard tests enforce that no unused or uncatalogued files are present.
+
+## Copyright & Licensing
+
+The game data tables and localized strings in this directory are extracted from *Diablo II: Resurrected* and are **© Blizzard Entertainment, Inc.** They are **not** covered by the project's MIT license and are included solely for interoperability with *Diablo II: Resurrected* save and stash files.
