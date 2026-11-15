@@ -158,6 +158,44 @@ def _clamp_max_resistances(max_res: ResistanceStats) -> ResistanceStats:
     )
 
 
+def _difficulty_from_quests(char_data: D2SStruct) -> int | None:
+    quests = char_data.quests
+    if not (quests and quests.magic == 0x216F6F57):
+        return None
+    for diff_idx in (2, 1):
+        if diff_idx < len(quests.qi_data):
+            qd = quests.qi_data[diff_idx]
+            if any(
+                w != 0
+                for words in (qd.act_1, qd.act_2, qd.act_3, qd.act_4, qd.act_5)
+                for w in words
+            ):
+                return diff_idx
+    return None
+
+
+def _difficulty_from_waypoints(char_data: D2SStruct) -> int | None:
+    waypoints = char_data.waypoints
+    if waypoints.magic != 0x5357:
+        return None
+    for diff_idx in (2, 1):
+        if diff_idx < len(waypoints.wp):
+            wp = waypoints.wp[diff_idx].waypoints
+            if wp and ((wp[0] & ~1) != 0 or any(b != 0 for b in wp[1:])):
+                return diff_idx
+    return None
+
+
+def _difficulty_from_title(char_data: D2SStruct) -> int:
+    char_title = char_data.char_title
+    if not char_title:
+        return 0
+    hell_thresh, nm_thresh = (10, 5) if char_data.is_expansion() else (8, 4)
+    if char_title >= hell_thresh:
+        return 2
+    return 1 if char_title >= nm_thresh else 0
+
+
 def get_current_difficulty(char_data: D2SStruct) -> int:
     """Return the character's current difficulty index (0=Normal, 1=Nightmare, 2=Hell)."""
     town = char_data.town
@@ -167,40 +205,11 @@ def get_current_difficulty(char_data: D2SStruct) -> int:
                 return diff_idx
 
     # Fallback when town bytes are unset (e.g., synthetic D2SStruct in unit tests).
-    quests = char_data.quests
-    if quests and quests.magic == 0x216F6F57:
-        for diff_idx in (2, 1):
-            if diff_idx < len(quests.qi_data):
-                qd = quests.qi_data[diff_idx]
-                if any(
-                    w != 0
-                    for words in (qd.act_1, qd.act_2, qd.act_3, qd.act_4, qd.act_5)
-                    for w in words
-                ):
-                    return diff_idx
-
-    waypoints = char_data.waypoints
-    if waypoints.magic == 0x5357:
-        for diff_idx in (2, 1):
-            if diff_idx < len(waypoints.wp):
-                wp = waypoints.wp[diff_idx].waypoints
-                if wp and ((wp[0] & ~1) != 0 or any(b != 0 for b in wp[1:])):
-                    return diff_idx
-
-    char_title = char_data.char_title
-    if char_title:
-        if char_data.is_expansion():
-            if char_title >= 10:
-                return 2
-            if char_title >= 5:
-                return 1
-        else:
-            if char_title >= 8:
-                return 2
-            if char_title >= 4:
-                return 1
-
-    return 0
+    if (quest_diff := _difficulty_from_quests(char_data)) is not None:
+        return quest_diff
+    if (wp_diff := _difficulty_from_waypoints(char_data)) is not None:
+        return wp_diff
+    return _difficulty_from_title(char_data)
 
 
 def get_difficulty_resist_penalty(char_data: D2SStruct, difficulty: int | None = None) -> int:
