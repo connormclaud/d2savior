@@ -285,6 +285,85 @@ def _iter_item_stats(
         yield prop_id, params[0] if params else val
 
 
+@dataclass
+class _AdvancedStatAcc:
+    res: ResistanceStats = field(default_factory=ResistanceStats)
+    max_res: ResistanceStats = field(default_factory=_default_max_resistances)
+    fhr: int = 0
+    fcr: int = 0
+    frw: int = 0
+    ias: int = 0
+    mf: int = 0
+    mf_per_level: int = 0
+    all_skills: int = 0
+    class_skills: int = 0
+    skill_tab_bonuses: Counter[int] = field(default_factory=Counter)
+    single_skill_bonuses: Counter[int] = field(default_factory=Counter)
+    oskill_bonuses: Counter[int] = field(default_factory=Counter)
+    fire_skills: int = 0
+
+
+_SIMPLE_ACC_FIELDS: frozendict[int, str] = frozendict(
+    {
+        93: "ias",
+        96: "frw",
+        99: "fhr",
+        105: "fcr",
+        80: "mf",
+        240: "mf_per_level",
+        127: "all_skills",
+    }
+)
+
+
+def _apply_advanced_prop(
+    acc: _AdvancedStatAcc,
+    prop_id: int,
+    param_val: int,
+    params: list[int],
+    char_class: int,
+) -> None:
+    if _apply_resist_stat(acc.res, acc.max_res, prop_id, param_val):
+        return
+    if attr := _SIMPLE_ACC_FIELDS.get(prop_id):
+        setattr(acc, attr, getattr(acc, attr) + param_val)
+        return
+    if prop_id == 83 and len(params) >= 2 and params[0] == char_class:
+        acc.class_skills += params[1]
+    elif prop_id == 188 and len(params) >= 3 and params[1] == char_class:
+        acc.skill_tab_bonuses[params[0]] += params[2]
+    elif prop_id == 107 and len(params) >= 2 and get_skill_class_id(params[0]) == char_class:
+        acc.single_skill_bonuses[params[0]] += params[1]
+    elif prop_id == 97 and len(params) >= 2:
+        acc.oskill_bonuses[params[0]] += params[1]
+    elif prop_id == 126 and len(params) >= 2 and params[0] == 1:
+        acc.fire_skills += params[1]
+
+
+def _apply_paladin_passive_max_res(char_data: D2SStruct, max_res: ResistanceStats) -> None:
+    # Paladin passive skills: Resist Fire (idx 4), Resist Cold (idx 9), Resist Lightning (idx 14)
+    # grant +1% maximum resistance per 2 hard points invested.
+    skills = char_data.skills
+    if char_data.char_class != 3 or skills.magic != 0x6669:
+        return
+    levels = skills.skill_levels
+    for idx, attr in ((4, "fire"), (9, "cold"), (14, "lightning")):
+        if len(levels) > idx:
+            setattr(max_res, attr, getattr(max_res, attr) + levels[idx] // 2)
+
+
+def _apply_anya_quest_res(char_data: D2SStruct, res: ResistanceStats) -> None:
+    # Completing "Prison of Ice" (Anya, Act V quest index 2) awards +10 all resistances.
+    if not (char_data.quests and char_data.quests.magic == 0x216F6F57):
+        return
+    for qd in char_data.quests.qi_data:
+        if len(qd.act_5) > 2 and (qd.act_5[2] & 1):
+            res.fire += 10
+            res.cold += 10
+            res.lightning += 10
+            res.poison += 10
+
+
 def calculate_advanced_stats(
     char_data: D2SStruct, resolver: GameDataResolver | None = None
 ) -> AdvancedStats:
@@ -312,101 +391,36 @@ def calculate_advanced_stats(
         if it.stored_in == StoredIn.INVENTORY and it.code_str.lower() in ("cm1", "cm2", "cm3")
     ]
 
-    res = ResistanceStats()
-    max_res = _default_max_resistances()
-    fhr = 0
-    fcr = 0
-    frw = 0
-    ias = 0
-    mf = 0
-    mf_per_level = 0
-    all_skills = 0
-    class_skills = 0
-    skill_tab_bonuses: Counter[int] = Counter()
-    single_skill_bonuses: Counter[int] = Counter()
-    oskill_bonuses: Counter[int] = Counter()
-    fire_skills = 0
-
+    acc = _AdvancedStatAcc()
     char_class = char_data.char_class
     char_level = char_data.char_level
     if not char_level and char_data.player_stats.is_valid:
         char_level = char_data.player_stats.level
 
     all_source_items: list[D2Item] = equipped_items + inventory_items
-
     for prop_id, val, params in _iter_item_properties(
         all_source_items, char_resolver, version, set_items=equipped_items
     ):
-        param_val = params[0] if params else val
-        if _apply_resist_stat(res, max_res, prop_id, param_val):
-            continue
-        match prop_id:
-            # Speeds & MF
-            case 93:  # Increased Attack Speed
-                ias += param_val
-            case 96:  # Faster Run/Walk
-                frw += param_val
-            case 99:  # Faster Hit Recovery
-                fhr += param_val
-            case 105:  # Faster Cast Rate
-                fcr += param_val
-            case 80:  # Better Chance of Getting Magic Items
-                mf += param_val
-            case 240:  # Magic Find per level (eighths per level)
-                mf_per_level += param_val
-            # Skill bonuses
-            case 127:  # All Skills
-                all_skills += param_val
-            case 83 if len(params) >= 2 and params[0] == char_class:  # Class Skill Levels
-                class_skills += params[1]
-            case 188 if len(params) >= 3 and params[1] == char_class:  # Skill Tab Levels
-                skill_tab_bonuses[params[0]] += params[2]
-            case 107 if len(params) >= 2 and get_skill_class_id(params[0]) == char_class:
-                single_skill_bonuses[params[0]] += params[1]
-            case 97 if len(params) >= 2:  # Oskills
-                oskill_bonuses[params[0]] += params[1]
-            case 126 if len(params) >= 2 and params[0] == 1:  # +X to Fire Skills
-                fire_skills += params[1]
+        _apply_advanced_prop(acc, prop_id, params[0] if params else val, params, char_class)
 
-    mf += (mf_per_level * char_level) // 8
-
-    # Paladin passive skills: Resist Fire (idx 4), Resist Cold (idx 9), Resist Lightning (idx 14)
-    # grant +1% maximum resistance per 2 hard points invested.
-    skills = char_data.skills
-    if char_class == 3 and skills.magic == 0x6669:
-        levels = skills.skill_levels
-        if len(levels) > 4:
-            max_res.fire += levels[4] // 2
-        if len(levels) > 9:
-            max_res.cold += levels[9] // 2
-        if len(levels) > 14:
-            max_res.lightning += levels[14] // 2
-
-    # Add quest resistance bonuses:
-    # In Diablo II, completing the "Prison of Ice" quest (Anya, Act V quest index 2)
-    # awards the Scroll of Resistance, which grants +10 to all resistances permanently.
-    if char_data.quests and char_data.quests.magic == 0x216F6F57:
-        for qd in char_data.quests.qi_data:
-            if len(qd.act_5) > 2 and (qd.act_5[2] & 1):
-                res.fire += 10
-                res.cold += 10
-                res.lightning += 10
-                res.poison += 10
+    acc.mf += (acc.mf_per_level * char_level) // 8
+    _apply_paladin_passive_max_res(char_data, acc.max_res)
+    _apply_anya_quest_res(char_data, acc.res)
 
     return AdvancedStats(
-        resistances=res,
-        max_resistances=_clamp_max_resistances(max_res),
-        fhr=fhr,
-        fcr=fcr,
-        frw=frw,
-        ias=ias,
-        mf=mf,
-        all_skills=all_skills,
-        class_skills=class_skills,
-        skill_tab_bonuses=dict(skill_tab_bonuses),
-        single_skill_bonuses=dict(single_skill_bonuses),
-        oskill_bonuses=dict(oskill_bonuses),
-        fire_skills=fire_skills,
+        resistances=acc.res,
+        max_resistances=_clamp_max_resistances(acc.max_res),
+        fhr=acc.fhr,
+        fcr=acc.fcr,
+        frw=acc.frw,
+        ias=acc.ias,
+        mf=acc.mf,
+        all_skills=acc.all_skills,
+        class_skills=acc.class_skills,
+        skill_tab_bonuses=dict(acc.skill_tab_bonuses),
+        single_skill_bonuses=dict(acc.single_skill_bonuses),
+        oskill_bonuses=dict(acc.oskill_bonuses),
+        fire_skills=acc.fire_skills,
     )
 
 
