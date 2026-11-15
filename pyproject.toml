@@ -72,7 +72,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.mccabe]
-max-complexity = 24
+max-complexity = 23
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN", "RUF001", "RUF002", "RUF003"]

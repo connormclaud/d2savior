@@ -54,41 +54,16 @@ class ExtItemInfo:
     def rune_word_id(self) -> int:
         return self.rune_id if self.rune_id is not None else 0
 
-    def codec(
-        self,
-        io: BitIO,
-        version: int,
-        is_runeword: bool = False,
-        is_personalized: bool = False,
-    ) -> None:
-        meta = self._meta
-        charm_flag = meta.is_charm if meta else False
-        monster_flag = meta.has_monster_id if meta else False
-        spell_flag = (meta.spell_id > 0) if meta else False
-        body_part_flag = (meta.is_body_part and not meta.is_player_body_part) if meta else False
-        scroll_flag = meta.is_scroll_or_book if meta else False
-
-        self.gems = io.bits(3, self.gems)
-        self.guid = io.bits(32, self.guid)
-        self.drop_level = io.bits(7, self.drop_level)
-        self.quality = io.bits(4, self.quality)
-
-        self.var_gfx = io.opt_bits(3, self.var_gfx if self.has_var_gfx else None)
-        self.has_var_gfx = self.var_gfx is not None
-
-        self.item_class = io.opt_bits(11, self.item_class if self.has_class else None)
-        self.has_class = self.item_class is not None
-
+    def _codec_quality_data(self, io: BitIO, meta: ItemMetaData | None) -> None:
         match self.quality:
             case 1:
                 self.low_quality_id = io.bits(3, self.low_quality_id or 0)
-            case 2:
-                if charm_flag:
-                    self.charm_id = io.bits(12, self.charm_id or 0)
-                elif body_part_flag:
-                    self.body_part_file_index = io.bits(10, self.body_part_file_index or 0)
-                elif scroll_flag:
-                    self.spell_type = io.bits(5, self.spell_type or 0)
+            case 2 if meta and meta.is_charm:
+                self.charm_id = io.bits(12, self.charm_id or 0)
+            case 2 if meta and meta.is_body_part and not meta.is_player_body_part:
+                self.body_part_file_index = io.bits(10, self.body_part_file_index or 0)
+            case 2 if meta and meta.is_scroll_or_book:
+                self.spell_type = io.bits(5, self.spell_type or 0)
             case 3:
                 self.high_quality_id = io.bits(3, self.high_quality_id or 0)
             case 4:
@@ -109,26 +84,50 @@ class ExtItemInfo:
                 if self.craft_name:
                     self.craft_name.codec(io)
 
+    def _codec_personalized_name(self, io: BitIO, version: int) -> None:
+        bits_per_char = 8 if is_ptr24_and_above(version) else 7
+        if io.is_writing:
+            for c in self.person_name:
+                io.bits(bits_per_char, c)
+            io.bits(bits_per_char, 0)
+            return
+        self.person_name = []
+        for _ in range(16):
+            c = io.bits(bits_per_char)
+            if c == 0:
+                break
+            self.person_name.append(c)
+
+    def codec(
+        self,
+        io: BitIO,
+        version: int,
+        is_runeword: bool = False,
+        is_personalized: bool = False,
+    ) -> None:
+        meta = self._meta
+
+        self.gems = io.bits(3, self.gems)
+        self.guid = io.bits(32, self.guid)
+        self.drop_level = io.bits(7, self.drop_level)
+        self.quality = io.bits(4, self.quality)
+
+        self.var_gfx = io.opt_bits(3, self.var_gfx if self.has_var_gfx else None)
+        self.has_var_gfx = self.var_gfx is not None
+
+        self.item_class = io.opt_bits(11, self.item_class if self.has_class else None)
+        self.has_class = self.item_class is not None
+
+        self._codec_quality_data(io, meta)
+
         if is_runeword:
             self.rune_id = io.bits(16, self.rune_id or 0)
-
         if is_personalized:
-            bits_per_char = 8 if is_ptr24_and_above(version) else 7
-            if io.is_writing:
-                for c in self.person_name:
-                    io.bits(bits_per_char, c)
-                io.bits(bits_per_char, 0)
-            else:
-                self.person_name = []
-                for _ in range(16):
-                    c = io.bits(bits_per_char)
-                    if c == 0:
-                        break
-                    self.person_name.append(c)
+            self._codec_personalized_name(io, version)
 
-        if monster_flag:
+        if meta and meta.has_monster_id:
             self.monster_id = io.bits(10, self.monster_id or 0)
-        elif spell_flag:
+        elif meta and meta.spell_id > 0:
             self.spell_id = io.bits(5, self.spell_id or 0)
 
     def deserialize(
