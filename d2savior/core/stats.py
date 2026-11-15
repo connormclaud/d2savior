@@ -693,17 +693,12 @@ def collapse_damage_stats(
     return pair_map
 
 
-def extract_grouped_damage_values(
+def _collect_grouped_totals(
     parsed_props: list[tuple[int, int, list[int]]],
-) -> GroupedDamageValues:
-    """Sum grouped elemental and enhanced-damage stats and resolve numeric display ranges."""
-    if not any(prop_id in _GROUPED_DAMAGE_STAT_IDS for prop_id, _, _ in parsed_props):
-        return GroupedDamageValues([], None, ())
-
+) -> tuple[dict[int, int], dict[int, list[int]], int]:
     totals: dict[int, int] = {}
     first_params: dict[int, list[int]] = {}
     poison_len_count = 0
-
     for prop_id, value, params in parsed_props:
         if prop_id not in _GROUPED_DAMAGE_STAT_IDS:
             continue
@@ -713,57 +708,81 @@ def extract_grouped_damage_values(
             first_params[prop_id] = params
         if prop_id == 59 and val > 0:
             poison_len_count += 1
+    return totals, first_params, poison_len_count
 
-    elemental: list[GroupedElementalDamage] = []
-    for min_id, max_id, len_id, is_poison in _ELEMENTAL_STAT_GROUPS:
-        if min_id in totals and max_id in totals:
-            d_min = totals[min_id]
-            d_max = totals[max_id]
-            raw_frames = totals.get(len_id, 0) if len_id is not None else 0
-            frames = (
-                raw_frames // poison_len_count if is_poison and poison_len_count > 1 else raw_frames
-            )
-        elif min_id in totals and max_id not in totals:
-            # Handle legacy (<=0x60) multi-field single tuple [min, max, (frames)].
-            p = first_params.get(min_id, [])
-            if len(p) < 2:
-                continue
-            d_min, d_max = p[0], p[1]
-            frames = p[2] if len(p) >= 3 else 0
-            if (is_poison and frames == 0) or (not is_poison and d_max == 0):
-                continue
-        else:
-            continue
 
-        seconds: int | None = None
-        if is_poison:
-            converted = convert_poison_damage(d_min, d_max, frames)
-            if converted is None:
-                continue
-            d_min, d_max, seconds = converted
-        elif d_max <= 0:
-            continue
+def _resolve_elemental_group(
+    group: tuple[int, int, int | None, bool],
+    totals: dict[int, int],
+    first_params: dict[int, list[int]],
+    poison_len_count: int,
+) -> GroupedElementalDamage | None:
+    min_id, max_id, len_id, is_poison = group
+    if min_id not in totals:
+        return None
 
-        if d_min != d_max and not (0 < d_min < d_max):
-            continue
-
-        present = tuple(
-            sid for sid in (min_id, max_id, len_id) if sid is not None and sid in totals
+    if max_id in totals:
+        d_min = totals[min_id]
+        d_max = totals[max_id]
+        raw_frames = totals.get(len_id, 0) if len_id is not None else 0
+        frames = (
+            raw_frames // poison_len_count if is_poison and poison_len_count > 1 else raw_frames
         )
-        elemental.append(GroupedElementalDamage(min_id, d_min, d_max, seconds, present))
+    else:
+        # Handle legacy (<=0x60) multi-field single tuple [min, max, (frames)].
+        p = first_params.get(min_id, [])
+        if len(p) < 2:
+            return None
+        d_min, d_max = p[0], p[1]
+        frames = p[2] if len(p) >= 3 else 0
+        if (is_poison and frames == 0) or (not is_poison and d_max == 0):
+            return None
 
-    equal_ed: int | None = None
-    ed_present: tuple[int, ...] = ()
+    seconds: int | None = None
+    if is_poison:
+        converted = convert_poison_damage(d_min, d_max, frames)
+        if converted is None:
+            return None
+        d_min, d_max, seconds = converted
+    elif d_max <= 0:
+        return None
+
+    if d_min != d_max and not (0 < d_min < d_max):
+        return None
+
+    present = tuple(sid for sid in (min_id, max_id, len_id) if sid is not None and sid in totals)
+    return GroupedElementalDamage(min_id, d_min, d_max, seconds, present)
+
+
+def _resolve_equal_ed(
+    totals: dict[int, int], first_params: dict[int, list[int]]
+) -> tuple[int | None, tuple[int, ...]]:
     if 17 in totals and 18 in totals:
         if totals[17] == totals[18]:
-            equal_ed = totals[17]
-            ed_present = (17, 18)
-    elif 17 in totals and 18 not in totals:
+            return totals[17], (17, 18)
+        return None, ()
+    if 17 in totals:
         p = first_params.get(17, [])
         if len(p) >= 2 and p[0] == p[1] and p[0] != 0:
-            equal_ed = p[0]
-            ed_present = (17,)
+            return p[0], (17,)
+    return None, ()
 
+
+def extract_grouped_damage_values(
+    parsed_props: list[tuple[int, int, list[int]]],
+) -> GroupedDamageValues:
+    """Sum grouped elemental and enhanced-damage stats and resolve numeric display ranges."""
+    totals, first_params, poison_len_count = _collect_grouped_totals(parsed_props)
+    if not totals:
+        return GroupedDamageValues([], None, ())
+
+    elemental = [
+        resolved
+        for group in _ELEMENTAL_STAT_GROUPS
+        if (resolved := _resolve_elemental_group(group, totals, first_params, poison_len_count))
+        is not None
+    ]
+    equal_ed, ed_present = _resolve_equal_ed(totals, first_params)
     return GroupedDamageValues(elemental, equal_ed, ed_present)
 
 
