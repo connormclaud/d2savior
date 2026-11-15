@@ -219,59 +219,60 @@ class GameDataResolver:
 
         return result
 
+    def _resolve_ranged_gem_mod(
+        self, mod: GemMod, *, include_len: bool
+    ) -> list[tuple[int, int, list[int]]] | None:
+        prop = self.data.get_property_by_code(mod.code)
+        if not prop:
+            return None
+        pairs: tuple[tuple[str | None, int], ...] = (
+            ((prop.stat1, mod.min_val), (prop.stat2, mod.max_val), (prop.stat3, mod.param))
+            if include_len
+            else ((prop.stat1, mod.min_val), (prop.stat2, mod.max_val))
+        )
+        stats: list[tuple[int, int, list[int]]] = []
+        for stat_name, val in pairs:
+            stat_info = self.data.get_stat_by_name(stat_name) if stat_name else None
+            if stat_info is None:
+                return None
+            stats.append((stat_info.stat_id, val, [val]))
+        return stats
+
     def _gem_mod_to_properties(self, mod: GemMod) -> list[tuple[int, int, list[int]]]:
         code = mod.code
         min_val = mod.min_val
-        max_val = mod.max_val
         param = mod.param
 
-        if code in ("dmg-fire", "dmg-ltng"):
-            prop = self.data.get_property_by_code(code)
-            if prop and prop.stat1 and prop.stat2:
-                s_min = self.data.get_stat_by_name(prop.stat1)
-                s_max = self.data.get_stat_by_name(prop.stat2)
-                if s_min and s_max:
-                    return [
-                        (s_min.stat_id, min_val, [min_val]),
-                        (s_max.stat_id, max_val, [max_val]),
-                    ]
-        elif code in ("dmg-cold", "dmg-pois"):
-            prop = self.data.get_property_by_code(code)
-            if prop and prop.stat1 and prop.stat2 and prop.stat3:
-                s_min = self.data.get_stat_by_name(prop.stat1)
-                s_max = self.data.get_stat_by_name(prop.stat2)
-                s_len = self.data.get_stat_by_name(prop.stat3)
-                if s_min and s_max and s_len:
-                    return [
-                        (s_min.stat_id, min_val, [min_val]),
-                        (s_max.stat_id, max_val, [max_val]),
-                        (s_len.stat_id, param, [param]),
-                    ]
-        elif code == "dmg%":
-            return [(17, min_val, [min_val]), (18, min_val, [min_val])]
-        elif code == "dmg-min":
-            return [(21, min_val, [min_val])]
-        elif code == "dmg-max":
-            return [(22, min_val, [min_val])]
-        elif code == "indestruct":
-            return [(152, 1, [1])]
+        if code in ("dmg-fire", "dmg-ltng") and (
+            ranged := self._resolve_ranged_gem_mod(mod, include_len=False)
+        ):
+            return ranged
+        if code in ("dmg-cold", "dmg-pois") and (
+            ranged := self._resolve_ranged_gem_mod(mod, include_len=True)
+        ):
+            return ranged
 
-        prop = self.data.get_property_by_code(code)
-        if prop:
-            res = []
-            for stat_name in (prop.stat1, prop.stat2, prop.stat3, prop.stat4, prop.stat5):
-                if stat_name:
-                    stat_info = self.data.get_stat_by_name(stat_name)
-                    if stat_info:
-                        params = [param, min_val] if param else [min_val]
-                        res.append((stat_info.stat_id, min_val, params))
+        fixed_mods: dict[str, list[tuple[int, int, list[int]]]] = {
+            "dmg%": [(17, min_val, [min_val]), (18, min_val, [min_val])],
+            "dmg-min": [(21, min_val, [min_val])],
+            "dmg-max": [(22, min_val, [min_val])],
+            "indestruct": [(152, 1, [1])],
+        }
+        if fixed := fixed_mods.get(code):
+            return fixed
+
+        if prop := self.data.get_property_by_code(code):
+            params = [param, min_val] if param else [min_val]
+            res = [
+                (stat_info.stat_id, min_val, params)
+                for stat_name in (prop.stat1, prop.stat2, prop.stat3, prop.stat4, prop.stat5)
+                if stat_name and (stat_info := self.data.get_stat_by_name(stat_name))
+            ]
             if res:
                 return res
 
-        stat_info = self.data.get_stat_by_name(code)
-        if stat_info:
+        if stat_info := self.data.get_stat_by_name(code):
             return [(stat_info.stat_id, min_val, [min_val])]
-
         return []
 
     def get_localized_skill_tab_name(self, tab: int, class_id: int) -> str:
