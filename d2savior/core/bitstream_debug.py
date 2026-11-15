@@ -1,9 +1,26 @@
 """Bitstream inspection and pattern search utilities."""
 
-from typing import Any
+from typing import TYPE_CHECKING, TypedDict
+
+if TYPE_CHECKING:
+    import argparse
+
+    from d2savior.core.ibitstream import IBitStream
 
 
-def debug_bitstream(bs: Any, context_bits: int = 64, label: str = "") -> None:
+class BitSearchResult(TypedDict):
+    offset: int
+    byte: int
+    bit: int
+    context: str
+
+
+class ByteSearchResult(TypedDict):
+    offset: int
+    context: str
+
+
+def debug_bitstream(bs: IBitStream, context_bits: int = 64, label: str = "") -> None:
     offset = bs.get_offset()
     bits_str = bs.to_bit_string() if hasattr(bs, "to_bit_string") else str(bs)
 
@@ -23,9 +40,9 @@ def debug_bitstream(bs: Any, context_bits: int = 64, label: str = "") -> None:
     print("=" * 40)
 
 
-def search_bits(bs: Any, pattern: str, context: int = 16) -> list[dict[str, Any]]:
+def search_bits(bs: IBitStream, pattern: str, context: int = 16) -> list[BitSearchResult]:
     bits_str = bs.to_bit_string() if hasattr(bs, "to_bit_string") else str(bs)
-    results = []
+    results: list[BitSearchResult] = []
     start = 0
     while (pos := bits_str.find(pattern, start)) != -1:
         byte_pos = pos // 8
@@ -44,9 +61,9 @@ def search_bits(bs: Any, pattern: str, context: int = 16) -> list[dict[str, Any]
     return results
 
 
-def search_bytes(bs: Any, byte_pattern: bytes, context: int = 4) -> list[dict[str, Any]]:
+def search_bytes(bs: IBitStream, byte_pattern: bytes, context: int = 4) -> list[ByteSearchResult]:
     data = bs.data
-    results = []
+    results: list[ByteSearchResult] = []
     start = 0
     while (pos := data.find(byte_pattern, start)) != -1:
         before = data[max(0, pos - context) : pos].hex()
@@ -56,7 +73,7 @@ def search_bytes(bs: Any, byte_pattern: bytes, context: int = 4) -> list[dict[st
     return results
 
 
-def run_bitstream_searches(bs: Any, args: Any) -> None:
+def run_bitstream_searches(bs: IBitStream | None, args: argparse.Namespace) -> None:
     """Execute bit and byte pattern searches on the bitstream if requested via CLI args."""
     if not bs:
         return

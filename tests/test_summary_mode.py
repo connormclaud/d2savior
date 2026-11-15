@@ -828,6 +828,7 @@ class TestSummaryMode:
 
     def test_stash_find_summary_collapses_damage_stats(self, game_data_resolver):
         from d2s_parse import parse_file
+        from d2savior.core.stash import SharedStash
         from d2savior.core.stash_formatter import format_stash_find
 
         stash_path = os.path.join(
@@ -835,7 +836,7 @@ class TestSummaryMode:
         )
         kind, stash, _ = parse_file(stash_path, resolver=game_data_resolver)
         assert kind == "stash"
-        assert stash is not None
+        assert isinstance(stash, SharedStash)
 
         fine_gc = format_stash_find(stash, "Fine Grand Charm", resolver=game_data_resolver)
         assert fine_gc is not None

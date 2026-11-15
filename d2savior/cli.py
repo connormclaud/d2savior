@@ -10,11 +10,11 @@ lazy import os
 lazy import struct
 lazy import traceback
 lazy from pathlib import Path
-lazy from typing import Any
 
 lazy from d2savior.config import load_save_dir, update_save_dir
 lazy from d2savior.core.bitstream_debug import _run_bitstream_searches
 lazy from d2savior.core.char_formatter import (
+    CharListRow,
     format_char_find,
     format_char_info,
     format_char_list,
@@ -46,9 +46,12 @@ def _report_parse_error(file_path: str, exc: Exception, debug: bool) -> None:
         traceback.print_exc(file=sys.stderr)
 
 
+type ParsedData = D2SStruct | SharedStash | D2Item
+
+
 def parse_d2i_file(
     file_path: str, resolver: GameDataResolver | None = None, debug: bool = False
-) -> tuple[bool, Any, str | None, IBitStream | None]:
+) -> tuple[bool, SharedStash | D2Item | None, str | None, IBitStream | None]:
     if resolver is None:
         resolver = GameDataResolver.load()
     try:
@@ -107,7 +110,7 @@ def parse_d2s_file(
 
 def parse_file(
     file_path: str, resolver: GameDataResolver | None = None, debug: bool = False
-) -> tuple[str | None, Any, IBitStream | None]:
+) -> tuple[str | None, ParsedData | None, IBitStream | None]:
     """Dispatch file parsing based on extension, returning (kind, data, bs) or (None, None, None)."""
     if resolver is None:
         resolver = GameDataResolver.load()
@@ -143,17 +146,17 @@ FORMATTERS = frozendict(
 
 def format_output(
     kind: str,
-    data: Any,
+    data: ParsedData,
     summary: bool,
     resolver: GameDataResolver,
     find_pattern: str | None = None,
 ) -> str | None:
     if find_pattern:
-        if kind == "char":
+        if kind == "char" and isinstance(data, D2SStruct):
             return format_char_find(data, find_pattern, resolver=resolver, summary=summary)
-        elif kind == "stash":
+        elif kind == "stash" and isinstance(data, SharedStash):
             return format_stash_find(data, find_pattern, resolver=resolver, summary=summary)
-        elif kind == "item":
+        elif kind == "item" and isinstance(data, D2Item):
             return format_item_find(data, find_pattern, resolver=resolver, summary=summary)
         return None
     formatter = FORMATTERS.get((kind, summary))
@@ -163,7 +166,7 @@ def format_output(
 
 
 def _evaluate_file(
-    file_path: str, args: Any, resolver: GameDataResolver
+    file_path: str, args: argparse.Namespace, resolver: GameDataResolver
 ) -> tuple[bool, str | None]:
     """Validate, parse, search, and format a single save or stash file."""
     if not os.path.exists(file_path):
@@ -190,7 +193,7 @@ def _evaluate_file(
     return True, output
 
 
-def process_file(file_path: str, args: Any, resolver: GameDataResolver) -> bool:
+def process_file(file_path: str, args: argparse.Namespace, resolver: GameDataResolver) -> bool:
     ok, output = _evaluate_file(file_path, args, resolver)
     if not ok:
         return False
@@ -199,7 +202,7 @@ def process_file(file_path: str, args: Any, resolver: GameDataResolver) -> bool:
     return True
 
 
-def _process_files(files: list[str], args: Any, resolver: GameDataResolver) -> int:
+def _process_files(files: list[str], args: argparse.Namespace, resolver: GameDataResolver) -> int:
     """Process multiple save/stash files in either search (--find) or normal display mode."""
     has_error = False
     if getattr(args, "find", None):
@@ -310,7 +313,7 @@ def resolve_target_files(
 
 def extract_char_row(
     file_path: str, resolver: GameDataResolver | None = None
-) -> dict[str, Any] | None:
+) -> CharListRow | None:
     if resolver is None:
         resolver = GameDataResolver.load()
     ok, char_data, _ = parse_d2s_file(file_path, resolver=resolver, debug=False)
@@ -344,10 +347,10 @@ def extract_char_row(
 
 def list_characters(
     files: list[str], lang: str | None = None, resolver: GameDataResolver | None = None
-) -> list[dict[str, Any]]:
+) -> list[CharListRow]:
     if resolver is None:
         resolver = GameDataResolver.load(lang_key=lang or "enUS")
-    records: list[dict[str, Any]] = []
+    records: list[CharListRow] = []
     for f in files:
         row = extract_char_row(f, resolver=resolver)
         if row is not None:
@@ -380,7 +383,7 @@ _common_parser.add_argument(
 )
 
 
-def _resolve_and_save_targets(args: Any) -> list[str]:
+def _resolve_and_save_targets(args: argparse.Namespace) -> list[str]:
     """Resolve input targets and persist the inferred save directory if not yet configured."""
     files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
     if not args.no_config and dir_to_save:

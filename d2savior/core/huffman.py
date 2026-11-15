@@ -1,4 +1,21 @@
-from typing import Any
+from dataclasses import dataclass
+from typing import Protocol
+
+
+class _BitReaderLike(Protocol):
+    def read_bits(self, num_bits: int) -> int: ...
+
+
+class _BitWriterLike(Protocol):
+    def write_bits(self, num_bits: int, value: int) -> None: ...
+
+
+@dataclass(slots=True)
+class _HuffmanNode:
+    data: int
+    left: _HuffmanNode | None = None
+    right: _HuffmanNode | None = None
+
 
 HUFFMAN_TREE = [
     1,
@@ -160,42 +177,42 @@ class HuffmanDecoder:
         self._codes: dict[int, tuple[int, int]] = {}
         self._build_codes(self._root, 0, 0)
 
-    def _build_tree(self) -> dict[str, Any] | None:
+    def _build_tree(self) -> _HuffmanNode | None:
         idx = [0]
 
-        def build() -> dict[str, Any] | None:
+        def build() -> _HuffmanNode | None:
             if idx[0] >= len(HUFFMAN_TREE):
                 return None
             c = HUFFMAN_TREE[idx[0]]
             idx[0] += 1
             if c == 0:
                 return None
-            node = {"data": 0 if c == 1 else c, "left": None, "right": None}
-            node["left"] = build()
-            node["right"] = build()
+            node = _HuffmanNode(data=0 if c == 1 else c)
+            node.left = build()
+            node.right = build()
             return node
 
         return build()
 
-    def _build_codes(self, node: dict[str, Any] | None, bits: int, code: int) -> None:
+    def _build_codes(self, node: _HuffmanNode | None, bits: int, code: int) -> None:
         if node is None:
             return
-        if node["data"] != 0:
-            self._codes[node["data"]] = (code, bits)
+        if node.data != 0:
+            self._codes[node.data] = (code, bits)
             return
-        self._build_codes(node["left"], bits + 1, code)
-        self._build_codes(node["right"], bits + 1, code + (1 << bits))
+        self._build_codes(node.left, bits + 1, code)
+        self._build_codes(node.right, bits + 1, code + (1 << bits))
 
-    def read_char(self, bs: Any) -> int:
+    def read_char(self, bs: _BitReaderLike) -> int:
         node = self._root
         while node:
-            if node["data"] != 0:
-                return node["data"]
+            if node.data != 0:
+                return node.data
             bit = bs.read_bits(1)
-            node = node["right"] if bit else node["left"]
+            node = node.right if bit else node.left
         return 0
 
-    def write_char(self, bs: Any, ch: int) -> None:
+    def write_char(self, bs: _BitWriterLike, ch: int) -> None:
         if ch in self._codes:
             code, bits = self._codes[ch]
             bs.write_bits(bits, code)

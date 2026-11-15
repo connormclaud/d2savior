@@ -11,6 +11,8 @@ from d2savior.core.char_formatter import (
     format_char_info,
     format_char_summary,
 )
+from d2savior.core.d2s_struct import D2SStruct
+from d2savior.core.stash import SharedStash
 from d2savior.core.stash_formatter import (
     format_stash_find,
     format_stash_info,
@@ -86,42 +88,42 @@ class TestSmokeAPI:
     def test_sork_summary(self, game_data_resolver):
         kind, data, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
         assert kind == "char"
-        assert data is not None
+        assert isinstance(data, D2SStruct)
         output = format_char_summary(data, resolver=game_data_resolver) + "\n"
         assert_matches_golden(output, SORK_SUMMARY_GOLDEN, "sork_summary_api")
 
     def test_sork_full(self, game_data_resolver):
         kind, data, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
         assert kind == "char"
-        assert data is not None
+        assert isinstance(data, D2SStruct)
         output = format_char_info(data, resolver=game_data_resolver) + "\n"
         assert_matches_golden(output, SORK_FULL_GOLDEN, "sork_full_api")
 
     def test_stash_summary(self, game_data_resolver):
         kind, data, _ = parse_file(STASH_D2I, resolver=game_data_resolver)
         assert kind == "stash"
-        assert data is not None
+        assert isinstance(data, SharedStash)
         output = format_stash_summary(data, resolver=game_data_resolver) + "\n"
         assert_matches_golden(output, STASH_SUMMARY_GOLDEN, "stash_summary_api")
 
     def test_stash_full(self, game_data_resolver):
         kind, data, _ = parse_file(STASH_D2I, resolver=game_data_resolver)
         assert kind == "stash"
-        assert data is not None
+        assert isinstance(data, SharedStash)
         output = format_stash_info(data, resolver=game_data_resolver) + "\n"
         assert_matches_golden(output, STASH_FULL_GOLDEN, "stash_full_api")
 
     def test_sork_full_ru(self, game_data_resolver_ru):
         kind, data, _ = parse_file(SORK_D2S, resolver=game_data_resolver_ru)
         assert kind == "char"
-        assert data is not None
+        assert isinstance(data, D2SStruct)
         output = format_char_info(data, resolver=game_data_resolver_ru) + "\n"
         assert_matches_golden(output, SORK_FULL_RURU_GOLDEN, "sork_full_ru_api")
 
     def test_stash_full_ru(self, game_data_resolver_ru):
         kind, data, _ = parse_file(STASH_D2I, resolver=game_data_resolver_ru)
         assert kind == "stash"
-        assert data is not None
+        assert isinstance(data, SharedStash)
         output = format_stash_info(data, resolver=game_data_resolver_ru) + "\n"
         assert_matches_golden(output, STASH_FULL_RURU_GOLDEN, "stash_full_ru_api")
 
@@ -129,7 +131,7 @@ class TestSmokeAPI:
     def test_stash_find_summary(self, game_data_resolver, pattern, golden_path):
         kind, data, _ = parse_file(STASH_D2I, resolver=game_data_resolver)
         assert kind == "stash"
-        assert data is not None
+        assert isinstance(data, SharedStash)
         found = format_stash_find(data, pattern, resolver=game_data_resolver, summary=True)
         assert found is not None
         assert_matches_golden(found + "\n", golden_path, f"stash_find_{pattern.lower()}_api")
@@ -138,7 +140,7 @@ class TestSmokeAPI:
     def test_char_find_summary(self, game_data_resolver, pattern, char_path, golden_path):
         kind, data, _ = parse_file(char_path, resolver=game_data_resolver)
         assert kind == "char"
-        assert data is not None
+        assert isinstance(data, D2SStruct)
         found = format_char_find(data, pattern, resolver=game_data_resolver, summary=True)
         assert found is not None
         assert_matches_golden(found + "\n", golden_path, "char_find_api")

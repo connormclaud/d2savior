@@ -4,6 +4,7 @@ from d2savior.cli import cmd_stash, main, parse_d2i_file, parse_d2s_file
 from d2savior.core.char_formatter import format_char_find
 from d2savior.core.item_formatter import item_matches_pattern
 from d2savior.core.resolver import GameDataResolver
+from d2savior.core.stash import SharedStash
 from d2savior.core.stash_formatter import format_stash_find
 
 
@@ -11,8 +12,9 @@ def test_item_matches_pattern(game_data_resolver: GameDataResolver):
     stash_fixture = Path("tests/fixtures/ModernSharedStashSoftCoreV2.d2i")
     ok, stash, _kind, _ = parse_d2i_file(str(stash_fixture), resolver=game_data_resolver)
     assert ok
-    assert stash is not None
+    assert isinstance(stash, SharedStash)
     tab3 = stash.tabs[2]
+    assert tab3.items is not None
 
     # Find Horazon's Hold item in tab 3
     horazon = None
@@ -100,7 +102,7 @@ def test_format_stash_find_summary(game_data_resolver: GameDataResolver):
     stash_fixture = Path("tests/fixtures/ModernSharedStashSoftCoreV2.d2i")
     ok, stash, _kind, _ = parse_d2i_file(str(stash_fixture), resolver=game_data_resolver)
     assert ok
-    assert stash is not None
+    assert isinstance(stash, SharedStash)
 
     out = format_stash_find(stash, "hold", resolver=game_data_resolver, summary=True)
     assert out is not None
@@ -117,7 +119,7 @@ def test_format_stash_find_detailed(game_data_resolver: GameDataResolver):
     stash_fixture = Path("tests/fixtures/ModernSharedStashSoftCoreV2.d2i")
     ok, stash, _kind, _ = parse_d2i_file(str(stash_fixture), resolver=game_data_resolver)
     assert ok
-    assert stash is not None
+    assert isinstance(stash, SharedStash)
 
     out = format_stash_find(stash, "hold", resolver=game_data_resolver, summary=False)
     assert out is not None

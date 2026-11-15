@@ -1,8 +1,12 @@
 """Little endian binary output stream writing data as bits."""
 
-from typing import Any
+from typing import Protocol
 
 type ByteInput = bytes | bytearray | list[int]
+
+
+class _BytesWriter(Protocol):
+    def write(self, data: bytearray, /) -> object: ...
 
 
 class OBitStream:
@@ -76,7 +80,7 @@ class OBitStream:
         for ch in str_value:
             self.write_bits(8, ord(ch))
 
-    def write_bytes_to(self, writer: Any) -> None:
+    def write_bytes_to(self, writer: _BytesWriter) -> None:
         writer.write(bytearray(self.get_data()))
 
     def align_byte(self) -> None:

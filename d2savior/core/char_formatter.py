@@ -2,6 +2,7 @@
 
 import datetime
 from collections.abc import Mapping, Sequence
+from typing import TypedDict
 
 from d2savior.core.constants import (
     CLASS_SKILL_BASES,
@@ -638,7 +639,21 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     return "\n".join(result).rstrip()
 
 
-def format_char_list(records: Sequence[Mapping[str, str | int]]) -> str:
+CharListRow = TypedDict(
+    "CharListRow",
+    {
+        "name": str,
+        "class": str,
+        "level": int,
+        "mode": str,
+        "last_played": str,
+        "sort_ts": int,
+        "file_path": str,
+    },
+)
+
+
+def format_char_list(records: Sequence[CharListRow] | Sequence[Mapping[str, object]]) -> str:
     """Format a list of character records into a column-aligned table."""
     if not records:
         return ""

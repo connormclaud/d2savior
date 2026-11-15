@@ -100,15 +100,10 @@ class BitIO(ABC):
                 return self.bits(count)
             return None
 
+    @abstractmethod
     def huffman_char(self, ch: int = 0) -> int:
         """Read or write a single Huffman-coded ASCII character."""
-        from d2savior.core.huffman import DEFAULT_HUFFMAN
-
-        if self.is_writing:
-            DEFAULT_HUFFMAN.write_char(self, ch)
-            return ch
-        else:
-            return DEFAULT_HUFFMAN.read_char(self)
+        ...
 
 
 class BitReader(BitIO):
@@ -163,6 +158,11 @@ class BitReader(BitIO):
 
     def remaining_bits(self) -> int:
         return self.bs.remaining()
+
+    def huffman_char(self, ch: int = 0) -> int:
+        from d2savior.core.huffman import DEFAULT_HUFFMAN
+
+        return DEFAULT_HUFFMAN.read_char(self.bs)
 
 
 class BitWriter(BitIO):
@@ -233,3 +233,9 @@ class BitWriter(BitIO):
 
     def remaining_bits(self) -> int:
         raise NotImplementedError("BitWriter has no fixed remaining bit count")
+
+    def huffman_char(self, ch: int = 0) -> int:
+        from d2savior.core.huffman import DEFAULT_HUFFMAN
+
+        DEFAULT_HUFFMAN.write_char(self.bs, ch)
+        return ch

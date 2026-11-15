@@ -26,7 +26,7 @@ SORC_D2S = os.path.join(FIXTURES_DIR, "Sorc.d2s")
 def test_sork_advanced_stats(game_data_resolver: GameDataResolver):
     kind, char, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
     assert kind == "char"
-    assert char is not None
+    assert isinstance(char, D2SStruct)
 
     stats = calculate_advanced_stats(char, resolver=game_data_resolver)
     assert isinstance(stats, AdvancedStats)
@@ -64,7 +64,7 @@ def test_d2s_0x69_sorc_advanced_stats(game_data_resolver: GameDataResolver):
     """Test advanced stats calculation on 0x69 save file (Sorc.d2s)."""
     kind, char, _ = parse_file(SORC_D2S, resolver=game_data_resolver)
     assert kind == "char"
-    assert char is not None
+    assert isinstance(char, D2SStruct)
     assert char.version == 0x69
 
     stats = calculate_advanced_stats(char, resolver=game_data_resolver)
@@ -78,7 +78,7 @@ def test_d2s_0x69_sorc_advanced_stats(game_data_resolver: GameDataResolver):
 def test_weapon_set_switch(game_data_resolver: GameDataResolver):
     kind, char, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
     assert kind == "char"
-    assert char is not None
+    assert isinstance(char, D2SStruct)
 
     # Switch to Weapon Set II (Bone wand + Rhyme shield)
     char.weapon_set = 1
@@ -230,6 +230,7 @@ def test_quest_resistances_anya(game_data_resolver: GameDataResolver):
 
 def test_format_char_advanced_stats_section(game_data_resolver: GameDataResolver):
     _kind, char, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
+    assert isinstance(char, D2SStruct)
     summary = format_char_summary(char, resolver=game_data_resolver)
     info = format_char_info(char, resolver=game_data_resolver)
 
@@ -299,7 +300,7 @@ def test_sork_mercenary_stats(game_data_resolver: GameDataResolver):
     """Test mercenary level, attributes, and resistances on sork.d2s."""
     kind, char, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
     assert kind == "char"
-    assert char is not None
+    assert isinstance(char, D2SStruct)
 
     merc_stats = calculate_mercenary_stats(char, resolver=game_data_resolver)
     assert isinstance(merc_stats, MercenaryStats)
@@ -320,7 +321,7 @@ def test_d2s_0x69_sorc_mercenary_stats(game_data_resolver: GameDataResolver):
     """Test mercenary stat calculation on 0x69 Sorc.d2s (Act I Cold Rogue, Exp=43792)."""
     kind, char, _ = parse_file(SORC_D2S, resolver=game_data_resolver)
     assert kind == "char"
-    assert char is not None
+    assert isinstance(char, D2SStruct)
 
     merc_stats = calculate_mercenary_stats(char, resolver=game_data_resolver)
     assert merc_stats is not None
