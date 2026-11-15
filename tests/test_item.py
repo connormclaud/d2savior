@@ -279,55 +279,34 @@ class TestCD2ItemVersionDifferences:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "d2savior", "data"
         )
         self.game_data = GameData.load(data_dir)
-        self._has_data = True
 
-    def _build_simple_item_d2r(self, version, type_name=b"elx "):
+    def _roundtrip_simple_item(self, version: int, type_name: bytes = b"elx ") -> D2Item:
+        vd = self.game_data.for_version(version)
+        item = D2Item()
+        item.version = version
+        item.item_version = 100
+        item.is_simple = True
+        item.item_info = ItemInfo(vd.get_item_meta(type_name))
+        item.item_info.type_name = type_name
+
         obs = OBitStream()
-        obs.write_word(0x4D4A)
-        obs.write_dword(version)
-        flags = 0x00200000
-        obs.write_bits(32, flags)
-        obs.write_bits(1, 0)
-        obs.write_bits(2, 0)
-        obs.write_bits(3, 0)
-        obs.write_bits(4, 0)
-        obs.write_bits(4, 0)
-        obs.write_bits(3, 0)
-        huffman = DEFAULT_HUFFMAN
-        for c in type_name:
-            huffman.write_char(obs, c)
-        obs.align_byte()
-        return obs
+        item.serialize(obs, version, True, data=vd)
+
+        parsed = D2Item()
+        parsed.deserialize(IBitStream(obs.get_data()), version, True, data=vd)
+        return parsed
 
     def test_simple_item_0x63(self):
         """测试 0x63 版本 simple 物品解析"""
-        if not self._has_data:
-            pytest.skip("Data files not found")
-
-        obs = self._build_simple_item_d2r(0x63, b"elx ")
-        bs = IBitStream(obs.get_data())
-        item = D2Item()
-        vd = self.game_data.for_version(0x63) if self.game_data else None
-        try:
-            item.deserialize(bs, 0x63, True, data=vd)
-            assert item.is_simple
-        except ValueError, Exception:
-            pytest.skip("Bitstream data insufficient for full item parse")
+        item = self._roundtrip_simple_item(0x63)
+        assert item.is_simple
+        assert item.type_name == b"elx "
 
     def test_simple_item_0x69(self):
         """测试 0x69 版本 simple 物品解析"""
-        if not self._has_data:
-            pytest.skip("Data files not found")
-
-        obs = self._build_simple_item_d2r(0x69, b"elx ")
-        bs = IBitStream(obs.get_data())
-        item = D2Item()
-        vd = self.game_data.for_version(0x69) if self.game_data else None
-        try:
-            item.deserialize(bs, 0x69, True, data=vd)
-            assert item.is_simple
-        except ValueError, Exception:
-            pytest.skip("Bitstream data insufficient for full item parse")
+        item = self._roundtrip_simple_item(0x69)
+        assert item.is_simple
+        assert item.type_name == b"elx "
 
     def test_d2r_flags_rune_word_bit(self):
         """测试 D2R flags 中 bRuneWord 位 (0x04000000)"""

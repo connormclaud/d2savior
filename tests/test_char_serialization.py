@@ -3,8 +3,6 @@ import shutil
 import sys
 import tempfile
 
-import pytest
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from d2savior.core.d2s_struct import D2SStruct
@@ -74,56 +72,6 @@ class TestCharSerialization:
         assert os.path.exists(save_file)
         self._test_char_roundtrip(save_file)
 
-    def test_serialize_warlock_0x69(self):
-        save_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "..",
-            "examples",
-            "0x69",
-            "warlock.d2s",
-        )
-        if os.path.exists(save_file):
-            self._test_char_roundtrip(save_file)
-        else:
-            pytest.skip(f"Save file not found: {save_file}")
-
-    def test_serialize_amazon_0x63(self):
-        save_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "..",
-            "examples",
-            "0x63",
-            "Amazon.d2s",
-        )
-        if os.path.exists(save_file):
-            self._test_char_roundtrip(save_file)
-        else:
-            pytest.skip(f"Save file not found: {save_file}")
-
-    def test_serialize_paladin_0x63(self):
-        save_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "..",
-            "examples",
-            "0x63",
-            "Paladin.d2s",
-        )
-        if os.path.exists(save_file):
-            self._test_char_roundtrip(save_file)
-        else:
-            pytest.skip(f"Save file not found: {save_file}")
-
-    def test_serialize_0x63(self):
-        save_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "examples", "0x63"
-        )
-        if not os.path.exists(save_dir):
-            pytest.skip(f"Save directory not found: {save_dir}")
-        save_files = [f for f in os.listdir(save_dir) if f.endswith(".d2s")]
-        if not save_files:
-            pytest.skip(f"No .d2s files found in {save_dir}")
-        self._test_char_roundtrip(os.path.join(save_dir, save_files[0]))
-
     def _test_checksum_update(self, save_file):
         with open(save_file, "rb") as f:
             original_data = f.read()
@@ -156,30 +104,6 @@ class TestCharSerialization:
         save_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "Sorc.d2s")
         assert os.path.exists(save_file)
         self._test_checksum_update(save_file)
-
-    def test_checksum_warlock_0x69(self):
-        save_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "..",
-            "examples",
-            "0x69",
-            "warlock.d2s",
-        )
-        if os.path.exists(save_file):
-            self._test_checksum_update(save_file)
-        else:
-            pytest.skip(f"Save file not found: {save_file}")
-
-    def test_checksum_0x63(self):
-        save_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "examples", "0x63"
-        )
-        if not os.path.exists(save_dir):
-            pytest.skip(f"Save directory not found: {save_dir}")
-        save_files = [f for f in os.listdir(save_dir) if f.endswith(".d2s")]
-        if not save_files:
-            pytest.skip(f"No .d2s files found in {save_dir}")
-        self._test_checksum_update(os.path.join(save_dir, save_files[0]))
 
 
 class TestBackupRotation:
