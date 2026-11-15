@@ -12,7 +12,7 @@ from d2savior.core.constants import (
     WAYPOINTS_BY_ACT,
 )
 from d2savior.core.d2s_struct import CharStatus, D2SStruct
-from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
+from d2savior.core.enums import EquipSlot, ItemLocation
 from d2savior.core.item import D2Item
 from d2savior.core.item_formatter import (
     FormattedLines,
@@ -49,22 +49,6 @@ def get_char_status_summary(char_data: D2SStruct) -> str:
         status_parts.append("Died before")
 
     return " | ".join(status_parts)
-
-
-def get_char_title_name(char_title: int, char_class: int) -> str:
-    if char_title == 0:
-        return "None"
-    elif char_title >= 0xF:
-        if char_class in [0, 1]:
-            return "Matriarch"
-        else:
-            return "Patriarch"
-    elif char_title >= 0xA:
-        return "Champion"
-    elif char_title >= 5:
-        return "Slayer"
-    else:
-        return f"Unknown({char_title})"
 
 
 def format_timestamp(ts: int) -> str:
@@ -331,7 +315,7 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     result.append(f"Character Flags: 0x{char_data.char_flags:X} ({char_type_name})")
 
     char_title = char_data.char_title
-    char_title_name = get_char_title_name(char_title, char_data.char_class)
+    char_title_name = char_data.get_char_title_name()
     result.append(f"Character Title: 0x{char_title:X} ({char_title_name})")
 
     result.append(f"Weapon Set: {'I' if char_data.weapon_set == 0 else 'II'}")
@@ -475,8 +459,7 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     char_resolver = resolver.for_version(version)
     char_class = char_resolver.get_localized_class_name(char_data.char_class)
     flags_str = get_char_status_summary(char_data)
-    char_title = char_data.char_title
-    title_str = get_char_title_name(char_title, char_data.char_class)
+    title_str = char_data.get_char_title_name()
     weapon_set = "I" if char_data.weapon_set == 0 else "II"
 
     result.append(
@@ -537,32 +520,13 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
     result.append("")
 
     result.append("=== Equipped Gear ===")
-    equipped_items = {}
-    inventory_items = []
-    stash_items = []
-    cube_items = []
-    belt_items = []
-    cursor_items = []
-
-    item_list = char_data.item_list
-    if item_list.magic == 0x4D4A:
-        for item in item_list.items:
-            loc = ItemLocation(item.location)
-            match (loc, item.stored_in):
-                case (ItemLocation.EQUIPPED, _):
-                    equipped_items[item.position] = item
-                case (ItemLocation.BELT, _):
-                    belt_items.append(item)
-                case (ItemLocation.STORED, StoredIn.INVENTORY):
-                    inventory_items.append(item)
-                case (ItemLocation.STORED, StoredIn.STASH):
-                    stash_items.append(item)
-                case (ItemLocation.STORED, StoredIn.CUBE):
-                    cube_items.append(item)
-                case (ItemLocation.STORED, _):
-                    inventory_items.append(item)
-                case (ItemLocation.CURSOR, _):
-                    cursor_items.append(item)
+    cats = char_data.item_list.categorize()
+    equipped_items = cats.equipped
+    inventory_items = cats.inventory
+    stash_items = cats.stash
+    cube_items = cats.cube
+    belt_items = cats.belt
+    cursor_items = cats.cursor
 
     has_equipped = False
     for slot in EquipSlot:
@@ -697,33 +661,27 @@ def format_char_find(
     version = char_data.version
     char_resolver = resolver.for_version(version)
 
-    equipped_matches: list[tuple[EquipSlot, D2Item]] = []
+    cats = char_data.item_list.categorize()
+    equipped_matches: list[tuple[EquipSlot, D2Item]] = [
+        (EquipSlot(pos), it)
+        for pos, it in cats.equipped.items()
+        if pos in EquipSlot
+        and item_matches_pattern(it, pattern, resolver=char_resolver, version=version)
+    ]
     merc_matches: list[tuple[str, D2Item]] = []
     corpse_matches: list[D2Item] = []
-    stored_matches: list[tuple[str, D2Item]] = []
-
-    item_list = char_data.item_list
-    if item_list.magic == 0x4D4A:
-        for it in item_list.items:
-            if not item_matches_pattern(it, pattern, resolver=char_resolver, version=version):
-                continue
-            loc = ItemLocation(it.location)
-            match (loc, it.stored_in):
-                case (ItemLocation.EQUIPPED, _):
-                    if it.position in EquipSlot:
-                        equipped_matches.append((EquipSlot(it.position), it))
-                case (ItemLocation.STORED, StoredIn.INVENTORY):
-                    stored_matches.append(("[Inventory]", it))
-                case (ItemLocation.STORED, StoredIn.STASH):
-                    stored_matches.append(("[Stash]", it))
-                case (ItemLocation.STORED, StoredIn.CUBE):
-                    stored_matches.append(("[Cube]", it))
-                case (ItemLocation.STORED, _):
-                    stored_matches.append(("[Inventory]", it))
-                case (ItemLocation.BELT, _):
-                    stored_matches.append(("[Belt]", it))
-                case (ItemLocation.CURSOR, _):
-                    stored_matches.append(("[Cursor]", it))
+    stored_matches: list[tuple[str, D2Item]] = [
+        (label, it)
+        for label, bucket in (
+            ("[Inventory]", cats.inventory),
+            ("[Stash]", cats.stash),
+            ("[Cube]", cats.cube),
+            ("[Belt]", cats.belt),
+            ("[Cursor]", cats.cursor),
+        )
+        for it in bucket
+        if item_matches_pattern(it, pattern, resolver=char_resolver, version=version)
+    ]
 
     slot_order = {slot: idx for idx, slot in enumerate(EquipSlot)}
     equipped_matches.sort(key=lambda pair: slot_order.get(pair[0], 999))

@@ -23,7 +23,7 @@ from d2savior.core.constants import (
     get_skill_tab_index,
 )
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
+from d2savior.core.enums import EquipSlot, StoredIn
 from d2savior.core.item import D2Item
 from d2savior.core.models import HirelingInfo
 from d2savior.core.property import get_skill_class_id
@@ -301,23 +301,16 @@ def calculate_advanced_stats(
         else (EquipSlot.WEAPON_I, EquipSlot.SHIELD_I)
     )
 
-    equipped_items: list[D2Item] = []
-    inventory_items: list[D2Item] = []
-
-    if char_data.item_list.magic == 0x4D4A:
-        for it in char_data.item_list.items:
-            loc = ItemLocation(it.location)
-            if loc == ItemLocation.EQUIPPED:
-                if it.position in inactive_weapon_slots:
-                    continue
-                equipped_items.append(it)
-            # In Diablo II, only charms in inventory provide active bonuses
-            elif (
-                loc == ItemLocation.STORED
-                and it.stored_in == StoredIn.INVENTORY
-                and it.code_str.lower() in ("cm1", "cm2", "cm3")
-            ):
-                inventory_items.append(it)
+    cats = char_data.item_list.categorize()
+    equipped_items: list[D2Item] = [
+        it for pos, it in cats.equipped.items() if pos not in inactive_weapon_slots
+    ]
+    # In Diablo II, only charms in inventory provide active bonuses
+    inventory_items: list[D2Item] = [
+        it
+        for it in cats.inventory
+        if it.stored_in == StoredIn.INVENTORY and it.code_str.lower() in ("cm1", "cm2", "cm3")
+    ]
 
     res = ResistanceStats()
     max_res = _default_max_resistances()

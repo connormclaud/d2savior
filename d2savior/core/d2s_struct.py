@@ -1,4 +1,5 @@
 from enum import FlagBoundary, IntFlag
+from typing import ClassVar
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 from d2savior.core.enums import (
@@ -728,18 +729,22 @@ class D2SStruct:
             name = name_bytes.decode("ascii", errors="replace")
         return name
 
+    _FEMALE_CLASSES: ClassVar[frozenset[int]] = frozenset({0, 1, 6})  # Amazon, Sorceress, Assassin
+
     def get_char_title(self) -> int:
         return self.char_title
 
     def get_char_title_name(self) -> str:
         title = self.get_char_title()
-        title_names = {
-            0: "None",
-            5: "Slayer",
-            10: "Champion",
-            15: "Matriarch/Patriarch",
-        }
-        return title_names.get(title, f"Unknown({title})")
+        if title == 0:
+            return "None"
+        if title >= 0xF:
+            return "Matriarch" if self.char_class in self._FEMALE_CLASSES else "Patriarch"
+        if title >= 0xA:
+            return "Champion"
+        if title >= 5:
+            return "Slayer"
+        return f"Unknown({title})"
 
     def serialize(
         self, bs: OBitStream, data: VersionData | GameData | GameDataResolver | None = None

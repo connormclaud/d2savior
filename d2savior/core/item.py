@@ -1,9 +1,10 @@
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 from typing import ClassVar
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
 from d2savior.core.ear import Ear, is_ptr24_and_above
-from d2savior.core.enums import ITEM_LIST_MAGIC
+from d2savior.core.enums import ITEM_LIST_MAGIC, ItemLocation, StoredIn
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item_name import GoldQuantity, LongName
 from d2savior.core.loader import GameData
@@ -1012,6 +1013,18 @@ class D2Item:
         self._codec_gem_items(io, magic_flag=True, data=d)
 
 
+@dataclass(slots=True)
+class CategorizedItems:
+    """Items partitioned by equipment slot and storage location."""
+
+    equipped: dict[int, D2Item] = field(default_factory=dict)
+    inventory: list[D2Item] = field(default_factory=list)
+    stash: list[D2Item] = field(default_factory=list)
+    cube: list[D2Item] = field(default_factory=list)
+    belt: list[D2Item] = field(default_factory=list)
+    cursor: list[D2Item] = field(default_factory=list)
+
+
 class ItemList:
     def __init__(self) -> None:
         self.magic = ITEM_LIST_MAGIC
@@ -1029,6 +1042,30 @@ class ItemList:
 
     def __getitem__(self, index: int) -> D2Item:
         return self.items[index]
+
+    def categorize(self) -> CategorizedItems:
+        """Partition items into equipped, inventory, stash, cube, belt, and cursor."""
+        cats = CategorizedItems()
+        if self.magic != ITEM_LIST_MAGIC:
+            return cats
+        for item in self.items:
+            loc = ItemLocation(item.location)
+            match (loc, item.stored_in):
+                case (ItemLocation.EQUIPPED, _):
+                    cats.equipped[item.position] = item
+                case (ItemLocation.BELT, _):
+                    cats.belt.append(item)
+                case (ItemLocation.STORED, StoredIn.INVENTORY):
+                    cats.inventory.append(item)
+                case (ItemLocation.STORED, StoredIn.STASH):
+                    cats.stash.append(item)
+                case (ItemLocation.STORED, StoredIn.CUBE):
+                    cats.cube.append(item)
+                case (ItemLocation.STORED, _):
+                    cats.inventory.append(item)
+                case (ItemLocation.CURSOR, _):
+                    cats.cursor.append(item)
+        return cats
 
     def codec(
         self,
