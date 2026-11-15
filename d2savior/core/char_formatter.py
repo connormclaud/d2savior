@@ -13,7 +13,7 @@ from d2savior.core.constants import (
 )
 from d2savior.core.d2s_struct import CharStatus, D2SStruct
 from d2savior.core.enums import EquipSlot, ItemLocation
-from d2savior.core.item import D2Item
+from d2savior.core.item import CategorizedItems, D2Item
 from d2savior.core.item_formatter import (
     FormattedLines,
     _format_item_lines,
@@ -451,21 +451,20 @@ def format_char_info(char_data: D2SStruct, resolver: GameDataResolver) -> str:
     return "\n".join(result)
 
 
-def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str:
-    result = []
-    result.append("=== Diablo II Character Summary ===")
+def _format_summary_header_lines(
+    char_data: D2SStruct, char_resolver: GameDataResolver
+) -> FormattedLines:
     char_name = char_data.get_char_name()
-    version = char_data.version if char_data.version else 0x63
-    char_resolver = resolver.for_version(version)
     char_class = char_resolver.get_localized_class_name(char_data.char_class)
     flags_str = get_char_status_summary(char_data)
     title_str = char_data.get_char_title_name()
     weapon_set = "I" if char_data.weapon_set == 0 else "II"
 
-    result.append(
-        f"Name: {char_name} | Class: {char_class} | Level: {char_data.char_level} | Title: {title_str}"
-    )
-    result.append(f"Status: {flags_str} | Weapon Set: {weapon_set}")
+    result = [
+        "=== Diablo II Character Summary ===",
+        f"Name: {char_name} | Class: {char_class} | Level: {char_data.char_level} | Title: {title_str}",
+        f"Status: {flags_str} | Weapon Set: {weapon_set}",
+    ]
 
     last_save_time = char_data.last_save_time or char_data.dw_time
     play_time = char_data.play_time
@@ -489,117 +488,125 @@ def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str
             result.append(
                 f"Remaining Points: {stats.stat_points_remaining} Stat, {stats.skill_points_remaining} Skill"
             )
+    return result
 
+
+def _format_summary_skills_lines(
+    char_data: D2SStruct, char_resolver: GameDataResolver, adv_stats: AdvancedStats
+) -> FormattedLines:
+    skills = _get_character_skills(char_data, char_resolver, adv_stats=adv_stats)
+    if not skills:
+        return ["=== Skills ===", "None"]
+    active_skills = [
+        f"{skill_name if skill_name else f'Skill {i}'}: {_format_skill_level(level, effective)}"
+        for i, skill_name, level, effective in skills
+    ]
+    return ["=== Skills ===", ", ".join(active_skills)]
+
+
+def _format_summary_equipped_lines(
+    equipped_items: dict[int, D2Item], char_resolver: GameDataResolver, version: int
+) -> FormattedLines:
+    lines = [
+        f"- {slot.display_name}: {format_item_summary(equipped_items[slot.value], resolver=char_resolver, version=version)}"
+        for slot in EquipSlot
+        if slot.value in equipped_items
+    ]
+    return ["=== Equipped Gear ===", *(lines or ["None"])]
+
+
+def _format_summary_mercenary_lines(
+    char_data: D2SStruct,
+    char_resolver: GameDataResolver,
+    version: int,
+    diff_name: str,
+    resist_penalty: int,
+) -> FormattedLines:
+    if not (char_data.is_expansion() and char_data.has_mercenary()):
+        return ["=== Mercenary ===", "No mercenary"]
+
+    result = ["=== Mercenary ===", _format_mercenary_header(char_data, char_resolver, summary=True)]
+    merc_stats = calculate_mercenary_stats(char_data, resolver=char_resolver)
+    if merc_stats is not None:
+        result.append(
+            f"Level: {merc_stats.level} | Attributes: Str: {merc_stats.strength}, Dex: {merc_stats.dexterity}"
+        )
+        result.append(
+            f"Resistances ({diff_name}): {merc_stats.resistances.format_summary(resist_penalty, merc_stats.max_resistances)}"
+        )
+    if char_data.mercenary.items and char_data.mercenary.items.items:
+        result.append("Equipped:")
+        for m_item in char_data.mercenary.items.items:
+            loc = ItemLocation(m_item.location)
+            slot_str = (
+                f"{EquipSlot(m_item.position).display_name}: "
+                if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot
+                else ""
+            )
+            result.append(
+                f"  - {slot_str}{format_item_summary(m_item, resolver=char_resolver, version=version)}"
+            )
+    else:
+        result.append("Equipped: None")
+    return result
+
+
+def _format_summary_stored_lines(
+    cats: CategorizedItems, char_resolver: GameDataResolver, version: int
+) -> FormattedLines:
+    stored_lines: FormattedLines = [
+        f"- {label} {format_item_summary(it, resolver=char_resolver, version=version)}"
+        for label, bucket in (
+            ("[Inventory]", cats.inventory),
+            ("[Stash]", cats.stash),
+            ("[Cube]", cats.cube),
+        )
+        for it in bucket
+    ]
+    if cats.belt:
+        belt_counts: dict[str, int] = {}
+        for it in cats.belt:
+            summary = format_item_summary(it, resolver=char_resolver, version=version)
+            belt_counts[summary] = belt_counts.get(summary, 0) + 1
+        stored_lines.extend(
+            f"- [Belt] {summary}{f' (x{count})' if count > 1 else ''}"
+            for summary, count in belt_counts.items()
+        )
+    stored_lines.extend(
+        f"- [Cursor] {format_item_summary(it, resolver=char_resolver, version=version)}"
+        for it in cats.cursor
+    )
+    return ["=== Inventory & Stash ===", *(stored_lines or ["No stored items"])]
+
+
+def format_char_summary(char_data: D2SStruct, resolver: GameDataResolver) -> str:
+    version = char_data.version if char_data.version else 0x63
+    char_resolver = resolver.for_version(version)
     diff_idx = get_current_difficulty(char_data)
     diff_name = DIFFICULTY_NAMES[diff_idx]
     resist_penalty = get_difficulty_resist_penalty(char_data, diff_idx)
     adv_stats = calculate_advanced_stats(char_data, resolver=resolver)
+    cats = char_data.item_list.categorize()
 
-    result.append("")
-    result.append("=== Skills ===")
-    skills = _get_character_skills(char_data, char_resolver, adv_stats=adv_stats)
-    if skills:
-        active_skills = [
-            f"{skill_name if skill_name else f'Skill {i}'}: {_format_skill_level(level, effective)}"
-            for i, skill_name, level, effective in skills
-        ]
-        result.append(", ".join(active_skills))
-    else:
-        result.append("None")
-
-    result.append("")
-    result.extend(_format_waypoints_lines(char_data, char_resolver))
-    result.append("")
-    result.extend(_format_quests_lines(char_data, char_resolver))
-    result.append("")
-    result.extend(
+    sections: list[FormattedLines] = [
+        _format_summary_header_lines(char_data, char_resolver),
+        _format_summary_skills_lines(char_data, char_resolver, adv_stats),
+        _format_waypoints_lines(char_data, char_resolver),
+        _format_quests_lines(char_data, char_resolver),
         _format_advanced_stats_lines(
             char_data, char_resolver, adv_stats, diff_name=diff_name, resist_penalty=resist_penalty
-        )
-    )
-    result.append("")
-
-    result.append("=== Equipped Gear ===")
-    cats = char_data.item_list.categorize()
-    equipped_items = cats.equipped
-    inventory_items = cats.inventory
-    stash_items = cats.stash
-    cube_items = cats.cube
-    belt_items = cats.belt
-    cursor_items = cats.cursor
-
-    has_equipped = False
-    for slot in EquipSlot:
-        if slot.value in equipped_items:
-            has_equipped = True
-            it = equipped_items[slot.value]
-            result.append(
-                f"- {slot.display_name}: {format_item_summary(it, resolver=char_resolver, version=version)}"
-            )
-    if not has_equipped:
-        result.append("None")
-
-    result.append("")
-    result.append("=== Mercenary ===")
-    if char_data.is_expansion() and char_data.has_mercenary():
-        result.append(_format_mercenary_header(char_data, char_resolver, summary=True))
-        merc_stats = calculate_mercenary_stats(char_data, resolver=char_resolver)
-        if merc_stats is not None:
-            result.append(
-                f"Level: {merc_stats.level} | Attributes: Str: {merc_stats.strength}, Dex: {merc_stats.dexterity}"
-            )
-            result.append(
-                f"Resistances ({diff_name}): {merc_stats.resistances.format_summary(resist_penalty, merc_stats.max_resistances)}"
-            )
-        if char_data.mercenary.items and char_data.mercenary.items.items:
-            result.append("Equipped:")
-            for m_item in char_data.mercenary.items.items:
-                loc = ItemLocation(m_item.location)
-                slot_str = ""
-                if loc == ItemLocation.EQUIPPED and m_item.position in EquipSlot:
-                    slot_str = f"{EquipSlot(m_item.position).display_name}: "
-                result.append(
-                    f"  - {slot_str}{format_item_summary(m_item, resolver=char_resolver, version=version)}"
-                )
-        else:
-            result.append("Equipped: None")
-    else:
-        result.append("No mercenary")
-
-    result.append("")
-    result.append("=== Inventory & Stash ===")
-    stored_lines = []
-    for it in inventory_items:
-        stored_lines.append(
-            f"- [Inventory] {format_item_summary(it, resolver=char_resolver, version=version)}"
-        )
-    for it in stash_items:
-        stored_lines.append(
-            f"- [Stash] {format_item_summary(it, resolver=char_resolver, version=version)}"
-        )
-    for it in cube_items:
-        stored_lines.append(
-            f"- [Cube] {format_item_summary(it, resolver=char_resolver, version=version)}"
-        )
-
-    if belt_items:
-        belt_counts = {}
-        for it in belt_items:
-            summary = format_item_summary(it, resolver=char_resolver, version=version)
-            belt_counts[summary] = belt_counts.get(summary, 0) + 1
-        for summary, count in belt_counts.items():
-            stored_lines.append(f"- [Belt] {summary}{f' (x{count})' if count > 1 else ''}")
-
-    for it in cursor_items:
-        stored_lines.append(
-            f"- [Cursor] {format_item_summary(it, resolver=char_resolver, version=version)}"
-        )
-
-    if stored_lines:
-        result.extend(stored_lines)
-    else:
-        result.append("No stored items")
-
+        ),
+        _format_summary_equipped_lines(cats.equipped, char_resolver, version),
+        _format_summary_mercenary_lines(
+            char_data, char_resolver, version, diff_name, resist_penalty
+        ),
+        _format_summary_stored_lines(cats, char_resolver, version),
+    ]
+    result: FormattedLines = []
+    for i, section in enumerate(sections):
+        if i > 0:
+            result.append("")
+        result.extend(section)
     return "\n".join(result).rstrip()
 
 
