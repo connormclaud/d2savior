@@ -1,3 +1,6 @@
+from collections.abc import Callable
+
+from d2savior.core.models import StatInfo
 from d2savior.core.resolver import GameDataResolver
 
 CLASS_NAME_SIZE = 7
@@ -160,6 +163,226 @@ def _get_class_only_str(class_id: int, resolver: GameDataResolver) -> str:
     return ""
 
 
+type _PropHandler = Callable[[int, list[int], StatInfo | None, str, GameDataResolver], str | None]
+
+
+def _fmt_duration(
+    prop_id: int, a: list[int], _stat: StatInfo | None, _prop_name: str, _resolver: GameDataResolver
+) -> str:
+    elem = "cold" if prop_id == 56 else "poison"
+    frames = a[0] // 25 if a[0] else 0
+    return f"{frames} seconds {elem} duration"
+
+
+def _fmt_class_skill_levels(
+    _prop_id: int, a: list[int], _stat: StatInfo | None, _prop_name: str, resolver: GameDataResolver
+) -> str:
+    class_name = resolver.get_localized_class_name(a[0])
+    return format_modifier_template(
+        resolver,
+        _CLASS_SKILL_LEVEL_KEYS.get(a[0]),
+        f"+{a[1]} to {class_name} Skill Levels",
+        a[1],
+        signed_first=True,
+    )
+
+
+def _fmt_oskill(
+    _prop_id: int, a: list[int], stat: StatInfo | None, _prop_name: str, resolver: GameDataResolver
+) -> str:
+    skill_name = resolver.get_skill_name(a[0])
+    return format_modifier_template(
+        resolver,
+        stat.descstrpos if stat else None,
+        f"+{a[1]} to {skill_name}",
+        a[1],
+        skill_name,
+        signed_first=True,
+    )
+
+
+def _fmt_aura(
+    _prop_id: int, a: list[int], _stat: StatInfo | None, _prop_name: str, resolver: GameDataResolver
+) -> str:
+    skill_name = resolver.get_skill_name(a[0])
+    return format_modifier_template(
+        resolver,
+        "ModitemAura",
+        f"Level {a[1]} {skill_name} Aura When Equipped",
+        a[1],
+        skill_name,
+    )
+
+
+def _fmt_simple_stat(
+    prop_id: int, a: list[int], stat: StatInfo | None, _prop_name: str, resolver: GameDataResolver
+) -> str:
+    return format_modifier_template(
+        resolver,
+        stat.descstrpos if stat else None,
+        _SIMPLE_STAT_FALLBACKS[prop_id],
+        a[0],
+        signed_first=True,
+    )
+
+
+def _fmt_class_skill(
+    _prop_id: int, a: list[int], stat: StatInfo | None, _prop_name: str, resolver: GameDataResolver
+) -> str:
+    skill_name = resolver.get_skill_name(a[0])
+    class_only_str = _get_class_only_str(get_skill_class_id(a[0]), resolver)
+    tpl_key = stat.descstrpos if stat else None
+    tpl = resolver.get_item_modifier(tpl_key) if tpl_key else ""
+    if (
+        tpl
+        and tpl != tpl_key
+        and "(%s)" in tpl
+        and class_only_str.startswith("(")
+        and class_only_str.endswith(")")
+    ):
+        class_only_str = class_only_str[1:-1]
+    fallback = f"+{a[1]} to {skill_name} {class_only_str}".strip()
+    return format_modifier_template(
+        resolver, tpl_key, fallback, a[1], skill_name, class_only_str, signed_first=True
+    ).strip()
+
+
+def _fmt_vs_monster(
+    prop_id: int, a: list[int], stat: StatInfo | None, _prop_name: str, resolver: GameDataResolver
+) -> str:
+    monster_name = resolver.get_localized_monster_name(a[0])
+    noun = "Attack Rating" if prop_id == 179 else "Damage"
+    fallback = f"+{a[1]}% to {noun} versus {monster_name}"
+    tpl_key = stat.descstrpos if stat else None
+    tpl = resolver.get_item_modifier(tpl_key) if tpl_key else ""
+    if tpl and tpl != tpl_key and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
+        res = format_modifier_template(
+            resolver, tpl_key, fallback, a[1], monster_name, signed_first=True
+        )
+        return res if "%s" in tpl else f"{res} {monster_name}"
+    return fallback
+
+
+def _fmt_skill_tab(
+    _prop_id: int, a: list[int], _stat: StatInfo | None, _prop_name: str, resolver: GameDataResolver
+) -> str | None:
+    tab, class_id, level = a[0], a[1], a[2]
+    class_only_str = _get_class_only_str(class_id, resolver)
+    tpl_key = _SKILL_TAB_MODIFIER_KEYS.get((class_id, tab))
+    skill_tab_name = resolver.get_localized_skill_tab_name(tab, class_id)
+    fallback = f"+{level} to {skill_tab_name}" if skill_tab_name else ""
+    formatted = format_modifier_template(resolver, tpl_key, fallback, level, signed_first=True)
+    return f"{formatted} {class_only_str}".strip() if formatted else None
+
+
+def _fmt_chance_cast(
+    prop_id: int, a: list[int], _stat: StatInfo | None, _prop_name: str, resolver: GameDataResolver
+) -> str:
+    return format_modifier_template(
+        resolver,
+        _CHANCE_CAST_KEYS.get(prop_id),
+        _CHANCE_CAST_FALLBACKS[prop_id],
+        a[2],
+        a[0],
+        resolver.get_skill_name(a[1]),
+    )
+
+
+def _fmt_charges(
+    _prop_id: int, a: list[int], stat: StatInfo | None, _prop_name: str, resolver: GameDataResolver
+) -> str:
+    level = a[0]
+    skill_name = resolver.get_skill_name(a[1])
+    return format_modifier_template(
+        resolver,
+        stat.descstrpos if stat else None,
+        f"Level {level} {skill_name} ({a[2]}/{a[3]} Charges)",
+        level,
+        skill_name,
+        a[2],
+        a[3],
+    )
+
+
+def _fmt_timed_stat(
+    _prop_id: int, a: list[int], _stat: StatInfo | None, prop_name: str, _resolver: GameDataResolver
+) -> str:
+    time_name = get_time_name(a[0])
+    return f"{time_name} +{a[1]} to {prop_name}" if time_name else prop_name
+
+
+_PROP_HANDLERS: dict[int, _PropHandler] = {
+    56: _fmt_duration,
+    59: _fmt_duration,
+    73: _fmt_simple_stat,
+    83: _fmt_class_skill_levels,
+    88: lambda _pid, _a, _s, _n, _r: "Double Potion Duration",
+    92: lambda _pid, a, _s, _n, r: format_modifier_template(
+        r, "ItemStats1p", f"Required Level: {a[0]}", a[0]
+    ),
+    97: _fmt_oskill,
+    98: lambda _pid, a, _s, n, _r: get_time_name(a[0]) or n,
+    107: _fmt_class_skill,
+    151: _fmt_aura,
+    155: lambda _pid, a, _s, _n, r: format_modifier_template(
+        r,
+        "Moditemreanimas",
+        f"{a[1]}% Reanimate as: {(m := r.get_localized_monster_name(a[0]))}",
+        a[1],
+        m,
+    ),
+    159: _fmt_simple_stat,
+    160: _fmt_simple_stat,
+    179: _fmt_vs_monster,
+    180: _fmt_vs_monster,
+    188: _fmt_skill_tab,
+    195: _fmt_chance_cast,
+    196: _fmt_chance_cast,
+    197: _fmt_chance_cast,
+    198: _fmt_chance_cast,
+    199: _fmt_chance_cast,
+    201: _fmt_chance_cast,
+    204: _fmt_charges,
+    **dict.fromkeys(range(268, 304), _fmt_timed_stat),
+}
+
+_NEGATE_PROP_IDS = frozenset({305, 306, 307, 308, 333, 334, 335, 336})
+_PERCENT_DESCFUNC = frozenset({2, 4, 5, 6, 8, 10, 11, 16, 20, 22})
+
+
+def _adjust_property_values(
+    prop_id: int, a: list[int], stat: StatInfo | None
+) -> int | float | None:
+    if prop_id == 54:
+        a[2] = a[2] // 25 if a[2] else 0
+    elif prop_id == 57 and a[2]:
+        a[0] = (a[0] * a[2] + 128) >> 8 if a[0] else 0
+        a[1] = (a[1] * a[2] + 128) >> 8 if a[1] else 0
+        a[2] = a[2] // 25
+    elif prop_id == 112:
+        a[0] = a[0] * 100 // 127 if a[0] else 0
+    elif prop_id == 126:
+        a[0], a[1] = a[1], a[0]
+    elif prop_id in range(214, 251):
+        if stat and stat.op_param > 0:
+            return round(a[0] / stat.op_param, 2)
+        if stat and stat.val_shift > 0:
+            return a[0] / (1 << stat.val_shift)
+    elif prop_id in (252, 253):
+        a[0] = 100 // a[0] if a[0] else 0
+    elif prop_id in _NEGATE_PROP_IDS:
+        a[0] = -a[0]
+    return None
+
+
+def _format_empty_params(stat: StatInfo | None, prop_name: str, resolver: GameDataResolver) -> str:
+    if stat and stat.descstrpos:
+        template = resolver.get_item_modifier(stat.descstrpos)
+        if template and "%d" not in template and "%g" not in template:
+            return template
+    return prop_name
+
+
 def format_property(
     prop_id: int,
     params: list[int],
@@ -169,195 +392,37 @@ def format_property(
     vd = (
         resolver.game_data.for_version(version) if resolver.game_data is not None else resolver.data
     )
-
     stat = vd.get_stat(prop_id)
     prop_name = stat.stat_name if stat and stat.stat_name else f"Stat{prop_id}"
 
     if not params:
-        if stat and stat.descstrpos:
-            template = resolver.get_item_modifier(stat.descstrpos)
-            if template and "%d" not in template and "%g" not in template:
-                return template
-        return prop_name
+        return _format_empty_params(stat, prop_name, resolver)
 
     a: list[int] = list(params)
     while len(a) < 4:
         a.append(0)
-    scaled_val: int | float | None = None
 
-    match prop_id:
-        case 54:
-            a[2] = a[2] // 25 if a[2] else 0
-        case 56:
-            frames = a[0] // 25 if a[0] else 0
-            return f"{frames} seconds cold duration"
-        case 59:
-            frames = a[0] // 25 if a[0] else 0
-            return f"{frames} seconds poison duration"
-        case 57:
-            if a[2]:
-                a[0] = (a[0] * a[2] + 128) >> 8 if a[0] else 0
-                a[1] = (a[1] * a[2] + 128) >> 8 if a[1] else 0
-                a[2] = a[2] // 25
-        case 83:
-            class_name = resolver.get_localized_class_name(a[0])
-            return format_modifier_template(
-                resolver,
-                _CLASS_SKILL_LEVEL_KEYS.get(a[0]),
-                f"+{a[1]} to {class_name} Skill Levels",
-                a[1],
-                signed_first=True,
-            )
-        case 97:
-            skill_name = resolver.get_skill_name(a[0])
-            return format_modifier_template(
-                resolver,
-                stat.descstrpos if stat else None,
-                f"+{a[1]} to {skill_name}",
-                a[1],
-                skill_name,
-                signed_first=True,
-            )
-        case 151:
-            skill_name = resolver.get_skill_name(a[0])
-            return format_modifier_template(
-                resolver,
-                "ModitemAura",
-                f"Level {a[1]} {skill_name} Aura When Equipped",
-                a[1],
-                skill_name,
-            )
-        case 98:
-            return get_time_name(a[0]) or prop_name
-        case 73 | 159 | 160:
-            return format_modifier_template(
-                resolver,
-                stat.descstrpos if stat else None,
-                _SIMPLE_STAT_FALLBACKS[prop_id],
-                a[0],
-                signed_first=True,
-            )
-        case 88:
-            return "Double Potion Duration"
-        case 92:
-            return format_modifier_template(
-                resolver, "ItemStats1p", f"Required Level: {a[0]}", a[0]
-            )
-        case 107:
-            skill_name = resolver.get_skill_name(a[0])
-            class_only_str = _get_class_only_str(get_skill_class_id(a[0]), resolver)
-            tpl_key = stat.descstrpos if stat else None
-            tpl = resolver.get_item_modifier(tpl_key) if tpl_key else ""
-            if (
-                tpl
-                and tpl != tpl_key
-                and "(%s)" in tpl
-                and class_only_str.startswith("(")
-                and class_only_str.endswith(")")
-            ):
-                class_only_str = class_only_str[1:-1]
-            fallback = f"+{a[1]} to {skill_name} {class_only_str}".strip()
-            return format_modifier_template(
-                resolver,
-                tpl_key,
-                fallback,
-                a[1],
-                skill_name,
-                class_only_str,
-                signed_first=True,
-            ).strip()
-        case 112:
-            a[0] = a[0] * 100 // 127 if a[0] else 0
-        case 126:
-            a[0], a[1] = a[1], a[0]
-        case 155:
-            monster_name = resolver.get_localized_monster_name(a[0])
-            return format_modifier_template(
-                resolver,
-                "Moditemreanimas",
-                f"{a[1]}% Reanimate as: {monster_name}",
-                a[1],
-                monster_name,
-            )
-        case 179 | 180:
-            monster_name = resolver.get_localized_monster_name(a[0])
-            fallback = (
-                f"+{a[1]}% to Attack Rating versus {monster_name}"
-                if prop_id == 179
-                else f"+{a[1]}% to Damage versus {monster_name}"
-            )
-            tpl_key = stat.descstrpos if stat else None
-            tpl = resolver.get_item_modifier(tpl_key) if tpl_key else ""
-            if tpl and tpl != tpl_key and ("%+d" in tpl or "%d" in tpl or "%s" in tpl):
-                res = format_modifier_template(
-                    resolver, tpl_key, fallback, a[1], monster_name, signed_first=True
-                )
-                return res if "%s" in tpl else f"{res} {monster_name}"
-            return fallback
-        case 188:
-            tab, class_id, level = a[0], a[1], a[2]
-            class_only_str = _get_class_only_str(class_id, resolver)
-            tpl_key = _SKILL_TAB_MODIFIER_KEYS.get((class_id, tab))
-            skill_tab_name = resolver.get_localized_skill_tab_name(tab, class_id)
-            fallback = f"+{level} to {skill_tab_name}" if skill_tab_name else ""
-            formatted = format_modifier_template(
-                resolver, tpl_key, fallback, level, signed_first=True
-            )
-            if formatted:
-                return f"{formatted} {class_only_str}".strip()
-        case 195 | 196 | 197 | 198 | 199 | 201:
-            return format_modifier_template(
-                resolver,
-                _CHANCE_CAST_KEYS.get(prop_id),
-                _CHANCE_CAST_FALLBACKS[prop_id],
-                a[2],
-                a[0],
-                resolver.get_skill_name(a[1]),
-            )
-        case 204:
-            level = a[0]
-            skill_name = resolver.get_skill_name(a[1])
-            return format_modifier_template(
-                resolver,
-                stat.descstrpos if stat else None,
-                f"Level {level} {skill_name} ({a[2]}/{a[3]} Charges)",
-                level,
-                skill_name,
-                a[2],
-                a[3],
-            )
-        case _ if prop_id in range(214, 251):
-            if stat and stat.op_param > 0:
-                scaled_val = round(a[0] / stat.op_param, 2)
-            elif stat and stat.val_shift > 0:
-                scaled_val = a[0] / (1 << stat.val_shift)
-            if prop_id == 237:
-                val = scaled_val if scaled_val is not None else a[0]
-                return format_modifier_template(
-                    resolver,
-                    stat.descstrpos if stat else None,
-                    f"+{val:g} Poison Absorb (Based on Character Level)",
-                    float(val),
-                    signed_first=True,
-                )
-        case 252 | 253:
-            a[0] = 100 // a[0] if a[0] else 0
-        case _ if prop_id in range(268, 304):
-            time_name = get_time_name(a[0])
-            if time_name:
-                return f"{time_name} +{a[1]} to {prop_name}"
-            return prop_name
-        case 305 | 306 | 307 | 308 | 333 | 334 | 335 | 336:
-            a[0] = -a[0]
-        case _:
-            pass
+    if (handler := _PROP_HANDLERS.get(prop_id)) is not None and (
+        handled := handler(prop_id, a, stat, prop_name, resolver)
+    ) is not None:
+        return handled
+
+    scaled_val = _adjust_property_values(prop_id, a, stat)
+    if prop_id == 237:
+        val = scaled_val if scaled_val is not None else a[0]
+        return format_modifier_template(
+            resolver,
+            stat.descstrpos if stat else None,
+            f"+{val:g} Poison Absorb (Based on Character Level)",
+            float(val),
+            signed_first=True,
+        )
 
     value: int | float = scaled_val if scaled_val is not None else a[0]
     if stat and stat.descstrpos:
         template_key = stat.descstrpos if value >= 0 else (stat.descstrneg or stat.descstrpos)
-        template = resolver.get_item_modifier(template_key)
-        if template:
-            suffix = "%" if stat.descfunc in {2, 4, 5, 6, 8, 10, 11, 16, 20, 22} else ""
+        if template := resolver.get_item_modifier(template_key):
+            suffix = "%" if stat.descfunc in _PERCENT_DESCFUNC else ""
             result = _apply_num_placeholder(template, value, suffix)
             if (
                 stat.descfunc == 19
