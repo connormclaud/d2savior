@@ -41,9 +41,6 @@ class TestDataGuard:
         with pytest.raises(FileNotFoundError):
             loader.load_runewords(bogus_path)
 
-        with pytest.raises(FileNotFoundError), pytest.deprecated_call():
-            loader.load_runes_txt(bogus_path, {})  # ty: ignore[deprecated]
-
         with pytest.raises(FileNotFoundError):
             loader.load_set_items(bogus_path)
 

@@ -229,15 +229,6 @@ class TestD2DataManager:
         assert rw_by_d2r.key == "Runeword130"
         assert rw_by_d2r.rune_codes == ["r07", "r10", "r09", "r11"]
 
-    def test_load_runes_txt_deprecated(self):
-        """Test that load_runes_txt emits DeprecationWarning."""
-        import pytest
-
-        loader = D2DataLoader()
-        runes_path = os.path.join(self.data_dir, "d2r", "runes.txt")
-        with pytest.deprecated_call():
-            loader.load_runes_txt(runes_path, {})  # ty: ignore[deprecated]
-
 
 class TestTsvReader:
     """Unit tests for shared TSV table parsing semantics."""

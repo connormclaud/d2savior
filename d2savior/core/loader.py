@@ -1,7 +1,6 @@
 """TSV/JSON table loaders and version overlay management for Diablo II game data."""
 
 from collections.abc import Iterator, Sequence
-from warnings import deprecated
 lazy import importlib.resources
 lazy import json
 lazy from importlib.resources.abc import Traversable
@@ -460,15 +459,6 @@ class D2DataLoader:
             )
 
         return gems
-
-    @deprecated("Use load_runewords instead")
-    def load_runes_txt(
-        self, filepath: str | Traversable, runewords: dict[int, RuneWordInfo]
-    ) -> None:
-        extra = self.load_runewords(filepath)
-        for rw_id, rw in extra.items():
-            if rw_id in runewords and rw.rune_codes and not runewords[rw_id].rune_codes:
-                runewords[rw_id].rune_codes = rw.rune_codes
 
     def load_set_items(
         self,

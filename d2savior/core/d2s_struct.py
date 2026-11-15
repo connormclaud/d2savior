@@ -629,9 +629,6 @@ class D2SStruct:
 
         self._codec_sections(io, data=data)
 
-    def _read_data_v69(self, bs: IBitStream, data: VersionData | GameData | None = None) -> None:
-        self._codec_v69(BitReader(bs), data=data)
-
     def _codec_common(self, io: BitIO, data: VersionData | GameData | None = None) -> None:
         self.name = io.bytes(16, self.name)
 
@@ -666,9 +663,6 @@ class D2SStruct:
         self.preview_suffix = io.dword(self.preview_suffix)
 
         self._codec_sections(io, data=data)
-
-    def _read_data_common(self, bs: IBitStream, data: VersionData | GameData | None = None) -> None:
-        self._codec_common(BitReader(bs), data=data)
 
     def has_mercenary(self) -> bool:
         if self.version >= 0x69:
@@ -750,12 +744,6 @@ class D2SStruct:
         self, bs: OBitStream, data: VersionData | GameData | GameDataResolver | None = None
     ) -> None:
         self.codec(BitWriter(bs), data=data)
-
-    def _serialize_v69(self, bs: OBitStream, data: VersionData | GameData | None = None) -> None:
-        self._codec_v69(BitWriter(bs), data=data)
-
-    def _serialize_common(self, bs: OBitStream, data: VersionData | GameData | None = None) -> None:
-        self._codec_common(BitWriter(bs), data=data)
 
     def calculate_checksum(self, data: bytes | bytearray) -> int:
         checksum = 0
