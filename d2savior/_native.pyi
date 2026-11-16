@@ -32,6 +32,8 @@ class ItemSpec:
     max_lr: int
     max_cr: int
     max_pr: int
+    defense: int
+    belt_slots: int
 
     def __init__(
         self,
@@ -68,6 +70,8 @@ class ItemSpec:
         mana_per_lvl: int = 0,
         blizz_skills: int = 0,
         cm_skills: int = 0,
+        defense: int = 0,
+        belt_slots: int = 0,
     ) -> None: ...
     @property
     def skills(self) -> int: ...

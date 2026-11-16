@@ -31,11 +31,19 @@ fn item_eff_reqs(item: &ItemSpec) -> (i32, i32) {
     )
 }
 
+fn item_prune_reqs(item: &ItemSpec, base_str: i32, base_dex: i32) -> (i32, i32) {
+    let (rs, rd) = item_eff_reqs(item);
+    (
+        if rs <= base_str { 0 } else { rs },
+        if rd <= base_dex { 0 } else { rd },
+    )
+}
+
 fn merge_reqs(cur: (i32, i32), next: (i32, i32)) -> (i32, i32) {
     (cur.0.max(next.0), cur.1.max(next.1))
 }
 
-type BuildScore = (i32, i32, i32, i32, i32, i32);
+type BuildScore = (i32, i32, i32, i32, i32, i32, i32, i32);
 type BuildSig = (i32, i32, i32, i32, Vec<String>);
 
 fn build_sig(res: &BuildResult) -> BuildSig {
@@ -113,15 +121,42 @@ struct RingPair {
     reqs: (i32, i32),
 }
 
-fn item_sort_key(mode: SearchMode, s: &Stats) -> (i32, i32, i32, i32) {
+fn item_sort_key(mode: SearchMode, s: &Stats) -> (i32, i32, i32, i32, i32, i32) {
     match mode {
-        SearchMode::Mf => (s.mf, s.blizz_power_skills(), s.fcr, s.fr + s.lr),
-        SearchMode::Power => (s.blizz_power_skills(), s.total_skills(), s.fcr, s.fhr),
-        SearchMode::MaxRes => (s.max_res_sum(), s.res_sum(), s.blizz_power_skills(), s.fcr),
+        SearchMode::Mf => (
+            s.mf,
+            s.blizz_power_skills(),
+            s.fcr,
+            s.fr + s.lr,
+            s.belt_slots,
+            s.defense,
+        ),
+        SearchMode::Power => (
+            s.blizz_power_skills(),
+            s.total_skills(),
+            s.fcr,
+            s.fhr,
+            s.belt_slots,
+            s.defense,
+        ),
+        SearchMode::MaxRes => (
+            s.max_res_sum(),
+            s.res_sum(),
+            s.blizz_power_skills(),
+            s.fcr,
+            s.belt_slots,
+            s.defense,
+        ),
     }
 }
 
-fn prune_slot_items(items: Vec<ItemSpec>, limit: usize, is_ring: bool) -> Vec<ItemSpec> {
+fn prune_slot_items(
+    items: Vec<ItemSpec>,
+    limit: usize,
+    is_ring: bool,
+    base_str: i32,
+    base_dex: i32,
+) -> Vec<ItemSpec> {
     if limit == 0 {
         return items;
     }
@@ -133,7 +168,7 @@ fn prune_slot_items(items: Vec<ItemSpec>, limit: usize, is_ring: bool) -> Vec<It
     let mut deduped = Vec::with_capacity(items.len());
     for it in items {
         let s = it.stats();
-        let (rs, rd) = item_eff_reqs(&it);
+        let (rs, rd) = item_prune_reqs(&it, base_str, base_dex);
         let ns_entry = name_stat_counts
             .entry((it.name.clone(), s, rs, rd))
             .or_insert(0);
@@ -153,7 +188,7 @@ fn prune_slot_items(items: Vec<ItemSpec>, limit: usize, is_ring: bool) -> Vec<It
     // peeling extra dominated layers only until at least `min_keep` items remain.
     let metas: Vec<(Stats, (i32, i32))> = deduped
         .iter()
-        .map(|it| (it.stats(), item_eff_reqs(it)))
+        .map(|it| (it.stats(), item_prune_reqs(it, base_str, base_dex)))
         .collect();
     let dominates = |a: usize, b: usize| {
         let (sa, ra) = metas[a];
@@ -217,7 +252,7 @@ pub fn optimize_builds_core(
             return Ok(Vec::new());
         }
         slot_items.sort_by_key(|it| Reverse(item_sort_key(mode, &it.stats())));
-        groups.push(prune_slot_items(slot_items, c.limit, false));
+        groups.push(prune_slot_items(slot_items, c.limit, false, c.base_str, c.base_dex));
     }
 
     let mut rngs: Vec<ItemSpec> = items
@@ -229,7 +264,7 @@ pub fn optimize_builds_core(
         return Ok(Vec::new());
     }
     rngs.sort_by_key(|it| Reverse(item_sort_key(mode, &it.stats())));
-    let rngs = prune_slot_items(rngs, c.limit, true);
+    let rngs = prune_slot_items(rngs, c.limit, true, c.base_str, c.base_dex);
     if rngs.len() < 2 {
         return Ok(Vec::new());
     }
@@ -436,6 +471,8 @@ pub fn optimize_builds_core(
                         sum.fhr_bp,
                         sum.pr,
                         sum.life_bo,
+                        sum.belt_slots,
+                        sum.defense,
                     ),
                     SearchMode::Power => (
                         eff_blizz_sk,
@@ -444,6 +481,8 @@ pub fn optimize_builds_core(
                         sum.pr,
                         sum.life_bo,
                         sum.mana_bo,
+                        sum.belt_slots,
+                        sum.defense,
                     ),
                     SearchMode::MaxRes => (
                         res_sum,
@@ -452,6 +491,8 @@ pub fn optimize_builds_core(
                         sum.fhr_bp,
                         sum.life_bo,
                         sum.fr_raw + sum.lr_raw + sum.cr_raw + sum.pr_raw,
+                        sum.belt_slots,
+                        sum.defense,
                     ),
                 };
                 if !st.top_results.would_accept(score) {

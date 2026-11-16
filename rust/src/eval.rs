@@ -109,6 +109,8 @@ pub(crate) struct EvalSummary {
     pub mana_bo: i32,
     pub bo_lvl: i32,
     pub charm_slots: i32,
+    pub defense: i32,
+    pub belt_slots: i32,
 }
 
 impl EvalSummary {
@@ -229,6 +231,8 @@ pub(crate) fn eval_build_summary(
         mana_bo,
         bo_lvl,
         charm_slots: charms.iter().map(|ch| ch.size).sum(),
+        defense: gear.defense,
+        belt_slots: gear.belt_slots,
     }
 }
 

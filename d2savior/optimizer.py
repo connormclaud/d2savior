@@ -52,7 +52,7 @@ from d2savior.core.item_name import LongName
 from d2savior.core.property import adjust_property_values
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
-from d2savior.core.stats import collect_item_properties
+from d2savior.core.stats import calculate_effective_defence, collect_item_properties
 
 _CHARM_SIZES: frozendict[str, int] = frozendict({"cm1": 1, "cm2": 2, "cm3": 3})
 
@@ -228,8 +228,11 @@ class _PropAcc:
     str_bonus: int = 0
     dex_bonus: int = 0
     req_pct: int = 0
+    defense: int = 0
 
-    def to_item_spec(self, name: str, slot: str, loc: str, req_str: int, req_dex: int) -> ItemSpec:
+    def to_item_spec(
+        self, name: str, slot: str, loc: str, req_str: int, req_dex: int, belt_slots: int = 0
+    ) -> ItemSpec:
         return ItemSpec(
             name=name,
             slot=slot,
@@ -264,6 +267,8 @@ class _PropAcc:
             mana_per_lvl=self.mana_per_lvl,
             blizz_skills=self.blizz_skills,
             cm_skills=self.cm_skills,
+            defense=self.defense,
+            belt_slots=belt_slots,
         )
 
     def to_charm_spec(self, name: str, size: int, loc: str, unique_id: int | None) -> CharmSpec:
@@ -292,7 +297,8 @@ def _extract_prop_acc(
     item: D2Item, resolver: GameDataResolver, version: int, char_level: int
 ) -> _PropAcc:
     acc = _PropAcc()
-    for pid, val, params in collect_item_properties(item, resolver=resolver, version=version):
+    props = list(collect_item_properties(item, resolver=resolver, version=version))
+    for pid, val, params in props:
         pval = params[0] if params else val
         if attr := _SIMPLE_ITEM_STAT_MAP.get(pid):
             setattr(acc, attr, getattr(acc, attr) + pval)
@@ -315,6 +321,9 @@ def _extract_prop_acc(
             )
             if isinstance(scaled, int):
                 setattr(acc, per_lvl_attr, getattr(acc, per_lvl_attr) + scaled)
+    tp = item.type_specific_info
+    if tp and tp.defence is not None:
+        acc.defense = calculate_effective_defence(tp.get_defence(), props)
     return acc
 
 
@@ -396,12 +405,14 @@ def _item_to_spec(
     if all(getattr(acc, attr) == 0 for attr in _USEFUL_ITEM_STATS):
         return None
 
+    belt_slots = resolver.get_belt_rows(code) * 4 if slot == "belt" else 0
     return acc.to_item_spec(
         name=get_item_display_name(item, resolver=resolver, version=version),
         slot=slot,
         loc=loc,
         req_str=_effective_req(base_req_str, item.is_ethereal, acc.req_pct),
         req_dex=_effective_req(base_req_dex, item.is_ethereal, acc.req_pct),
+        belt_slots=belt_slots,
     )
 
 

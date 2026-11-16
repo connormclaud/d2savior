@@ -41,6 +41,8 @@ pub(crate) struct Stats {
     pub(crate) fire_abs_pct: i32,
     pub(crate) str_bonus: i32,
     pub(crate) dex_bonus: i32,
+    pub(crate) defense: i32,
+    pub(crate) belt_slots: i32,
 }
 
 impl Stats {
@@ -90,6 +92,8 @@ impl Stats {
             fire_abs_pct: self.fire_abs_pct + o.fire_abs_pct,
             str_bonus: self.str_bonus + o.str_bonus,
             dex_bonus: self.dex_bonus + o.dex_bonus,
+            defense: self.defense + o.defense,
+            belt_slots: self.belt_slots + o.belt_slots,
         }
     }
 
@@ -123,6 +127,8 @@ impl Stats {
             fire_abs_pct: self.fire_abs_pct.max(o.fire_abs_pct),
             str_bonus: self.str_bonus.max(o.str_bonus),
             dex_bonus: self.dex_bonus.max(o.dex_bonus),
+            defense: self.defense.max(o.defense),
+            belt_slots: self.belt_slots.max(o.belt_slots),
         }
     }
 
@@ -155,6 +161,8 @@ impl Stats {
             && self.fire_abs_pct >= o.fire_abs_pct
             && self.str_bonus >= o.str_bonus
             && self.dex_bonus >= o.dex_bonus
+            && self.defense >= o.defense
+            && self.belt_slots >= o.belt_slots
     }
 }
 
@@ -195,6 +203,8 @@ pub struct ItemSpec {
     pub max_lr: i32,
     pub max_cr: i32,
     pub max_pr: i32,
+    pub defense: i32,
+    pub belt_slots: i32,
 }
 
 impl ItemSpec {
@@ -236,6 +246,8 @@ impl ItemSpec {
             fire_abs_pct: self.fire_abs_pct,
             str_bonus: self.str_bonus,
             dex_bonus: self.dex_bonus,
+            defense: self.defense,
+            belt_slots: self.belt_slots,
         }
     }
 
@@ -281,6 +293,8 @@ impl ItemSpec {
             max_lr: s.max_lr,
             max_cr: s.max_cr,
             max_pr: s.max_pr,
+            defense: s.defense,
+            belt_slots: s.belt_slots,
         }
     }
 }
@@ -323,6 +337,8 @@ impl ItemSpec {
         mana_per_lvl = 0,
         blizz_skills = 0,
         cm_skills = 0,
+        defense = 0,
+        belt_slots = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -359,6 +375,8 @@ impl ItemSpec {
         mana_per_lvl: i32,
         blizz_skills: i32,
         cm_skills: i32,
+        defense: i32,
+        belt_slots: i32,
     ) -> Self {
         Self {
             name,
@@ -394,6 +412,8 @@ impl ItemSpec {
             max_lr,
             max_cr,
             max_pr,
+            defense,
+            belt_slots,
         }
     }
 

@@ -672,3 +672,72 @@ def test_detect_cta_bo_bonus_and_excludes_swap_cta(monkeypatch: pytest.MonkeyPat
 
     items, _ = extract_pool(sork, resolver=resolver)
     assert not any("Swap" in it.loc for it in items)
+
+
+def test_belt_slots_and_defense_prefer_upped_goldwrap() -> None:
+    resolver = GameDataResolver.load()
+    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
+    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
+    assert ok_s
+    assert sork is not None
+    assert ok_m
+    assert mule is not None
+
+    items, _ = extract_pool(sork, extra_chars=[mule], resolver=resolver)
+    belts = [it for it in items if it.slot == "belt"]
+    assert any(b.belt_slots == 12 and b.defense > 0 for b in belts)
+    assert any(b.belt_slots == 16 and b.defense > 0 for b in belts)
+    assert any(it.slot != "belt" and it.defense > 0 and it.belt_slots == 0 for it in items)
+
+    upped = ItemSpec(
+        "Goldwrap (Battle Belt)", "belt", "sork Stash", mf=30, req_str=88, defense=89, belt_slots=16
+    )
+    non_upped = ItemSpec(
+        "Goldwrap (Heavy Belt)",
+        "belt",
+        "mule_unique Inv",
+        mf=30,
+        req_str=45,
+        defense=35,
+        belt_slots=12,
+    )
+    pool = [
+        ItemSpec("Spirit Sword", "weapon", "test", all_skills=2, fcr=35, fhr=55),
+        ItemSpec(
+            "Spirit Shield",
+            "shield",
+            "test",
+            all_skills=2,
+            fcr=35,
+            fhr=55,
+            lr=35,
+            cr=35,
+            pr=35,
+            req_str=156,
+        ),
+        ItemSpec("Helm", "helm", "test", sorc_skills=2, fcr=20, fr=40, lr=40, cr=40),
+        ItemSpec("Skullder", "armor", "test", all_skills=1, mf=110),
+        ItemSpec("Amulet", "amulet", "test", sorc_skills=2, fcr=15, fr=30, lr=30, cr=30),
+        non_upped,
+        upped,
+        ItemSpec("Trangs", "gloves", "test", fcr=20, cr=30),
+        ItemSpec("Boots", "boots", "test", fr=45, lr=20, cr=20, pr=40),
+        ItemSpec("Ring A", "ring", "test", fcr=10, fr=20, lr=20, cr=20),
+        ItemSpec("Ring B", "ring", "test", fcr=10, fr=20, lr=20, cr=20),
+    ]
+    res = optimize_builds(
+        pool,
+        [],
+        BuildConstraints(
+            mode="mf",
+            min_fcr=105,
+            min_fhr=60,
+            min_pr=0,
+            base_str=156,
+            base_hell_res=-70,
+            limit=2,
+        ),
+    )
+    assert len(res) == 2
+    assert res[0].items[5].name == "Goldwrap (Battle Belt)"
+    assert res[0].items[5].loc == "sork Stash"

@@ -612,3 +612,73 @@ fn test_blizz_and_cm_single_skills_rank_and_damage() {
     let expected_blizz_0 = crate::eval::blizzard_damage(res[0].skills + 3).1;
     assert!((res[0].blizz_avg - expected_blizz_0).abs() < 1e-6);
 }
+
+#[test]
+fn test_belt_potion_capacity_and_defense_break_ties_and_prevent_domination() {
+    let mut heavy = mk_item("Goldwrap (Heavy Belt)", "belt", 0, 0, 0, 0, 30);
+    heavy.defense = 35;
+    heavy.belt_slots = 12;
+    heavy.req_str = 45;
+
+    let mut battle = mk_item("Goldwrap (Battle Belt)", "belt", 0, 0, 0, 0, 30);
+    battle.defense = 89;
+    battle.belt_slots = 16;
+    battle.req_str = 88;
+
+    let mut heavy_low_def = mk_item("Goldwrap (Heavy Belt) Low", "belt", 0, 0, 0, 0, 30);
+    heavy_low_def.defense = 25;
+    heavy_low_def.belt_slots = 12;
+    heavy_low_def.req_str = 45;
+
+    let mut tal_belt = mk_item("Tal Belt", "belt", 0, 0, 0, 0, 15);
+    tal_belt.dex_bonus = 20;
+    tal_belt.belt_slots = 16;
+    tal_belt.defense = 37;
+    tal_belt.req_str = 46;
+
+    let mut monarch = mk_item("Spirit Shield", "shield", 35, 55, 2, 35, 0);
+    monarch.req_str = 156;
+
+    let items = vec![
+        heavy_low_def,
+        heavy,
+        battle,
+        tal_belt,
+        mk_item("Spirit Sword", "weapon", 35, 55, 2, 0, 0),
+        monarch,
+        mk_item("Tiara", "helm", 20, 0, 2, 30, 0),
+        mk_item("Armor", "armor", 20, 20, 1, 40, 0),
+        mk_item("Amulet", "amulet", 10, 0, 2, 30, 0),
+        mk_item("Trangs", "gloves", 20, 0, 0, 30, 0),
+        mk_item("Boots", "boots", 0, 0, 0, 40, 0),
+        mk_item("Ring A", "ring", 10, 0, 0, 20, 0),
+        mk_item("Ring B", "ring", 10, 0, 0, 20, 0),
+    ];
+
+    let c = BuildConstraints {
+        mode: "mf".to_string(),
+        min_fhr: 60,
+        min_pr: 0,
+        limit: 2,
+        ..test_constraints()
+    };
+    let res = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res.len(), 2);
+    // At base_str=156, Battle Belt (req_str=88 -> 0) dominates both Heavy Belts; Layer 1 = [Battle Belt, Tal Belt].
+    assert_eq!(res[0].evaluated_candidates, 2);
+    assert_eq!(res[0].items[5].name, "Goldwrap (Battle Belt)");
+    assert_eq!(res[1].items[5].name, "Tal Belt");
+
+    // When base_str=45, Battle Belt (req_str=88) no longer dominates Heavy Belt (req_str=45 -> 0),
+    // and only Heavy Belt is equippable without extra Str.
+    let c_low_str = BuildConstraints {
+        base_str: 45,
+        limit: 3,
+        ..c
+    };
+    // Swap Spirit Monarch (req_str=156) with a low-str shield so Heavy Belt is feasible while Battle Belt is not.
+    let mut low_str_items = items;
+    low_str_items[5].req_str = 45;
+    let res_low = optimize_builds_core(&low_str_items, &[], &c_low_str).unwrap();
+    assert_eq!(res_low[0].items[5].name, "Goldwrap (Heavy Belt)");
+}
