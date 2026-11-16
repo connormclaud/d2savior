@@ -36,6 +36,14 @@ lazy from d2savior.core.stash_formatter import (
     format_stash_info,
     format_stash_summary,
 )
+lazy from d2savior.optimizer import (
+    BUILD_CHOICES,
+    extract_pool,
+    format_build_report,
+    optimize_builds,
+    select_sorc_presets,
+    validate_sorceress,
+)
 
 _PARSE_ERRORS = (OSError, ValueError, LookupError, EOFError, struct.error)
 
@@ -444,6 +452,138 @@ def cmd_stash(argv: list[str]) -> int:
     return _process_files(stash_files, args, resolver)
 
 
+def _load_optimize_pool(
+    files_to_process: list[str],
+    target_name: str | None,
+    resolver: GameDataResolver,
+) -> tuple[D2SStruct | None, list[D2SStruct], list[SharedStash], str | None]:
+    chars: list[D2SStruct] = []
+    stashes: list[SharedStash] = []
+    for f in files_to_process:
+        lower = f.lower()
+        if lower.endswith(".d2s"):
+            ok, char_data, _ = parse_d2s_file(f, resolver=resolver)
+            if ok and char_data is not None:
+                chars.append(char_data)
+        elif lower.endswith(".d2i"):
+            ok, stash_data, kind, _ = parse_d2i_file(f, resolver=resolver)
+            if ok and kind == "stash" and isinstance(stash_data, SharedStash):
+                stashes.append(stash_data)
+
+    primary: D2SStruct | None = None
+    if target_name is not None:
+        for ch in chars:
+            if ch.get_char_name().lower() == target_name.lower():
+                primary = ch
+                break
+        if primary is None:
+            return None, [], stashes, f"Error: Character '{target_name}' not found in target saves"
+    else:
+        sorcs = [ch for ch in chars if ch.char_class == 1]
+        if not sorcs:
+            return None, [], stashes, "Error: No Sorceress character found in target saves"
+        if len(sorcs) > 1:
+            names = ", ".join(ch.get_char_name() for ch in sorcs)
+            return (
+                None,
+                [],
+                stashes,
+                f"Error: Multiple Sorceress characters found ({names}); specify a character name",
+            )
+        primary = sorcs[0]
+
+    try:
+        validate_sorceress(primary)
+    except ValueError as exc:
+        return None, [], stashes, f"Error: {exc}"
+
+    extras = [ch for ch in chars if ch is not primary]
+    return primary, extras, stashes, None
+
+
+def _split_optimize_targets(
+    raw_targets: list[str], explicit_char: str | None
+) -> tuple[str | None, list[str]]:
+    """Separate an optional positional character name from explicit save paths."""
+    char_name = explicit_char
+    paths: list[str] = []
+    for entry in raw_targets:
+        p = Path(entry)
+        if p.exists() or entry.lower().endswith((".d2s", ".d2i")):
+            paths.append(entry)
+            if char_name is None and entry.lower().endswith(".d2s"):
+                char_name = p.stem
+        elif char_name is None:
+            char_name = entry
+        else:
+            paths.append(entry)
+    return char_name, paths
+
+
+def cmd_optimize(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="d2savior optimize",
+        description="Optimize Sorceress builds across characters and shared stash",
+        parents=[_common_parser],
+    )
+    parser.add_argument(
+        "--char",
+        default=None,
+        help="Target Sorceress character name (can also be passed positionally)",
+    )
+    parser.add_argument(
+        "-b",
+        "--build",
+        choices=BUILD_CHOICES,
+        default="all",
+        help="Build preset to optimize (default: all)",
+    )
+    parser.add_argument(
+        "--charm-slots",
+        type=int,
+        default=23,
+        help="Maximum inventory charm slots to allocate (default: 23)",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=3,
+        help="Maximum top options to show per build preset (default: 3)",
+    )
+    args = parser.parse_args(argv)
+    target_char, args.file_path = _split_optimize_targets(args.file_path, args.char)
+    files_to_process = _resolve_and_save_targets(args)
+    if not files_to_process:
+        return 1
+
+    resolver = GameDataResolver.load(lang_key=args.lang or "enUS")
+    primary, extras, stashes, err = _load_optimize_pool(files_to_process, target_char, resolver)
+    if primary is None:
+        print(err or "Error: Character not found in target saves", file=sys.stderr)
+        return 1
+
+    try:
+        items, charms = extract_pool(
+            primary, extra_chars=extras, stashes=stashes, resolver=resolver
+        )
+        for title, constraints in select_sorc_presets(
+            primary,
+            build=args.build,
+            max_charm_slots=args.charm_slots,
+            limit=args.limit,
+            extra_chars=extras,
+            stashes=stashes,
+            resolver=resolver,
+        ):
+            results = optimize_builds(items, charms, constraints)
+            print(format_build_report(title, results))
+            print()
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 COMMANDS = frozendict(
     {
         "list": (
@@ -453,6 +593,10 @@ COMMANDS = frozendict(
         "stash": (
             cmd_stash,
             "stash [path]      Display shared stash in save directory",
+        ),
+        "optimize": (
+            cmd_optimize,
+            "optimize [name]   Optimize Sorceress builds (-b base|mf|tz|max-res|all)",
         ),
     }
 )

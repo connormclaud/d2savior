@@ -1,0 +1,19 @@
+[package]
+name = "d2savior_rs"
+version = "0.1.0"
+edition = "2024"
+description = "Experimental PyO3 Rust build optimizer for d2savior"
+
+[lib]
+name = "_native"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["python"]
+python = ["dep:pyo3", "pyo3/extension-module"]
+
+[dependencies]
+pyo3 = { version = "0.24", features = ["abi3-py312"], optional = true }
+
+[build-dependencies]
+pyo3-build-config = "0.24"
