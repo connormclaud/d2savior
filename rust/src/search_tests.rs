@@ -1157,11 +1157,10 @@ fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec
     (items, charms, c, mode)
 }
 
-#[test]
-fn test_exhaustive_brute_force_matches_optimizer_on_random_pools() {
+fn run_exhaustive_brute_force_seeds(seed_count: usize) {
     let mut rng = SplitMix64(0x5eed_cafe_1234_5678);
     let mut mismatches = Vec::new();
-    for seed_idx in 0..400 {
+    for seed_idx in 0..seed_count {
         let (items, charms, c, mode) = gen_random_case(&mut rng, seed_idx);
         let expected: Vec<i32> = brute_force_top_scores(&items, &charms, &c, mode)
             .into_iter()
@@ -1181,10 +1180,21 @@ fn test_exhaustive_brute_force_matches_optimizer_on_random_pools() {
     }
     assert!(
         mismatches.is_empty(),
-        "optimizer diverged from exhaustive brute force in {} / 60 cases:\n{}",
+        "optimizer diverged from exhaustive brute force in {} / {seed_count} cases:\n{}",
         mismatches.len(),
         mismatches.join("\n")
     );
+}
+
+#[test]
+fn test_exhaustive_brute_force_matches_optimizer_on_random_pools() {
+    run_exhaustive_brute_force_seeds(60);
+}
+
+#[test]
+#[ignore = "slow 400-seed oracle (~200s debug); run with cargo test -- --ignored"]
+fn test_exhaustive_brute_force_matches_optimizer_on_400_random_pools() {
+    run_exhaustive_brute_force_seeds(400);
 }
 
 #[test]
@@ -1320,4 +1330,143 @@ fn test_top_n_finds_builds_beyond_old_slack_and_prunes_by_nth_score() {
     let res_mf = optimize_builds_core(&mf_items, &[], &c_mf).unwrap();
     let mf_vals: Vec<i32> = res_mf.iter().map(|r| r.mf).collect();
     assert_eq!(mf_vals, vec![50, 10, 0]);
+}
+
+#[test]
+fn test_exhaustive_brute_force_max_res_negative_res_overcap() {
+    let mut base = Vec::new();
+    let mut a1 = mk_item("Armor CapCR", "armor", 0, 0, 1, 0, 0);
+    a1.req_str = 10;
+    a1.fr = 55;
+    a1.lr = 75;
+    a1.cr = 75;
+    a1.pr = 75;
+    base.push(a1);
+
+    let mut a2 = mk_item("Armor OverCR", "armor", 0, 0, 0, 0, 0);
+    a2.req_str = 10;
+    a2.fr = 55;
+    a2.lr = 75;
+    a2.cr = 100;
+    a2.pr = 75;
+    base.push(a2);
+
+    let charms = vec![
+        CharmSpec {
+            name: "Cold Rupture STR".to_string(),
+            size: 1,
+            loc: "inv".to_string(),
+            unique_id: Some(901),
+            str_bonus: 10,
+            cr: -40,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "FR SC".to_string(),
+            size: 1,
+            loc: "inv".to_string(),
+            fr: 20,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "CR SC".to_string(),
+            size: 1,
+            loc: "inv".to_string(),
+            cr: 25,
+            ..Default::default()
+        },
+    ];
+    let c = BuildConstraints {
+        mode: "max-res".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        base_str: 0,
+        base_dex: 0,
+        max_charm_slots: 2,
+        limit: 2,
+        ..test_constraints()
+    };
+
+    let expected: Vec<i32> = brute_force_top_scores(&base, &charms, &c, SearchMode::MaxRes)
+        .into_iter()
+        .map(|s| s.0)
+        .collect();
+    let actual_res = optimize_builds_core(&base, &charms, &c).unwrap();
+    let actual: Vec<i32> = actual_res
+        .iter()
+        .map(|r| validate_and_score_result(r, &c, SearchMode::MaxRes).0)
+        .collect();
+    assert_eq!(actual, vec![285, 265]);
+    assert_eq!(actual, expected);
+
+    // Also fuzz 60 small random MaxRes pools that include negative-resist charms.
+    let mut rng = SplitMix64(0xdead_beef_9876_5432);
+    for seed_idx in 0..60 {
+        let mut items = Vec::new();
+        for &slot in TEST_EQUIP_SLOTS {
+            let count = if slot == "armor" || slot == "helm" { 2 } else { 1 };
+            for j in 0..count {
+                let mut it = mk_item(&format!("{slot}_{j}"), slot, 0, 0, rng.gen_range(0, 2), 0, 0);
+                it.fr = rng.gen_range(20, 60);
+                it.lr = rng.gen_range(20, 60);
+                it.cr = rng.gen_range(30, 95);
+                it.pr = rng.gen_range(20, 60);
+                it.str_bonus = rng.pick(&[0, 10]);
+                if slot == "helm" {
+                    it.req_str = rng.pick(&[0, 10]);
+                }
+                items.push(it);
+            }
+        }
+        items.push(mk_item("ring_0", "ring", 0, 0, 0, 0, 0));
+        items.push(mk_item("ring_1", "ring", 0, 0, 0, 0, 0));
+
+        let mut fuzz_charms = Vec::new();
+        for j in 0..5 {
+            let size = rng.pick(&[1, 2]);
+            let is_sunder = j == 0;
+            fuzz_charms.push(CharmSpec {
+                name: format!("ch_{j}"),
+                size,
+                loc: "inv".to_string(),
+                unique_id: if is_sunder { Some(901) } else { None },
+                str_bonus: if is_sunder { 10 } else { rng.pick(&[0, 5]) },
+                fr: if is_sunder { 0 } else { rng.gen_range(0, 18) },
+                lr: if is_sunder { 0 } else { rng.gen_range(0, 18) },
+                cr: if is_sunder { -rng.pick(&[30, 40, 70]) } else { rng.gen_range(0, 22) },
+                pr: if is_sunder { 0 } else { rng.gen_range(0, 18) },
+                fhr: rng.pick(&[0, 5]),
+                ..Default::default()
+            });
+        }
+        let fc = BuildConstraints {
+            mode: "max-res".to_string(),
+            min_fcr: 0,
+            min_fhr: rng.pick(&[0, 5]),
+            min_fr: 0,
+            min_lr: 0,
+            min_cr: rng.pick(&[0, 20]),
+            min_pr: 0,
+            base_hell_res: 0,
+            base_str: 0,
+            max_charm_slots: rng.pick(&[2, 3, 4]),
+            limit: rng.gen_range(1, 3) as usize,
+            ..test_constraints()
+        };
+        let exp: Vec<i32> = brute_force_top_scores(&items, &fuzz_charms, &fc, SearchMode::MaxRes)
+            .into_iter()
+            .map(|s| s.0)
+            .collect();
+        let act: Vec<i32> = optimize_builds_core(&items, &fuzz_charms, &fc)
+            .unwrap()
+            .iter()
+            .map(|r| validate_and_score_result(r, &fc, SearchMode::MaxRes).0)
+            .collect();
+        assert_eq!(act, exp, "seed={seed_idx}");
+    }
 }

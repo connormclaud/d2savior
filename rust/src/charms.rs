@@ -950,7 +950,7 @@ impl<'a> CharmSolver<'a> {
                     sum_r[2] += ch.cr;
                     sum_r[3] += ch.pr;
                 }
-                (0..4).map(|r| sum_r[r].min(room[r])).sum()
+                (0..4).map(|r| sum_r[r].min(room[r]) - room[r].min(0)).sum()
             }
         }
     }
@@ -1056,7 +1056,9 @@ impl<'a> CharmSolver<'a> {
                 let cur_main = match s.mode {
                     SearchMode::Power => cur_skills,
                     SearchMode::Mf => cur_mf,
-                    SearchMode::MaxRes => (0..4).map(|r| cur_res_added[r].min(ctx.room[r])).sum(),
+                    SearchMode::MaxRes => (0..4)
+                        .map(|r| cur_res_added[r].min(ctx.room[r]) - ctx.room[r].min(0))
+                        .sum(),
                 };
                 if ctx.best_main.is_none_or(|b| cur_main > b) {
                     ctx.best_main = Some(cur_main);
@@ -1089,7 +1091,9 @@ impl<'a> CharmSolver<'a> {
                     }
                     SearchMode::Mf => cur_mf + eval_sorted_ub(&s.order_mf, g_idx, rem_slots),
                     SearchMode::MaxRes => {
-                        let cur_gain: i32 = (0..4).map(|r| cur_res_added[r].min(ctx.room[r])).sum();
+                        let cur_gain: i32 = (0..4)
+                            .map(|r| cur_res_added[r].min(ctx.room[r]) - ctx.room[r].min(0))
+                            .sum();
                         let rem_room = [
                             (ctx.room[0] - cur_res_added[0]).max(0),
                             (ctx.room[1] - cur_res_added[1]).max(0),
@@ -1174,7 +1178,10 @@ impl<'a> CharmSolver<'a> {
                         SearchMode::Power => stats.skills > 0,
                         SearchMode::Mf => stats.mf > 0,
                         SearchMode::MaxRes => {
-                            (0..4).any(|r| stats.res[r] > 0 && cur_res_added[r] < ctx.room[r])
+                            let neg_next = s.suf_neg_res[g_idx + 1];
+                            (0..4).any(|r| {
+                                stats.res[r] > 0 && cur_res_added[r] + neg_next[r] < ctx.room[r]
+                            })
                         }
                     };
                     let max_useful = if has_main {
@@ -1294,10 +1301,10 @@ impl<'a> CharmSolver<'a> {
         ];
         let room = if self.mode == SearchMode::MaxRes {
             [
-                (caps[0] - leaf.fr).max(0),
-                (caps[1] - leaf.lr).max(0),
-                (caps[2] - leaf.cr).max(0),
-                (caps[3] - leaf.pr).max(0),
+                (caps[0] - leaf.fr).max(self.sum_neg[0]),
+                (caps[1] - leaf.lr).max(self.sum_neg[1]),
+                (caps[2] - leaf.cr).max(self.sum_neg[2]),
+                (caps[3] - leaf.pr).max(self.sum_neg[3]),
             ]
         } else {
             [0; 4]
@@ -1332,12 +1339,7 @@ impl<'a> CharmSolver<'a> {
         let ub_main = match self.mode {
             SearchMode::Power => self.ub_skills,
             SearchMode::Mf => self.ub_mf,
-            SearchMode::MaxRes => {
-                room[0].min(self.ub_res[0])
-                    + room[1].min(self.ub_res[1])
-                    + room[2].min(self.ub_res[2])
-                    + room[3].min(self.ub_res[3])
-            }
+            SearchMode::MaxRes => (0..4).map(|r| room[r].max(0).min(self.ub_res[r])).sum(),
         };
 
         let incumbent = match &greedy_res {

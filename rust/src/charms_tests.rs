@@ -297,3 +297,125 @@ fn test_charm_solver_recovers_when_greedy_misses_feasibility_or_main_score() {
         .expect("exact should find Hybrid LC + Skill GC");
     assert_eq!(best_sk.iter().map(|c| c.skills).sum::<i32>(), 1);
 }
+
+#[test]
+fn test_charm_solver_max_res_negative_res_overcap_and_cache_isolation() {
+    let charms = [
+        CharmSpec {
+            name: "Cold Rupture STR".to_string(),
+            size: 1,
+            unique_id: Some(901),
+            str_bonus: 10,
+            cr: -40,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "FR SC".to_string(),
+            size: 1,
+            fr: 20,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "CR SC".to_string(),
+            size: 1,
+            cr: 25,
+            ..Default::default()
+        },
+    ];
+    let pool: Vec<&CharmSpec> = charms.iter().collect();
+    let c = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 2,
+        ..Default::default()
+    };
+
+    let capped_sum = |leaf: Stats, chosen: &[&CharmSpec]| -> i32 {
+        let mut r = [leaf.fr, leaf.lr, leaf.cr, leaf.pr];
+        for ch in chosen {
+            r[0] += ch.fr;
+            r[1] += ch.lr;
+            r[2] += ch.cr;
+            r[3] += ch.pr;
+        }
+        r.into_iter().map(|v| v.min(75)).sum()
+    };
+
+    let mut solver = CharmSolver::new(&pool, &c, SearchMode::MaxRes);
+
+    // At CR = 75 (0 overcap), Sunder + CR SC yields 55 + 75 + 60 + 75 = 265 > 260.
+    let leaf_at_cap = Stats {
+        fr: 55,
+        lr: 75,
+        cr: 75,
+        pr: 75,
+        ..Default::default()
+    };
+    let chosen_at_cap = solver
+        .solve(&[], leaf_at_cap, (10, 0))
+        .expect("should solve at cap");
+    assert_eq!(capped_sum(leaf_at_cap, &chosen_at_cap), 265);
+
+    // At CR = 100 (25 overcap), Sunder + FR SC yields 75 + 75 + 60 + 75 = 285 > 280.
+    // Must neither mis-score the overcap nor collide in cache with CR = 75.
+    let leaf_overcap = Stats {
+        fr: 55,
+        lr: 75,
+        cr: 100,
+        pr: 75,
+        ..Default::default()
+    };
+    let chosen_overcap = solver
+        .solve(&[], leaf_overcap, (10, 0))
+        .expect("should solve with overcap");
+    assert_eq!(capped_sum(leaf_overcap, &chosen_overcap), 285);
+}
+
+#[test]
+fn test_charm_solver_max_res_multi_offsets_later_negative_res_charm() {
+    let charms = [
+        CharmSpec {
+            name: "CR SC".to_string(),
+            size: 1,
+            cr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Cold Rupture STR".to_string(),
+            size: 1,
+            unique_id: Some(901),
+            str_bonus: 10,
+            cr: -70,
+            ..Default::default()
+        },
+    ];
+    let pool: Vec<&CharmSpec> = charms.iter().collect();
+    let c = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 2,
+        ..Default::default()
+    };
+    let leaf = Stats {
+        fr: 75,
+        lr: 75,
+        cr: 75,
+        pr: 75,
+        ..Default::default()
+    };
+
+    let mut solver = CharmSolver::new(&pool, &c, SearchMode::MaxRes);
+    let chosen = solver
+        .solve(&[], leaf, (10, 0))
+        .expect("should solve with sunder + CR SC");
+    let final_cr = leaf.cr + chosen.iter().map(|ch| ch.cr).sum::<i32>();
+    assert_eq!(final_cr, 16);
+}
