@@ -76,6 +76,7 @@ requires-dist = [
     { name = "platformdirs", specifier = ">=4.0.0" },
     { name = "tomlkit", specifier = ">=0.13.0" },
 ]
+provides-extras = ["optimize"]
 
 [package.metadata.requires-dev]
 dev = [

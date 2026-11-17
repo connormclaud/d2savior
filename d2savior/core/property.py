@@ -350,7 +350,7 @@ _NEGATE_PROP_IDS = frozenset({305, 306, 307, 308, 333, 334, 335, 336})
 _PERCENT_DESCFUNC = frozenset({2, 4, 5, 6, 8, 10, 11, 16, 20, 22})
 
 
-def _adjust_property_values(
+def adjust_property_values(
     prop_id: int, a: list[int], stat: StatInfo | None, char_level: int | None = None
 ) -> int | float | None:
     if prop_id == 54:
@@ -409,7 +409,7 @@ def format_property(
     ) is not None:
         return handled
 
-    scaled_val = _adjust_property_values(prop_id, a, stat, char_level=char_level)
+    scaled_val = adjust_property_values(prop_id, a, stat, char_level=char_level)
     if prop_id == 237:
         val = scaled_val if scaled_val is not None else a[0]
         return format_modifier_template(

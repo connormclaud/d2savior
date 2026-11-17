@@ -27,6 +27,10 @@ coverage/
 build/
 dist/
 *.egg-info/
+rust/target/
+d2savior/*.so
+d2savior/*.pyd
+d2savior/*.dylib
 
 # Installer related
 *_Setup.exe

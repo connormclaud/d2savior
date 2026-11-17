@@ -15,21 +15,34 @@ lazy from d2savior.core.obitstream import OBitStream
 lazy from d2savior.core.resolver import GameDataResolver
 lazy from d2savior.core.stash import SharedStash, StashTab
 lazy from d2savior.core.stash_formatter import format_stash_info, format_stash_summary
+lazy from d2savior.optimizer import (
+    BuildConstraints,
+    BuildResult,
+    CharmSpec,
+    ItemSpec,
+    extract_pool,
+    optimize_builds,
+)
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "BuildConstraints",
+    "BuildResult",
+    "CharmSpec",
     "D2Item",
     "D2SStruct",
     "GameData",
     "GameDataResolver",
     "IBitStream",
     "ItemList",
+    "ItemSpec",
     "OBitStream",
     "SharedStash",
     "StashTab",
     "VersionData",
     "__version__",
+    "extract_pool",
     "format_char_info",
     "format_char_summary",
     "format_item_info",
@@ -37,4 +50,5 @@ __all__ = [
     "format_stash_info",
     "format_stash_summary",
     "item_matches_pattern",
+    "optimize_builds",
 ]

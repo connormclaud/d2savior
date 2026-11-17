@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: astral-sh/setup-uv@v5
       - name: Install dependencies
         run: uv sync --locked
@@ -20,5 +21,13 @@ jobs:
         run: uv run ruff check .
       - name: Run static type checker
         run: uv run ty check
-      - name: Run tests
+      - name: Run tests (default, without native optimizer)
+        run: uv run pytest tests/ -v --cov=d2savior --cov-report=term-missing
+      - name: Run Rust tests
+        run: cargo test --manifest-path rust/Cargo.toml --no-default-features --locked
+      - name: Build native extension
+        run: |
+          cargo build --manifest-path rust/Cargo.toml --release --locked
+          uv run python -c 'import shutil, sys; src, dst = {"darwin": ("lib_native.dylib", "_native.abi3.so"), "win32": ("_native.dll", "_native.pyd")}.get(sys.platform, ("lib_native.so", "_native.abi3.so")); shutil.copy2(f"rust/target/release/{src}", f"d2savior/{dst}")'
+      - name: Run tests (with native optimizer)
         run: uv run pytest tests/ -v --cov=d2savior --cov-report=term-missing

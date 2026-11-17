@@ -18,6 +18,12 @@ from d2savior.core.stash_formatter import (
     format_stash_info,
     format_stash_summary,
 )
+from d2savior.optimizer import (
+    extract_pool,
+    format_build_report,
+    optimize_builds,
+    select_sorc_presets,
+)
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
@@ -45,6 +51,7 @@ STASH_FIND_HORAZON_SUMMARY_GOLDEN = os.path.join(
 MULE_UNIQUE_FIND_GRIM_SUMMARY_GOLDEN = os.path.join(
     GOLDEN_DIR, "mule_unique_find_grim_summary.golden.txt"
 )
+SORK_OPTIMIZE_GOLDEN = os.path.join(GOLDEN_DIR, "sork_optimize.golden.txt")
 
 STASH_FIND_CASES = [
     ("Charm", STASH_FIND_CHARM_SUMMARY_GOLDEN),
@@ -145,6 +152,33 @@ class TestSmokeAPI:
         assert found is not None
         assert_matches_golden(found + "\n", golden_path, "char_find_api")
 
+    def test_sork_optimize(self, game_data_resolver):
+        pytest.importorskip("d2savior._native")
+        s_kind, sork, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
+        m_kind, mule, _ = parse_file(MULE_UNIQUE_D2S, resolver=game_data_resolver)
+        st_kind, stash, _ = parse_file(STASH_D2I, resolver=game_data_resolver)
+        assert s_kind == "char"
+        assert isinstance(sork, D2SStruct)
+        assert m_kind == "char"
+        assert isinstance(mule, D2SStruct)
+        assert st_kind == "stash"
+        assert isinstance(stash, SharedStash)
+
+        items, charms = extract_pool(
+            sork, extra_chars=[mule], stashes=[stash], resolver=game_data_resolver
+        )
+        sections = [
+            format_build_report(title, optimize_builds(items, charms, constraints))
+            for title, constraints in select_sorc_presets(
+                sork,
+                extra_chars=[mule],
+                stashes=[stash],
+                resolver=game_data_resolver,
+            )
+        ]
+        output = "\n\n".join(sections) + "\n\n"
+        assert_matches_golden(output, SORK_OPTIMIZE_GOLDEN, "sork_optimize_api")
+
 
 class TestSmokeCLI:
     """Smoke tests validating end-to-end command-line interface execution."""
@@ -241,3 +275,22 @@ class TestSmokeCLI:
         )
         assert f"=== File: {SORK_D2S} ===" in res.stdout
         assert f"=== File: {STASH_D2I} ===" in res.stdout
+
+    def test_cli_sork_optimize(self):
+        pytest.importorskip("d2savior._native")
+        res = subprocess.run(
+            [
+                sys.executable,
+                CLI_SCRIPT,
+                "optimize",
+                "--no-config",
+                SORK_D2S,
+                MULE_UNIQUE_D2S,
+                STASH_D2I,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=REPO_ROOT,
+        )
+        assert_matches_golden(res.stdout, SORK_OPTIMIZE_GOLDEN, "cli_sork_optimize")

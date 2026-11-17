@@ -29,6 +29,9 @@ dependencies = [
     "tomlkit>=0.13.0",
 ]
 
+[project.optional-dependencies]
+optimize = []
+
 [project.urls]
 Repository = "https://github.com/connormclaud/d2savior"
 Issues = "https://github.com/connormclaud/d2savior/issues"

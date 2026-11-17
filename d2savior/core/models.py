@@ -268,12 +268,14 @@ class UniqueItemInfo:
     index: str = ""
     unique_id: int = 0
     code: str = ""
+    levelreq: int = 0
 
 
 @dataclass(slots=True)
 class SetItemInfo:
     name: str = ""
     set_id: int = 0
+    levelreq: int = 0
 
 
 @dataclass(slots=True)
@@ -387,6 +389,8 @@ class ItemTypeInfo:
     spellicon: int = 0
     spell_id: int = 0
     belt_rows: int = 0
+    two_handed: bool = False
+    one_or_two_handed: bool = False
 
 
 @dataclass(slots=True)
