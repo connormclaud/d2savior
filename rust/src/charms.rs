@@ -302,6 +302,7 @@ fn greedy_charms_pass_indices(
     reqs: (i32, i32),
     mode: SearchMode,
     fhr_first: bool,
+    prepicked: Option<&CharmSpec>,
 ) -> Option<Vec<usize>> {
     let gear = items
         .iter()
@@ -311,19 +312,30 @@ fn greedy_charms_pass_indices(
         return None;
     }
     let caps = [cap_fr, cap_lr, cap_cr, cap_pr];
+    let slot_budget = prepicked.map_or(c.max_charm_slots, |s| c.max_charm_slots - s.size);
+    if slot_budget < 0 {
+        return None;
+    }
+    let (s_fhr, s_fr, s_lr, s_cr, s_pr, s_str, s_dex) = match prepicked {
+        Some(s) => (s.fhr, s.fr, s.lr, s.cr, s.pr, s.str_bonus, s.dex_bonus),
+        None => (0, 0, 0, 0, 0, 0, 0),
+    };
     let mut state = CharmState::new(
         pool,
-        c.max_charm_slots,
-        gear.fhr,
+        slot_budget,
+        gear.fhr + s_fhr,
         [
-            c.base_hell_res + gear.fr,
-            c.base_hell_res + gear.lr,
-            c.base_hell_res + gear.cr,
-            c.base_hell_res + gear.pr,
+            c.base_hell_res + gear.fr + s_fr,
+            c.base_hell_res + gear.lr + s_lr,
+            c.base_hell_res + gear.cr + s_cr,
+            c.base_hell_res + gear.pr + s_pr,
         ],
-        c.base_str + gear.str_bonus,
-        c.base_dex + gear.dex_bonus,
+        c.base_str + gear.str_bonus + s_str,
+        c.base_dex + gear.dex_bonus + s_dex,
     );
+    if let Some(uid) = prepicked.and_then(|s| s.unique_id) {
+        state.unique_ids.insert(uid);
+    }
 
     let (req_str_target, req_dex_target) = reqs;
     while state.cur_str < req_str_target || state.cur_dex < req_dex_target {
@@ -393,7 +405,7 @@ fn greedy_charms_pass<'a>(
     mode: SearchMode,
     fhr_first: bool,
 ) -> Option<Vec<&'a CharmSpec>> {
-    greedy_charms_pass_indices(items, pool, c, reqs, mode, fhr_first)
+    greedy_charms_pass_indices(items, pool, c, reqs, mode, fhr_first, None)
         .map(|idxs| idxs.into_iter().map(|i| pool[i]).collect())
 }
 
@@ -419,9 +431,12 @@ fn greedy_charms_indices(
     c: &BuildConstraints,
     reqs: (i32, i32),
     mode: SearchMode,
+    prepicked: Option<&CharmSpec>,
 ) -> Option<Vec<usize>> {
     for fhr_first in [true, false] {
-        if let Some(chosen) = greedy_charms_pass_indices(items, pool, c, reqs, mode, fhr_first) {
+        if let Some(chosen) =
+            greedy_charms_pass_indices(items, pool, c, reqs, mode, fhr_first, prepicked)
+        {
             return Some(chosen);
         }
     }
@@ -429,7 +444,8 @@ fn greedy_charms_indices(
 }
 
 fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> bool {
-    if a.size > b.size
+    if (!a.cold_sunder && b.cold_sunder)
+        || a.size > b.size
         || a.fhr < b.fhr
         || a.fr < b.fr
         || a.lr < b.lr
@@ -445,7 +461,8 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
     {
         return false;
     }
-    let strictly_better = a.size < b.size
+    let strictly_better = (a.cold_sunder && !b.cold_sunder)
+        || a.size < b.size
         || a.fhr > b.fhr
         || a.fr > b.fr
         || a.lr > b.lr
@@ -484,6 +501,25 @@ pub(crate) fn shrink_charm_pool<'a>(pool: &[&'a CharmSpec], max_slots: i32) -> V
             .take(dom_cap)
             .count();
         if dom_count < dom_cap {
+            kept.push(b);
+        }
+    }
+    kept
+}
+
+fn shrink_sunder_pool<'a>(
+    raw_sunders: &[&'a CharmSpec],
+    non_sunder_uids: &HashSet<i32>,
+) -> Vec<&'a CharmSpec> {
+    let mut kept = Vec::with_capacity(raw_sunders.len());
+    for (bi, &b) in raw_sunders.iter().enumerate() {
+        let uid_isolated = !matches!(b.unique_id, Some(u) if non_sunder_uids.contains(&u));
+        let dominated = raw_sunders.iter().enumerate().any(|(ai, &a)| {
+            ai != bi
+                && (a.unique_id == b.unique_id || uid_isolated)
+                && charm_dominates(a, b, ai, bi)
+        });
+        if !dominated {
             kept.push(b);
         }
     }
@@ -631,6 +667,7 @@ impl CharmGroup {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct CharmCacheKey {
+    sunder_idx: usize,
     need_str: i32,
     need_dex: i32,
     need_fhr: i32,
@@ -697,8 +734,10 @@ fn eval_sorted_ub(entries: &[UbGroupEntry], min_g_idx: usize, mut rem_slots: i32
 
 pub(crate) struct CharmSolver<'a> {
     pub(crate) pool: Vec<&'a CharmSpec>,
+    sunder_opts: Vec<&'a CharmSpec>,
     c: &'a BuildConstraints,
     mode: SearchMode,
+    raw_max_slots: i32,
     max_slots: i32,
     sum_neg: [i32; 4],
     ub_str: i32,
@@ -720,13 +759,127 @@ pub(crate) struct CharmSolver<'a> {
 }
 
 impl<'a> CharmSolver<'a> {
+    pub(crate) fn has_cold_sunder(&self) -> bool {
+        !self.sunder_opts.is_empty()
+    }
+
+    pub(crate) fn charm_ub_stats(&self) -> Stats {
+        let base = if let Some(&first) = self.sunder_opts.first() {
+            let mut acc = Stats {
+                all_skills: first.skills,
+                fhr: first.fhr,
+                fr: first.fr,
+                lr: first.lr,
+                cr: first.cr,
+                pr: first.pr,
+                mf: first.mf,
+                str_bonus: first.str_bonus,
+                dex_bonus: first.dex_bonus,
+                ..Default::default()
+            };
+            for &s in &self.sunder_opts[1..] {
+                acc = acc.max_each(Stats {
+                    all_skills: s.skills,
+                    fhr: s.fhr,
+                    fr: s.fr,
+                    lr: s.lr,
+                    cr: s.cr,
+                    pr: s.pr,
+                    mf: s.mf,
+                    str_bonus: s.str_bonus,
+                    dex_bonus: s.dex_bonus,
+                    ..Default::default()
+                });
+            }
+            acc
+        } else {
+            Stats::default()
+        };
+        Stats {
+            all_skills: base.all_skills + self.ub_skills,
+            fhr: base.fhr + self.ub_fhr,
+            fr: base.fr + self.ub_res[0],
+            lr: base.lr + self.ub_res[1],
+            cr: base.cr + self.ub_res[2],
+            pr: base.pr + self.ub_res[3],
+            mf: base.mf + self.ub_mf,
+            str_bonus: base.str_bonus + self.ub_str,
+            dex_bonus: base.dex_bonus + self.ub_dex,
+            ..Default::default()
+        }
+    }
+
     pub(crate) fn new(
         raw_pool: &[&'a CharmSpec],
         c: &'a BuildConstraints,
         mode: SearchMode,
     ) -> Self {
-        let pool = shrink_charm_pool(raw_pool, c.max_charm_slots);
-        let max_slots = c.max_charm_slots.max(0);
+        let raw_max_slots = c.max_charm_slots.max(0);
+        let main_val_of = |ch: &CharmSpec| -> i32 {
+            match mode {
+                SearchMode::Power => ch.skills.max(0),
+                SearchMode::Mf => ch.mf.max(0),
+                SearchMode::MaxRes => ch.fr.max(0) + ch.lr.max(0) + ch.cr.max(0) + ch.pr.max(0),
+            }
+        };
+
+        let raw_sunders: Vec<&'a CharmSpec> = if mode != SearchMode::MaxRes {
+            raw_pool
+                .iter()
+                .copied()
+                .filter(|ch| ch.cold_sunder && ch.size <= raw_max_slots)
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let (sunder_opts, max_slots, pool) = if !raw_sunders.is_empty() {
+            let raw_non_sunders: Vec<&'a CharmSpec> = raw_pool
+                .iter()
+                .copied()
+                .filter(|ch| !ch.cold_sunder)
+                .collect();
+            let non_sunder_uids: HashSet<i32> = raw_non_sunders
+                .iter()
+                .filter_map(|ch| ch.unique_id)
+                .collect();
+            let mut sunder_opts = shrink_sunder_pool(&raw_sunders, &non_sunder_uids);
+            sunder_opts.sort_by_key(|s| {
+                std::cmp::Reverse((
+                    main_val_of(s),
+                    s.cr,
+                    s.fhr,
+                    s.fr + s.lr + s.pr,
+                    s.str_bonus + s.dex_bonus,
+                    s.life,
+                    s.mana,
+                    -s.size,
+                ))
+            });
+            let min_sunder_size = sunder_opts.iter().map(|s| s.size.max(0)).min().unwrap_or(0);
+            let rem_slots = (raw_max_slots - min_sunder_size).max(0);
+            let single_uid = if sunder_opts.len() == 1 {
+                sunder_opts[0].unique_id
+            } else {
+                None
+            };
+            let filtered_non_sunders: Vec<&'a CharmSpec> = if let Some(uid) = single_uid {
+                raw_non_sunders
+                    .into_iter()
+                    .filter(|ch| ch.unique_id != Some(uid))
+                    .collect()
+            } else {
+                raw_non_sunders
+            };
+            let pool = shrink_charm_pool(&filtered_non_sunders, rem_slots);
+            (sunder_opts, rem_slots, pool)
+        } else {
+            (
+                Vec::new(),
+                raw_max_slots,
+                shrink_charm_pool(raw_pool, raw_max_slots),
+            )
+        };
         let mut sum_neg = [0i32; 4];
         for &ch in &pool {
             sum_neg[0] += ch.fr.min(0);
@@ -789,14 +942,6 @@ impl<'a> CharmSolver<'a> {
                 multi_map.entry(key).or_default().push(idx);
             }
         }
-
-        let main_val_of = |ch: &CharmSpec| -> i32 {
-            match mode {
-                SearchMode::Power => ch.skills.max(0),
-                SearchMode::Mf => ch.mf.max(0),
-                SearchMode::MaxRes => ch.fr.max(0) + ch.lr.max(0) + ch.cr.max(0) + ch.pr.max(0),
-            }
-        };
 
         let mut groups: Vec<CharmGroup> = Vec::new();
         for (_, mut opts) in unique_map {
@@ -914,8 +1059,10 @@ impl<'a> CharmSolver<'a> {
 
         Self {
             pool,
+            sunder_opts,
             c,
             mode,
+            raw_max_slots,
             max_slots,
             sum_neg,
             ub_str,
@@ -1030,11 +1177,14 @@ impl<'a> CharmSolver<'a> {
         &self,
         init_delta: [i32; 7], // [str_delta, dex_delta, fhr_delta, fr_delta, lr_delta, cr_delta, pr_delta] (signed: >=0 means met, <0 means shortfall)
         room: [i32; 4],
+        slot_budget: i32,
+        forbidden_uid: Option<i32>,
         incumbent: Option<(i32, Vec<usize>)>,
     ) -> Option<Vec<usize>> {
         struct ExactCtx<'b, 'a> {
             solver: &'b CharmSolver<'a>,
             room: [i32; 4],
+            forbidden_uid: Option<i32>,
             best_main: Option<i32>,
             best_indices: Option<Vec<usize>>,
             cur_indices: Vec<usize>,
@@ -1130,7 +1280,9 @@ impl<'a> CharmSolver<'a> {
                 CharmGroup::Unique { options, .. } => {
                     for &opt_idx in options {
                         let ch = s.pool[opt_idx];
-                        if ch.size > rem_slots {
+                        if ch.size > rem_slots
+                            || (ctx.forbidden_uid.is_some() && ch.unique_id == ctx.forbidden_uid)
+                        {
                             continue;
                         }
                         ctx.cur_indices.push(opt_idx);
@@ -1263,11 +1415,12 @@ impl<'a> CharmSolver<'a> {
         let mut ctx = ExactCtx {
             solver: self,
             room,
+            forbidden_uid,
             best_main,
             best_indices,
             cur_indices: Vec::new(),
         };
-        dfs_charms(&mut ctx, 0, self.max_slots, init_delta, [0; 4], 0, 0);
+        dfs_charms(&mut ctx, 0, slot_budget.max(0), init_delta, [0; 4], 0, 0);
         ctx.best_indices
     }
 
@@ -1287,17 +1440,96 @@ impl<'a> CharmSolver<'a> {
             return None;
         }
 
-        // `leaf` already includes base_str, base_dex, and base_hell_res.
+        if self.sunder_opts.is_empty() {
+            return self
+                .solve_for_sunder(items, leaf, caps, reqs, 0, self.max_slots, None)
+                .map(|idxs| idxs.into_iter().map(|i| self.pool[i]).collect());
+        }
+
+        if self.sunder_opts.len() == 1 {
+            let sunder = self.sunder_opts[0];
+            let slot_budget = (self.raw_max_slots - sunder.size).max(0);
+            let leaf_s = add_charm_to_leaf(leaf, sunder);
+            return self
+                .solve_for_sunder(items, leaf_s, caps, reqs, 0, slot_budget, Some(sunder))
+                .map(|idxs| {
+                    std::iter::once(sunder)
+                        .chain(idxs.into_iter().map(|i| self.pool[i]))
+                        .collect()
+                });
+        }
+
+        struct SunderCandidate<'a> {
+            score: (i32, i32, i32, i32, i32, i32),
+            sunder: &'a CharmSpec,
+            idxs: Vec<usize>,
+        }
+        let mut best: Option<SunderCandidate<'a>> = None;
+        for s_idx in 0..self.sunder_opts.len() {
+            let sunder = self.sunder_opts[s_idx];
+            let slot_budget = (self.raw_max_slots - sunder.size).max(0);
+            let leaf_s = add_charm_to_leaf(leaf, sunder);
+            let Some(idxs) =
+                self.solve_for_sunder(items, leaf_s, caps, reqs, s_idx, slot_budget, Some(sunder))
+            else {
+                continue;
+            };
+            let rem_main = self.main_score_of_indices(&idxs, [0; 4]);
+            let s_main = match self.mode {
+                SearchMode::Power => sunder.skills,
+                SearchMode::Mf => sunder.mf,
+                SearchMode::MaxRes => 0,
+            };
+            let total_cr = leaf_s.cr + idxs.iter().map(|&i| self.pool[i].cr).sum::<i32>();
+            let total_life = sunder.life + idxs.iter().map(|&i| self.pool[i].life).sum::<i32>();
+            let total_mana = sunder.mana + idxs.iter().map(|&i| self.pool[i].mana).sum::<i32>();
+            let total_fhr = leaf_s.fhr + idxs.iter().map(|&i| self.pool[i].fhr).sum::<i32>();
+            let total_slots = sunder.size + idxs.iter().map(|&i| self.pool[i].size).sum::<i32>();
+            let score = (
+                s_main + rem_main,
+                total_cr,
+                total_life,
+                total_mana,
+                total_fhr,
+                -total_slots,
+            );
+            if best.as_ref().is_none_or(|b| score > b.score) {
+                best = Some(SunderCandidate {
+                    score,
+                    sunder,
+                    idxs,
+                });
+            }
+        }
+        best.map(|b| {
+            std::iter::once(b.sunder)
+                .chain(b.idxs.into_iter().map(|i| self.pool[i]))
+                .collect()
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn solve_for_sunder(
+        &mut self,
+        items: &[&ItemSpec],
+        leaf: Stats,
+        caps: [i32; 4],
+        reqs: (i32, i32),
+        sunder_idx: usize,
+        slot_budget: i32,
+        prepicked: Option<&'a CharmSpec>,
+    ) -> Option<Vec<usize>> {
+        // `leaf` already includes base_str, base_dex, base_hell_res, and any prepicked sunder.
         let need_str = (reqs.0 - leaf.str_bonus).max(0);
         let need_dex = (reqs.1 - leaf.dex_bonus).max(0);
         let need_fhr = (self.c.min_fhr - leaf.fhr).max(0);
         let leaf_res = [leaf.fr, leaf.lr, leaf.cr, leaf.pr];
         let mins = [self.c.min_fr, self.c.min_lr, self.c.min_cr, self.c.min_pr];
         let delta_res = [
-            (leaf_res[0] - mins[0]).min(-self.sum_neg[0]),
-            (leaf_res[1] - mins[1]).min(-self.sum_neg[1]),
-            (leaf_res[2] - mins[2]).min(-self.sum_neg[2]),
-            (leaf_res[3] - mins[3]).min(-self.sum_neg[3]),
+            leaf_res[0].saturating_sub(mins[0]).min(-self.sum_neg[0]),
+            leaf_res[1].saturating_sub(mins[1]).min(-self.sum_neg[1]),
+            leaf_res[2].saturating_sub(mins[2]).min(-self.sum_neg[2]),
+            leaf_res[3].saturating_sub(mins[3]).min(-self.sum_neg[3]),
         ];
         let room = if self.mode == SearchMode::MaxRes {
             [
@@ -1311,6 +1543,7 @@ impl<'a> CharmSolver<'a> {
         };
 
         let key = CharmCacheKey {
+            sunder_idx,
             need_str,
             need_dex,
             need_fhr,
@@ -1318,9 +1551,7 @@ impl<'a> CharmSolver<'a> {
             room,
         };
         if let Some(cached) = self.cache.get(&key) {
-            return cached
-                .as_ref()
-                .map(|idxs| idxs.iter().map(|&i| self.pool[i]).collect());
+            return cached.clone();
         }
 
         if need_str > self.ub_str
@@ -1335,7 +1566,8 @@ impl<'a> CharmSolver<'a> {
             return None;
         }
 
-        let greedy_res = greedy_charms_indices(items, &self.pool, self.c, reqs, self.mode);
+        let greedy_res =
+            greedy_charms_indices(items, &self.pool, self.c, reqs, self.mode, prepicked);
         let ub_main = match self.mode {
             SearchMode::Power => self.ub_skills,
             SearchMode::Mf => self.ub_mf,
@@ -1347,7 +1579,7 @@ impl<'a> CharmSolver<'a> {
                 let g_main = self.main_score_of_indices(idxs, room);
                 if g_main >= ub_main {
                     self.cache.insert(key, greedy_res.clone());
-                    return greedy_res.map(|v| v.into_iter().map(|i| self.pool[i]).collect());
+                    return greedy_res;
                 }
                 Some((g_main, idxs.clone()))
             }
@@ -1363,35 +1595,48 @@ impl<'a> CharmSolver<'a> {
             delta_res[2],
             delta_res[3],
         ];
-        let best_core = self.solve_exact(init_delta, room, incumbent);
+        let forbidden_uid = prepicked.and_then(|s| s.unique_id);
+        let best_core = self.solve_exact(init_delta, room, slot_budget, forbidden_uid, incumbent);
         let final_indices = match (greedy_res, best_core) {
             (Some(g_idxs), Some(e_idxs)) => {
                 if self.main_score_of_indices(&e_idxs, room)
                     > self.main_score_of_indices(&g_idxs, room)
                 {
-                    Some(self.top_off_filler(&e_idxs, leaf, caps))
+                    Some(self.top_off_filler(&e_idxs, leaf, caps, slot_budget, forbidden_uid))
                 } else {
                     Some(g_idxs)
                 }
             }
-            (None, Some(e_idxs)) => Some(self.top_off_filler(&e_idxs, leaf, caps)),
+            (None, Some(e_idxs)) => {
+                Some(self.top_off_filler(&e_idxs, leaf, caps, slot_budget, forbidden_uid))
+            }
             (Some(g_idxs), None) => Some(g_idxs),
             (None, None) => None,
         };
 
         self.cache.insert(key, final_indices.clone());
-        final_indices.map(|v| v.into_iter().map(|i| self.pool[i]).collect())
+        final_indices
     }
 
-    fn top_off_filler(&self, core: &[usize], leaf: Stats, caps: [i32; 4]) -> Vec<usize> {
+    fn top_off_filler(
+        &self,
+        core: &[usize],
+        leaf: Stats,
+        caps: [i32; 4],
+        slot_budget: i32,
+        forbidden_uid: Option<i32>,
+    ) -> Vec<usize> {
         let mut state = CharmState::new(
             &self.pool,
-            self.max_slots,
+            slot_budget.max(0),
             leaf.fhr,
             [leaf.fr, leaf.lr, leaf.cr, leaf.pr],
             leaf.str_bonus,
             leaf.dex_bonus,
         );
+        if let Some(uid) = forbidden_uid {
+            state.unique_ids.insert(uid);
+        }
         for &idx in core {
             state.pick(idx);
         }
@@ -1399,6 +1644,17 @@ impl<'a> CharmSolver<'a> {
         greedy_fill_remaining(&mut state, caps, res_targets, self.mode);
         state.chosen_indices
     }
+}
+
+fn add_charm_to_leaf(mut leaf: Stats, ch: &CharmSpec) -> Stats {
+    leaf.str_bonus += ch.str_bonus;
+    leaf.dex_bonus += ch.dex_bonus;
+    leaf.fhr += ch.fhr;
+    leaf.fr += ch.fr;
+    leaf.lr += ch.lr;
+    leaf.cr += ch.cr;
+    leaf.pr += ch.pr;
+    leaf
 }
 
 #[cfg(test)]

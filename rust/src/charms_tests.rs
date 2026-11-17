@@ -419,3 +419,86 @@ fn test_charm_solver_max_res_multi_offsets_later_negative_res_charm() {
     let final_cr = leaf.cr + chosen.iter().map(|ch| ch.cr).sum::<i32>();
     assert_eq!(final_cr, 16);
 }
+
+#[test]
+fn test_charm_solver_forces_best_cold_sunder_in_power_and_mf_only() {
+    let charms = [
+        CharmSpec {
+            name: "Cold Rupture -85".to_string(),
+            size: 3,
+            cr: -85,
+            unique_id: Some(401),
+            cold_sunder: true,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Cold Rupture -72".to_string(),
+            size: 3,
+            cr: -72,
+            unique_id: Some(401),
+            cold_sunder: true,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Sapphire SC".to_string(),
+            size: 1,
+            cr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Skill GC".to_string(),
+            size: 3,
+            skills: 1,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "MF SC".to_string(),
+            size: 1,
+            mf: 7,
+            ..Default::default()
+        },
+    ];
+    let pool: Vec<&CharmSpec> = charms.iter().collect();
+    let leaf = Stats {
+        fr: 75,
+        lr: 75,
+        cr: 140,
+        pr: 75,
+        ..Default::default()
+    };
+
+    // Power mode: picks -72 Cold Rupture (3 slots) + Skill GC (3 slots) in 6 slots -> cr = 68 < 75 fails,
+    // while with min_cr = 60 it picks -72 Cold Rupture + Sapphire SC (cr = 79) or Skill GC (cr = 68).
+    let c_pow_strict = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 0,
+        min_fr: 75,
+        min_lr: 75,
+        min_cr: 75,
+        min_pr: 75,
+        max_charm_slots: 6,
+        ..Default::default()
+    };
+    let mut solver_strict = CharmSolver::new(&pool, &c_pow_strict, SearchMode::Power);
+    let chosen_strict = solver_strict
+        .solve(&[], leaf, (0, 0))
+        .expect("should pick Cold Rupture -72 + Sapphire SC to hit 75 CR");
+    assert!(chosen_strict.iter().any(|ch| ch.name == "Cold Rupture -72"));
+    assert!(!chosen_strict.iter().any(|ch| ch.name == "Cold Rupture -85"));
+    assert!(chosen_strict.iter().any(|ch| ch.name == "Sapphire SC"));
+
+    // Mf mode: still forces Cold Rupture -72 and uses remaining 3 slots for MF SCs (up to cap).
+    let mut solver_mf = CharmSolver::new(&pool, &c_pow_strict, SearchMode::Mf);
+    let chosen_mf = solver_mf
+        .solve(&[], leaf, (0, 0))
+        .expect("MF should also force Cold Rupture -72 and Sapphire SC");
+    assert!(chosen_mf.iter().any(|ch| ch.name == "Cold Rupture -72"));
+    assert!(chosen_mf.iter().any(|ch| ch.name == "Sapphire SC"));
+
+    // MaxRes mode: Cold Rupture is optional, so it is skipped and CR stays at 75.
+    let mut solver_max = CharmSolver::new(&pool, &c_pow_strict, SearchMode::MaxRes);
+    let chosen_max = solver_max
+        .solve(&[], leaf, (0, 0))
+        .expect("MaxRes should solve without Cold Rupture");
+    assert!(!chosen_max.iter().any(|ch| ch.cold_sunder));
+}

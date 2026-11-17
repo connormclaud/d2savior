@@ -464,6 +464,7 @@ pub struct CharmSpec {
     pub dex_bonus: i32,
     pub skills: i32,
     pub unique_id: Option<i32>,
+    pub cold_sunder: bool,
 }
 
 #[cfg(feature = "python")]
@@ -488,6 +489,7 @@ impl CharmSpec {
         dex_bonus = 0,
         skills = 0,
         unique_id = None,
+        cold_sunder = false,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -508,6 +510,7 @@ impl CharmSpec {
         dex_bonus: i32,
         skills: i32,
         unique_id: Option<i32>,
+        cold_sunder: bool,
     ) -> Self {
         Self {
             name,
@@ -527,6 +530,7 @@ impl CharmSpec {
             dex_bonus,
             skills,
             unique_id,
+            cold_sunder,
         }
     }
 

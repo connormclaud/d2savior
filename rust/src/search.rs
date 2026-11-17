@@ -6,7 +6,7 @@ use pyo3::exceptions::PyValueError;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use crate::charms::{charm_stat_ub, CharmSolver};
+use crate::charms::CharmSolver;
 use crate::eval::{eval_build_summary, res_caps};
 use crate::types::{
     BuildConstraints, BuildResult, CharmSpec, ItemSpec, SearchMode, Stats, BASE_MAX_RES,
@@ -435,23 +435,20 @@ pub fn optimize_builds_core(
         .fold(Stats::default(), |acc, h| acc.max_each(h.combined.stats()));
     suf[0] = suf[1].add(hands_max);
 
-    let raw_pool: Vec<&CharmSpec> = charms
-        .iter()
-        .filter(|ch| (c.allow_mf || ch.mf == 0) && ch.light_skills == 0)
-        .collect();
-    let charm_solver = CharmSolver::new(&raw_pool, c, mode);
-    let ch = Stats {
-        all_skills: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.skills),
-        fhr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.fhr),
-        fr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.fr),
-        lr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.lr),
-        cr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.cr),
-        pr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.pr),
-        mf: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.mf),
-        str_bonus: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.str_bonus),
-        dex_bonus: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.dex_bonus),
-        ..Default::default()
-    };
+    const RELAXED_MIN_CR: i32 = -1_000_000;
+
+    fn run_search_pass(
+        hands: &[ItemPair],
+        groups: &[Vec<ItemSpec>],
+        ring_pairs: &[ItemPair],
+        suf: &[Stats],
+        raw_pool: &[&CharmSpec],
+        c: &BuildConstraints,
+        mode: SearchMode,
+    ) -> (Vec<BuildResult>, bool) {
+        let charm_solver = CharmSolver::new(raw_pool, c, mode);
+        let has_cold_sunder = charm_solver.has_cold_sunder();
+        let ch = charm_solver.charm_ub_stats();
 
     fn main_score_ub(
         mode: SearchMode,
@@ -663,34 +660,50 @@ pub fn optimize_builds_core(
         }
     }
 
-    let mut state = State {
-        hands: &hands,
-        groups: &groups,
-        ring_pairs: &ring_pairs,
-        suf: &suf,
-        ch,
-        charm_solver,
-        c,
-        mode,
-        chosen_hand: 0,
-        chosen_slots: Vec::with_capacity(groups.len()),
-        evals: 0,
-        top_results: TopResults::new(c.limit),
-    };
+        let mut state = State {
+            hands,
+            groups,
+            ring_pairs,
+            suf,
+            ch,
+            charm_solver,
+            c,
+            mode,
+            chosen_hand: 0,
+            chosen_slots: Vec::with_capacity(groups.len()),
+            evals: 0,
+            top_results: TopResults::new(c.limit),
+        };
 
-    let init_acc = Stats {
-        fr: c.base_hell_res,
-        lr: c.base_hell_res,
-        cr: c.base_hell_res,
-        pr: c.base_hell_res,
-        str_bonus: c.base_str,
-        dex_bonus: c.base_dex,
-        ..Default::default()
-    };
-    dfs(&mut state, 0, init_acc, (0, 0));
+        let init_acc = Stats {
+            fr: c.base_hell_res,
+            lr: c.base_hell_res,
+            cr: c.base_hell_res,
+            pr: c.base_hell_res,
+            str_bonus: c.base_str,
+            dex_bonus: c.base_dex,
+            ..Default::default()
+        };
+        dfs(&mut state, 0, init_acc, (0, 0));
 
-    let total_evals = state.evals;
-    Ok(state.top_results.finish(total_evals))
+        let total_evals = state.evals;
+        (state.top_results.finish(total_evals), has_cold_sunder)
+    }
+
+    let raw_pool: Vec<&CharmSpec> = charms
+        .iter()
+        .filter(|ch| (c.allow_mf || ch.mf == 0) && ch.light_skills == 0)
+        .collect();
+    let (results, has_cold_sunder) =
+        run_search_pass(&hands, &groups, &ring_pairs, &suf, &raw_pool, c, mode);
+    if results.is_empty() && has_cold_sunder && c.min_cr > RELAXED_MIN_CR {
+        let mut relaxed = c.clone();
+        relaxed.min_cr = RELAXED_MIN_CR;
+        return Ok(
+            run_search_pass(&hands, &groups, &ring_pairs, &suf, &raw_pool, &relaxed, mode).0,
+        );
+    }
+    Ok(results)
 }
 
 /// Find top-ranked builds satisfying `constraints` using branch-and-bound DFS in Rust.

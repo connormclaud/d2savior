@@ -54,7 +54,7 @@ from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
 from d2savior.core.stats import calculate_effective_defence, collect_item_properties
 
-_CHARM_SIZES: frozendict[str, int] = frozendict({"cm1": 1, "cm2": 2, "cm3": 3})
+_CHARM_SIZES: frozendict[str, int] = frozendict({"cm1": 1, "cm2": 2, "cm3": 3, "cs2": 3})
 
 _SKILL_BLIZZARD = 59
 _SKILL_COLD_MASTERY = 65
@@ -110,6 +110,7 @@ _SIMPLE_ITEM_STAT_MAP: frozendict[int, str] = frozendict(
         105: "fcr",
         127: "all_skills",
         142: "fire_abs_pct",
+        187: "cold_sunder",
     }
 )
 
@@ -227,6 +228,7 @@ class _PropAcc:
     dex_bonus: int = 0
     req_pct: int = 0
     defense: int = 0
+    cold_sunder: int = 0
 
     def to_item_spec(
         self, name: str, slot: str, loc: str, req_str: int, req_dex: int, belt_slots: int = 0
@@ -288,6 +290,7 @@ class _PropAcc:
             dex_bonus=self.dex_bonus,
             skills=self.all_skills + self.sorc_skills,
             unique_id=unique_id,
+            cold_sunder=bool(self.cold_sunder),
         )
 
 

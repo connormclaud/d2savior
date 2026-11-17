@@ -94,6 +94,7 @@ class CharmSpec:
     dex_bonus: int
     skills: int
     unique_id: int | None
+    cold_sunder: bool
 
     def __init__(
         self,
@@ -114,6 +115,7 @@ class CharmSpec:
         dex_bonus: int = 0,
         skills: int = 0,
         unique_id: int | None = None,
+        cold_sunder: bool = False,
     ) -> None: ...
 
 class BuildConstraints:

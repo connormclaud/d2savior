@@ -749,3 +749,92 @@ def test_belt_slots_and_defense_prefer_upped_goldwrap() -> None:
     assert len(res) == 2
     assert res[0].items[5].name == "Goldwrap (Battle Belt)"
     assert res[0].items[5].loc == "sork Stash"
+
+
+def test_cold_sunder_charm_extraction_and_optimizer_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+    from typing import cast
+
+    import d2savior.optimizer as opt_mod
+
+    resolver = GameDataResolver.load()
+    dummy_item = cast(
+        D2Item,
+        SimpleNamespace(
+            location=ItemLocation.STORED,
+            code_str="cm3",
+            is_runeword=False,
+            gem_items=(),
+            type_specific_info=None,
+            item_info=SimpleNamespace(
+                ext_info=SimpleNamespace(
+                    unique_id=401,
+                    set_id=None,
+                    magic_prefix=0,
+                    magic_suffix=0,
+                    rare_name=None,
+                    craft_name=None,
+                    rune_id=0,
+                )
+            ),
+        ),
+    )
+    monkeypatch.setattr(opt_mod, "get_item_display_name", lambda *_a, **_kw: "Cold Rupture")
+    monkeypatch.setattr(
+        opt_mod,
+        "collect_item_properties",
+        lambda *_a, **_kw: [(187, 1, ()), (43, -75, ())],
+    )
+    spec = _item_to_spec(dummy_item, "sork Inv", resolver, 105, 85)
+    assert isinstance(spec, CharmSpec)
+    assert spec.cold_sunder is True
+    assert spec.cr == -75
+    assert spec.size == 3
+    assert spec.unique_id == 401
+
+    pool = [
+        ItemSpec("Hoto", "weapon", "test", all_skills=3, fcr=40),
+        ItemSpec("Spirit Shield", "shield", "test", all_skills=2, fcr=35, fhr=60),
+        ItemSpec("CoH", "armor", "test", all_skills=2, fcr=30, fr=150, lr=150, cr=150, pr=150),
+    ]
+    charms = [spec]
+
+    res_pow = optimize_builds(
+        pool,
+        charms,
+        BuildConstraints(
+            mode="power",
+            min_fcr=105,
+            min_fhr=60,
+            min_fr=75,
+            min_lr=75,
+            min_cr=75,
+            min_pr=75,
+            base_hell_res=-70,
+            limit=1,
+        ),
+    )
+    assert len(res_pow) == 1
+    assert any(c.cold_sunder and c.name == "Cold Rupture" for c in res_pow[0].charms)
+    assert res_pow[0].cr == 5
+
+    res_max = optimize_builds(
+        pool,
+        charms,
+        BuildConstraints(
+            mode="max-res",
+            min_fcr=105,
+            min_fhr=60,
+            min_fr=75,
+            min_lr=75,
+            min_cr=75,
+            min_pr=75,
+            base_hell_res=-70,
+            limit=1,
+        ),
+    )
+    assert len(res_max) == 1
+    assert not any(c.cold_sunder for c in res_max[0].charms)
+    assert res_max[0].cr == 75

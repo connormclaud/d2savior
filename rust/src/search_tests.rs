@@ -1470,3 +1470,104 @@ fn test_exhaustive_brute_force_max_res_negative_res_overcap() {
         assert_eq!(act, exp, "seed={seed_idx}");
     }
 }
+
+#[test]
+fn test_cold_sunder_forced_with_min_cr_fallback_and_max_res_optional() {
+    let mut armor_hi_skill = mk_item("HighSkill Armor", "armor", 30, 0, 2, 0, 0);
+    armor_hi_skill.fr = 150;
+    armor_hi_skill.lr = 150;
+    armor_hi_skill.cr = 150;
+    armor_hi_skill.pr = 150;
+
+    let mut armor_cr = mk_item("ColdRes Armor", "armor", 30, 0, 1, 0, 0);
+    armor_cr.fr = 150;
+    armor_cr.lr = 150;
+    armor_cr.cr = 220; // With base_hell_res=-70 and sunder -75 => cr_raw = 75!
+    armor_cr.pr = 150;
+
+    let mut shield = mk_item("Spirit Shield", "shield", 35, 60, 2, 0, 0);
+    shield.mf = 0;
+    let wep = mk_item("Hoto", "weapon", 40, 0, 3, 0, 0);
+    let items = vec![wep, shield, armor_hi_skill.clone(), armor_cr];
+
+    let sunder = CharmSpec {
+        name: "Cold Rupture".to_string(),
+        size: 3,
+        loc: "inv".to_string(),
+        cr: -75,
+        unique_id: Some(401),
+        cold_sunder: true,
+        ..Default::default()
+    };
+    let sunder_worse = CharmSpec {
+        name: "Cold Rupture -88".to_string(),
+        size: 3,
+        loc: "stash".to_string(),
+        cr: -88,
+        unique_id: Some(401),
+        cold_sunder: true,
+        ..Default::default()
+    };
+    let charms = vec![sunder.clone(), sunder_worse];
+
+    // 1. When 75 CR is achievable WITH Cold Rupture, min_cr=75 is strictly honored (picks ColdRes Armor).
+    let c_pow = BuildConstraints {
+        mode: "power".to_string(),
+        min_fcr: 105,
+        min_fhr: 60,
+        min_fr: 75,
+        min_lr: 75,
+        min_cr: 75,
+        min_pr: 75,
+        max_charm_slots: 6,
+        limit: 1,
+        ..test_constraints()
+    };
+    let res_met = optimize_builds_core(&items, &charms, &c_pow).unwrap();
+    assert_eq!(res_met.len(), 1);
+    assert!(res_met[0].charms.iter().any(|ch| ch.name == "Cold Rupture"));
+    assert_eq!(res_met[0].cr, 75);
+    assert_eq!(res_met[0].items[3].name, "ColdRes Armor");
+
+    // 2. When 75 CR is UNACHIEVABLE with Cold Rupture (only HighSkill Armor exists -> cr_raw = 5),
+    //    both Power and Mf fall back to relaxing min_cr while still forcing Cold Rupture.
+    let items_unachievable = vec![
+        mk_item("Hoto", "weapon", 40, 0, 3, 0, 0),
+        mk_item("Spirit Shield", "shield", 35, 60, 2, 0, 0),
+        armor_hi_skill,
+    ];
+    let res_fallback_pow = optimize_builds_core(&items_unachievable, &charms, &c_pow).unwrap();
+    assert_eq!(res_fallback_pow.len(), 1);
+    assert!(
+        res_fallback_pow[0]
+            .charms
+            .iter()
+            .any(|ch| ch.name == "Cold Rupture")
+    );
+    assert_eq!(res_fallback_pow[0].cr, 5);
+    assert!(res_fallback_pow[0].fr >= 75 && res_fallback_pow[0].lr >= 75 && res_fallback_pow[0].pr >= 75);
+
+    let c_mf = BuildConstraints {
+        mode: "mf".to_string(),
+        ..c_pow.clone()
+    };
+    let res_fallback_mf = optimize_builds_core(&items_unachievable, &charms, &c_mf).unwrap();
+    assert_eq!(res_fallback_mf.len(), 1);
+    assert!(
+        res_fallback_mf[0]
+            .charms
+            .iter()
+            .any(|ch| ch.name == "Cold Rupture")
+    );
+    assert_eq!(res_fallback_mf[0].cr, 5);
+
+    // 3. MaxRes mode keeps Cold Rupture optional so CR stays capped at 75.
+    let c_max = BuildConstraints {
+        mode: "max-res".to_string(),
+        ..c_pow
+    };
+    let res_max = optimize_builds_core(&items_unachievable, &charms, &c_max).unwrap();
+    assert_eq!(res_max.len(), 1);
+    assert!(!res_max[0].charms.iter().any(|ch| ch.cold_sunder));
+    assert_eq!(res_max[0].cr, 75);
+}
