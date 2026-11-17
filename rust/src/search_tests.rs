@@ -746,3 +746,385 @@ fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated()
     assert!(pruned_names.contains("Ring LR"));
     assert!(!pruned_names.contains("Ring C"));
 }
+
+struct SplitMix64(u64);
+
+impl SplitMix64 {
+    fn next_u64(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    }
+
+    fn gen_range(&mut self, lo: i32, hi_inclusive: i32) -> i32 {
+        let span = (hi_inclusive - lo + 1) as u64;
+        lo + (self.next_u64() % span) as i32
+    }
+
+    fn pick<T: Copy>(&mut self, slice: &[T]) -> T {
+        let idx = (self.next_u64() as usize) % slice.len();
+        slice[idx]
+    }
+}
+
+fn score_summary(mode: SearchMode, sum: &crate::eval::EvalSummary) -> BuildScore {
+    let eff_blizz_sk = sum.skills + sum.blizz_skills;
+    let res_sum = sum.fr + sum.lr + sum.cr + sum.pr;
+    match mode {
+        SearchMode::Mf => (
+            sum.mf,
+            eff_blizz_sk,
+            sum.fcr_bp,
+            sum.fhr_bp,
+            sum.pr,
+            sum.life_bo,
+            sum.belt_slots,
+            sum.defense,
+        ),
+        SearchMode::Power => (
+            eff_blizz_sk,
+            sum.skills,
+            i32::from(sum.pr >= BASE_MAX_RES),
+            sum.pr,
+            sum.life_bo,
+            sum.mana_bo,
+            sum.belt_slots,
+            sum.defense,
+        ),
+        SearchMode::MaxRes => (
+            res_sum,
+            eff_blizz_sk,
+            sum.fcr_bp,
+            sum.fhr_bp,
+            sum.life_bo,
+            sum.fr_raw + sum.lr_raw + sum.cr_raw + sum.pr_raw,
+            sum.belt_slots,
+            sum.defense,
+        ),
+    }
+}
+
+fn validate_and_score_result(
+    res: &BuildResult,
+    c: &BuildConstraints,
+    mode: SearchMode,
+) -> BuildScore {
+    let gear = res.items.iter().fold(Stats::default(), |acc, i| acc.add(i.stats()));
+    let all_sk_non_wep: i32 = res
+        .items
+        .iter()
+        .filter(|i| !i.is_weapon_or_shield())
+        .map(|i| i.all_skills)
+        .sum();
+    let charm_refs: Vec<&CharmSpec> = res.charms.iter().collect();
+    let charm_slots: i32 = charm_refs.iter().map(|ch| ch.size).sum();
+    assert!(charm_slots <= c.max_charm_slots);
+
+    let mut seen_uids = HashSet::new();
+    let mut charm_str = 0;
+    let mut charm_dex = 0;
+    for ch in &charm_refs {
+        if let Some(uid) = ch.unique_id {
+            assert!(seen_uids.insert(uid), "duplicate unique charm id {uid}");
+        }
+        charm_str += ch.str_bonus;
+        charm_dex += ch.dex_bonus;
+    }
+
+    let reqs = res
+        .items
+        .iter()
+        .fold((0, 0), |acc, it| merge_reqs(acc, item_eff_reqs(it)));
+    assert!(c.base_str + gear.str_bonus + charm_str >= reqs.0);
+    assert!(c.base_dex + gear.dex_bonus + charm_dex >= reqs.1);
+
+    let sum = eval_build_summary(gear, all_sk_non_wep, &charm_refs, c);
+    assert!(sum.fcr >= c.min_fcr);
+    assert!(sum.fhr >= c.min_fhr);
+    assert!(sum.fr >= c.min_fr && sum.lr >= c.min_lr && sum.cr >= c.min_cr && sum.pr >= c.min_pr);
+    score_summary(mode, &sum)
+}
+
+fn brute_force_top_scores(
+    items: &[ItemSpec],
+    charms: &[CharmSpec],
+    c: &BuildConstraints,
+    mode: SearchMode,
+) -> Vec<BuildScore> {
+    let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;
+    let groups: Vec<Vec<&ItemSpec>> = EQUIP_SLOTS
+        .iter()
+        .map(|&slot| {
+            items
+                .iter()
+                .filter(|i| i.slot == slot && valid_item(i))
+                .collect()
+        })
+        .collect();
+    if groups.iter().any(|g| g.is_empty()) {
+        return Vec::new();
+    }
+    let rings: Vec<&ItemSpec> = items
+        .iter()
+        .filter(|i| i.slot == "ring" && valid_item(i))
+        .collect();
+    if rings.len() < 2 {
+        return Vec::new();
+    }
+    let pool: Vec<&CharmSpec> = charms
+        .iter()
+        .filter(|ch| (c.allow_mf || ch.mf == 0) && ch.light_skills == 0)
+        .collect();
+
+    let mut best_by_sig: HashMap<BuildSig, BuildScore> = HashMap::new();
+    let mut idxs = vec![0usize; groups.len()];
+    loop {
+        let slot_items: Vec<&ItemSpec> = groups.iter().enumerate().map(|(g, v)| v[idxs[g]]).collect();
+        for ri in 0..rings.len() {
+            for rj in (ri + 1)..rings.len() {
+                let mut loadout = slot_items.clone();
+                loadout.push(rings[ri]);
+                loadout.push(rings[rj]);
+
+                let gear = loadout
+                    .iter()
+                    .fold(Stats::default(), |acc, i| acc.add(i.stats()));
+                if gear.fcr < c.min_fcr {
+                    continue;
+                }
+                let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear);
+                if c.min_fr > cap_fr
+                    || c.min_lr > cap_lr
+                    || c.min_cr > cap_cr
+                    || c.min_pr > cap_pr
+                {
+                    continue;
+                }
+                let reqs = loadout
+                    .iter()
+                    .fold((0, 0), |acc, it| merge_reqs(acc, item_eff_reqs(it)));
+                let all_sk_non_wep: i32 = loadout
+                    .iter()
+                    .filter(|i| !i.is_weapon_or_shield())
+                    .map(|i| i.all_skills)
+                    .sum();
+                let item_names: Vec<String> = loadout.iter().map(|i| i.name.clone()).collect();
+
+                let mut best_for_gear: Option<(BuildSig, BuildScore)> = None;
+                let mask_limit = 1usize << pool.len();
+                for mask in 0..mask_limit {
+                    let mut used_slots = 0;
+                    let mut c_str = 0;
+                    let mut c_dex = 0;
+                    let mut uids = HashSet::new();
+                    let mut valid_subset = true;
+                    let mut chosen: Vec<&CharmSpec> = Vec::new();
+                    for (ci, &ch) in pool.iter().enumerate() {
+                        if (mask & (1 << ci)) != 0 {
+                            used_slots += ch.size;
+                            if used_slots > c.max_charm_slots {
+                                valid_subset = false;
+                                break;
+                            }
+                            if let Some(uid) = ch.unique_id
+                                && !uids.insert(uid)
+                            {
+                                valid_subset = false;
+                                break;
+                            }
+                            c_str += ch.str_bonus;
+                            c_dex += ch.dex_bonus;
+                            chosen.push(ch);
+                        }
+                    }
+                    if !valid_subset {
+                        continue;
+                    }
+                    if c.base_str + gear.str_bonus + c_str < reqs.0
+                        || c.base_dex + gear.dex_bonus + c_dex < reqs.1
+                    {
+                        continue;
+                    }
+                    let sum = eval_build_summary(gear, all_sk_non_wep, &chosen, c);
+                    if sum.fhr < c.min_fhr
+                        || sum.fr < c.min_fr
+                        || sum.lr < c.min_lr
+                        || sum.cr < c.min_cr
+                        || sum.pr < c.min_pr
+                    {
+                        continue;
+                    }
+                    let score = score_summary(mode, &sum);
+                    let sig = (sum.skills, sum.fcr_bp, sum.fhr_bp, sum.mf, item_names.clone());
+                    if best_for_gear
+                        .as_ref()
+                        .is_none_or(|(_, best)| score > *best)
+                    {
+                        best_for_gear = Some((sig, score));
+                    }
+                }
+                if let Some((sig, score)) = best_for_gear {
+                    best_by_sig
+                        .entry(sig)
+                        .and_modify(|cur| {
+                            if score > *cur {
+                                *cur = score;
+                            }
+                        })
+                        .or_insert(score);
+                }
+            }
+        }
+
+        let mut pos = groups.len();
+        while pos > 0 {
+            pos -= 1;
+            idxs[pos] += 1;
+            if idxs[pos] < groups[pos].len() {
+                break;
+            }
+            idxs[pos] = 0;
+            if pos == 0 {
+                let mut scores: Vec<BuildScore> = best_by_sig.into_values().collect();
+                scores.sort_by_key(|&s| Reverse(s));
+                if c.limit > 0 {
+                    scores.truncate(c.limit);
+                }
+                return scores;
+            }
+        }
+    }
+}
+
+fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec<CharmSpec>, BuildConstraints, SearchMode) {
+    let mut items = Vec::new();
+    for &slot in EQUIP_SLOTS {
+        let count = rng.gen_range(1, 2) as usize;
+        for j in 0..count {
+            let mut it = mk_item(
+                &format!("{slot}_{j}_{seed_idx}"),
+                slot,
+                rng.pick(&[0, 5, 10, 20, 35]),
+                rng.pick(&[0, 10, 20, 55]),
+                rng.gen_range(0, 2),
+                rng.gen_range(0, 25),
+                rng.pick(&[0, 0, 15, 35]),
+            );
+            it.blizz_skills = rng.pick(&[0, 0, 1]);
+            it.life = rng.pick(&[0, 20, 40]);
+            it.mana = rng.pick(&[0, 20, 50]);
+            it.str_bonus = rng.pick(&[0, 0, 10, 20]);
+            it.dex_bonus = rng.pick(&[0, 0, 10]);
+            it.req_str = rng.pick(&[0, 45, 88, 120]);
+            it.req_dex = rng.pick(&[0, 0, 25, 45]);
+            it.fr += rng.gen_range(0, 15);
+            it.lr += rng.gen_range(0, 15);
+            it.pr += rng.gen_range(0, 15);
+            if slot == "belt" {
+                it.belt_slots = rng.pick(&[8, 12, 16]);
+            }
+            it.defense = rng.gen_range(10, 100);
+            items.push(it);
+        }
+    }
+    let ring_count = rng.gen_range(3, 4) as usize;
+    for j in 0..ring_count {
+        let mut r = mk_item(
+            &format!("ring_{j}_{seed_idx}"),
+            "ring",
+            rng.pick(&[0, 9, 10]),
+            0,
+            rng.pick(&[0, 0, 1]),
+            rng.gen_range(0, 15),
+            rng.pick(&[0, 10, 25]),
+        );
+        r.str_bonus = rng.pick(&[0, 10, 20]);
+        r.dex_bonus = rng.pick(&[0, 10]);
+        r.fr += rng.gen_range(0, 20);
+        r.lr += rng.gen_range(0, 20);
+        r.pr += rng.gen_range(0, 20);
+        r.life = rng.pick(&[0, 15, 30]);
+        items.push(r);
+    }
+
+    let charm_count = rng.gen_range(5, 6) as usize;
+    let mut charms = Vec::new();
+    for j in 0..charm_count {
+        let size = rng.pick(&[1, 2, 3]);
+        let uid = match j {
+            0 if rng.gen_range(0, 2) == 0 => Some(1),
+            1 if rng.gen_range(0, 2) == 0 => Some(1),
+            _ => None,
+        };
+        charms.push(CharmSpec {
+            name: format!("ch_{j}_{seed_idx}"),
+            size,
+            loc: "inv".to_string(),
+            skills: if size == 3 { rng.pick(&[0, 1]) } else { 0 },
+            fhr: rng.pick(&[0, 5, 12]),
+            fr: rng.gen_range(0, 20),
+            lr: rng.gen_range(0, 20),
+            cr: rng.gen_range(0, 20),
+            pr: rng.gen_range(0, 20),
+            mf: rng.pick(&[0, 5, 7]),
+            life: rng.pick(&[0, 15, 20]),
+            mana: rng.pick(&[0, 10, 17]),
+            str_bonus: rng.pick(&[0, 0, 5, 15]),
+            dex_bonus: rng.pick(&[0, 0, 5, 15]),
+            unique_id: uid,
+            ..Default::default()
+        });
+    }
+
+    let (mode_str, mode) = match seed_idx % 3 {
+        0 => ("power", SearchMode::Power),
+        1 => ("mf", SearchMode::Mf),
+        _ => ("max-res", SearchMode::MaxRes),
+    };
+    let c = BuildConstraints {
+        mode: mode_str.to_string(),
+        min_fcr: rng.pick(&[0, 37, 63]),
+        min_fhr: rng.pick(&[0, 20, 42, 60]),
+        min_fr: rng.pick(&[0, 40, 75]),
+        min_lr: rng.pick(&[0, 40, 75]),
+        min_cr: rng.pick(&[0, 20, 50]),
+        min_pr: rng.pick(&[0, 20, 50]),
+        max_charm_slots: rng.gen_range(5, 9),
+        allow_mf: rng.gen_range(0, 3) != 0,
+        base_str: rng.pick(&[60, 80, 110]),
+        base_dex: rng.pick(&[0, 15, 30]),
+        limit: rng.gen_range(1, 3) as usize,
+        ..test_constraints()
+    };
+    (items, charms, c, mode)
+}
+
+#[test]
+#[ignore = "Step 0 regression guard: fails until exact charm picker and exact top-N search are implemented"]
+fn test_exhaustive_brute_force_matches_optimizer_on_random_pools() {
+    let mut rng = SplitMix64(0x5eed_cafe_1234_5678);
+    let mut mismatches = Vec::new();
+    for seed_idx in 0..40 {
+        let (items, charms, c, mode) = gen_random_case(&mut rng, seed_idx);
+        let expected = brute_force_top_scores(&items, &charms, &c, mode);
+        let actual_res = optimize_builds_core(&items, &charms, &c).unwrap();
+        let actual: Vec<BuildScore> = actual_res
+            .iter()
+            .map(|r| validate_and_score_result(r, &c, mode))
+            .collect();
+        if actual != expected {
+            mismatches.push(format!(
+                "seed={seed_idx} mode={} limit={}: actual={:?} expected={:?}",
+                c.mode, c.limit, actual, expected
+            ));
+        }
+    }
+    assert!(
+        mismatches.is_empty(),
+        "optimizer diverged from exhaustive brute force in {} / 40 cases:\n{}",
+        mismatches.len(),
+        mismatches.join("\n")
+    );
+}
