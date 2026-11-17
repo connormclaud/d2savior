@@ -213,7 +213,15 @@ impl ItemSpec {
     }
 
     pub(crate) fn is_weapon_or_shield(&self) -> bool {
-        matches!(self.slot.as_str(), "weapon" | "shield")
+        matches!(self.slot.as_str(), "weapon" | "weapon2h" | "shield")
+    }
+
+    pub(crate) fn empty(slot: &str) -> Self {
+        Self {
+            name: "(empty)".to_string(),
+            slot: slot.to_string(),
+            ..Default::default()
+        }
     }
 
     pub(crate) fn stats(&self) -> Stats {

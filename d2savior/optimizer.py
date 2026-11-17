@@ -187,9 +187,7 @@ def _classify_slot(item: D2Item, resolver: GameDataResolver) -> tuple[str, int, 
                 slot = candidate
                 break
         if slot is None and info.item_type == "weapon":
-            if info.two_handed or info.one_or_two_handed:
-                return None
-            slot = "weapon"
+            slot = "weapon2h" if (info.two_handed or info.one_or_two_handed) else "weapon"
 
     if slot is None:
         return None
@@ -707,7 +705,8 @@ def format_build_report(title: str, results: Sequence[BuildResult]) -> str:
             f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"
         )
         for it in res.items:
-            lines.append(f"    - {it.slot:7s}: {it.name} ({it.loc})")
+            loc_str = f" ({it.loc})" if it.loc else ""
+            lines.append(f"    - {it.slot:8s}: {it.name}{loc_str}")
         if res.charms:
             charm_list = ", ".join(f"{c.name} [{c.loc}]" for c in res.charms)
             lines.append(f"    - Charms : {charm_list}")

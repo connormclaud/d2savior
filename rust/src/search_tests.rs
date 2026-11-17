@@ -847,6 +847,10 @@ fn validate_and_score_result(
     score_summary(mode, &sum)
 }
 
+const TEST_EQUIP_SLOTS: &[&str] = &[
+    "weapon", "shield", "helm", "armor", "amulet", "belt", "gloves", "boots",
+];
+
 fn brute_force_top_scores(
     items: &[ItemSpec],
     charms: &[CharmSpec],
@@ -854,24 +858,76 @@ fn brute_force_top_scores(
     mode: SearchMode,
 ) -> Vec<BuildScore> {
     let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;
-    let groups: Vec<Vec<&ItemSpec>> = EQUIP_SLOTS
+    let empty_shield = ItemSpec::empty("shield");
+    let empty_weapon = ItemSpec::empty("weapon");
+    let empty_ring = ItemSpec::empty("ring");
+
+    let mut w1h: Vec<ItemSpec> = items
         .iter()
-        .map(|&slot| {
-            items
+        .filter(|i| i.slot == "weapon" && valid_item(i))
+        .cloned()
+        .collect();
+    let mut shs: Vec<ItemSpec> = items
+        .iter()
+        .filter(|i| i.slot == "shield" && valid_item(i))
+        .cloned()
+        .collect();
+    let w2h: Vec<ItemSpec> = items
+        .iter()
+        .filter(|i| i.slot == "weapon2h" && valid_item(i))
+        .cloned()
+        .collect();
+    if !shs.is_empty() && empty_dominators(&w1h, c.base_str, c.base_dex) == 0 {
+        w1h.push(empty_weapon.clone());
+    }
+    if !w1h.is_empty() && empty_dominators(&shs, c.base_str, c.base_dex) == 0 {
+        shs.push(empty_shield.clone());
+    }
+    let mut hand_pairs: Vec<(ItemSpec, ItemSpec)> = Vec::new();
+    for w in &w1h {
+        for s in &shs {
+            hand_pairs.push((w.clone(), s.clone()));
+        }
+    }
+    for w in w2h {
+        hand_pairs.push((w, empty_shield.clone()));
+    }
+    if !hand_pairs.iter().any(|(a, b)| {
+        let comb = a.stats().add(b.stats());
+        let reqs = normalize_reqs(
+            merge_reqs(item_eff_reqs(a), item_eff_reqs(b)),
+            c.base_str,
+            c.base_dex,
+        );
+        dominates_empty(comb, reqs)
+    }) {
+        hand_pairs.push((empty_weapon, empty_shield));
+    }
+
+    let empty_singles: Vec<ItemSpec> = SINGLE_SLOTS.iter().map(|s| ItemSpec::empty(s)).collect();
+    let groups: Vec<Vec<ItemSpec>> = SINGLE_SLOTS
+        .iter()
+        .enumerate()
+        .map(|(idx, &slot)| {
+            let mut v: Vec<ItemSpec> = items
                 .iter()
                 .filter(|i| i.slot == slot && valid_item(i))
-                .collect()
+                .cloned()
+                .collect();
+            if empty_dominators(&v, c.base_str, c.base_dex) == 0 {
+                v.push(empty_singles[idx].clone());
+            }
+            v
         })
         .collect();
-    if groups.iter().any(|g| g.is_empty()) {
-        return Vec::new();
-    }
-    let rings: Vec<&ItemSpec> = items
+    let mut rings: Vec<ItemSpec> = items
         .iter()
         .filter(|i| i.slot == "ring" && valid_item(i))
+        .cloned()
         .collect();
-    if rings.len() < 2 {
-        return Vec::new();
+    let ring_dom = empty_dominators(&rings, c.base_str, c.base_dex);
+    for _ in 0..2usize.saturating_sub(ring_dom) {
+        rings.push(empty_ring.clone());
     }
     let pool: Vec<&CharmSpec> = charms
         .iter()
@@ -881,99 +937,104 @@ fn brute_force_top_scores(
     let mut best_by_sig: HashMap<BuildSig, BuildScore> = HashMap::new();
     let mut idxs = vec![0usize; groups.len()];
     loop {
-        let slot_items: Vec<&ItemSpec> = groups.iter().enumerate().map(|(g, v)| v[idxs[g]]).collect();
-        for ri in 0..rings.len() {
-            for rj in (ri + 1)..rings.len() {
-                let mut loadout = slot_items.clone();
-                loadout.push(rings[ri]);
-                loadout.push(rings[rj]);
+        let slot_items: Vec<&ItemSpec> = groups.iter().enumerate().map(|(g, v)| &v[idxs[g]]).collect();
+        for (h1, h2) in &hand_pairs {
+            for ri in 0..rings.len() {
+                for rj in (ri + 1)..rings.len() {
+                    let mut loadout = Vec::with_capacity(2 + slot_items.len() + 2);
+                    loadout.push(h1);
+                    loadout.push(h2);
+                    loadout.extend_from_slice(&slot_items);
+                    loadout.push(&rings[ri]);
+                    loadout.push(&rings[rj]);
 
-                let gear = loadout
-                    .iter()
-                    .fold(Stats::default(), |acc, i| acc.add(i.stats()));
-                if gear.fcr < c.min_fcr {
-                    continue;
-                }
-                let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear);
-                if c.min_fr > cap_fr
-                    || c.min_lr > cap_lr
-                    || c.min_cr > cap_cr
-                    || c.min_pr > cap_pr
-                {
-                    continue;
-                }
-                let reqs = loadout
-                    .iter()
-                    .fold((0, 0), |acc, it| merge_reqs(acc, item_eff_reqs(it)));
-                let all_sk_non_wep: i32 = loadout
-                    .iter()
-                    .filter(|i| !i.is_weapon_or_shield())
-                    .map(|i| i.all_skills)
-                    .sum();
-                let item_names: Vec<String> = loadout.iter().map(|i| i.name.clone()).collect();
+                    let gear = loadout
+                        .iter()
+                        .fold(Stats::default(), |acc, i| acc.add(i.stats()));
+                    if gear.fcr < c.min_fcr {
+                        continue;
+                    }
+                    let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear);
+                    if c.min_fr > cap_fr
+                        || c.min_lr > cap_lr
+                        || c.min_cr > cap_cr
+                        || c.min_pr > cap_pr
+                    {
+                        continue;
+                    }
+                    let reqs = loadout
+                        .iter()
+                        .fold((0, 0), |acc, it| merge_reqs(acc, item_eff_reqs(it)));
+                    let all_sk_non_wep: i32 = loadout
+                        .iter()
+                        .filter(|i| !i.is_weapon_or_shield())
+                        .map(|i| i.all_skills)
+                        .sum();
+                    let item_names: Vec<String> = loadout.iter().map(|i| i.name.clone()).collect();
 
-                let mut best_for_gear: Option<(BuildSig, BuildScore)> = None;
-                let mask_limit = 1usize << pool.len();
-                for mask in 0..mask_limit {
-                    let mut used_slots = 0;
-                    let mut c_str = 0;
-                    let mut c_dex = 0;
-                    let mut uids = HashSet::new();
-                    let mut valid_subset = true;
-                    let mut chosen: Vec<&CharmSpec> = Vec::new();
-                    for (ci, &ch) in pool.iter().enumerate() {
-                        if (mask & (1 << ci)) != 0 {
-                            used_slots += ch.size;
-                            if used_slots > c.max_charm_slots {
-                                valid_subset = false;
-                                break;
+                    let mut best_for_gear: Option<(BuildSig, BuildScore)> = None;
+                    let mask_limit = 1usize << pool.len();
+                    for mask in 0..mask_limit {
+                        let mut used_slots = 0;
+                        let mut c_str = 0;
+                        let mut c_dex = 0;
+                        let mut uids = HashSet::new();
+                        let mut valid_subset = true;
+                        let mut chosen: Vec<&CharmSpec> = Vec::new();
+                        for (ci, &ch) in pool.iter().enumerate() {
+                            if (mask & (1 << ci)) != 0 {
+                                used_slots += ch.size;
+                                if used_slots > c.max_charm_slots {
+                                    valid_subset = false;
+                                    break;
+                                }
+                                if let Some(uid) = ch.unique_id
+                                    && !uids.insert(uid)
+                                {
+                                    valid_subset = false;
+                                    break;
+                                }
+                                c_str += ch.str_bonus;
+                                c_dex += ch.dex_bonus;
+                                chosen.push(ch);
                             }
-                            if let Some(uid) = ch.unique_id
-                                && !uids.insert(uid)
-                            {
-                                valid_subset = false;
-                                break;
-                            }
-                            c_str += ch.str_bonus;
-                            c_dex += ch.dex_bonus;
-                            chosen.push(ch);
+                        }
+                        if !valid_subset {
+                            continue;
+                        }
+                        if c.base_str + gear.str_bonus + c_str < reqs.0
+                            || c.base_dex + gear.dex_bonus + c_dex < reqs.1
+                        {
+                            continue;
+                        }
+                        let sum = eval_build_summary(gear, all_sk_non_wep, &chosen, c);
+                        if sum.fhr < c.min_fhr
+                            || sum.fr < c.min_fr
+                            || sum.lr < c.min_lr
+                            || sum.cr < c.min_cr
+                            || sum.pr < c.min_pr
+                        {
+                            continue;
+                        }
+                        let score = score_summary(mode, &sum);
+                        let sig = (sum.skills, sum.fcr_bp, sum.fhr_bp, sum.mf, item_names.clone());
+                        if best_for_gear
+                            .as_ref()
+                            .is_none_or(|(_, best)| score > *best)
+                        {
+                            best_for_gear = Some((sig, score));
                         }
                     }
-                    if !valid_subset {
-                        continue;
+                    if let Some((sig, score)) = best_for_gear {
+                        best_by_sig
+                            .entry(sig)
+                            .and_modify(|cur| {
+                                if score > *cur {
+                                    *cur = score;
+                                }
+                            })
+                            .or_insert(score);
                     }
-                    if c.base_str + gear.str_bonus + c_str < reqs.0
-                        || c.base_dex + gear.dex_bonus + c_dex < reqs.1
-                    {
-                        continue;
-                    }
-                    let sum = eval_build_summary(gear, all_sk_non_wep, &chosen, c);
-                    if sum.fhr < c.min_fhr
-                        || sum.fr < c.min_fr
-                        || sum.lr < c.min_lr
-                        || sum.cr < c.min_cr
-                        || sum.pr < c.min_pr
-                    {
-                        continue;
-                    }
-                    let score = score_summary(mode, &sum);
-                    let sig = (sum.skills, sum.fcr_bp, sum.fhr_bp, sum.mf, item_names.clone());
-                    if best_for_gear
-                        .as_ref()
-                        .is_none_or(|(_, best)| score > *best)
-                    {
-                        best_for_gear = Some((sig, score));
-                    }
-                }
-                if let Some((sig, score)) = best_for_gear {
-                    best_by_sig
-                        .entry(sig)
-                        .and_modify(|cur| {
-                            if score > *cur {
-                                *cur = score;
-                            }
-                        })
-                        .or_insert(score);
                 }
             }
         }
@@ -1000,7 +1061,7 @@ fn brute_force_top_scores(
 
 fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec<CharmSpec>, BuildConstraints, SearchMode) {
     let mut items = Vec::new();
-    for &slot in EQUIP_SLOTS {
+    for &slot in TEST_EQUIP_SLOTS {
         let count = rng.gen_range(1, 2) as usize;
         for j in 0..count {
             let mut it = mk_item(
@@ -1121,10 +1182,97 @@ fn test_exhaustive_brute_force_matches_optimizer_on_random_pools() {
             ));
         }
     }
-    assert!(
-        mismatches.is_empty(),
+        assert!(
+            mismatches.is_empty(),
         "optimizer diverged from exhaustive brute force in {} / 40 cases:\n{}",
         mismatches.len(),
         mismatches.join("\n")
     );
+}
+
+#[test]
+fn test_empty_slot_fallback_allows_missing_shield_belt_and_rings() {
+    let items = vec![
+        mk_item("Spirit Sword", "weapon", 35, 55, 2, 0, 0),
+        mk_item("Tiara", "helm", 20, 0, 2, 20, 0),
+        mk_item("Vipermagi", "armor", 30, 0, 1, 35, 0),
+        mk_item("Amulet", "amulet", 10, 0, 2, 20, 0),
+        mk_item("Trangs", "gloves", 20, 0, 0, 30, 0),
+        mk_item("Boots", "boots", 0, 0, 0, 40, 0),
+        mk_item("SoJ", "ring", 0, 0, 1, 0, 0),
+    ];
+    let c = BuildConstraints {
+        min_fcr: 105,
+        min_fhr: 42,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        ..test_constraints()
+    };
+    let res = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].items.len(), 10);
+    assert_eq!(res[0].items[1].name, "(empty)");
+    assert_eq!(res[0].items[1].slot, "shield");
+    assert_eq!(res[0].items[5].name, "(empty)");
+    assert_eq!(res[0].items[5].slot, "belt");
+    assert_eq!(res[0].items[8].name, "SoJ");
+    assert_eq!(res[0].items[9].name, "(empty)");
+    assert_eq!(res[0].items[9].slot, "ring");
+
+    // Also works when an existing shield is too heavy (req_str > base_str) and no charms cover it.
+    let mut monarch = mk_item("Monarch", "shield", 35, 55, 2, 35, 0);
+    monarch.req_str = 156;
+    let mut with_heavy_shield = items;
+    with_heavy_shield.push(monarch);
+    let c_low_str = BuildConstraints {
+        base_str: 60,
+        ..c
+    };
+    let res_low = optimize_builds_core(&with_heavy_shield, &[], &c_low_str).unwrap();
+    assert_eq!(res_low.len(), 1);
+    assert_eq!(res_low[0].items[1].name, "(empty)");
+}
+
+#[test]
+fn test_two_handed_weapon_competes_and_excludes_bo_all_skills() {
+    let mut mang_song = mk_item("Mang Song's Lesson", "weapon2h", 30, 0, 5, 0, 0);
+    mang_song.req_str = 44;
+
+    let mut weak_orb = mk_item("Weak Orb", "weapon", 20, 0, 2, 0, 0);
+    weak_orb.sorc_skills = 0;
+    let weak_shield = mk_item("Weak Shield", "shield", 20, 0, 2, 10, 0);
+
+    let items = vec![
+        mang_song,
+        weak_orb,
+        weak_shield,
+        mk_item("Tiara", "helm", 20, 0, 2, 30, 0),
+        mk_item("Vipermagi", "armor", 30, 0, 1, 35, 0),
+        mk_item("Amulet", "amulet", 15, 0, 2, 30, 0),
+        mk_item("Belt", "belt", 0, 0, 0, 30, 0),
+        mk_item("Trangs", "gloves", 20, 0, 0, 30, 0),
+        mk_item("Boots", "boots", 0, 0, 0, 40, 0),
+        mk_item("Ring A", "ring", 10, 0, 0, 20, 0),
+        mk_item("Ring B", "ring", 10, 0, 0, 20, 0),
+    ];
+    let c = BuildConstraints {
+        min_fcr: 105,
+        min_fhr: 0,
+        min_pr: 75,
+        limit: 2,
+        ..test_constraints()
+    };
+    let res = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res.len(), 2);
+    assert_eq!(res[0].items[0].name, "Mang Song's Lesson");
+    assert_eq!(res[0].items[0].slot, "weapon2h");
+    assert_eq!(res[0].items[1].name, "(empty)");
+    assert_eq!(res[0].items[1].slot, "shield");
+    assert_eq!(res[0].skills, 10);
+    // Mang Song's +5 all_skills must NOT count toward Battle Orders (only helm 2 + armor 1 + amulet 2 = 5 -> BO lvl 4 + 5 = 9).
+    assert_eq!(res[0].bo_lvl, 9);
+    assert_eq!(res[1].items[0].name, "Weak Orb");
+    assert_eq!(res[1].items[1].name, "Weak Shield");
 }

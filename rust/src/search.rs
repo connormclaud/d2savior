@@ -12,9 +12,7 @@ use crate::types::{
     BuildConstraints, BuildResult, CharmSpec, ItemSpec, SearchMode, Stats, BASE_MAX_RES,
 };
 
-const EQUIP_SLOTS: &[&str] = &[
-    "weapon", "shield", "helm", "armor", "amulet", "belt", "gloves", "boots",
-];
+const SINGLE_SLOTS: &[&str] = &["helm", "armor", "amulet", "belt", "gloves", "boots"];
 
 fn eff_req(req: i32, self_bonus: i32) -> i32 {
     if req > 0 {
@@ -31,12 +29,15 @@ fn item_eff_reqs(item: &ItemSpec) -> (i32, i32) {
     )
 }
 
-fn item_prune_reqs(item: &ItemSpec, base_str: i32, base_dex: i32) -> (i32, i32) {
-    let (rs, rd) = item_eff_reqs(item);
+fn normalize_reqs(reqs: (i32, i32), base_str: i32, base_dex: i32) -> (i32, i32) {
     (
-        if rs <= base_str { 0 } else { rs },
-        if rd <= base_dex { 0 } else { rd },
+        if reqs.0 <= base_str { 0 } else { reqs.0 },
+        if reqs.1 <= base_dex { 0 } else { reqs.1 },
     )
+}
+
+fn item_prune_reqs(item: &ItemSpec, base_str: i32, base_dex: i32) -> (i32, i32) {
+    normalize_reqs(item_eff_reqs(item), base_str, base_dex)
 }
 
 fn merge_reqs(cur: (i32, i32), next: (i32, i32)) -> (i32, i32) {
@@ -114,11 +115,56 @@ impl TopResults {
 }
 
 #[derive(Clone)]
-struct RingPair {
+struct ItemPair {
     combined: ItemSpec,
     first: ItemSpec,
     second: ItemSpec,
     reqs: (i32, i32),
+}
+
+impl ItemPair {
+    fn from_pair(first: &ItemSpec, second: &ItemSpec, slot: &str) -> Self {
+        let reqs = merge_reqs(item_eff_reqs(first), item_eff_reqs(second));
+        let comb_stats = first.stats().add(second.stats());
+        let loc = match (first.loc.is_empty(), second.loc.is_empty()) {
+            (true, true) => String::new(),
+            (false, true) => first.loc.clone(),
+            (true, false) => second.loc.clone(),
+            (false, false) => format!("{} / {}", first.loc, second.loc),
+        };
+        let combined = ItemSpec::from_stats(
+            format!("{} + {}", first.name, second.name),
+            slot.to_string(),
+            loc,
+            comb_stats,
+            reqs.0,
+            reqs.1,
+        );
+        Self {
+            combined,
+            first: first.clone(),
+            second: second.clone(),
+            reqs,
+        }
+    }
+
+    fn single_2h(w2h: ItemSpec) -> Self {
+        let reqs = item_eff_reqs(&w2h);
+        let mut combined = w2h.clone();
+        combined.slot = "hands".to_string();
+        Self {
+            combined,
+            first: w2h,
+            second: ItemSpec::empty("shield"),
+            reqs,
+        }
+    }
+}
+
+fn dominates_empty(stats: Stats, norm_reqs: (i32, i32)) -> bool {
+    stats.dominates(Stats::default())
+        && norm_reqs == (0, 0)
+        && stats != Stats::default()
 }
 
 fn item_sort_key(mode: SearchMode, s: &Stats) -> (i32, i32, i32, i32, i32, i32) {
@@ -150,13 +196,14 @@ fn item_sort_key(mode: SearchMode, s: &Stats) -> (i32, i32, i32, i32, i32, i32) 
     }
 }
 
-fn prune_slot_items(
-    items: Vec<ItemSpec>,
+fn prune_candidates<T>(
+    items: Vec<T>,
     limit: usize,
     is_ring: bool,
     base_str: i32,
     base_dex: i32,
-) -> Vec<ItemSpec> {
+    meta: impl Fn(&T) -> (&str, Stats, (i32, i32)),
+) -> Vec<T> {
     if limit == 0 {
         return items;
     }
@@ -167,10 +214,10 @@ fn prune_slot_items(
     let mut name_stat_counts: HashMap<(String, Stats, i32, i32), usize> = HashMap::new();
     let mut deduped = Vec::with_capacity(items.len());
     for it in items {
-        let s = it.stats();
-        let (rs, rd) = item_prune_reqs(&it, base_str, base_dex);
+        let (name, s, eff_reqs) = meta(&it);
+        let (rs, rd) = normalize_reqs(eff_reqs, base_str, base_dex);
         let ns_entry = name_stat_counts
-            .entry((it.name.clone(), s, rs, rd))
+            .entry((name.to_string(), s, rs, rd))
             .or_insert(0);
         if *ns_entry >= same_name_cap {
             continue;
@@ -191,7 +238,10 @@ fn prune_slot_items(
     // best partner for the single ring that dominates it).
     let metas: Vec<(Stats, (i32, i32))> = deduped
         .iter()
-        .map(|it| (it.stats(), item_prune_reqs(it, base_str, base_dex)))
+        .map(|it| {
+            let (_, s, eff_reqs) = meta(it);
+            (s, normalize_reqs(eff_reqs, base_str, base_dex))
+        })
         .collect();
     let dominates = |a: usize, b: usize| {
         let (sa, ra) = metas[a];
@@ -225,11 +275,97 @@ fn prune_slot_items(
         }
     }
 
-    let mut slots: Vec<Option<ItemSpec>> = deduped.into_iter().map(Some).collect();
+    let mut slots: Vec<Option<T>> = deduped.into_iter().map(Some).collect();
     kept_indices
         .into_iter()
         .filter_map(|idx| slots[idx].take())
         .collect()
+}
+
+fn prune_slot_items(
+    items: Vec<ItemSpec>,
+    limit: usize,
+    is_ring: bool,
+    base_str: i32,
+    base_dex: i32,
+) -> Vec<ItemSpec> {
+    prune_candidates(items, limit, is_ring, base_str, base_dex, |it| {
+        (&it.name, it.stats(), item_eff_reqs(it))
+    })
+}
+
+fn empty_dominators(items: &[ItemSpec], base_str: i32, base_dex: i32) -> usize {
+    items
+        .iter()
+        .filter(|it| dominates_empty(it.stats(), item_prune_reqs(it, base_str, base_dex)))
+        .count()
+}
+
+fn build_hands(
+    items: &[ItemSpec],
+    valid_item: &impl Fn(&ItemSpec) -> bool,
+    mode: SearchMode,
+    c: &BuildConstraints,
+) -> Vec<ItemPair> {
+    let mut weapons_1h: Vec<ItemSpec> = items
+        .iter()
+        .filter(|i| i.slot == "weapon" && valid_item(i))
+        .cloned()
+        .collect();
+    let mut shields: Vec<ItemSpec> = items
+        .iter()
+        .filter(|i| i.slot == "shield" && valid_item(i))
+        .cloned()
+        .collect();
+    let mut weapons_2h: Vec<ItemSpec> = items
+        .iter()
+        .filter(|i| i.slot == "weapon2h" && valid_item(i))
+        .cloned()
+        .collect();
+
+    if !shields.is_empty() && empty_dominators(&weapons_1h, c.base_str, c.base_dex) == 0 {
+        weapons_1h.push(ItemSpec::empty("weapon"));
+    }
+    if !weapons_1h.is_empty() && empty_dominators(&shields, c.base_str, c.base_dex) == 0 {
+        shields.push(ItemSpec::empty("shield"));
+    }
+
+    weapons_1h.sort_by_key(|it| Reverse(item_sort_key(mode, &it.stats())));
+    shields.sort_by_key(|it| Reverse(item_sort_key(mode, &it.stats())));
+    weapons_2h.sort_by_key(|it| Reverse(item_sort_key(mode, &it.stats())));
+
+    let weapons_1h = prune_slot_items(weapons_1h, c.limit, false, c.base_str, c.base_dex);
+    let shields = prune_slot_items(shields, c.limit, false, c.base_str, c.base_dex);
+    let weapons_2h = prune_slot_items(weapons_2h, c.limit, false, c.base_str, c.base_dex);
+
+    let mut hands = Vec::with_capacity(weapons_1h.len() * shields.len() + weapons_2h.len() + 1);
+    for w in &weapons_1h {
+        for s in &shields {
+            hands.push(ItemPair::from_pair(w, s, "hands"));
+        }
+    }
+    for w2h in weapons_2h {
+        hands.push(ItemPair::single_2h(w2h));
+    }
+
+    let has_empty_dom = hands.iter().any(|h| {
+        dominates_empty(
+            h.combined.stats(),
+            normalize_reqs(h.reqs, c.base_str, c.base_dex),
+        )
+    });
+    if !has_empty_dom {
+        hands.push(ItemPair::from_pair(
+            &ItemSpec::empty("weapon"),
+            &ItemSpec::empty("shield"),
+            "hands",
+        ));
+    }
+
+    hands.sort_by_key(|h| Reverse(item_sort_key(mode, &h.combined.stats())));
+    prune_candidates(hands, c.limit, false, c.base_str, c.base_dex, |h| {
+        (&h.combined.name, h.combined.stats(), h.reqs)
+    })
 }
 
 pub fn optimize_builds_core(
@@ -250,15 +386,17 @@ pub fn optimize_builds_core(
 
     let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;
 
-    let mut groups: Vec<Vec<ItemSpec>> = Vec::with_capacity(EQUIP_SLOTS.len());
-    for &slot in EQUIP_SLOTS {
+    let hands = build_hands(items, &valid_item, mode, c);
+
+    let mut groups: Vec<Vec<ItemSpec>> = Vec::with_capacity(SINGLE_SLOTS.len());
+    for &slot in SINGLE_SLOTS {
         let mut slot_items: Vec<ItemSpec> = items
             .iter()
             .filter(|i| i.slot == slot && valid_item(i))
             .cloned()
             .collect();
-        if slot_items.is_empty() {
-            return Ok(Vec::new());
+        if empty_dominators(&slot_items, c.base_str, c.base_dex) == 0 {
+            slot_items.push(ItemSpec::empty(slot));
         }
         slot_items.sort_by_key(|it| Reverse(item_sort_key(mode, &it.stats())));
         groups.push(prune_slot_items(slot_items, c.limit, false, c.base_str, c.base_dex));
@@ -269,45 +407,30 @@ pub fn optimize_builds_core(
         .filter(|i| i.slot == "ring" && valid_item(i))
         .cloned()
         .collect();
-    if rngs.len() < 2 {
-        return Ok(Vec::new());
+    let ring_empty_dom = empty_dominators(&rngs, c.base_str, c.base_dex);
+    for _ in 0..2usize.saturating_sub(ring_empty_dom) {
+        rngs.push(ItemSpec::empty("ring"));
     }
     rngs.sort_by_key(|it| Reverse(item_sort_key(mode, &it.stats())));
     let rngs = prune_slot_items(rngs, c.limit, true, c.base_str, c.base_dex);
-    if rngs.len() < 2 {
-        return Ok(Vec::new());
-    }
 
-    let mut ring_pairs: Vec<RingPair> = Vec::new();
+    let mut ring_pairs: Vec<ItemPair> = Vec::new();
     let mut seen_rp: HashSet<(Stats, i32, i32)> = HashSet::new();
     for i in 0..rngs.len() {
         for j in (i + 1)..rngs.len() {
             let r1 = &rngs[i];
             let r2 = &rngs[j];
-            let rp_reqs = merge_reqs(item_eff_reqs(r1), item_eff_reqs(r2));
-            let comb_stats = r1.stats().add(r2.stats());
-            if !seen_rp.insert((comb_stats, rp_reqs.0, rp_reqs.1)) {
+            let rp = ItemPair::from_pair(r1, r2, "rings");
+            let comb_stats = rp.combined.stats();
+            if !seen_rp.insert((comb_stats, rp.reqs.0, rp.reqs.1)) {
                 continue;
             }
-            let combined = ItemSpec::from_stats(
-                format!("{} + {}", r1.name, r2.name),
-                "rings".to_string(),
-                format!("{} / {}", r1.loc, r2.loc),
-                comb_stats,
-                rp_reqs.0,
-                rp_reqs.1,
-            );
-            ring_pairs.push(RingPair {
-                combined,
-                first: r1.clone(),
-                second: r2.clone(),
-                reqs: rp_reqs,
-            });
+            ring_pairs.push(rp);
         }
     }
     ring_pairs.sort_by_key(|rp| Reverse(item_sort_key(mode, &rp.combined.stats())));
 
-    let n = groups.len() + 1;
+    let n = 1 + groups.len() + 1;
     let mut suf = vec![Stats::default(); n + 1];
     suf[n - 1] = ring_pairs
         .iter()
@@ -316,8 +439,12 @@ pub fn optimize_builds_core(
         let slot_max = groups[k]
             .iter()
             .fold(Stats::default(), |acc, it| acc.max_each(it.stats()));
-        suf[k] = suf[k + 1].add(slot_max);
+        suf[k + 1] = suf[k + 2].add(slot_max);
     }
+    let hands_max = hands
+        .iter()
+        .fold(Stats::default(), |acc, h| acc.max_each(h.combined.stats()));
+    suf[0] = suf[1].add(hands_max);
 
     let pool: Vec<&CharmSpec> = charms
         .iter()
@@ -337,8 +464,9 @@ pub fn optimize_builds_core(
     };
 
     struct State<'a> {
+        hands: &'a [ItemPair],
         groups: &'a [Vec<ItemSpec>],
-        ring_pairs: &'a [RingPair],
+        ring_pairs: &'a [ItemPair],
         suf: &'a [Stats],
         ch: Stats,
         pool: &'a [&'a CharmSpec],
@@ -347,6 +475,7 @@ pub fn optimize_builds_core(
         best_sk: i32,
         best_mf: i32,
         best_res_sum: i32,
+        chosen_hand: usize,
         chosen_slots: Vec<usize>,
         evals: usize,
         top_results: TopResults,
@@ -399,7 +528,7 @@ pub fn optimize_builds_core(
             }
         }
 
-        if idx == st.groups.len() {
+        if idx == st.groups.len() + 1 {
             for rp in st.ring_pairs {
                 let leaf = acc.add(rp.combined.stats());
                 if leaf.fcr < st.c.min_fcr {
@@ -420,12 +549,16 @@ pub fn optimize_builds_core(
                 }
                 st.evals += 1;
 
-                let mut items_ref: Vec<&ItemSpec> = st
-                    .chosen_slots
-                    .iter()
-                    .enumerate()
-                    .map(|(g, &i)| &st.groups[g][i])
-                    .collect();
+                let hand = &st.hands[st.chosen_hand];
+                let mut items_ref: Vec<&ItemSpec> = Vec::with_capacity(2 + st.groups.len() + 2);
+                items_ref.push(&hand.first);
+                items_ref.push(&hand.second);
+                items_ref.extend(
+                    st.chosen_slots
+                        .iter()
+                        .enumerate()
+                        .map(|(g, &i)| &st.groups[g][i]),
+                );
                 items_ref.push(&rp.first);
                 items_ref.push(&rp.second);
 
@@ -513,8 +646,22 @@ pub fn optimize_builds_core(
             return;
         }
 
-        for i in 0..st.groups[idx].len() {
-            let it = &st.groups[idx][i];
+        if idx == 0 {
+            for (i, h) in st.hands.iter().enumerate() {
+                st.chosen_hand = i;
+                dfs(
+                    st,
+                    1,
+                    acc.add(h.combined.stats()),
+                    merge_reqs(reqs, h.reqs),
+                );
+            }
+            return;
+        }
+
+        let g = idx - 1;
+        for i in 0..st.groups[g].len() {
+            let it = &st.groups[g][i];
             st.chosen_slots.push(i);
             dfs(
                 st,
@@ -527,6 +674,7 @@ pub fn optimize_builds_core(
     }
 
     let mut state = State {
+        hands: &hands,
         groups: &groups,
         ring_pairs: &ring_pairs,
         suf: &suf,
@@ -537,6 +685,7 @@ pub fn optimize_builds_core(
         best_sk: -1,
         best_mf: -1,
         best_res_sum: -1,
+        chosen_hand: 0,
         chosen_slots: Vec::with_capacity(groups.len()),
         evals: 0,
         top_results: TopResults::new(c.limit),

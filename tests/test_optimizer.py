@@ -448,7 +448,7 @@ def test_max_resistance_cap_in_evaluate_and_optimize() -> None:
     assert res_max[0].lr == 86
 
 
-def test_classify_slot_rejects_two_handed_and_1or2handed_weapons() -> None:
+def test_classify_slot_tags_two_handed_and_1or2handed_weapons_as_weapon2h() -> None:
     resolver = GameDataResolver.load().for_version(0x63)
 
     def _make_item(code: str) -> D2Item:
@@ -468,7 +468,9 @@ def test_classify_slot_rejects_two_handed_and_1or2handed_weapons() -> None:
     assert mau_info.two_handed
 
     for two_handed_code in ("bax", "2hs", "mau", "sst"):
-        assert _classify_slot(_make_item(two_handed_code), resolver) is None
+        classified = _classify_slot(_make_item(two_handed_code), resolver)
+        assert classified is not None
+        assert classified[0] == "weapon2h"
 
     for one_handed_code in ("crs", "ob1"):
         classified = _classify_slot(_make_item(one_handed_code), resolver)
