@@ -8,6 +8,7 @@ from d2savior.core.item import D2Item
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
 from d2savior.optimizer import (
+    HAS_NATIVE,
     BuildConstraints,
     CharmSpec,
     ItemSpec,
@@ -16,6 +17,7 @@ from d2savior.optimizer import (
     _extract_prop_acc,
     _item_levelreq,
     _item_to_spec,
+    _missing_native,
     blizzard_damage,
     blizzard_damage_with_base,
     evaluate_build,
@@ -25,11 +27,12 @@ from d2savior.optimizer import (
     select_sorc_presets,
 )
 
-pytest.importorskip("d2savior._native")
+requires_native = pytest.mark.skipif(not HAS_NATIVE, reason="d2savior._native is not built")
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
+@requires_native
 def test_blizzard_damage_pyo3() -> None:
     base0, syn0, cm0 = blizzard_damage(0)
     assert abs(base0 - 594.5) < 1e-9
@@ -47,6 +50,7 @@ def test_blizzard_damage_pyo3() -> None:
     assert cm9 == -160
 
 
+@requires_native
 def test_evaluate_build_and_constraints_validation() -> None:
     items = [
         ItemSpec("Spirit Sword", "weapon", "test", all_skills=2, fcr=34, fhr=55, vit=22, mana=93),
@@ -101,6 +105,7 @@ def test_evaluate_build_and_constraints_validation() -> None:
         optimize_builds(items, charms, bad)
 
 
+@requires_native
 def test_str_dex_requirements_pyo3() -> None:
     items = [
         ItemSpec("Ali Baba", "weapon", "test", mf=89, dex_bonus=15, req_dex=42),
@@ -159,6 +164,7 @@ def test_str_dex_requirements_pyo3() -> None:
     assert res_low[0].items[0].name == "Spirit Sword"
 
 
+@requires_native
 def test_optimize_builds_from_fixtures() -> None:
     resolver = GameDataResolver.load()
     ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
@@ -217,6 +223,7 @@ def test_optimize_builds_from_fixtures() -> None:
     assert "Rust/PyO3" not in report
 
 
+@requires_native
 def test_cli_optimize_fixtures(capsys: pytest.CaptureFixture[str]) -> None:
     main(
         [
@@ -233,6 +240,7 @@ def test_cli_optimize_fixtures(capsys: pytest.CaptureFixture[str]) -> None:
     assert "Max Resist" in captured.out
 
 
+@requires_native
 def test_cli_optimize_positional_name_and_build_flag(capsys: pytest.CaptureFixture[str]) -> None:
     main(
         [
@@ -273,14 +281,15 @@ def test_cli_optimize_missing_native_extension_prints_clean_error(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    def _missing(*_args: object, **_kwargs: object) -> None:
-        raise RuntimeError("Rust extension 'd2savior._native' is not built; run 'make build-rust'.")
+    empty_report = format_build_report("Empty", [])
+    assert "No loadout found matching all constraints." in empty_report
 
-    monkeypatch.setattr("d2savior.optimizer.ItemSpec", _missing)
+    monkeypatch.setattr("d2savior.optimizer.ItemSpec", _missing_native)
     with pytest.raises(SystemExit) as exc:
         main(["optimize", "--no-config", "sork", str(FIXTURES_DIR)])
     assert exc.value.code == 1
     err = capsys.readouterr().err
+    assert "d2savior[optimize]" in err
     assert "make build-rust" in err
 
 
@@ -312,7 +321,8 @@ def test_item_level_requirements_uniques_sets_runewords() -> None:
     oculus = next(it for it in mule.item_list.items if it.code_str.strip() == "oba")
     assert _item_levelreq(oculus, d2r) == 42
     assert _item_to_spec(oculus, "test", d2r, 0x63, char_level=41) is None
-    assert _item_to_spec(oculus, "test", d2r, 0x63, char_level=42) is not None
+    if HAS_NATIVE:
+        assert _item_to_spec(oculus, "test", d2r, 0x63, char_level=42) is not None
 
     # Set amulet (base req 0, simulated Tal Rasha's Adjudication set_id=77 -> levelreq 67)
     amu = next(it for it in sork.item_list.items if it.code_str.strip() == "amu")
@@ -349,6 +359,7 @@ def test_extract_prop_acc_per_level_and_cold_tab(monkeypatch: pytest.MonkeyPatch
     assert acc.sorc_skills == 1
 
 
+@requires_native
 def test_item_to_spec_keeps_frw_mdr_fire_absorb_and_max_res(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -385,6 +396,7 @@ def test_item_to_spec_keeps_frw_mdr_fire_absorb_and_max_res(
     assert _item_to_spec(boot_or_ring, "test", resolver, 0x63, char_level=99) is None
 
 
+@requires_native
 def test_max_resistance_cap_in_evaluate_and_optimize() -> None:
     items = [
         ItemSpec("Spirit Sword", "weapon", "test", all_skills=2, fcr=34, fhr=55),
@@ -478,6 +490,7 @@ def test_classify_slot_tags_two_handed_and_1or2handed_weapons_as_weapon2h() -> N
         assert classified[0] == "weapon"
 
 
+@requires_native
 def test_unique_charm_limit_prevents_duplicates() -> None:
     items = [
         ItemSpec("Spirit Sword", "weapon", "test", all_skills=2, fcr=35, fhr=55),
@@ -540,6 +553,7 @@ def test_unique_charm_limit_prevents_duplicates() -> None:
     assert any(c.name == "Chilling GC" for c in res[0].charms)
 
 
+@requires_native
 def test_bo_scales_flat_life_mana_not_per_lvl_or_vit_ene() -> None:
     shako = ItemSpec(
         "Harlequin Crest",
@@ -564,6 +578,7 @@ def test_bo_scales_flat_life_mana_not_per_lvl_or_vit_ene() -> None:
     assert res.mana_bo == 612
 
 
+@requires_native
 def test_blizzard_base_skills_from_save_and_fallback() -> None:
     resolver = GameDataResolver.load()
     ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
@@ -591,6 +606,7 @@ def test_blizzard_base_skills_from_save_and_fallback() -> None:
     )
 
 
+@requires_native
 def test_single_skill_blizzard_orb_extraction_and_ranking(monkeypatch: pytest.MonkeyPatch) -> None:
     resolver = GameDataResolver.load().for_version(0x63)
     ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
@@ -652,6 +668,7 @@ def test_single_skill_blizzard_orb_extraction_and_ranking(monkeypatch: pytest.Mo
     assert res[0].blizz_avg > res[1].blizz_avg
 
 
+@requires_native
 def test_detect_cta_bo_bonus_and_excludes_swap_cta(monkeypatch: pytest.MonkeyPatch) -> None:
     resolver = GameDataResolver.load()
     ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
@@ -682,6 +699,7 @@ def test_detect_cta_bo_bonus_and_excludes_swap_cta(monkeypatch: pytest.MonkeyPat
     assert not any("Swap" in it.loc for it in items)
 
 
+@requires_native
 def test_belt_slots_and_defense_prefer_upped_goldwrap() -> None:
     resolver = GameDataResolver.load()
     ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
@@ -751,6 +769,7 @@ def test_belt_slots_and_defense_prefer_upped_goldwrap() -> None:
     assert res[0].items[5].loc == "sork Stash"
 
 
+@requires_native
 def test_cold_sunder_charm_extraction_and_optimizer_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

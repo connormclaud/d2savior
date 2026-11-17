@@ -2,7 +2,28 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
+
+from d2savior.core.constants import CLASS_SKILL_BASES
+from d2savior.core.d2s_struct import D2SStruct
+from d2savior.core.enums import CLASS_NAMES, EquipSlot, ItemLocation, StoredIn
+from d2savior.core.item import D2Item
+from d2savior.core.item_formatter import get_item_display_name
+from d2savior.core.item_name import LongName
+from d2savior.core.property import adjust_property_values
+from d2savior.core.resolver import GameDataResolver
+from d2savior.core.stash import SharedStash
+from d2savior.core.stats import calculate_effective_defence, collect_item_properties
+
+_MISSING_NATIVE_MSG = (
+    "Optimization requires the optional native extension. "
+    "Install with: pip install 'd2savior[optimize]' (or run 'make build-rust' from source)."
+)
+
+
+def _missing_native(*_args: object, **_kwargs: object) -> Never:
+    raise RuntimeError(_MISSING_NATIVE_MSG)
+
 
 if TYPE_CHECKING:
     from d2savior._native import (
@@ -15,6 +36,8 @@ if TYPE_CHECKING:
         evaluate_build,
         optimize_builds,
     )
+
+    HAS_NATIVE: bool = True
 else:
     try:
         from d2savior._native import (
@@ -27,14 +50,10 @@ else:
             evaluate_build,
             optimize_builds,
         )
-    except ImportError as exc:
-        _import_err = exc
 
-        def _missing_native(*_args: object, **_kwargs: object) -> None:
-            raise RuntimeError(
-                "Rust extension 'd2savior._native' is not built; run 'make build-rust'."
-            ) from _import_err
-
+        HAS_NATIVE = True
+    except ImportError:
+        HAS_NATIVE = False
         BuildConstraints = _missing_native
         BuildResult = _missing_native
         CharmSpec = _missing_native
@@ -43,16 +62,6 @@ else:
         blizzard_damage_with_base = _missing_native
         evaluate_build = _missing_native
         optimize_builds = _missing_native
-from d2savior.core.constants import CLASS_SKILL_BASES
-from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import CLASS_NAMES, EquipSlot, ItemLocation, StoredIn
-from d2savior.core.item import D2Item
-from d2savior.core.item_formatter import get_item_display_name
-from d2savior.core.item_name import LongName
-from d2savior.core.property import adjust_property_values
-from d2savior.core.resolver import GameDataResolver
-from d2savior.core.stash import SharedStash
-from d2savior.core.stats import calculate_effective_defence, collect_item_properties
 
 _CHARM_SIZES: frozendict[str, int] = frozendict({"cm1": 1, "cm2": 2, "cm3": 3, "cs2": 3})
 
@@ -719,6 +728,7 @@ def format_build_report(title: str, results: Sequence[BuildResult]) -> str:
 __all__ = [
     "BUILD_CHOICES",
     "BUILD_PRESET_ALIASES",
+    "HAS_NATIVE",
     "BuildConstraints",
     "BuildResult",
     "CharmSpec",
