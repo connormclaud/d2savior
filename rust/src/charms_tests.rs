@@ -143,3 +143,163 @@ fn test_greedy_charms_skips_negative_res_filler_breaking_target() {
         .expect("negative-res filler should be skipped so FR target stays satisfied");
     assert!(!chosen.iter().any(|ch| ch.name == "Toxic Sunder"));
 }
+
+#[test]
+fn test_shrink_charm_pool_respects_multiplicity_and_unique_ids() {
+    let good_sc = CharmSpec {
+        name: "Good SC".to_string(),
+        size: 1,
+        lr: 11,
+        life: 20,
+        ..Default::default()
+    };
+    let plain_sc = CharmSpec {
+        name: "Plain SC".to_string(),
+        size: 1,
+        lr: 11,
+        ..Default::default()
+    };
+    let torch_hi = CharmSpec {
+        name: "Torch 20/20".to_string(),
+        size: 2,
+        skills: 3,
+        fr: 20,
+        lr: 20,
+        cr: 20,
+        pr: 20,
+        unique_id: Some(400),
+        ..Default::default()
+    };
+    let torch_lo = CharmSpec {
+        name: "Torch 10/10".to_string(),
+        size: 2,
+        skills: 3,
+        fr: 10,
+        lr: 10,
+        cr: 10,
+        pr: 10,
+        unique_id: Some(400),
+        ..Default::default()
+    };
+
+    // With max_slots = 3, good_sc (1 copy) + 4 plain_sc copies -> 1 good_sc + 2 plain_sc kept (total 3).
+    // torch_lo is strictly dominated by same-unique_id torch_hi and dropped.
+    let raw = [
+        &good_sc,
+        &plain_sc,
+        &plain_sc,
+        &plain_sc,
+        &plain_sc,
+        &torch_hi,
+        &torch_lo,
+    ];
+    let shrunk = shrink_charm_pool(&raw, 3);
+    assert_eq!(shrunk.iter().filter(|c| c.name == "Good SC").count(), 1);
+    assert_eq!(shrunk.iter().filter(|c| c.name == "Plain SC").count(), 2);
+    assert_eq!(shrunk.iter().filter(|c| c.name == "Torch 20/20").count(), 1);
+    assert_eq!(shrunk.iter().filter(|c| c.name == "Torch 10/10").count(), 0);
+}
+
+#[test]
+fn test_charm_solver_recovers_when_greedy_misses_feasibility_or_main_score() {
+    // Case 1 (feasibility): Greedy picks Str GC (9/3 = 3.0 str/slot > 2.0), using all 3 slots
+    // and failing FHR + FR. Exact solver picks Str/FHR SC (1) + Str/Res LC (2) = 6 STR, 5 FHR, 15 FR.
+    let charms_feas = [
+        CharmSpec {
+            name: "Str GC".to_string(),
+            size: 3,
+            str_bonus: 9,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Str/FHR SC".to_string(),
+            size: 1,
+            str_bonus: 2,
+            fhr: 5,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Str/Res LC".to_string(),
+            size: 2,
+            str_bonus: 4,
+            fr: 15,
+            ..Default::default()
+        },
+    ];
+    let pool_feas: Vec<&CharmSpec> = charms_feas.iter().collect();
+    let c_feas = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 5,
+        min_fr: 15,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 3,
+        ..Default::default()
+    };
+    let leaf = Stats::default();
+    assert!(greedy_charms(&[], &pool_feas, &c_feas, (6, 0), SearchMode::Power).is_none());
+    let mut solver_feas = CharmSolver::new(&pool_feas, &c_feas, SearchMode::Power);
+    let exact = solver_feas
+        .solve(&[], leaf, (6, 0))
+        .expect("exact charm solver should find Str/FHR SC + Str/Res LC");
+    let names: Vec<&str> = exact.iter().map(|ch| ch.name.as_str()).collect();
+    assert!(names.contains(&"Str/FHR SC") && names.contains(&"Str/Res LC"));
+
+    // Case 2 (main score): In 5 slots needing 5 FHR and 15 FR, greedy picks FHR SC (5/1=5.0)
+    // + 2x FR SC (11/1=11.0) = 3 slots, leaving 2 slots (cannot fit size-3 Skill GC -> 0 skills).
+    // Exact solver picks Hybrid LC (size 2, 5 FHR, 15 FR) + Skill GC (size 3, +1 skill) = 1 skill.
+    let charms_sk = [
+        CharmSpec {
+            name: "FHR SC".to_string(),
+            size: 1,
+            fhr: 5,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "FR SC A".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "FR SC B".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Hybrid LC".to_string(),
+            size: 2,
+            fhr: 5,
+            fr: 15,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Skill GC".to_string(),
+            size: 3,
+            skills: 1,
+            ..Default::default()
+        },
+    ];
+    let pool_sk: Vec<&CharmSpec> = charms_sk.iter().collect();
+    let c_skill = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 5,
+        min_fr: 15,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 5,
+        ..Default::default()
+    };
+    let g_sk = greedy_charms(&[], &pool_sk, &c_skill, (0, 0), SearchMode::Power)
+        .expect("greedy should still find a feasible 0-skill set");
+    assert_eq!(g_sk.iter().map(|c| c.skills).sum::<i32>(), 0);
+
+    let mut solver_skill = CharmSolver::new(&pool_sk, &c_skill, SearchMode::Power);
+    let best_sk = solver_skill
+        .solve(&[], leaf, (0, 0))
+        .expect("exact should find Hybrid LC + Skill GC");
+    assert_eq!(best_sk.iter().map(|c| c.skills).sum::<i32>(), 1);
+}

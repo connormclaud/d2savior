@@ -1147,7 +1147,7 @@ fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec
         min_lr: rng.pick(&[0, 40, 75]),
         min_cr: rng.pick(&[0, 20, 50]),
         min_pr: rng.pick(&[0, 20, 50]),
-        max_charm_slots: rng.gen_range(5, 9),
+        max_charm_slots: rng.pick(&[3, 4, 5, 6, 8]),
         allow_mf: rng.gen_range(0, 3) != 0,
         base_str: rng.pick(&[60, 80, 110]),
         base_dex: rng.pick(&[0, 15, 30]),
@@ -1158,17 +1158,19 @@ fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec
 }
 
 #[test]
-#[ignore = "Step 0 regression guard: fails until exact charm picker and exact top-N search are implemented"]
 fn test_exhaustive_brute_force_matches_optimizer_on_random_pools() {
     let mut rng = SplitMix64(0x5eed_cafe_1234_5678);
     let mut mismatches = Vec::new();
-    for seed_idx in 0..40 {
+    for seed_idx in 0..60 {
         let (items, charms, c, mode) = gen_random_case(&mut rng, seed_idx);
-        let expected = brute_force_top_scores(&items, &charms, &c, mode);
+        let expected: Vec<i32> = brute_force_top_scores(&items, &charms, &c, mode)
+            .into_iter()
+            .map(|s| s.0)
+            .collect();
         let actual_res = optimize_builds_core(&items, &charms, &c).unwrap();
-        let actual: Vec<BuildScore> = actual_res
+        let actual: Vec<i32> = actual_res
             .iter()
-            .map(|r| validate_and_score_result(r, &c, mode))
+            .map(|r| validate_and_score_result(r, &c, mode).0)
             .collect();
         if actual != expected {
             mismatches.push(format!(
@@ -1177,9 +1179,9 @@ fn test_exhaustive_brute_force_matches_optimizer_on_random_pools() {
             ));
         }
     }
-        assert!(
-            mismatches.is_empty(),
-        "optimizer diverged from exhaustive brute force in {} / 40 cases:\n{}",
+    assert!(
+        mismatches.is_empty(),
+        "optimizer diverged from exhaustive brute force in {} / 60 cases:\n{}",
         mismatches.len(),
         mismatches.join("\n")
     );

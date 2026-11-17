@@ -6,7 +6,7 @@ use pyo3::exceptions::PyValueError;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use crate::charms::{charm_stat_ub, greedy_charms};
+use crate::charms::{charm_stat_ub, CharmSolver};
 use crate::eval::{eval_build_summary, res_caps};
 use crate::types::{
     BuildConstraints, BuildResult, CharmSpec, ItemSpec, SearchMode, Stats, BASE_MAX_RES,
@@ -435,20 +435,21 @@ pub fn optimize_builds_core(
         .fold(Stats::default(), |acc, h| acc.max_each(h.combined.stats()));
     suf[0] = suf[1].add(hands_max);
 
-    let pool: Vec<&CharmSpec> = charms
+    let raw_pool: Vec<&CharmSpec> = charms
         .iter()
         .filter(|ch| (c.allow_mf || ch.mf == 0) && ch.light_skills == 0)
         .collect();
+    let charm_solver = CharmSolver::new(&raw_pool, c, mode);
     let ch = Stats {
-        all_skills: charm_stat_ub(&pool, c.max_charm_slots, |ch| ch.skills),
-        fhr: charm_stat_ub(&pool, c.max_charm_slots, |ch| ch.fhr),
-        fr: charm_stat_ub(&pool, c.max_charm_slots, |ch| ch.fr),
-        lr: charm_stat_ub(&pool, c.max_charm_slots, |ch| ch.lr),
-        cr: charm_stat_ub(&pool, c.max_charm_slots, |ch| ch.cr),
-        pr: charm_stat_ub(&pool, c.max_charm_slots, |ch| ch.pr),
-        mf: charm_stat_ub(&pool, c.max_charm_slots, |ch| ch.mf),
-        str_bonus: charm_stat_ub(&pool, c.max_charm_slots, |ch| ch.str_bonus),
-        dex_bonus: charm_stat_ub(&pool, c.max_charm_slots, |ch| ch.dex_bonus),
+        all_skills: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.skills),
+        fhr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.fhr),
+        fr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.fr),
+        lr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.lr),
+        cr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.cr),
+        pr: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.pr),
+        mf: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.mf),
+        str_bonus: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.str_bonus),
+        dex_bonus: charm_stat_ub(&charm_solver.pool, c.max_charm_slots, |ch| ch.dex_bonus),
         ..Default::default()
     };
 
@@ -475,7 +476,7 @@ pub fn optimize_builds_core(
         ring_pairs: &'a [ItemPair],
         suf: &'a [Stats],
         ch: Stats,
-        pool: &'a [&'a CharmSpec],
+        charm_solver: CharmSolver<'a>,
         c: &'a BuildConstraints,
         mode: SearchMode,
         chosen_hand: usize,
@@ -562,12 +563,10 @@ pub fn optimize_builds_core(
                 items_ref.push(&rp.first);
                 items_ref.push(&rp.second);
 
-                let Some(charms_sel) = greedy_charms(
+                let Some(charms_sel) = st.charm_solver.solve(
                     &items_ref,
-                    st.pool,
-                    st.c,
+                    leaf,
                     (final_req_str, final_req_dex),
-                    st.mode,
                 ) else {
                     continue;
                 };
@@ -670,7 +669,7 @@ pub fn optimize_builds_core(
         ring_pairs: &ring_pairs,
         suf: &suf,
         ch,
-        pool: &pool,
+        charm_solver,
         c,
         mode,
         chosen_hand: 0,
