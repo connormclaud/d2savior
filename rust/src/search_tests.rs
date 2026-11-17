@@ -1057,7 +1057,7 @@ fn brute_force_top_scores(
 fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec<CharmSpec>, BuildConstraints, SearchMode) {
     let mut items = Vec::new();
     for &slot in TEST_EQUIP_SLOTS {
-        let count = rng.gen_range(1, 2) as usize;
+        let count = rng.gen_range(1, 3) as usize;
         for j in 0..count {
             let mut it = mk_item(
                 &format!("{slot}_{j}_{seed_idx}"),
@@ -1085,7 +1085,7 @@ fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec
             items.push(it);
         }
     }
-    let ring_count = rng.gen_range(3, 4) as usize;
+    let ring_count = rng.gen_range(3, 6) as usize;
     for j in 0..ring_count {
         let mut r = mk_item(
             &format!("ring_{j}_{seed_idx}"),
@@ -1105,7 +1105,7 @@ fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec
         items.push(r);
     }
 
-    let charm_count = rng.gen_range(5, 6) as usize;
+    let charm_count = rng.gen_range(5, 9) as usize;
     let mut charms = Vec::new();
     for j in 0..charm_count {
         let size = rng.pick(&[1, 2, 3]);
@@ -1161,7 +1161,7 @@ fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec
 fn test_exhaustive_brute_force_matches_optimizer_on_random_pools() {
     let mut rng = SplitMix64(0x5eed_cafe_1234_5678);
     let mut mismatches = Vec::new();
-    for seed_idx in 0..60 {
+    for seed_idx in 0..400 {
         let (items, charms, c, mode) = gen_random_case(&mut rng, seed_idx);
         let expected: Vec<i32> = brute_force_top_scores(&items, &charms, &c, mode)
             .into_iter()

@@ -185,13 +185,7 @@ fn test_shrink_charm_pool_respects_multiplicity_and_unique_ids() {
     // With max_slots = 3, good_sc (1 copy) + 4 plain_sc copies -> 1 good_sc + 2 plain_sc kept (total 3).
     // torch_lo is strictly dominated by same-unique_id torch_hi and dropped.
     let raw = [
-        &good_sc,
-        &plain_sc,
-        &plain_sc,
-        &plain_sc,
-        &plain_sc,
-        &torch_hi,
-        &torch_lo,
+        &good_sc, &plain_sc, &plain_sc, &plain_sc, &plain_sc, &torch_hi, &torch_lo,
     ];
     let shrunk = shrink_charm_pool(&raw, 3);
     assert_eq!(shrunk.iter().filter(|c| c.name == "Good SC").count(), 1);

@@ -183,7 +183,11 @@ fn greedy_fhr_loop(state: &mut CharmState<'_, '_>, target_fhr: i32) {
         let mut best_key = (-1.0_f64, -1, -1);
         for (idx, c) in state.pool.iter().enumerate() {
             if state.can_pick(idx) && c.fhr > 0 {
-                let key = (c.fhr.min(need) as f64 / c.size.max(1) as f64, c.skills, c.fhr);
+                let key = (
+                    c.fhr.min(need) as f64 / c.size.max(1) as f64,
+                    c.skills,
+                    c.fhr,
+                );
                 if key > best_key {
                     best_key = key;
                     best_idx = Some(idx);
@@ -229,8 +233,12 @@ fn greedy_fill_remaining(
         let cb = pool[b];
         let eff = (cb.skills * ca.size.max(1)).cmp(&(ca.skills * cb.size.max(1)));
         eff.then_with(|| {
-            (cb.skills, cb.life, cb.fr + cb.lr + cb.cr, cb.mana)
-                .cmp(&(ca.skills, ca.life, ca.fr + ca.lr + ca.cr, ca.mana))
+            (cb.skills, cb.life, cb.fr + cb.lr + cb.cr, cb.mana).cmp(&(
+                ca.skills,
+                ca.life,
+                ca.fr + ca.lr + ca.cr,
+                ca.mana,
+            ))
         })
     });
 
@@ -295,7 +303,9 @@ fn greedy_charms_pass_indices(
     mode: SearchMode,
     fhr_first: bool,
 ) -> Option<Vec<usize>> {
-    let gear = items.iter().fold(Stats::default(), |acc, i| acc.add(i.stats()));
+    let gear = items
+        .iter()
+        .fold(Stats::default(), |acc, i| acc.add(i.stats()));
     let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear);
     if c.min_fr > cap_fr || c.min_lr > cap_lr || c.min_cr > cap_cr || c.min_pr > cap_pr {
         return None;
@@ -451,10 +461,7 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
     strictly_better || a_idx < b_idx
 }
 
-pub(crate) fn shrink_charm_pool<'a>(
-    pool: &[&'a CharmSpec],
-    max_slots: i32,
-) -> Vec<&'a CharmSpec> {
+pub(crate) fn shrink_charm_pool<'a>(pool: &[&'a CharmSpec], max_slots: i32) -> Vec<&'a CharmSpec> {
     let max_slots = max_slots.max(0);
     let mut kept = Vec::with_capacity(pool.len());
     for (bi, &b) in pool.iter().enumerate() {
@@ -610,9 +617,7 @@ impl CharmGroup {
                     None
                 }
             }
-            CharmGroup::Multi {
-                members, size, ..
-            } => {
+            CharmGroup::Multi { members, size, .. } => {
                 let val = extract(pool[members[0]]);
                 if val > 0 {
                     Some((val, *size, members.len() as i32))
@@ -789,9 +794,7 @@ impl<'a> CharmSolver<'a> {
             match mode {
                 SearchMode::Power => ch.skills.max(0),
                 SearchMode::Mf => ch.mf.max(0),
-                SearchMode::MaxRes => {
-                    ch.fr.max(0) + ch.lr.max(0) + ch.cr.max(0) + ch.pr.max(0)
-                }
+                SearchMode::MaxRes => ch.fr.max(0) + ch.lr.max(0) + ch.cr.max(0) + ch.pr.max(0),
             }
         };
 
@@ -872,7 +875,7 @@ impl<'a> CharmSolver<'a> {
                 }
             }
         };
-        groups.sort_by(|a, b| group_sort_key(b).cmp(&group_sort_key(a)));
+        groups.sort_by_key(|g| std::cmp::Reverse(group_sort_key(g)));
 
         let mut suf_pos = vec![StatTotals::default(); groups.len() + 1];
         let mut suf_neg_res = vec![[0i32; 4]; groups.len() + 1];
@@ -1053,9 +1056,7 @@ impl<'a> CharmSolver<'a> {
                 let cur_main = match s.mode {
                     SearchMode::Power => cur_skills,
                     SearchMode::Mf => cur_mf,
-                    SearchMode::MaxRes => (0..4)
-                        .map(|r| cur_res_added[r].min(ctx.room[r]))
-                        .sum(),
+                    SearchMode::MaxRes => (0..4).map(|r| cur_res_added[r].min(ctx.room[r])).sum(),
                 };
                 if ctx.best_main.is_none_or(|b| cur_main > b) {
                     ctx.best_main = Some(cur_main);
@@ -1088,9 +1089,7 @@ impl<'a> CharmSolver<'a> {
                     }
                     SearchMode::Mf => cur_mf + eval_sorted_ub(&s.order_mf, g_idx, rem_slots),
                     SearchMode::MaxRes => {
-                        let cur_gain: i32 = (0..4)
-                            .map(|r| cur_res_added[r].min(ctx.room[r]))
-                            .sum();
+                        let cur_gain: i32 = (0..4).map(|r| cur_res_added[r].min(ctx.room[r])).sum();
                         let rem_room = [
                             (ctx.room[0] - cur_res_added[0]).max(0),
                             (ctx.room[1] - cur_res_added[1]).max(0),
@@ -1174,8 +1173,9 @@ impl<'a> CharmSolver<'a> {
                     let has_main = match s.mode {
                         SearchMode::Power => stats.skills > 0,
                         SearchMode::Mf => stats.mf > 0,
-                        SearchMode::MaxRes => (0..4)
-                            .any(|r| stats.res[r] > 0 && cur_res_added[r] < ctx.room[r]),
+                        SearchMode::MaxRes => {
+                            (0..4).any(|r| stats.res[r] > 0 && cur_res_added[r] < ctx.room[r])
+                        }
                     };
                     let max_useful = if has_main {
                         max_k
@@ -1345,8 +1345,7 @@ impl<'a> CharmSolver<'a> {
                 let g_main = self.main_score_of_indices(idxs, room);
                 if g_main >= ub_main {
                     self.cache.insert(key, greedy_res.clone());
-                    return greedy_res
-                        .map(|v| v.into_iter().map(|i| self.pool[i]).collect());
+                    return greedy_res.map(|v| v.into_iter().map(|i| self.pool[i]).collect());
                 }
                 Some((g_main, idxs.clone()))
             }
