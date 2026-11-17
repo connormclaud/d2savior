@@ -3,12 +3,19 @@ use crate::types::mk_test_item;
 
 #[test]
 fn test_blizzard_damage_scaling() {
-    let (_, syn7, cm7) = blizzard_damage(7);
-    assert!((syn7 - 3245.4).abs() < 1.0);
+    let (base0, syn0, cm0) = blizzard_damage(0);
+    assert!((base0 - 594.5).abs() < 1e-9);
+    assert!((syn0 - 2199.65).abs() < 1e-6);
+    assert_eq!(cm0, -115);
+
+    let (base7, syn7, cm7) = blizzard_damage(7);
+    assert!((base7 - 963.0).abs() < 1e-9);
+    assert!((syn7 - 3563.1).abs() < 1e-6);
     assert_eq!(cm7, -150);
 
-    let (_, syn9, cm9) = blizzard_damage(9);
-    assert!((syn9 - 3666.7).abs() < 1.0);
+    let (base9, syn9, cm9) = blizzard_damage(9);
+    assert!((base9 - 1084.0).abs() < 1e-9);
+    assert!((syn9 - 4010.8).abs() < 1e-6);
     assert_eq!(cm9, -160);
 }
 

@@ -31,13 +31,19 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def test_blizzard_damage_pyo3() -> None:
+    base0, syn0, cm0 = blizzard_damage(0)
+    assert abs(base0 - 594.5) < 1e-9
+    assert abs(syn0 - 2199.65) < 1e-6
+    assert cm0 == -115
+
     base7, syn7, cm7 = blizzard_damage(7)
-    assert base7 > 0
-    assert abs(syn7 - 3245.4) < 1.0
+    assert abs(base7 - 963.0) < 1e-9
+    assert abs(syn7 - 3563.1) < 1e-6
     assert cm7 == -150
 
-    _, syn9, cm9 = blizzard_damage(9)
-    assert abs(syn9 - 3666.7) < 1.0
+    base9, syn9, cm9 = blizzard_damage(9)
+    assert abs(base9 - 1084.0) < 1e-9
+    assert abs(syn9 - 4010.8) < 1e-6
     assert cm9 == -160
 
 

@@ -29,15 +29,15 @@ fn blizzard_damage_split(
     let mut avg = if slvl >= 1 { 60.0 } else { 0.0 };
     for l in 2..=slvl {
         avg += if l <= 8 {
-            16.0
+            15.5
         } else if l <= 16 {
-            27.0
+            30.5
         } else if l <= 22 {
-            39.0
+            45.5
         } else if l <= 28 {
-            51.0
+            55.5
         } else {
-            63.0
+            65.5
         };
     }
     let syn_avg = avg * (1.0 + 0.05 * syn_pts.max(0) as f64);
