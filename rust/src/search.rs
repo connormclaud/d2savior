@@ -186,6 +186,9 @@ fn prune_slot_items(
 
     // Always keep the full first Pareto frontier so no trade-off item is lost,
     // peeling extra dominated layers only until at least `min_keep` items remain.
+    // Rings occupy two slots, so a ring is only safely dominated once at least
+    // 2 other active rings strictly dominate it (otherwise it can still be the
+    // best partner for the single ring that dominates it).
     let metas: Vec<(Stats, (i32, i32))> = deduped
         .iter()
         .map(|it| (it.stats(), item_prune_reqs(it, base_str, base_dex)))
@@ -196,13 +199,19 @@ fn prune_slot_items(
         sa.dominates(sb) && ra.0 <= rb.0 && ra.1 <= rb.1 && (sa != sb || ra != rb)
     };
 
+    let dom_threshold = if is_ring { 2 } else { 1 };
     let mut active = vec![true; deduped.len()];
     let mut active_count = deduped.len();
     let mut kept_indices = Vec::with_capacity(deduped.len());
     while active_count > 0 && kept_indices.len() < min_keep {
         let layer: Vec<usize> = (0..deduped.len())
             .filter(|&i| {
-                active[i] && !(0..deduped.len()).any(|j| active[j] && j != i && dominates(j, i))
+                active[i]
+                    && (0..deduped.len())
+                        .filter(|&j| active[j] && j != i && dominates(j, i))
+                        .take(dom_threshold)
+                        .count()
+                        < dom_threshold
             })
             .collect();
         if layer.is_empty() {

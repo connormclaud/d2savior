@@ -682,3 +682,67 @@ fn test_belt_potion_capacity_and_defense_break_ties_and_prevent_domination() {
     let res_low = optimize_builds_core(&low_str_items, &[], &c_low_str).unwrap();
     assert_eq!(res_low[0].items[5].name, "Goldwrap (Heavy Belt)");
 }
+
+#[test]
+fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated() {
+    let mut ring_a = mk_item("Ring A", "ring", 10, 0, 0, 0, 0);
+    ring_a.life = 0;
+    let mut ring_b = mk_item("Ring B", "ring", 9, 0, 0, 0, 0);
+    ring_b.life = 0;
+    let mut ring_c = mk_item("Ring C", "ring", 8, 0, 0, 0, 0);
+    ring_c.life = 0;
+    let mut ring_fr = mk_item("Ring FR", "ring", 0, 0, 0, 0, 0);
+    ring_fr.fr = 30;
+    ring_fr.life = 0;
+    let mut ring_lr = mk_item("Ring LR", "ring", 0, 0, 0, 0, 0);
+    ring_lr.lr = 30;
+    ring_lr.life = 0;
+
+    // Rest of gear provides 86 FCR (35 + 31 + 20 = 86), so only Ring A (10) + Ring B (9) reaches 105 FCR.
+    let items = vec![
+        mk_item("Spirit Sword", "weapon", 35, 55, 2, 0, 0),
+        mk_item("Spirit Shield", "shield", 31, 55, 2, 35, 0),
+        mk_item("Tiara", "helm", 0, 0, 2, 30, 0),
+        mk_item("Smoke", "armor", 0, 20, 0, 50, 0),
+        mk_item("Amulet", "amulet", 0, 0, 2, 30, 0),
+        mk_item("Belt", "belt", 0, 0, 0, 30, 0),
+        mk_item("Trangs", "gloves", 20, 0, 0, 30, 0),
+        mk_item("Boots", "boots", 0, 0, 0, 40, 0),
+        ring_a,
+        ring_fr,
+        ring_lr,
+        ring_b,
+        ring_c,
+    ];
+
+    for limit in [2, 3] {
+        let c = BuildConstraints {
+            min_fcr: 105,
+            min_pr: 0,
+            limit,
+            ..test_constraints()
+        };
+        let res = optimize_builds_core(&items, &[], &c).unwrap();
+        assert_eq!(res.len(), 1, "limit={limit} must keep Ring B as partner for Ring A");
+        let ring_names: HashSet<&str> = res[0].items[8..10].iter().map(|i| i.name.as_str()).collect();
+        assert_eq!(ring_names, HashSet::from(["Ring A", "Ring B"]));
+    }
+
+    // Ring C is strictly dominated by both Ring A and Ring B, so pruning with limit=2 drops Ring C.
+    let pruned = prune_slot_items(
+        items
+            .into_iter()
+            .filter(|i| i.slot == "ring")
+            .collect(),
+        2,
+        true,
+        156,
+        0,
+    );
+    let pruned_names: HashSet<&str> = pruned.iter().map(|i| i.name.as_str()).collect();
+    assert!(pruned_names.contains("Ring A"));
+    assert!(pruned_names.contains("Ring B"));
+    assert!(pruned_names.contains("Ring FR"));
+    assert!(pruned_names.contains("Ring LR"));
+    assert!(!pruned_names.contains("Ring C"));
+}
