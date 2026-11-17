@@ -1,5 +1,6 @@
 """Python-to-Rust PyO3 build optimizer bridge for D2R Sorceress saves."""
 
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Never
@@ -511,10 +512,23 @@ def extract_pool(
             for it in char.item_list.items
         )
         char_name = char.get_char_name()
+        char_charms: list[tuple[tuple[int, int, int], CharmSpec]] = []
         for it in char.item_list.items:
             if has_swap_cta and it.location == ItemLocation.EQUIPPED and it.position in _SWAP_SLOTS:
                 continue
-            add_item(it, _format_item_location(char_name, it), ver)
+            loc = _format_item_location(char_name, it)
+            spec = _item_to_spec(it, loc, char_resolver, version=ver, char_level=char_level)
+            if isinstance(spec, ItemSpec):
+                items_out.append(spec)
+            elif isinstance(spec, CharmSpec):
+                sort_key = (
+                    (0, getattr(it, "column", 0), getattr(it, "row", 0))
+                    if getattr(it, "stored_in", None) == StoredIn.INVENTORY
+                    else (1, 0, 0)
+                )
+                char_charms.append((sort_key, spec))
+        char_charms.sort(key=lambda pair: pair[0])
+        charms_out.extend(spec for _, spec in char_charms)
 
     for stash in stashes:
         for idx, tab in enumerate(stash.tabs, start=1):
@@ -695,7 +709,40 @@ def select_sorc_presets(
     return [presets[k] for k in keys]
 
 
-def format_build_report(title: str, results: Sequence[BuildResult]) -> str:
+def _charm_key(c: CharmSpec) -> tuple[object, ...]:
+    """Return a hashable value-equality key for CharmSpec (PyO3 class lacks __eq__)."""
+    return (
+        c.name,
+        c.size,
+        c.loc,
+        c.fhr,
+        c.fr,
+        c.lr,
+        c.cr,
+        c.pr,
+        c.mf,
+        c.life,
+        c.mana,
+        c.frw,
+        c.light_skills,
+        c.str_bonus,
+        c.dex_bonus,
+        c.skills,
+        c.unique_id,
+        c.cold_sunder,
+    )
+
+
+def _is_inv_loc(loc: str) -> bool:
+    """Return True when loc refers to a character's inventory."""
+    return loc == "inv" or loc.endswith(" Inv")
+
+
+def format_build_report(
+    title: str,
+    results: Sequence[BuildResult],
+    charms: Sequence[CharmSpec] = (),
+) -> str:
     """Format BuildResult options into a human-readable report."""
     lines = [f"=== {title} ==="]
     if not results:
@@ -719,9 +766,39 @@ def format_build_report(title: str, results: Sequence[BuildResult]) -> str:
         for it in res.items:
             loc_str = f" ({it.loc})" if it.loc else ""
             lines.append(f"    - {it.slot:8s}: {it.name}{loc_str}")
-        if res.charms:
-            charm_list = ", ".join(f"{c.name} [{c.loc}]" for c in res.charms)
-            lines.append(f"    - Charms : {charm_list}")
+        inv_loc = next((c.loc for c in (*charms, *res.charms) if _is_inv_loc(c.loc)), None)
+        inv_charms = [c for c in charms if c.loc == inv_loc] if inv_loc is not None else []
+        if res.charms or inv_charms:
+            kept_counts = Counter(
+                _charm_key(c) for c in res.charms if inv_loc is not None and c.loc == inv_loc
+            )
+            remove: list[CharmSpec] = []
+            keep: list[CharmSpec] = []
+            for c in inv_charms:
+                key = _charm_key(c)
+                if kept_counts[key] > 0:
+                    kept_counts[key] -= 1
+                    keep.append(c)
+                else:
+                    remove.append(c)
+            for c in res.charms:
+                if inv_loc is not None and c.loc == inv_loc:
+                    key = _charm_key(c)
+                    if kept_counts[key] > 0:
+                        kept_counts[key] -= 1
+                        keep.append(c)
+            add = [c for c in res.charms if c.loc != inv_loc]
+            remove_str = ", ".join(c.name for c in remove) if remove else "none"
+            keep_str = ", ".join(c.name for c in keep) if keep else "none"
+            add_str = (
+                ", ".join(f"{c.name} [{c.loc}]" if c.loc else c.name for c in add)
+                if add
+                else "none"
+            )
+            lines.append("    - Charms  :")
+            lines.append(f"      - remove: {remove_str}")
+            lines.append(f"      - keep  : {keep_str}")
+            lines.append(f"      - add   : {add_str}")
     return "\n".join(lines)
 
 

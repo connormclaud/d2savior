@@ -218,9 +218,12 @@ def test_optimize_builds_from_fixtures() -> None:
     assert len(results) >= 1
     assert results[0].fcr >= 63
     assert results[0].fhr >= 42
-    report = format_build_report("Fixture Test", results)
+    report = format_build_report("Fixture Test", results, charms)
     assert "pruned sets):" in report
     assert "Rust/PyO3" not in report
+    assert "      - remove:" in report
+    assert "      - keep  :" in report
+    assert "      - add   :" in report
 
 
 @requires_native
@@ -857,3 +860,48 @@ def test_cold_sunder_charm_extraction_and_optimizer_fallback(
     assert len(res_max) == 1
     assert not any(c.cold_sunder for c in res_max[0].charms)
     assert res_max[0].cr == 75
+
+
+@requires_native
+def test_format_build_report_charm_diff_and_inventory_order() -> None:
+    inv_vita_1 = CharmSpec("Small Charm of Vita", 1, "sork Inv", life=20)
+    inv_vita_2 = CharmSpec("Small Charm of Vita", 1, "sork Inv", life=20)
+    inv_drop = CharmSpec("Azure Grand Charm", 3, "sork Inv", cr=8)
+    inv_keep_tail = CharmSpec("Crimson Grand Charm", 3, "sork Inv", fr=12)
+    stash_charm = CharmSpec("Small Charm of Good Luck", 1, "Stash Tab 5", mf=7)
+
+    pool_charms = [inv_vita_1, inv_drop, inv_vita_2, inv_keep_tail, stash_charm]
+    # Selected order differs from inventory order and includes only 1 of 2 identical inv_vita copies
+    selected = [inv_keep_tail, stash_charm, inv_vita_2]
+    res = evaluate_build([], selected)
+
+    report = format_build_report("Charm Diff", [res], pool_charms)
+    assert "    - Charms  :" in report
+    assert "      - remove: Azure Grand Charm, Small Charm of Vita" in report
+    assert "      - keep  : Small Charm of Vita, Crimson Grand Charm" in report
+    assert "      - add   : Small Charm of Good Luck [Stash Tab 5]" in report
+
+    # Fallback when charms pool is omitted: inventory charms stay in keep, others in add, remove is none
+    report_no_pool = format_build_report("No Pool", [res])
+    assert "      - remove: none" in report_no_pool
+    assert "      - keep  : Crimson Grand Charm, Small Charm of Vita" in report_no_pool
+    assert "      - add   : Small Charm of Good Luck [Stash Tab 5]" in report_no_pool
+
+    # extract_pool orders character inventory charms by (column, row)
+    resolver = GameDataResolver.load()
+    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
+    assert ok_s
+    assert sork is not None
+    _, extracted_charms = extract_pool(sork, resolver=resolver)
+    inv_names = [c.name for c in extracted_charms if c.loc == "sork Inv"]
+    assert inv_names == [
+        "Russet Grand Charm",
+        "Jade Small Charm",
+        "Tangerine Grand Charm",
+        "Ocher Small Charm of Sustenance",
+        "Azure Grand Charm",
+        "Ocher Small Charm",
+        "Serpent's Large Charm of Inertia",
+        "Ocher Large Charm of Life",
+        "Crimson Grand Charm",
+    ]

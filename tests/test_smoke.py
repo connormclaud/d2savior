@@ -168,7 +168,7 @@ class TestSmokeAPI:
             sork, extra_chars=[mule], stashes=[stash], resolver=game_data_resolver
         )
         sections = [
-            format_build_report(title, optimize_builds(items, charms, constraints))
+            format_build_report(title, optimize_builds(items, charms, constraints), charms)
             for title, constraints in select_sorc_presets(
                 sork,
                 extra_chars=[mule],

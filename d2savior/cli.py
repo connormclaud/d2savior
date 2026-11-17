@@ -576,7 +576,7 @@ def cmd_optimize(argv: list[str]) -> int:
             resolver=resolver,
         ):
             results = optimize_builds(items, charms, constraints)
-            print(format_build_report(title, results))
+            print(format_build_report(title, results, charms))
             print()
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)

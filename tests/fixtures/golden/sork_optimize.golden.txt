@@ -20,7 +20,10 @@ Option #1 (evaluated 38 pruned sets):
     - boots   : Sapphire Chain Boots of Thawing (sork Stash)
     - ring    : Manald Heal (Ring) (sork Equipped)
     - ring    : Entropy Finger (Rare Ring) (sork Equipped)
-    - Charms : Bronze Small Charm of Balance [Stash Tab 5], Ocher Small Charm of Sustenance [sork Inv], Russet Grand Charm [sork Inv], Ocher Small Charm [sork Inv], Tangerine Grand Charm [sork Inv], Ocher Large Charm of Life [sork Inv], Crimson Grand Charm [sork Inv], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5], Jade Small Charm [sork Inv], Serpent's Large Charm of Inertia [sork Inv]
+    - Charms  :
+      - remove: Azure Grand Charm
+      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
+      - add   : Bronze Small Charm of Balance [Stash Tab 5], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
 Option #2 (evaluated 38 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 98%
@@ -36,7 +39,10 @@ Option #2 (evaluated 38 pruned sets):
     - boots   : Sapphire Chain Boots of Thawing (sork Stash)
     - ring    : Manald Heal (Ring) (sork Equipped)
     - ring    : Entropy Finger (Rare Ring) (sork Equipped)
-    - Charms : Bronze Small Charm of Balance [Stash Tab 5], Ocher Small Charm of Sustenance [sork Inv], Russet Grand Charm [sork Inv], Ocher Small Charm [sork Inv], Tangerine Grand Charm [sork Inv], Ocher Large Charm of Life [sork Inv], Crimson Grand Charm [sork Inv], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5], Jade Small Charm [sork Inv], Serpent's Large Charm of Inertia [sork Inv]
+    - Charms  :
+      - remove: Azure Grand Charm
+      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
+      - add   : Bronze Small Charm of Balance [Stash Tab 5], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
 Option #3 (evaluated 38 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 98%
@@ -52,7 +58,10 @@ Option #3 (evaluated 38 pruned sets):
     - boots   : Sapphire Chain Boots of Thawing (sork Stash)
     - ring    : Glowing Ring of the Apprentice (sork Stash)
     - ring    : Entropy Finger (Rare Ring) (sork Equipped)
-    - Charms : Bronze Small Charm of Balance [Stash Tab 5], Ocher Small Charm of Sustenance [sork Inv], Russet Grand Charm [sork Inv], Ocher Small Charm [sork Inv], Tangerine Grand Charm [sork Inv], Ocher Large Charm of Life [sork Inv], Crimson Grand Charm [sork Inv], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5], Jade Small Charm [sork Inv], Serpent's Large Charm of Inertia [sork Inv]
+    - Charms  :
+      - remove: Azure Grand Charm
+      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
+      - add   : Bronze Small Charm of Balance [Stash Tab 5], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
 
 === 3. Max Power & Terror Zones (105% FCR, 86% FHR, 75% All Res) ===
   No loadout found matching all constraints.
@@ -73,7 +82,10 @@ Option #1 (evaluated 1458 pruned sets):
     - boots   : Sapphire Chain Boots of Thawing (sork Stash)
     - ring    : Manald Heal (Ring) (sork Equipped)
     - ring    : Angelic Halo (Ring) (Stash Tab 1)
-    - Charms : Ocher Small Charm of Sustenance [sork Inv], Russet Grand Charm [sork Inv], Ocher Small Charm [sork Inv], Jade Small Charm [sork Inv], Tangerine Grand Charm [sork Inv], Ocher Large Charm of Life [sork Inv], Crimson Grand Charm [sork Inv], Iron Large Charm of Sustenance [Stash Tab 5], Serpent's Large Charm of Inertia [sork Inv]
+    - Charms  :
+      - remove: Azure Grand Charm
+      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
+      - add   : Iron Large Charm of Sustenance [Stash Tab 5]
 Option #2 (evaluated 1458 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%) | FHR: 72% (BP 60%) | FRW: 30% | MF: 50%
@@ -89,11 +101,14 @@ Option #2 (evaluated 1458 pruned sets):
     - boots   : Sapphire Chain Boots of Thawing (sork Stash)
     - ring    : Manald Heal (Ring) (sork Equipped)
     - ring    : Angelic Halo (Ring) (Stash Tab 1)
-    - Charms : Ocher Small Charm of Sustenance [sork Inv], Russet Grand Charm [sork Inv], Ocher Small Charm [sork Inv], Jade Small Charm [sork Inv], Tangerine Grand Charm [sork Inv], Ocher Large Charm of Life [sork Inv], Crimson Grand Charm [sork Inv], Iron Large Charm of Sustenance [Stash Tab 5], Serpent's Large Charm of Inertia [sork Inv]
+    - Charms  :
+      - remove: Azure Grand Charm
+      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
+      - add   : Iron Large Charm of Sustenance [Stash Tab 5]
 Option #3 (evaluated 1458 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 72% (BP 60%) | FRW: 30% | MF: 50%
-  Hell Res: F:75%(79) L:75%(75) C:75%(83) P:75%(75)
+  FCR: 65% (BP 63%) | FHR: 72% (BP 60%) | FRW: 50% | MF: 50%
+  Hell Res: F:75%(84) L:75%(75) C:75%(80) P:75%(75)
   Life: 1008 (BO lvl 4: 1420) | Mana (BO): 340 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Ancients' Pledge (Large Shield) (sork Stash)
@@ -101,9 +116,12 @@ Option #3 (evaluated 1458 pruned sets):
     - armor   : Stealth (Studded Leather) (sork Equipped)
     - amulet  : Storm Beads (Rare Amulet) (Stash Tab 1)
     - belt    : Bitter Buckle (Rare Belt) (sork Stash)
-    - gloves  : Raven Knuckle (Rare Light Gauntlets) (sork Stash)
-    - boots   : Sapphire Chain Boots of Thawing (sork Stash)
+    - gloves  : Iratha's Cuff (Light Gauntlets) (Stash Tab 2)
+    - boots   : Rune Nails (Rare Chain Boots) (sork Equipped)
     - ring    : Manald Heal (Ring) (sork Equipped)
     - ring    : Angelic Halo (Ring) (Stash Tab 1)
-    - Charms : Ocher Small Charm of Sustenance [sork Inv], Russet Grand Charm [sork Inv], Ocher Small Charm [sork Inv], Jade Small Charm [sork Inv], Tangerine Grand Charm [sork Inv], Ocher Large Charm of Life [sork Inv], Crimson Grand Charm [sork Inv], Iron Large Charm of Sustenance [Stash Tab 5], Serpent's Large Charm of Inertia [sork Inv]
+    - Charms  :
+      - remove: Crimson Grand Charm
+      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Azure Grand Charm, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life
+      - add   : Iron Large Charm of Sustenance [Stash Tab 5]
 
