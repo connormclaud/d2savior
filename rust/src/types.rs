@@ -560,8 +560,6 @@ pub struct BuildConstraints {
     pub blizz_base_lvl: i32,
     pub blizz_syn_pts: i32,
     pub cm_base_lvl: i32,
-    pub skill_slack: i32,
-    pub mf_slack: i32,
     pub limit: usize,
 }
 
@@ -586,8 +584,6 @@ impl Default for BuildConstraints {
             blizz_base_lvl: 20,
             blizz_syn_pts: 54,
             cm_base_lvl: 20,
-            skill_slack: 1,
-            mf_slack: 15,
             limit: 5,
         }
     }
@@ -613,8 +609,6 @@ impl BuildConstraints {
         base_str = 0,
         base_dex = 0,
         bo_base_bonus = 4,
-        skill_slack = 1,
-        mf_slack = 15,
         limit = 5,
         blizz_base_lvl = 20,
         blizz_syn_pts = 54,
@@ -637,8 +631,6 @@ impl BuildConstraints {
         base_str: i32,
         base_dex: i32,
         bo_base_bonus: i32,
-        skill_slack: i32,
-        mf_slack: i32,
         limit: usize,
         blizz_base_lvl: i32,
         blizz_syn_pts: i32,
@@ -663,8 +655,6 @@ impl BuildConstraints {
             blizz_base_lvl,
             blizz_syn_pts,
             cm_base_lvl,
-            skill_slack,
-            mf_slack,
             limit,
         }
     }

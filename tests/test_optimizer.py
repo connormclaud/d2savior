@@ -644,7 +644,7 @@ def test_single_skill_blizzard_orb_extraction_and_ranking(monkeypatch: pytest.Mo
     res = optimize_builds(
         items,
         [],
-        BuildConstraints(min_pr=75, base_hell_res=-70, skill_slack=2, limit=2),
+        BuildConstraints(min_pr=75, base_hell_res=-70, limit=2),
     )
     assert len(res) == 2
     assert res[0].items[0].name == "Sorc +2/+3 Blizz Orb"

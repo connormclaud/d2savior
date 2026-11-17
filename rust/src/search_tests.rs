@@ -80,10 +80,7 @@ fn test_str_dex_requirements() {
     ];
 
     // With base_dex = 25 and only +20 Dex from belt (45 >= 42), High Dex Blade IS equippable.
-    let c_ok = BuildConstraints {
-        skill_slack: 3,
-        ..test_constraints()
-    };
+    let c_ok = test_constraints();
     let res_ok = optimize_builds_core(&items, &[], &c_ok).unwrap();
     assert_eq!(res_ok[0].items[0].name, "High Dex Blade");
 
@@ -143,7 +140,6 @@ fn test_mf_charms_do_not_starve_resistances() {
     let c_mf = BuildConstraints {
         min_cr: 50,
         mode: "mf".to_string(),
-        skill_slack: 3,
         ..test_constraints()
     };
     let res = optimize_builds_core(&items, &charms, &c_mf).unwrap();
@@ -599,7 +595,6 @@ fn test_blizz_and_cm_single_skills_rank_and_damage() {
 
     let c = BuildConstraints {
         min_pr: 75,
-        skill_slack: 2,
         limit: 2,
         ..test_constraints()
     };
@@ -664,10 +659,11 @@ fn test_belt_potion_capacity_and_defense_break_ties_and_prevent_domination() {
     };
     let res = optimize_builds_core(&items, &[], &c).unwrap();
     assert_eq!(res.len(), 2);
-    // At base_str=156, Battle Belt (req_str=88 -> 0) dominates both Heavy Belts; Layer 1 = [Battle Belt, Tal Belt].
+    // At base_str=156 with limit=2, Battle Belt and Heavy Belt both have MF=30 and fill the top 2,
+    // allowing Tal Belt (MF=15 < 30) to be pruned by nth_main_score while Heavy Belt Low (2 dominators) was pruned upfront.
     assert_eq!(res[0].evaluated_candidates, 2);
     assert_eq!(res[0].items[5].name, "Goldwrap (Battle Belt)");
-    assert_eq!(res[1].items[5].name, "Tal Belt");
+    assert_eq!(res[1].items[5].name, "Goldwrap (Heavy Belt)");
 
     // When base_str=45, Battle Belt (req_str=88) no longer dominates Heavy Belt (req_str=45 -> 0),
     // and only Heavy Belt is equippable without extra Str.
@@ -691,6 +687,8 @@ fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated()
     ring_b.life = 0;
     let mut ring_c = mk_item("Ring C", "ring", 8, 0, 0, 0, 0);
     ring_c.life = 0;
+    let mut ring_d = mk_item("Ring D", "ring", 7, 0, 0, 0, 0);
+    ring_d.life = 0;
     let mut ring_fr = mk_item("Ring FR", "ring", 0, 0, 0, 0, 0);
     ring_fr.fr = 30;
     ring_fr.life = 0;
@@ -713,9 +711,10 @@ fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated()
         ring_lr,
         ring_b,
         ring_c,
+        ring_d,
     ];
 
-    for limit in [2, 3] {
+    for limit in [1, 2, 3] {
         let c = BuildConstraints {
             min_fcr: 105,
             min_pr: 0,
@@ -728,23 +727,19 @@ fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated()
         assert_eq!(ring_names, HashSet::from(["Ring A", "Ring B"]));
     }
 
-    // Ring C is strictly dominated by both Ring A and Ring B, so pruning with limit=2 drops Ring C.
-    let pruned = prune_slot_items(
-        items
-            .into_iter()
-            .filter(|i| i.slot == "ring")
-            .collect(),
-        2,
-        true,
-        156,
-        0,
-    );
-    let pruned_names: HashSet<&str> = pruned.iter().map(|i| i.name.as_str()).collect();
-    assert!(pruned_names.contains("Ring A"));
-    assert!(pruned_names.contains("Ring B"));
-    assert!(pruned_names.contains("Ring FR"));
-    assert!(pruned_names.contains("Ring LR"));
-    assert!(!pruned_names.contains("Ring C"));
+    // With limit=1 (threshold 2), Ring C and Ring D (>=2 dominators) are dropped while Ring B (1 dominator) stays.
+    let rings_only: Vec<ItemSpec> = items.into_iter().filter(|i| i.slot == "ring").collect();
+    let pruned1 = prune_slot_items(rings_only.clone(), 1, true, 156, 0);
+    let names1: HashSet<&str> = pruned1.iter().map(|i| i.name.as_str()).collect();
+    assert!(names1.contains("Ring A") && names1.contains("Ring B"));
+    assert!(names1.contains("Ring FR") && names1.contains("Ring LR"));
+    assert!(!names1.contains("Ring C") && !names1.contains("Ring D"));
+
+    // With limit=2 (threshold 3), Ring C (2 dominators: A, B) stays for #2 pair (A+C), while Ring D (3 dominators) drops.
+    let pruned2 = prune_slot_items(rings_only, 2, true, 156, 0);
+    let names2: HashSet<&str> = pruned2.iter().map(|i| i.name.as_str()).collect();
+    assert!(names2.contains("Ring C"));
+    assert!(!names2.contains("Ring D"));
 }
 
 struct SplitMix64(u64);
@@ -1275,4 +1270,52 @@ fn test_two_handed_weapon_competes_and_excludes_bo_all_skills() {
     assert_eq!(res[0].bo_lvl, 9);
     assert_eq!(res[1].items[0].name, "Weak Orb");
     assert_eq!(res[1].items[1].name, "Weak Shield");
+}
+
+#[test]
+fn test_top_n_finds_builds_beyond_old_slack_and_prunes_by_nth_score() {
+    let base = vec![
+        mk_item("Spirit Shield", "shield", 35, 55, 2, 35, 0),
+        mk_item("Tiara", "helm", 20, 0, 2, 20, 0),
+        mk_item("Smoke", "armor", 0, 20, 0, 50, 0),
+        mk_item("Belt", "belt", 0, 0, 0, 30, 0),
+        mk_item("Trangs", "gloves", 20, 0, 0, 30, 0),
+        mk_item("Boots", "boots", 0, 0, 0, 40, 0),
+        mk_item("Ring A", "ring", 10, 0, 0, 20, 0),
+        mk_item("Ring B", "ring", 10, 0, 0, 20, 0),
+    ];
+
+    // Power mode with limit=3 returns all 3 distinct skill tiers (10, 7, 5), even though gap > 1.
+    let mut pow_items = base.clone();
+    pow_items.push(mk_item("Wep +5", "weapon", 35, 55, 5, 0, 0));
+    pow_items.push(mk_item("Wep +2", "weapon", 35, 55, 2, 0, 0));
+    pow_items.push(mk_item("Wep +0", "weapon", 35, 55, 0, 0, 0));
+    pow_items.push(mk_item("Amu", "amulet", 10, 0, 1, 30, 0));
+
+    let c_pow = BuildConstraints {
+        mode: "power".to_string(),
+        min_pr: 75,
+        limit: 3,
+        ..test_constraints()
+    };
+    let res_pow = optimize_builds_core(&pow_items, &[], &c_pow).unwrap();
+    let pow_skills: Vec<i32> = res_pow.iter().map(|r| r.skills).collect();
+    assert_eq!(pow_skills, vec![10, 7, 5]);
+
+    // MF mode with limit=3 returns all 3 MF tiers (50, 10, 0), even though gap > 15.
+    let mut mf_items = base;
+    mf_items.push(mk_item("Wep", "weapon", 35, 55, 2, 0, 0));
+    mf_items.push(mk_item("Amu 50MF", "amulet", 10, 0, 1, 30, 50));
+    mf_items.push(mk_item("Amu 10MF", "amulet", 10, 0, 1, 30, 10));
+    mf_items.push(mk_item("Amu 0MF", "amulet", 10, 0, 1, 30, 0));
+
+    let c_mf = BuildConstraints {
+        mode: "mf".to_string(),
+        min_pr: 75,
+        limit: 3,
+        ..test_constraints()
+    };
+    let res_mf = optimize_builds_core(&mf_items, &[], &c_mf).unwrap();
+    let mf_vals: Vec<i32> = res_mf.iter().map(|r| r.mf).collect();
+    assert_eq!(mf_vals, vec![50, 10, 0]);
 }

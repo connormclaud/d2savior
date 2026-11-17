@@ -79,6 +79,14 @@ impl TopResults {
             || self.entries.last().is_some_and(|worst| score > worst.0)
     }
 
+    fn nth_main_score(&self) -> Option<i32> {
+        if self.limit > 0 && self.entries.len() >= self.limit {
+            self.entries.last().map(|e| e.0 .0)
+        } else {
+            None
+        }
+    }
+
     fn push(&mut self, score: BuildScore, res: BuildResult) {
         if !self.would_accept(score) {
             return;
@@ -207,7 +215,7 @@ fn prune_candidates<T>(
     if limit == 0 {
         return items;
     }
-    let min_keep = if is_ring { limit.max(2) } else { limit };
+    let dom_threshold = if is_ring { limit + 1 } else { limit };
     let same_name_cap = if is_ring { 2 } else { 1 };
 
     let mut stat_counts: HashMap<(Stats, i32, i32), usize> = HashMap::new();
@@ -223,7 +231,7 @@ fn prune_candidates<T>(
             continue;
         }
         let s_entry = stat_counts.entry((s, rs, rd)).or_insert(0);
-        if *s_entry >= min_keep {
+        if *s_entry >= dom_threshold {
             continue;
         }
         *ns_entry += 1;
@@ -231,11 +239,11 @@ fn prune_candidates<T>(
         deduped.push(it);
     }
 
-    // Always keep the full first Pareto frontier so no trade-off item is lost,
-    // peeling extra dominated layers only until at least `min_keep` items remain.
-    // Rings occupy two slots, so a ring is only safely dominated once at least
-    // 2 other active rings strictly dominate it (otherwise it can still be the
-    // best partner for the single ring that dominates it).
+    // Keep every candidate strictly dominated by fewer than `dom_threshold` others
+    // (`limit` for single slots, `limit + 1` for rings because one dominator may
+    // be the candidate's partner). Since `dominates` is a strict partial order, any
+    // dropped item is dominated by at least `dom_threshold` kept items and can
+    // never enter the top `limit`.
     let metas: Vec<(Stats, (i32, i32))> = deduped
         .iter()
         .map(|it| {
@@ -249,36 +257,17 @@ fn prune_candidates<T>(
         sa.dominates(sb) && ra.0 <= rb.0 && ra.1 <= rb.1 && (sa != sb || ra != rb)
     };
 
-    let dom_threshold = if is_ring { 2 } else { 1 };
-    let mut active = vec![true; deduped.len()];
-    let mut active_count = deduped.len();
-    let mut kept_indices = Vec::with_capacity(deduped.len());
-    while active_count > 0 && kept_indices.len() < min_keep {
-        let layer: Vec<usize> = (0..deduped.len())
-            .filter(|&i| {
-                active[i]
-                    && (0..deduped.len())
-                        .filter(|&j| active[j] && j != i && dominates(j, i))
-                        .take(dom_threshold)
-                        .count()
-                        < dom_threshold
-            })
-            .collect();
-        if layer.is_empty() {
-            kept_indices.extend((0..deduped.len()).filter(|&i| active[i]));
-            break;
-        }
-        for idx in layer {
-            active[idx] = false;
-            active_count -= 1;
-            kept_indices.push(idx);
-        }
-    }
-
-    let mut slots: Vec<Option<T>> = deduped.into_iter().map(Some).collect();
-    kept_indices
+    deduped
         .into_iter()
-        .filter_map(|idx| slots[idx].take())
+        .enumerate()
+        .filter(|&(i, _)| {
+            (0..metas.len())
+                .filter(|&j| j != i && dominates(j, i))
+                .take(dom_threshold)
+                .count()
+                < dom_threshold
+        })
+        .map(|(_, it)| it)
         .collect()
 }
 
@@ -463,6 +452,23 @@ pub fn optimize_builds_core(
         ..Default::default()
     };
 
+    fn main_score_ub(
+        mode: SearchMode,
+        ub_ch: Stats,
+        caps: (i32, i32, i32, i32),
+    ) -> i32 {
+        match mode {
+            SearchMode::Power => ub_ch.blizz_power_skills(),
+            SearchMode::Mf => ub_ch.mf,
+            SearchMode::MaxRes => {
+                ub_ch.fr.min(caps.0)
+                    + ub_ch.lr.min(caps.1)
+                    + ub_ch.cr.min(caps.2)
+                    + ub_ch.pr.min(caps.3)
+            }
+        }
+    }
+
     struct State<'a> {
         hands: &'a [ItemPair],
         groups: &'a [Vec<ItemSpec>],
@@ -472,9 +478,6 @@ pub fn optimize_builds_core(
         pool: &'a [&'a CharmSpec],
         c: &'a BuildConstraints,
         mode: SearchMode,
-        best_sk: i32,
-        best_mf: i32,
-        best_res_sum: i32,
         chosen_hand: usize,
         chosen_slots: Vec<usize>,
         evals: usize,
@@ -495,37 +498,21 @@ pub fn optimize_builds_core(
         {
             return;
         }
-        let (cap_ub_fr, cap_ub_lr, cap_ub_cr, cap_ub_pr) = res_caps(ub);
-        if cap_ub_fr < st.c.min_fr
-            || cap_ub_lr < st.c.min_lr
-            || cap_ub_cr < st.c.min_cr
-            || cap_ub_pr < st.c.min_pr
+        let caps_ub = res_caps(ub);
+        if caps_ub.0 < st.c.min_fr
+            || caps_ub.1 < st.c.min_lr
+            || caps_ub.2 < st.c.min_cr
+            || caps_ub.3 < st.c.min_pr
         {
             return;
         }
         if ub_ch.str_bonus < reqs.0 || ub_ch.dex_bonus < reqs.1 {
             return;
         }
-        if st.mode == SearchMode::Power
-            && st.best_sk >= 0
-            && ub_ch.blizz_power_skills() < st.best_sk - st.c.skill_slack
+        if let Some(cutoff) = st.top_results.nth_main_score()
+            && main_score_ub(st.mode, ub_ch, caps_ub) < cutoff
         {
             return;
-        }
-        if st.mode == SearchMode::Mf
-            && st.best_mf >= 0
-            && ub_ch.mf < st.best_mf - st.c.mf_slack
-        {
-            return;
-        }
-        if st.mode == SearchMode::MaxRes && st.best_res_sum >= 0 {
-            let ub_res_sum = ub_ch.fr.min(cap_ub_fr)
-                + ub_ch.lr.min(cap_ub_lr)
-                + ub_ch.cr.min(cap_ub_cr)
-                + ub_ch.pr.min(cap_ub_pr);
-            if ub_res_sum < st.best_res_sum - 15 {
-                return;
-            }
         }
 
         if idx == st.groups.len() + 1 {
@@ -543,8 +530,21 @@ pub fn optimize_builds_core(
                 {
                     continue;
                 }
+                let caps_leaf = res_caps(leaf);
+                if caps_leaf.0 < st.c.min_fr
+                    || caps_leaf.1 < st.c.min_lr
+                    || caps_leaf.2 < st.c.min_cr
+                    || caps_leaf.3 < st.c.min_pr
+                {
+                    continue;
+                }
                 let (final_req_str, final_req_dex) = merge_reqs(reqs, rp.reqs);
                 if leaf_ch.str_bonus < final_req_str || leaf_ch.dex_bonus < final_req_dex {
+                    continue;
+                }
+                if let Some(cutoff) = st.top_results.nth_main_score()
+                    && main_score_ub(st.mode, leaf_ch, caps_leaf) < cutoff
+                {
                     continue;
                 }
                 st.evals += 1;
@@ -596,15 +596,6 @@ pub fn optimize_builds_core(
                 }
                 let res_sum = sum.fr + sum.lr + sum.cr + sum.pr;
                 let eff_blizz_sk = sum.skills + sum.blizz_skills;
-                if eff_blizz_sk > st.best_sk {
-                    st.best_sk = eff_blizz_sk;
-                }
-                if sum.mf > st.best_mf {
-                    st.best_mf = sum.mf;
-                }
-                if res_sum > st.best_res_sum {
-                    st.best_res_sum = res_sum;
-                }
                 let score = match st.mode {
                     SearchMode::Mf => (
                         sum.mf,
@@ -682,9 +673,6 @@ pub fn optimize_builds_core(
         pool: &pool,
         c,
         mode,
-        best_sk: -1,
-        best_mf: -1,
-        best_res_sum: -1,
         chosen_hand: 0,
         chosen_slots: Vec::with_capacity(groups.len()),
         evals: 0,

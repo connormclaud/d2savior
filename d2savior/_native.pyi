@@ -135,8 +135,6 @@ class BuildConstraints:
     blizz_base_lvl: int
     blizz_syn_pts: int
     cm_base_lvl: int
-    skill_slack: int
-    mf_slack: int
     limit: int
 
     def __init__(
@@ -156,8 +154,6 @@ class BuildConstraints:
         base_str: int = 0,
         base_dex: int = 0,
         bo_base_bonus: int = 4,
-        skill_slack: int = 1,
-        mf_slack: int = 15,
         limit: int = 5,
         blizz_base_lvl: int = 20,
         blizz_syn_pts: int = 54,
