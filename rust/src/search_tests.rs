@@ -1893,6 +1893,26 @@ fn test_set_bonus_2pc_unlocks_ias_and_ignores_duplicate_rings() {
     assert_eq!(res_amu[0].items[4].name, "Angelic Wings");
     assert_eq!(res_amu[0].life_no_bo, 20 + 20 + 20 + 75);
     assert_eq!(res_amu[0].mana_bo, 50);
+
+    // 4. Synthetic set items with default `set_item_id == 0` receive distinct negative IDs in
+    //    `normalize_set_items` so `single_set_sig` / `pair_set_sig` do not prune one against another.
+    let mut anon_a = mk_item("Anon Set Weapon A", "weapon", 0, 0, 0, 0, 0);
+    anon_a.life = 10;
+    anon_a.set_group = 99;
+    let mut anon_b = mk_item("Anon Set Weapon B", "weapon", 0, 0, 0, 0, 0);
+    anon_b.life = 5;
+    anon_b.set_group = 99;
+    let mut anon_shield = mk_item("Anon Set Shield", "shield", 0, 0, 0, 0, 0);
+    anon_shield.set_group = 99;
+    let mut anon_bonus = ItemSpec::empty("2pc");
+    anon_bonus.ias = 20;
+    anon_a.set_bonuses = vec![(2, anon_bonus.clone())];
+    anon_b.set_bonuses = vec![(2, anon_bonus)];
+    let norm = normalize_set_items(&[anon_a, anon_b, anon_shield], true, false, false);
+    assert_eq!(norm.len(), 3);
+    assert_eq!(norm[0].set_item_id, -1);
+    assert_eq!(norm[1].set_item_id, -2);
+    assert_eq!(norm[2].set_item_id, -3);
 }
 
 #[test]

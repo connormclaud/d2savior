@@ -493,7 +493,7 @@ def _resolve_item_set_info(
         char_class=char_class,
         pal_spec=pal_spec,
     )
-    return group_id, ext.set_id, bonuses
+    return group_id, ext.set_id + 1, bonuses
 
 
 def _item_to_spec(

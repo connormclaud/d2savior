@@ -613,7 +613,7 @@ pub(crate) fn normalize_set_items(
     }
 
     let mut out = Vec::with_capacity(items.len());
-    for it in items {
+    for (idx, it) in items.iter().enumerate() {
         let mut cloned = it.clone();
         let was_set = cloned.set_group != 0;
         if was_set {
@@ -622,6 +622,9 @@ pub(crate) fn normalize_set_items(
                 cloned.set_item_id = 0;
                 cloned.set_bonuses.clear();
             } else {
+                if cloned.set_item_id == 0 {
+                    cloned.set_item_id = -(idx as i32 + 1);
+                }
                 let max_pcs = group_seen
                     .get(&cloned.set_group)
                     .map_or(0, |s| s.len() as i32);

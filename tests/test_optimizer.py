@@ -1254,6 +1254,35 @@ def test_extract_pool_and_optimize_paladin_set_bonuses(monkeypatch: pytest.Monke
     assert len(sig_specs) == 2
     assert sig_specs[0].set_group == sig_specs[1].set_group
     assert sig_specs[0].set_group != 0
+    assert sig_specs[0].set_item_id == 35 + 1
+
+    # Duplicate copies of set_id == 0 (Civerb's Ward) must share a non-zero 1-indexed set_item_id (1)
+    # rather than colliding with Rust's 0 sentinel and being treated as 2 distinct set pieces.
+    civ_a = D2Item()
+    civ_a.location = ItemLocation.STORED.value
+    civ_a.type_name = b"lrg "
+    civ_a.item_info = ItemInfo()
+    civ_a.item_info.ext_info = ExtItemInfo()
+    civ_a.item_info.ext_info.set_id = 0
+    tp_civ = TypeSpecificInfo()
+    tp_civ.set_properties = [sp_w, None, None, None, None]
+    civ_a.item_info.type_specific_info = tp_civ
+    civ_b = D2Item()
+    civ_b.location = ItemLocation.STORED.value
+    civ_b.type_name = b"lrg "
+    civ_b.item_info = ItemInfo()
+    civ_b.item_info.ext_info = ExtItemInfo()
+    civ_b.item_info.ext_info.set_id = 0
+    civ_b.item_info.type_specific_info = tp_civ
+    mule.item_list.items = [civ_a, civ_b]
+    civ_items, _ = extract_pool(mule, resolver=resolver)
+    assert len(civ_items) == 2
+    assert all(it.set_item_id == 1 for it in civ_items)
+    _tc, opts_civ, _sc, _dc = optimize_paladin_leveling(
+        mule, civ_items, [], resolver=resolver, bo_base_bonus=0
+    )
+    assert opts_civ[0][1].life_no_bo == mule.player_stats.max_life
+    mule.item_list.items = [sig_gage, sig_wrap, ang_halo, ang_wings, alt_gloves]
     alt_specs = [it for it in items_full if it.name == "Magefist-like"]
     assert len(alt_specs) == 1
     assert alt_specs[0].pal_skills == 1
