@@ -1894,3 +1894,48 @@ fn test_set_bonus_2pc_unlocks_ias_and_ignores_duplicate_rings() {
     assert_eq!(res_amu[0].life_no_bo, 20 + 20 + 20 + 75);
     assert_eq!(res_amu[0].mana_bo, 50);
 }
+
+#[test]
+fn test_power_mode_pruning_respects_primary_skill_bonus() {
+    // Regression test: Power mode must include `primary_skill` in `can_prune_by_score`
+    // and `item_sort_key` so branches achieving higher `eff_primary` via `primary_skill`
+    // are not unsoundly pruned once an incumbent has `primary_skill > 0`.
+    let mut helm_incumbent = mk_item("Incumbent Helm", "helm", 0, 0, 2, 0, 0);
+    helm_incumbent.primary_skill = 2; // eff_primary = 4, req_str = 0
+    let mut helm_high = mk_item("High Primary Helm", "helm", 0, 0, 0, 0, 0);
+    helm_high.primary_skill = 6; // eff_primary = 6, req_str = 50
+    helm_high.req_str = 50;
+
+    // Two weapons tried at depth 0:
+    // `w_fast` (+1 all_skills, 0 str) is sorted first; with `helm_incumbent` it yields eff_primary = 5.
+    // `w_str` (+0 skills, +50 str) is tried second; at depth 0 its `all_skills` is 0, so without
+    // `primary_skill` in `suf[1]` (`ub_ch`), its upper bound would be `0 + 2 = 2 < cutoff (5)` and
+    // prune before reaching `helm_high` (total eff_primary = 6)!
+    let w_fast = mk_item("Fast Weapon", "weapon", 0, 0, 1, 0, 0);
+    let mut w_str = mk_item("Strength Weapon", "weapon", 0, 0, 0, 0, 0);
+    w_str.str_bonus = 50;
+
+    let c = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        use_bo: false,
+        base_hell_res: 0,
+        mode: "power".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        limit: 1,
+        ..Default::default()
+    };
+    let res = optimize_builds_core(
+        &[w_fast, w_str, helm_incumbent, helm_high],
+        &[],
+        &c,
+    )
+    .unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].items[2].name, "High Primary Helm");
+    assert_eq!(res[0].skills + res[0].primary_skill_bonus, 6);
+}

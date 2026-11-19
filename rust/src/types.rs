@@ -175,10 +175,6 @@ impl Stats {
         self.all_skills + self.sorc_skills + self.pal_skills
     }
 
-    pub(crate) fn blizz_power_skills(self) -> i32 {
-        self.total_skills() + self.blizz_skills
-    }
-
     pub(crate) fn primary_power_skills(self) -> i32 {
         self.total_skills() + self.blizz_skills + self.primary_skill
     }

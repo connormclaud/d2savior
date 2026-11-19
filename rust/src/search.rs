@@ -338,14 +338,14 @@ fn item_sort_key(
     match mode {
         SearchMode::Mf => (
             s.mf,
-            s.blizz_power_skills(),
+            s.primary_power_skills(),
             s.fcr,
             s.fr + s.lr,
             s.belt_slots,
             s.defense,
         ),
         SearchMode::Power => (
-            s.blizz_power_skills(),
+            s.primary_power_skills(),
             s.total_skills(),
             s.fcr,
             s.fhr,
@@ -763,7 +763,7 @@ pub fn optimize_builds_core(
             match mode {
                 SearchMode::Power => top
                     .nth_primary()
-                    .is_some_and(|cutoff| ub_ch.blizz_power_skills() < cutoff),
+                    .is_some_and(|cutoff| ub_ch.primary_power_skills() < cutoff),
                 SearchMode::Mf => top.nth_primary().is_some_and(|cutoff| ub_ch.mf < cutoff),
                 SearchMode::MaxRes => top.nth_top2().is_some_and(|cutoff| {
                     (
