@@ -5,69 +5,69 @@
   No loadout found matching all constraints.
 
 === 2B. Max MF & Boss Farm — Pure MF (63% FCR, 60% FHR, 75% F/L/C) ===
-Option #1 (evaluated 38 pruned sets):
+Option #1 (evaluated 30 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 98%
-  Hell Res: F:75%(82) L:75%(75) C:75%(82) P:41%(41)
-  Life: 947 (BO lvl 4: 1332) | Mana (BO): 358 | Charm slots: 20
+  FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 102%
+  Hell Res: F:75%(78) L:75%(75) C:75%(82) P:35%(35)
+  Life: 1013 (BO lvl 4: 1427) | Mana (BO): 358 | Charm slots: 17
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Ancients' Pledge (Large Shield) (sork Stash)
     - helm    : Rockstopper (Sallet) (mule_unique Stash)
     - armor   : Stealth (Studded Leather) (sork Equipped)
-    - amulet  : Beryl Amulet of Luck (sork Stash)
+    - amulet  : Wraith Torc (Rare Amulet) (Stash Tab 1)
     - belt    : Arctic Binding (Light Belt) (Stash Tab 2)
-    - gloves  : Russet Leather Gloves of Chance (sork Stash)
+    - gloves  : Arctic Mitts (Light Gauntlets) (Stash Tab 2)
     - boots   : Sapphire Chain Boots of Thawing (sork Stash)
     - ring    : Manald Heal (Ring) (sork Equipped)
     - ring    : Entropy Finger (Rare Ring) (sork Equipped)
     - Charms  :
-      - remove: Azure Grand Charm
-      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
+      - remove: Azure Grand Charm, Crimson Grand Charm
+      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life
       - add   : Bronze Small Charm of Balance [Stash Tab 5], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
-Option #2 (evaluated 38 pruned sets):
+Option #2 (evaluated 30 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 98%
-  Hell Res: F:75%(82) L:75%(75) C:75%(82) P:41%(41)
-  Life: 947 (BO lvl 4: 1332) | Mana (BO): 358 | Charm slots: 20
+  FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 102%
+  Hell Res: F:75%(78) L:75%(75) C:75%(82) P:35%(35)
+  Life: 1013 (BO lvl 4: 1427) | Mana (BO): 358 | Charm slots: 17
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Ancients' Pledge (Large Shield) (sork Stash)
     - helm    : Rockstopper (Sallet) (mule_unique Stash)
     - armor   : Stealth (Quilted Armor) (Stash Tab 2)
-    - amulet  : Beryl Amulet of Luck (sork Stash)
+    - amulet  : Wraith Torc (Rare Amulet) (Stash Tab 1)
     - belt    : Arctic Binding (Light Belt) (Stash Tab 2)
-    - gloves  : Russet Leather Gloves of Chance (sork Stash)
+    - gloves  : Arctic Mitts (Light Gauntlets) (Stash Tab 2)
     - boots   : Sapphire Chain Boots of Thawing (sork Stash)
     - ring    : Manald Heal (Ring) (sork Equipped)
     - ring    : Entropy Finger (Rare Ring) (sork Equipped)
     - Charms  :
-      - remove: Azure Grand Charm
-      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
+      - remove: Azure Grand Charm, Crimson Grand Charm
+      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life
       - add   : Bronze Small Charm of Balance [Stash Tab 5], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
-Option #3 (evaluated 38 pruned sets):
+Option #3 (evaluated 30 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 98%
-  Hell Res: F:75%(82) L:75%(75) C:75%(82) P:41%(41)
-  Life: 927 (BO lvl 4: 1304) | Mana (BO): 358 | Charm slots: 20
+  FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 102%
+  Hell Res: F:75%(78) L:75%(75) C:75%(82) P:35%(35)
+  Life: 993 (BO lvl 4: 1399) | Mana (BO): 358 | Charm slots: 17
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Ancients' Pledge (Large Shield) (sork Stash)
     - helm    : Rockstopper (Sallet) (mule_unique Stash)
     - armor   : Stealth (Studded Leather) (sork Equipped)
-    - amulet  : Beryl Amulet of Luck (sork Stash)
+    - amulet  : Wraith Torc (Rare Amulet) (Stash Tab 1)
     - belt    : Arctic Binding (Light Belt) (Stash Tab 2)
-    - gloves  : Russet Leather Gloves of Chance (sork Stash)
+    - gloves  : Arctic Mitts (Light Gauntlets) (Stash Tab 2)
     - boots   : Sapphire Chain Boots of Thawing (sork Stash)
     - ring    : Glowing Ring of the Apprentice (sork Stash)
     - ring    : Entropy Finger (Rare Ring) (sork Equipped)
     - Charms  :
-      - remove: Azure Grand Charm
-      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
+      - remove: Azure Grand Charm, Crimson Grand Charm
+      - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life
       - add   : Bronze Small Charm of Balance [Stash Tab 5], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
 
 === 3. Max Power & Terror Zones (105% FCR, 86% FHR, 75% All Res) ===
   No loadout found matching all constraints.
 
 === 4. Max Resist (63% FCR, 60% FHR, Max All Res) ===
-Option #1 (evaluated 1458 pruned sets):
+Option #1 (evaluated 1222 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%) | FHR: 72% (BP 60%) | FRW: 30% | MF: 50%
   Hell Res: F:75%(79) L:75%(75) C:75%(88) P:75%(75)
@@ -86,7 +86,7 @@ Option #1 (evaluated 1458 pruned sets):
       - remove: Azure Grand Charm
       - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
       - add   : Iron Large Charm of Sustenance [Stash Tab 5]
-Option #2 (evaluated 1458 pruned sets):
+Option #2 (evaluated 1222 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%) | FHR: 72% (BP 60%) | FRW: 30% | MF: 50%
   Hell Res: F:75%(79) L:75%(75) C:75%(88) P:75%(75)
@@ -105,7 +105,7 @@ Option #2 (evaluated 1458 pruned sets):
       - remove: Azure Grand Charm
       - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life, Crimson Grand Charm
       - add   : Iron Large Charm of Sustenance [Stash Tab 5]
-Option #3 (evaluated 1458 pruned sets):
+Option #3 (evaluated 1222 pruned sets):
   Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%) | FHR: 72% (BP 60%) | FRW: 50% | MF: 50%
   Hell Res: F:75%(84) L:75%(75) C:75%(80) P:75%(75)

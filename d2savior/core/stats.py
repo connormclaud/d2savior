@@ -9,7 +9,7 @@ Calculates aggregated stats from active equipped gear, inventory charms, and que
 """
 
 from collections import Counter
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
@@ -223,11 +223,31 @@ def get_difficulty_resist_penalty(char_data: D2SStruct, difficulty: int | None =
     return penalties[max(0, min(diff_idx, len(penalties) - 1))]
 
 
+def resolve_set_group_key(item: D2Item, resolver: GameDataResolver) -> str | None:
+    """Return canonical parent-set key (set name if known, else 'set:<set_id>')."""
+    ext = item.ext_info
+    if ext is None or ext.set_id is None:
+        return None
+    info = resolver.get_set_item(ext.set_id)
+    return info.set_name if info is not None and info.set_name else f"set:{ext.set_id}"
+
+
+def compute_set_counts(items: Sequence[D2Item], resolver: GameDataResolver) -> dict[str, int]:
+    """Count distinct set pieces equipped per parent set across `items`."""
+    seen: dict[str, set[tuple[int, str]]] = {}
+    for it in items:
+        group_key = resolve_set_group_key(it, resolver)
+        if group_key is None or it.ext_info is None or it.ext_info.set_id is None:
+            continue
+        seen.setdefault(group_key, set()).add((it.ext_info.set_id, it.code_str.strip().lower()))
+    return {group_key: len(pairs) for group_key, pairs in seen.items()}
+
+
 def collect_item_properties(
     item: D2Item,
     resolver: GameDataResolver,
     version: int,
-    set_counts: dict[int, int] | None = None,
+    set_counts: Mapping[str, int] | None = None,
     *,
     normalize_source: Callable[[list[tuple[int, int, list[int]]]], list[tuple[int, int, list[int]]]]
     | None = None,
@@ -248,12 +268,11 @@ def collect_item_properties(
 
     # Each index i in set_properties requires (i + 2) pieces of the set to be equipped.
     if set_counts and tp.set_properties:
-        ext = item.ext_info
-        if ext and ext.set_id is not None:
-            equipped_count = set_counts.get(ext.set_id, 0)
-            for idx, set_prop_list in enumerate(tp.set_properties):
-                if set_prop_list is not None and equipped_count >= idx + 2:
-                    sources.append(set_prop_list.get_parsed_properties(version, data=resolver.data))
+        group_key = resolve_set_group_key(item, resolver)
+        equipped_count = set_counts.get(group_key, 0) if group_key is not None else 0
+        for idx, set_prop_list in enumerate(tp.set_properties):
+            if set_prop_list is not None and equipped_count >= idx + 2:
+                sources.append(set_prop_list.get_parsed_properties(version, data=resolver.data))
 
     if normalize_source is None:
         return [*source for source in sources]
@@ -268,11 +287,7 @@ def _iter_item_properties(
     set_items: Sequence[D2Item] | None = None,
 ) -> Iterator[tuple[int, int, list[int]]]:
     """Yield (prop_id, val, params) across items, counting set bonuses from set_items."""
-    set_counts: Counter[int] = Counter()
-    for it in items if set_items is None else set_items:
-        ext = it.ext_info
-        if ext and ext.set_id is not None:
-            set_counts[ext.set_id] += 1
+    set_counts = compute_set_counts(items if set_items is None else set_items, resolver)
 
     for item in items:
         yield from collect_item_properties(

@@ -6,7 +6,9 @@ mod types;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-pub use eval::{blizzard_damage, blizzard_damage_with_base, evaluate_build};
+#[cfg(feature = "python")]
+pub use eval::{class_breakpoints, evaluate_build};
+pub use eval::{blizzard_damage, blizzard_damage_with_base, evaluate_build_core};
 #[cfg(feature = "python")]
 pub use search::optimize_builds;
 pub use search::optimize_builds_core;
@@ -23,5 +25,6 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(optimize_builds, m)?)?;
     m.add_function(wrap_pyfunction!(blizzard_damage, m)?)?;
     m.add_function(wrap_pyfunction!(blizzard_damage_with_base, m)?)?;
+    m.add_function(wrap_pyfunction!(class_breakpoints, m)?)?;
     Ok(())
 }

@@ -502,3 +502,69 @@ fn test_charm_solver_forces_best_cold_sunder_in_power_and_mf_only() {
         .expect("MaxRes should solve without Cold Rupture");
     assert!(!chosen_max.iter().any(|ch| ch.cold_sunder));
 }
+
+#[test]
+fn test_leveling_res_caps_at_75_and_paladin_never_forces_sunder() {
+    let charms = [
+        CharmSpec {
+            name: "Cold Rupture".to_string(),
+            size: 3,
+            cr: -70,
+            unique_id: Some(401),
+            cold_sunder: true,
+            skills: 1,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Ruby SC".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Amber SC".to_string(),
+            size: 1,
+            lr: 11,
+            ..Default::default()
+        },
+    ];
+    let pool: Vec<&CharmSpec> = charms.iter().collect();
+
+    // Even with max_fr=10 (cap 85), LevelingRes optimizes only up to 75, so at FR=75 and LR=65
+    // it prefers Amber SC (+10 effective LR up to 75) over Ruby SC (+10 over 75).
+    let c_lvl_res = BuildConstraints {
+        char_class: 3,
+        base_hell_res: 0,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 1,
+        ..Default::default()
+    };
+    let leaf = Stats {
+        fr: 75,
+        lr: 65,
+        cr: 75,
+        pr: 75,
+        max_fr: 10,
+        ..Default::default()
+    };
+    let mut solver_res = CharmSolver::new(&pool, &c_lvl_res, SearchMode::LevelingRes);
+    assert!(!solver_res.has_cold_sunder());
+    let chosen_res = solver_res
+        .solve(&[], leaf, (0, 0))
+        .expect("LevelingRes should pick Amber SC");
+    assert_eq!(chosen_res.len(), 1);
+    assert_eq!(chosen_res[0].name, "Amber SC");
+
+    // In Leveling mode, Paladin does NOT force Cold Sunder either.
+    let c_pal_lvl = BuildConstraints {
+        max_charm_slots: 3,
+        ..c_lvl_res
+    };
+    let solver_lvl = CharmSolver::new(&pool, &c_pal_lvl, SearchMode::Leveling);
+    assert!(!solver_lvl.has_cold_sunder());
+}

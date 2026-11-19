@@ -1,14 +1,27 @@
+from collections.abc import Sequence
+from typing import Literal
+
+SearchModeStr = Literal["power", "mf", "max-res", "leveling", "leveling-res"]
+OffenseProfileStr = Literal["caster", "melee", "smite"]
+
 class ItemSpec:
     name: str
     slot: str
     loc: str
     all_skills: int
     sorc_skills: int
+    pal_skills: int
     blizz_skills: int
     cm_skills: int
+    primary_skill: int
     fcr: int
     fhr: int
     frw: int
+    ias: int
+    cb: int
+    cbf: int
+    pdr_pct: int
+    life_leech: int
     fr: int
     lr: int
     cr: int
@@ -34,6 +47,9 @@ class ItemSpec:
     max_pr: int
     defense: int
     belt_slots: int
+    set_group: int
+    set_item_id: int
+    set_bonuses: list[tuple[int, ItemSpec]]
 
     def __init__(
         self,
@@ -72,6 +88,16 @@ class ItemSpec:
         cm_skills: int = 0,
         defense: int = 0,
         belt_slots: int = 0,
+        pal_skills: int = 0,
+        primary_skill: int = 0,
+        ias: int = 0,
+        cb: int = 0,
+        cbf: int = 0,
+        pdr_pct: int = 0,
+        life_leech: int = 0,
+        set_group: int = 0,
+        set_item_id: int = 0,
+        set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
     ) -> None: ...
     @property
     def skills(self) -> int: ...
@@ -127,7 +153,7 @@ class BuildConstraints:
     min_cr: int
     min_pr: int
     max_charm_slots: int
-    mode: str
+    mode: SearchModeStr
     base_life: int
     base_mana: int
     base_hell_res: int
@@ -138,6 +164,14 @@ class BuildConstraints:
     blizz_syn_pts: int
     cm_base_lvl: int
     limit: int
+    char_class: int
+    base_max_fr: int
+    base_max_lr: int
+    base_max_cr: int
+    base_max_pr: int
+    use_bo: bool
+    fixed_gear: bool
+    offense: OffenseProfileStr
 
     def __init__(
         self,
@@ -149,7 +183,7 @@ class BuildConstraints:
         min_cr: int = 75,
         min_pr: int = 0,
         max_charm_slots: int = 23,
-        mode: str = "power",
+        mode: SearchModeStr = "power",
         base_life: int = 0,
         base_mana: int = 0,
         base_hell_res: int = -100,
@@ -160,11 +194,21 @@ class BuildConstraints:
         blizz_base_lvl: int = 20,
         blizz_syn_pts: int = 54,
         cm_base_lvl: int = 20,
+        char_class: int = 1,
+        base_max_fr: int = 0,
+        base_max_lr: int = 0,
+        base_max_cr: int = 0,
+        base_max_pr: int = 0,
+        use_bo: bool = True,
+        fixed_gear: bool = False,
+        offense: OffenseProfileStr = "caster",
     ) -> None: ...
 
 class BuildResult:
     @property
     def skills(self) -> int: ...
+    @property
+    def primary_skill_bonus(self) -> int: ...
     @property
     def blizz_avg(self) -> float: ...
     @property
@@ -179,6 +223,16 @@ class BuildResult:
     def fhr_bp(self) -> int: ...
     @property
     def frw(self) -> int: ...
+    @property
+    def ias(self) -> int: ...
+    @property
+    def cb(self) -> int: ...
+    @property
+    def cbf(self) -> bool: ...
+    @property
+    def pdr_pct(self) -> int: ...
+    @property
+    def life_leech(self) -> int: ...
     @property
     def mf(self) -> int: ...
     @property
@@ -239,9 +293,16 @@ def evaluate_build(
     blizz_base_lvl: int = 20,
     blizz_syn_pts: int = 54,
     cm_base_lvl: int = 20,
+    char_class: int = 1,
+    use_bo: bool = True,
+    base_max_fr: int = 0,
+    base_max_lr: int = 0,
+    base_max_cr: int = 0,
+    base_max_pr: int = 0,
 ) -> BuildResult: ...
 def optimize_builds(
     items: list[ItemSpec],
     charms: list[CharmSpec],
     constraints: BuildConstraints,
 ) -> list[BuildResult]: ...
+def class_breakpoints(char_class: int) -> tuple[list[int], list[int]]: ...

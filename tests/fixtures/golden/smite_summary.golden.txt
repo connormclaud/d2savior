@@ -1,0 +1,114 @@
+=== Diablo II Character Summary ===
+Name: smite | Class: Paladin | Level: 30 | Title: Unknown(3)
+Status: Softcore | Weapon Set: II
+Last Saved: 2026-11-19 20:19:17 UTC
+Attributes: Str: 60, Dex: 20, Vit: 140, Ene: 15
+Life: 684/478 | Mana: 108/58 | Gold: 4899 (Person), 217148 (Stash)
+Remaining Points: 0 Stat, 1 Skill
+
+=== Skills ===
+Sacrifice: 1 (3), Smite: 1 (3), Might: 1 (3), Prayer: 1 (3), Resist Fire: 3 (5), Holy Fire: 20 (22), Defiance: 1 (3), Zeal: 1 (3), Charge: 1 (3), Cleansing: 1 (3), Vigor: 1 (5)
+
+=== Waypoints ===
+Normal (26/39 unlocked, 13 missing):
+  Act I (7/9): Missing Jail Level 1, Catacombs Level 2
+  Act II (9/9): All unlocked
+  Act III (8/9): Missing Upper Kurast
+  Act IV (2/3): Missing River of Flame
+  Act V (0/9): None unlocked
+Nightmare: Not started
+Hell: Not started
+
+=== Quests ===
+Normal (18/27 completed, 1 reward unclaimed) — Akara Reset: Available
+  Act I: [x] [ ] Sisters' Burial Grounds [x] [x] [!] Tools of the Trade (Imbue unclaimed) [x]
+  Act II: [x] [x] [x] [x] [x] [x]
+  Act III: [x] [x] [x] [x] [x] [x]
+  Act IV: [x] [ ] Hell's Forge [ ] Terror's End
+  Act V: [ ] [ ] [ ] [ ] [ ] [ ]
+Nightmare: Not started
+Hell: Not started
+
+=== Advanced Stats ===
+Resistances (Normal): Fire: 71% (+71%), Cold: 66% (+66%), Lightning: 40% (+40%), Poison: 24% (+24%)
+All Skills: +2 | Paladin Skills: +0
+Faster Hit Recovery: +27% | Faster Cast Rate: +10% | Faster Run/Walk: +40% | Increased Attack Speed: +30% | Magic Find: +0%
+
+=== Equipped Gear ===
+- Helmet: Peasant Crown (War Hat) [Def: 108] (+20 to Energy, +20 to Vitality, +100% Enhanced Defense, Replenish Life +10, +15% Faster Run/Walk, +1 to All Skills)
+- Amulet: Angelic Wings (Amulet) (+3 to Light Radius, +20% Damage Taken Goes To Mana)
+- Armor: The Spirit Shroud (Ghost Armor) [Def: 295] (+150% Enhanced Defense, Magic Damage Reduced by 9, Replenish Life +10, +1 to All Skills, Cannot Be Frozen)
+- Weapon I: Kinemil's Awl (Giant Sword) (+20 to Mana, +83% Enhanced Damage, +100 to Attack Rating, Adds 6-38 fire damage, +6 to Holy Fire (Paladin Only))
+- Ring (Right): Manald Heal (Ring) (+20 to Life, Regenerate Mana 20%, 5% Mana stolen per hit, Replenish Life +8, +10% Faster Cast Rate)
+- Ring (Left): Angelic Halo (Ring) (+20 to Life, Replenish Life +6)
+- Belt: Sigon's Wrap (Plated Belt) [Def: 8] (+20 to Life, Fire Resist +20%)
+- Boots: Tearhaunch (Greaves) [Def: 62] (+5 to Strength, +5 to Dexterity, +70% Enhanced Defense, +35 Defense, All Resistances +10, +20% Faster Run/Walk, +2 to Vigor (Paladin Only))
+- Gloves: Sigon's Gage (Gauntlets) [Def: 15] (+10 to Strength, +20 to Attack Rating)
+- Weapon II: Raven Claw (Long Bow) (+3 to Strength, +3 to Dexterity, +64% Enhanced Damage, 50% Bonus to Attack Rating, Fires Explosive Arrows or Bolts)
+- Shield II: Arrows [Qty: 496]
+
+=== Mercenary ===
+Mercenary: Ahsab (Act II Desert Mercenary, Normal, Prayer)
+Level: 29 | Attributes: Str: 117, Dex: 75
+Resistances (Normal): Fire: 68% (+68%), Cold: 83% (+83%), Lightning: 68% (+68%), Poison: 68% (+68%)
+Equipped:
+  - Armor: Hawkmail (Scale Mail) [Def: 119] (+96% Enhanced Defense, Cold Resist +15%, +15% to Maximum Cold Resist, +10% Faster Run/Walk, Cannot Be Frozen)
+  - Helmet: The Face of Horror (Mask) [Def: 46] (+20 to Strength, +25 Defense, All Resistances +10, Hit Causes Monster to Flee +50%%, +50% Damage to Undead)
+  - Weapon I: Insight (Bill) [Sockets: 4, Socketed: Ral Rune+Tir Rune+Tal Rune+Sol Rune] (+5 to Strength, +5 to Energy, +5 to Dexterity, +5 to Vitality, +235% Enhanced Damage, 23% Better Chance of Getting Magic Items, +5 to Critical Strike, +35% Faster Cast Rate, 229% Bonus to Attack Rating, Level 15 Meditation Aura When Equipped, Adds 5-30 fire damage, +2 to Mana after each Kill, +75 poison damage over 5 seconds, +9 to Minimum Damage)
+
+=== Inventory & Stash ===
+- [Inventory] Russet Grand Charm (Fire Resist +20%)
+- [Inventory] Key [Qty: 10]
+- [Inventory] Lapis Small Charm (Cold Resist +7%)
+- [Inventory] Ocher Small Charm of Sustenance (+11 to Life, Lightning Resist +7%)
+- [Inventory] Shimmering Large Charm (All Resistances +8)
+- [Inventory] Shimmering Large Charm (All Resistances +6)
+- [Inventory] Iron Large Charm of Inertia (+37 to Attack Rating, +5% Faster Run/Walk)
+- [Inventory] Lapis Small Charm (Cold Resist +6%)
+- [Inventory] Bronze Small Charm of Balance (+6 to Attack Rating, +5% Faster Hit Recovery)
+- [Inventory] Tome of Identify [Qty: 16]
+- [Inventory] Tangerine Small Charm of Balance (Lightning Resist +3%, +5% Faster Hit Recovery)
+- [Inventory] Small Charm of Balance (+5% Faster Hit Recovery)
+- [Inventory] Russet Small Charm (Fire Resist +7%)
+- [Inventory] Grand Charm of Balance (+12% Faster Hit Recovery)
+- [Inventory] Sapphire Grand Charm (Cold Resist +29%)
+- [Inventory] Tome of Town Portal [Qty: 11]
+- [Inventory] Horadric Cube
+- [Inventory] Ocher Small Charm (Lightning Resist +6%)
+- [Stash] Serpent's Large Charm of Inertia (+28 to Mana, +5% Faster Run/Walk)
+- [Stash] Moser's Blessed Circle (Round Shield) [Def: 164, Sockets: 2, Socketed: Perfect Diamond+Perfect Diamond] (+193% Enhanced Defense, 25% Increased Chance of Blocking, All Resistances +63, +30% Faster Block Rate)
+- [Stash] Spirit (Broad Sword) [Sockets: 4, Socketed: Tal Rune+Thul Rune+Ort Rune+Amn Rune] (+22 to Vitality, +93 to Mana, +250 Defense vs. Missile, +55% Faster Hit Recovery, +34% Faster Cast Rate, +2 to All Skills, +6 Magic Absorb, +75 poison damage over 5 seconds, Adds 3-14 cold damage, Adds 1-50 lightning damage, 7% Life stolen per hit)
+- [Stash] Smoke (Mage Plate) [Def: 416, Sockets: 2, Socketed: Nef Rune+Lum Rune] (+75% Enhanced Defense, +280 Defense vs. Missile, All Resistances +50, -1 to Light Radius, +20% Faster Hit Recovery, Level 6 Weaken (18/18 Charges), +10 to Energy)
+- [Stash] Spellsteel (Bearded Axe) (+100 to Mana, +165% Enhanced Damage, Regenerate Mana 25%, Magic Damage Reduced by 13, Requirements -60%, +10% Faster Cast Rate, Level 1 Teleport (13/20 Charges), Level 3 Decrepify (24/30 Charges), Level 10 Holy Bolt (61/100 Charges), Level 12 Firestorm (12/60 Charges))
+- [Stash] Stealskull (Casque) [Def: 227] (+211% Enhanced Defense, 5% Life stolen per hit, 5% Mana stolen per hit, 46% Better Chance of Getting Magic Items, +10% Increased Attack Speed, +10% Faster Hit Recovery)
+- [Stash] Small Charm of Good Luck (6% Better Chance of Getting Magic Items)
+- [Stash] Small Charm of Good Luck (7% Better Chance of Getting Magic Items)
+- [Stash] Amber Small Charm of Good Luck (Lightning Resist +10%, 7% Better Chance of Getting Magic Items)
+- [Stash] Foul Small Charm of Good Luck (+50 poison damage over 4 seconds, 7% Better Chance of Getting Magic Items)
+- [Stash] Ruby Small Charm (Fire Resist +10%)
+- [Stash] Beast Gyre (Rare Ring) (+59 to Attack Rating, Lightning Resist +29%, Cold Resist +16%, Adds 1-11 lightning damage, +10% Faster Cast Rate)
+- [Stash] Small Charm of Good Luck (6% Better Chance of Getting Magic Items)
+- [Stash] Nagelring (Ring) (+68 to Attack Rating, Magic Damage Reduced by 3, Attacker Takes Damage of 3, 29% Better Chance of Getting Magic Items)
+- [Stash] Nagelring (Ring) (+52 to Attack Rating, Magic Damage Reduced by 3, Attacker Takes Damage of 3, 15% Better Chance of Getting Magic Items)
+- [Stash] Angelic Halo (Ring) (+20 to Life, Replenish Life +6)
+- [Stash] Beryl Grand Charm of Dexterity (+6 to Dexterity, Poison Resist +13%)
+- [Stash] Sigon's Shelter (Gothic Plate) [Def: 170] (+25% Enhanced Defense, Lightning Resist +30%)
+- [Stash] Superior Rondache [Def: 20] (+7% Enhanced Defense, All Resistances +44, Increase Maximum Durability 11%)
+- [Stash] Large Charm of Strength (+3 to Strength)
+- [Stash] Large Charm of Dexterity (+4 to Dexterity)
+- [Stash] Crimson Small Charm of Greed (Fire Resist +5%, 5% Extra Gold from Monsters)
+- [Stash] Russet Small Charm (Fire Resist +6%)
+- [Stash] Jade Small Charm (Poison Resist +9%)
+- [Stash] Jade Small Charm (Poison Resist +8%)
+- [Stash] Jade Small Charm (Poison Resist +8%)
+- [Stash] Crimson Small Charm of Flame (Fire Resist +5%, Adds 1-2 fire damage)
+- [Stash] Jade Small Charm (Poison Resist +9%)
+- [Stash] Small Charm of Inertia (+3% Faster Run/Walk)
+- [Stash] Russet Grand Charm (Fire Resist +19%)
+- [Stash] Jade Small Charm (Poison Resist +8%)
+- [Stash] Crimson Small Charm of Shock (Fire Resist +5%, Adds 1-6 lightning damage)
+- [Cube] Mephisto's Soulstone
+- [Belt] Full Rejuvenation Potion (x4)
+- [Belt] Super Healing Potion (x3)
+- [Belt] Greater Mana Potion (x4)
+- [Belt] Greater Healing Potion (x5)

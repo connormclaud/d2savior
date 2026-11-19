@@ -80,3 +80,64 @@ fn test_blizzard_damage_with_custom_base_skills() {
     // Unallocated (0, 0, 0) with 0 +skills gives 0 damage and 0% pierce
     assert_eq!(blizzard_damage_with_base(0, 0, 0, 0), (0.0, 0.0, 0));
 }
+
+#[test]
+fn test_paladin_eval_breakpoints_vit_ene_no_bo_and_passive_max_res() {
+    let mut armor = mk_test_item("Paladin Armor", "armor", 30, 27, 1, 20, 0);
+    armor.pal_skills = 1;
+    armor.primary_skill = 3;
+    armor.vit = 10;
+    armor.ene = 7;
+    armor.ias = 20;
+    armor.cb = 15;
+    armor.cbf = 1;
+    armor.pdr_pct = 10;
+    armor.life_leech = 5;
+
+    let res = evaluate_build_core(
+        &[armor],
+        &[CharmSpec {
+            name: "Balance SC".to_string(),
+            size: 1,
+            fhr: 21,
+            life: 15,
+            mana: 10,
+            ..Default::default()
+        }],
+        400,
+        50,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        false,
+        2,
+        1,
+        0,
+        0,
+    )
+    .unwrap();
+    assert_eq!(res.skills, 2);
+    assert_eq!(res.primary_skill_bonus, 3);
+    assert_eq!(res.fcr_bp, 30);
+    assert_eq!(res.fhr_bp, 48);
+    assert_eq!(res.ias, 20);
+    assert_eq!(res.cb, 15);
+    assert!(res.cbf);
+    assert_eq!(res.pdr_pct, 10);
+    assert_eq!(res.life_leech, 5);
+    assert_eq!(res.bo_lvl, 0);
+    // Vit*3 = 30, Ene*3/2 = 10; no BO
+    assert_eq!(res.life_no_bo, 400 + 30 + 15);
+    assert_eq!(res.life_bo, res.life_no_bo);
+    assert_eq!(res.mana_bo, 50 + 10 + 10);
+    assert_eq!(res.blizz_avg, 0.0);
+    assert_eq!(res.cm_pierce, 0);
+    assert_eq!((res.max_fr, res.max_lr, res.max_cr, res.max_pr), (77, 76, 75, 75));
+
+    let err = evaluate_build_core(&[], &[], 0, 0, -100, 4, 20, 54, 20, 99, true, 0, 0, 0, 0)
+        .unwrap_err();
+    assert!(err.contains("unsupported char_class 99"));
+}

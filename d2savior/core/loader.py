@@ -475,17 +475,17 @@ class D2DataLoader:
 
         if table_file:
             entries = (
-                (key, row_id, row.get_int("lvl req"))
+                (key, row_id, row.get_int("lvl req"), row.get("set") or "")
                 for row in TsvReader(table_file)
                 if (key := row.get("index")) and (row_id := row.get_int("*ID", -1)) >= 0
             )
         else:
-            entries = ((name, idx, 0) for idx, name in enumerate(SET_ITEM_NAMES))
+            entries = ((name, idx, 0, "") for idx, name in enumerate(SET_ITEM_NAMES))
 
-        for name, row_id, levelreq in entries:
+        for name, row_id, levelreq, set_name in entries:
             json_entry = json_by_key.get(name, {})
             d2r_id = json_entry.get("id", 0)
-            set_info = SetItemInfo(name=name, set_id=d2r_id, levelreq=levelreq)
+            set_info = SetItemInfo(name=name, set_id=d2r_id, levelreq=levelreq, set_name=set_name)
             set_items[row_id] = set_info
             if d2r_id > 0 and d2r_id not in set_items:
                 set_items[d2r_id] = set_info

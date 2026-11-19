@@ -276,6 +276,7 @@ class SetItemInfo:
     name: str = ""
     set_id: int = 0
     levelreq: int = 0
+    set_name: str = ""
 
 
 @dataclass(slots=True)

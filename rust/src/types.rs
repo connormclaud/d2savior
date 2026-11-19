@@ -4,22 +4,147 @@ use pyo3::prelude::*;
 pub(crate) const BASE_MAX_RES: i32 = 75;
 pub(crate) const HARD_MAX_RES: i32 = 95;
 
+pub(crate) const SORCERESS_FCR_BPS: &[i32] = &[0, 9, 20, 37, 63, 105, 200];
+pub(crate) const SORCERESS_FHR_BPS: &[i32] = &[0, 5, 9, 14, 20, 30, 42, 60, 86, 142, 280];
+pub(crate) const PALADIN_FCR_BPS: &[i32] = &[0, 9, 18, 30, 48, 75, 125];
+pub(crate) const PALADIN_FHR_BPS: &[i32] = &[0, 7, 15, 27, 48, 86, 200];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CharClass {
+    Sorceress,
+    Paladin,
+}
+
+impl CharClass {
+    pub(crate) const SORCERESS_ID: u8 = 1;
+    pub(crate) const PALADIN_ID: u8 = 3;
+
+    pub(crate) fn from_id(id: u8) -> Result<Self, String> {
+        match id {
+            Self::SORCERESS_ID => Ok(Self::Sorceress),
+            Self::PALADIN_ID => Ok(Self::Paladin),
+            _ => Err(format!(
+                "unsupported char_class {id}; expected {} (Sorceress) or {} (Paladin)",
+                Self::SORCERESS_ID,
+                Self::PALADIN_ID,
+            )),
+        }
+    }
+
+    pub(crate) fn from_id_or_default(id: u8) -> Self {
+        Self::from_id(id).unwrap_or(Self::Sorceress)
+    }
+
+    pub(crate) fn life_per_vit(self, vit: i32) -> i32 {
+        match self {
+            Self::Sorceress => vit * 2,
+            Self::Paladin => vit * 3,
+        }
+    }
+
+    pub(crate) fn mana_per_ene(self, ene: i32) -> i32 {
+        match self {
+            Self::Sorceress => ene * 2,
+            Self::Paladin => (ene * 3) / 2,
+        }
+    }
+
+    pub(crate) fn fcr_bps(self) -> &'static [i32] {
+        match self {
+            Self::Sorceress => SORCERESS_FCR_BPS,
+            Self::Paladin => PALADIN_FCR_BPS,
+        }
+    }
+
+    pub(crate) fn fhr_bps(self) -> &'static [i32] {
+        match self {
+            Self::Sorceress => SORCERESS_FHR_BPS,
+            Self::Paladin => PALADIN_FHR_BPS,
+        }
+    }
+
+    pub(crate) fn has_blizzard_calc(self) -> bool {
+        matches!(self, Self::Sorceress)
+    }
+
+    pub(crate) fn forces_cold_sunder(self) -> bool {
+        matches!(self, Self::Sorceress)
+    }
+
+    pub(crate) fn excludes_light_skill_charms(self) -> bool {
+        matches!(self, Self::Sorceress)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum OffenseProfile {
+    Caster,
+    Melee,
+    Smite,
+}
+
+impl OffenseProfile {
+    pub(crate) fn parse(s: &str, class: CharClass) -> Result<Self, String> {
+        let profile = match s.to_ascii_lowercase().as_str() {
+            "caster" => Self::Caster,
+            "melee" => Self::Melee,
+            "smite" => Self::Smite,
+            other => {
+                return Err(format!(
+                    "invalid offense profile '{other}'; expected 'caster', 'melee', or 'smite'"
+                ))
+            }
+        };
+        if class == CharClass::Sorceress && profile != Self::Caster {
+            return Err(format!(
+                "offense profile '{s}' is not supported for Sorceress; expected 'caster'"
+            ));
+        }
+        Ok(profile)
+    }
+
+    pub(crate) fn requires_shield(self) -> bool {
+        matches!(self, Self::Smite)
+    }
+
+    pub(crate) fn score(self, eff_primary: i32, ias: i32, cb: i32) -> i32 {
+        match self {
+            Self::Caster => eff_primary,
+            Self::Melee => eff_primary * 20 + ias.min(80),
+            Self::Smite => cb.min(100) * 4 + ias.min(80) * 2 + eff_primary * 10,
+        }
+    }
+
+    pub(crate) fn score_stats(self, s: Stats) -> i32 {
+        self.score(s.primary_power_skills(), s.ias, s.cb)
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SearchMode {
     Power,
     Mf,
     MaxRes,
+    Leveling,
+    LevelingRes,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub(crate) struct Stats {
     pub(crate) all_skills: i32,
     pub(crate) sorc_skills: i32,
+    pub(crate) pal_skills: i32,
     pub(crate) blizz_skills: i32,
     pub(crate) cm_skills: i32,
+    pub(crate) primary_skill: i32,
     pub(crate) fcr: i32,
     pub(crate) fhr: i32,
     pub(crate) frw: i32,
+    pub(crate) ias: i32,
+    pub(crate) cb: i32,
+    pub(crate) cbf: i32,
+    pub(crate) pdr_pct: i32,
+    pub(crate) life_leech: i32,
     pub(crate) fr: i32,
     pub(crate) lr: i32,
     pub(crate) cr: i32,
@@ -47,11 +172,15 @@ pub(crate) struct Stats {
 
 impl Stats {
     pub(crate) fn total_skills(self) -> i32 {
-        self.all_skills + self.sorc_skills
+        self.all_skills + self.sorc_skills + self.pal_skills
     }
 
     pub(crate) fn blizz_power_skills(self) -> i32 {
         self.total_skills() + self.blizz_skills
+    }
+
+    pub(crate) fn primary_power_skills(self) -> i32 {
+        self.total_skills() + self.blizz_skills + self.primary_skill
     }
 
     pub(crate) fn res_sum(self) -> i32 {
@@ -66,11 +195,18 @@ impl Stats {
         Stats {
             all_skills: self.all_skills + o.all_skills,
             sorc_skills: self.sorc_skills + o.sorc_skills,
+            pal_skills: self.pal_skills + o.pal_skills,
             blizz_skills: self.blizz_skills + o.blizz_skills,
             cm_skills: self.cm_skills + o.cm_skills,
+            primary_skill: self.primary_skill + o.primary_skill,
             fcr: self.fcr + o.fcr,
             fhr: self.fhr + o.fhr,
             frw: self.frw + o.frw,
+            ias: self.ias + o.ias,
+            cb: self.cb + o.cb,
+            cbf: self.cbf + o.cbf,
+            pdr_pct: self.pdr_pct + o.pdr_pct,
+            life_leech: self.life_leech + o.life_leech,
             fr: self.fr + o.fr,
             lr: self.lr + o.lr,
             cr: self.cr + o.cr,
@@ -101,11 +237,18 @@ impl Stats {
         Stats {
             all_skills: self.all_skills.max(o.all_skills),
             sorc_skills: self.sorc_skills.max(o.sorc_skills),
+            pal_skills: self.pal_skills.max(o.pal_skills),
             blizz_skills: self.blizz_skills.max(o.blizz_skills),
             cm_skills: self.cm_skills.max(o.cm_skills),
+            primary_skill: self.primary_skill.max(o.primary_skill),
             fcr: self.fcr.max(o.fcr),
             fhr: self.fhr.max(o.fhr),
             frw: self.frw.max(o.frw),
+            ias: self.ias.max(o.ias),
+            cb: self.cb.max(o.cb),
+            cbf: self.cbf.max(o.cbf),
+            pdr_pct: self.pdr_pct.max(o.pdr_pct),
+            life_leech: self.life_leech.max(o.life_leech),
             fr: self.fr.max(o.fr),
             lr: self.lr.max(o.lr),
             cr: self.cr.max(o.cr),
@@ -135,11 +278,18 @@ impl Stats {
     pub(crate) fn dominates(self, o: Stats) -> bool {
         self.all_skills >= o.all_skills
             && self.sorc_skills >= o.sorc_skills
+            && self.pal_skills >= o.pal_skills
             && self.blizz_skills >= o.blizz_skills
             && self.cm_skills >= o.cm_skills
+            && self.primary_skill >= o.primary_skill
             && self.fcr >= o.fcr
             && self.fhr >= o.fhr
             && self.frw >= o.frw
+            && self.ias >= o.ias
+            && self.cb >= o.cb
+            && self.cbf >= o.cbf
+            && self.pdr_pct >= o.pdr_pct
+            && self.life_leech >= o.life_leech
             && self.fr >= o.fr
             && self.lr >= o.lr
             && self.cr >= o.cr
@@ -175,11 +325,18 @@ pub struct ItemSpec {
     pub loc: String,
     pub all_skills: i32,
     pub sorc_skills: i32,
+    pub pal_skills: i32,
     pub blizz_skills: i32,
     pub cm_skills: i32,
+    pub primary_skill: i32,
     pub fcr: i32,
     pub fhr: i32,
     pub frw: i32,
+    pub ias: i32,
+    pub cb: i32,
+    pub cbf: i32,
+    pub pdr_pct: i32,
+    pub life_leech: i32,
     pub fr: i32,
     pub lr: i32,
     pub cr: i32,
@@ -205,11 +362,92 @@ pub struct ItemSpec {
     pub max_pr: i32,
     pub defense: i32,
     pub belt_slots: i32,
+    pub set_group: i32,
+    pub set_item_id: i32,
+    pub set_bonuses: Vec<(i32, ItemSpec)>,
+}
+
+pub(crate) type SetBonusSig = Vec<(i32, Stats)>;
+
+pub(crate) fn eff_req(req: i32, self_bonus: i32) -> i32 {
+    if req > 0 {
+        req + self_bonus
+    } else {
+        0
+    }
+}
+
+pub(crate) fn compute_effective_gear_stats_and_reqs(items: &[&ItemSpec]) -> (Stats, i32, (i32, i32)) {
+    if items.iter().all(|it| it.set_group == 0) {
+        let mut gear = Stats::default();
+        let mut all_sk_non_wep = 0;
+        let mut req_str = 0;
+        let mut req_dex = 0;
+        for &it in items {
+            gear = gear.add(it.stats());
+            if !it.is_weapon_or_shield() {
+                all_sk_non_wep += it.all_skills;
+            }
+            req_str = req_str.max(eff_req(it.req_str, it.str_bonus));
+            req_dex = req_dex.max(eff_req(it.req_dex, it.dex_bonus));
+        }
+        return (gear, all_sk_non_wep, (req_str, req_dex));
+    }
+
+    let mut counts: Vec<(i32, i32)> = Vec::new();
+    let mut seen: Vec<(i32, i32)> = Vec::with_capacity(items.len());
+    for (idx, &it) in items.iter().enumerate() {
+        if it.set_group == 0 {
+            continue;
+        }
+        let eid = if it.set_item_id != 0 {
+            it.set_item_id
+        } else {
+            -(idx as i32 + 1)
+        };
+        if !seen.contains(&(it.set_group, eid)) {
+            seen.push((it.set_group, eid));
+            if let Some(entry) = counts.iter_mut().find(|(g, _)| *g == it.set_group) {
+                entry.1 += 1;
+            } else {
+                counts.push((it.set_group, 1));
+            }
+        }
+    }
+
+    let mut gear = Stats::default();
+    let mut all_sk_non_wep = 0;
+    let mut req_str = 0;
+    let mut req_dex = 0;
+    for &it in items {
+        let bonus = if it.set_group != 0 && !it.set_bonuses.is_empty() {
+            let cnt = counts
+                .iter()
+                .find(|(g, _)| *g == it.set_group)
+                .map_or(0, |(_, c)| *c);
+            it.active_set_bonus_stats(cnt)
+        } else {
+            Stats::default()
+        };
+        let eff = it.stats().add(bonus);
+        gear = gear.add(eff);
+        if !it.is_weapon_or_shield() {
+            all_sk_non_wep += eff.all_skills;
+        }
+        req_str = req_str.max(eff_req(it.req_str, it.str_bonus + bonus.str_bonus));
+        req_dex = req_dex.max(eff_req(it.req_dex, it.dex_bonus + bonus.dex_bonus));
+    }
+    (gear, all_sk_non_wep, (req_str, req_dex))
+}
+
+pub(crate) fn compute_effective_gear_stats(items: &[&ItemSpec]) -> (Stats, i32) {
+    let (gear, all_sk_non_wep, _) = compute_effective_gear_stats_and_reqs(items);
+    (gear, all_sk_non_wep)
 }
 
 impl ItemSpec {
     pub fn total_skills(&self) -> i32 {
-        self.all_skills + self.sorc_skills
+        self.all_skills + self.sorc_skills + self.pal_skills
     }
 
     pub(crate) fn is_weapon_or_shield(&self) -> bool {
@@ -224,15 +462,48 @@ impl ItemSpec {
         }
     }
 
+    pub(crate) fn active_set_bonus_stats(&self, piece_count: i32) -> Stats {
+        self.set_bonuses
+            .iter()
+            .filter(|(req, _)| piece_count >= *req)
+            .fold(Stats::default(), |acc, (_, b)| acc.add(b.stats()))
+    }
+
+    pub(crate) fn max_possible_set_bonus_stats(&self) -> Stats {
+        self.set_bonuses
+            .iter()
+            .fold(Stats::default(), |acc, (_, b)| {
+                acc.add(b.stats().max_each(Stats::default()))
+            })
+    }
+
+    pub(crate) fn max_total_stats(&self) -> Stats {
+        self.stats().add(self.max_possible_set_bonus_stats())
+    }
+
+    pub(crate) fn set_bonus_sig(&self) -> SetBonusSig {
+        self.set_bonuses
+            .iter()
+            .map(|(req, b)| (*req, b.stats()))
+            .collect()
+    }
+
     pub(crate) fn stats(&self) -> Stats {
         Stats {
             all_skills: self.all_skills,
             sorc_skills: self.sorc_skills,
+            pal_skills: self.pal_skills,
             blizz_skills: self.blizz_skills,
             cm_skills: self.cm_skills,
+            primary_skill: self.primary_skill,
             fcr: self.fcr,
             fhr: self.fhr,
             frw: self.frw,
+            ias: self.ias,
+            cb: self.cb,
+            cbf: self.cbf,
+            pdr_pct: self.pdr_pct,
+            life_leech: self.life_leech,
             fr: self.fr,
             lr: self.lr,
             cr: self.cr,
@@ -273,11 +544,18 @@ impl ItemSpec {
             loc,
             all_skills: s.all_skills,
             sorc_skills: s.sorc_skills,
+            pal_skills: s.pal_skills,
             blizz_skills: s.blizz_skills,
             cm_skills: s.cm_skills,
+            primary_skill: s.primary_skill,
             fcr: s.fcr,
             fhr: s.fhr,
             frw: s.frw,
+            ias: s.ias,
+            cb: s.cb,
+            cbf: s.cbf,
+            pdr_pct: s.pdr_pct,
+            life_leech: s.life_leech,
             fr: s.fr,
             lr: s.lr,
             cr: s.cr,
@@ -303,6 +581,9 @@ impl ItemSpec {
             max_pr: s.max_pr,
             defense: s.defense,
             belt_slots: s.belt_slots,
+            set_group: 0,
+            set_item_id: 0,
+            set_bonuses: Vec::new(),
         }
     }
 }
@@ -347,6 +628,16 @@ impl ItemSpec {
         cm_skills = 0,
         defense = 0,
         belt_slots = 0,
+        pal_skills = 0,
+        primary_skill = 0,
+        ias = 0,
+        cb = 0,
+        cbf = 0,
+        pdr_pct = 0,
+        life_leech = 0,
+        set_group = 0,
+        set_item_id = 0,
+        set_bonuses = Vec::new(),
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -385,6 +676,16 @@ impl ItemSpec {
         cm_skills: i32,
         defense: i32,
         belt_slots: i32,
+        pal_skills: i32,
+        primary_skill: i32,
+        ias: i32,
+        cb: i32,
+        cbf: i32,
+        pdr_pct: i32,
+        life_leech: i32,
+        set_group: i32,
+        set_item_id: i32,
+        set_bonuses: Vec<(i32, ItemSpec)>,
     ) -> Self {
         Self {
             name,
@@ -392,11 +693,18 @@ impl ItemSpec {
             loc,
             all_skills,
             sorc_skills,
+            pal_skills,
             blizz_skills,
             cm_skills,
+            primary_skill,
             fcr,
             fhr,
             frw,
+            ias,
+            cb,
+            cbf,
+            pdr_pct,
+            life_leech,
             fr,
             lr,
             cr,
@@ -422,6 +730,9 @@ impl ItemSpec {
             max_pr,
             defense,
             belt_slots,
+            set_group,
+            set_item_id,
+            set_bonuses,
         }
     }
 
@@ -542,7 +853,7 @@ impl CharmSpec {
     }
 }
 
-/// Search constraints and Sorceress baseline stats.
+/// Search constraints and character baseline stats.
 #[cfg_attr(feature = "python", pyclass(get_all, set_all))]
 #[derive(Clone, Debug)]
 pub struct BuildConstraints {
@@ -565,6 +876,14 @@ pub struct BuildConstraints {
     pub blizz_syn_pts: i32,
     pub cm_base_lvl: i32,
     pub limit: usize,
+    pub char_class: u8,
+    pub base_max_fr: i32,
+    pub base_max_lr: i32,
+    pub base_max_cr: i32,
+    pub base_max_pr: i32,
+    pub use_bo: bool,
+    pub fixed_gear: bool,
+    pub offense: String,
 }
 
 impl Default for BuildConstraints {
@@ -589,6 +908,14 @@ impl Default for BuildConstraints {
             blizz_syn_pts: 54,
             cm_base_lvl: 20,
             limit: 5,
+            char_class: CharClass::SORCERESS_ID,
+            base_max_fr: 0,
+            base_max_lr: 0,
+            base_max_cr: 0,
+            base_max_pr: 0,
+            use_bo: true,
+            fixed_gear: false,
+            offense: String::from("caster"),
         }
     }
 }
@@ -617,6 +944,14 @@ impl BuildConstraints {
         blizz_base_lvl = 20,
         blizz_syn_pts = 54,
         cm_base_lvl = 20,
+        char_class = 1,
+        base_max_fr = 0,
+        base_max_lr = 0,
+        base_max_cr = 0,
+        base_max_pr = 0,
+        use_bo = true,
+        fixed_gear = false,
+        offense = String::from("caster"),
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -639,6 +974,14 @@ impl BuildConstraints {
         blizz_base_lvl: i32,
         blizz_syn_pts: i32,
         cm_base_lvl: i32,
+        char_class: u8,
+        base_max_fr: i32,
+        base_max_lr: i32,
+        base_max_cr: i32,
+        base_max_pr: i32,
+        use_bo: bool,
+        fixed_gear: bool,
+        offense: String,
     ) -> Self {
         Self {
             allow_mf,
@@ -660,6 +1003,14 @@ impl BuildConstraints {
             blizz_syn_pts,
             cm_base_lvl,
             limit,
+            char_class,
+            base_max_fr,
+            base_max_lr,
+            base_max_cr,
+            base_max_pr,
+            use_bo,
+            fixed_gear,
+            offense,
         }
     }
 }
@@ -669,6 +1020,7 @@ impl BuildConstraints {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BuildResult {
     pub skills: i32,
+    pub primary_skill_bonus: i32,
     pub blizz_avg: f64,
     pub cm_pierce: i32,
     pub fcr: i32,
@@ -676,6 +1028,11 @@ pub struct BuildResult {
     pub fhr: i32,
     pub fhr_bp: i32,
     pub frw: i32,
+    pub ias: i32,
+    pub cb: i32,
+    pub cbf: bool,
+    pub pdr_pct: i32,
+    pub life_leech: i32,
     pub mf: i32,
     pub fr: i32,
     pub fr_raw: i32,

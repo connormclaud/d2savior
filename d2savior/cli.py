@@ -21,7 +21,9 @@ lazy from d2savior.core.char_formatter import (
     format_char_summary,
     format_timestamp,
 )
+lazy from d2savior.core.constants import DIFFICULTY_NAMES
 lazy from d2savior.core.d2s_struct import D2SStruct
+lazy from d2savior.core.enums import CharClass
 lazy from d2savior.core.ibitstream import IBitStream
 lazy from d2savior.core.item import D2Item
 lazy from d2savior.core.item_formatter import (
@@ -36,13 +38,23 @@ lazy from d2savior.core.stash_formatter import (
     format_stash_info,
     format_stash_summary,
 )
+lazy from d2savior.core.stats import get_current_difficulty
 lazy from d2savior.optimizer import (
     BUILD_CHOICES,
+    PALADIN_BUILD_CHOICES,
+    SORC_ONLY_BUILD_CHOICES,
+    SUPPORTED_OPTIMIZER_CLASSES,
+    CharmSpec,
+    ItemSpec,
     extract_pool,
     format_build_report,
+    format_paladin_leveling_report,
     optimize_builds,
+    optimize_paladin_leveling,
+    paladin_primary_skill_info,
+    select_paladin_max_res_preset,
     select_sorc_presets,
-    validate_sorceress,
+    validate_supported_class,
 )
 
 _PARSE_ERRORS = (OSError, ValueError, LookupError, EOFError, struct.error)
@@ -452,10 +464,46 @@ def cmd_stash(argv: list[str]) -> int:
     return _process_files(stash_files, args, resolver)
 
 
+def _resolve_primary_optimize_char(
+    chars: list[D2SStruct], target_name: str | None, build: str
+) -> tuple[D2SStruct | None, str | None]:
+    build_lower = build.lower()
+    if target_name is not None:
+        for ch in chars:
+            if ch.get_char_name().lower() == target_name.lower():
+                return ch, None
+        return None, f"Error: Character '{target_name}' not found in target saves"
+
+    allowed_classes: tuple[CharClass, ...]
+    if build_lower in SORC_ONLY_BUILD_CHOICES:
+        allowed_classes, class_label = (CharClass.SORCERESS,), "Sorceress"
+    elif build_lower in PALADIN_BUILD_CHOICES:
+        allowed_classes, class_label = (CharClass.PALADIN,), "Paladin"
+    else:
+        allowed_classes, class_label = SUPPORTED_OPTIMIZER_CLASSES, "optimizable"
+    candidates = [ch for ch in chars if ch.char_class in allowed_classes]
+    if not candidates:
+        no_cls_msg = (
+            "Sorceress or Paladin"
+            if allowed_classes == SUPPORTED_OPTIMIZER_CLASSES
+            else class_label
+        )
+        return None, f"Error: No {no_cls_msg} character found in target saves"
+    if len(candidates) > 1:
+        names = ", ".join(ch.get_char_name() for ch in candidates)
+        return (
+            None,
+            f"Error: Multiple {class_label} characters found ({names}); specify a character name",
+        )
+    return candidates[0], None
+
+
 def _load_optimize_pool(
     files_to_process: list[str],
     target_name: str | None,
     resolver: GameDataResolver,
+    *,
+    build: str = "all",
 ) -> tuple[D2SStruct | None, list[D2SStruct], list[SharedStash], str | None]:
     chars: list[D2SStruct] = []
     stashes: list[SharedStash] = []
@@ -470,35 +518,116 @@ def _load_optimize_pool(
             if ok and kind == "stash" and isinstance(stash_data, SharedStash):
                 stashes.append(stash_data)
 
-    primary: D2SStruct | None = None
-    if target_name is not None:
-        for ch in chars:
-            if ch.get_char_name().lower() == target_name.lower():
-                primary = ch
-                break
-        if primary is None:
-            return None, [], stashes, f"Error: Character '{target_name}' not found in target saves"
-    else:
-        sorcs = [ch for ch in chars if ch.char_class == 1]
-        if not sorcs:
-            return None, [], stashes, "Error: No Sorceress character found in target saves"
-        if len(sorcs) > 1:
-            names = ", ".join(ch.get_char_name() for ch in sorcs)
-            return (
-                None,
-                [],
-                stashes,
-                f"Error: Multiple Sorceress characters found ({names}); specify a character name",
-            )
-        primary = sorcs[0]
+    primary, err = _resolve_primary_optimize_char(chars, target_name, build)
+    if primary is None:
+        return None, [], stashes, err
 
     try:
-        validate_sorceress(primary)
+        validate_supported_class(primary)
     except ValueError as exc:
         return None, [], stashes, f"Error: {exc}"
 
+    build_lower = build.lower()
+    if primary.char_class == CharClass.SORCERESS and build_lower in PALADIN_BUILD_CHOICES:
+        return (
+            None,
+            [],
+            stashes,
+            f"Error: Build preset '{build}' is only supported for Paladin; '{primary.get_char_name()}' is Sorceress",
+        )
+    if primary.char_class == CharClass.PALADIN and build_lower in SORC_ONLY_BUILD_CHOICES:
+        return (
+            None,
+            [],
+            stashes,
+            f"Error: Build preset '{build}' is only supported for Sorceress; '{primary.get_char_name()}' is Paladin",
+        )
+
     extras = [ch for ch in chars if ch is not primary]
     return primary, extras, stashes, None
+
+
+def _run_sorc_optimize(
+    primary: D2SStruct,
+    extras: list[D2SStruct],
+    stashes: list[SharedStash],
+    items: list[ItemSpec],
+    charms: list[CharmSpec],
+    resolver: GameDataResolver,
+    args: argparse.Namespace,
+    primary_inv_loc: str,
+) -> None:
+    for title, constraints in select_sorc_presets(
+        primary,
+        build=args.build,
+        max_charm_slots=args.charm_slots,
+        limit=args.limit,
+        extra_chars=extras,
+        stashes=stashes,
+        resolver=resolver,
+        keep_equipped=args.keep_gear,
+    ):
+        results = optimize_builds(items, charms, constraints)
+        print(format_build_report(title, results, charms, primary_inv_loc=primary_inv_loc))
+        print()
+
+
+def _run_paladin_optimize(
+    primary: D2SStruct,
+    extras: list[D2SStruct],
+    stashes: list[SharedStash],
+    items: list[ItemSpec],
+    charms: list[CharmSpec],
+    resolver: GameDataResolver,
+    args: argparse.Namespace,
+    primary_inv_loc: str,
+) -> None:
+    if args.build.lower() == "max-res":
+        title, constraints, resolved_spec = select_paladin_max_res_preset(
+            primary,
+            max_charm_slots=args.charm_slots,
+            limit=args.limit,
+            extra_chars=extras,
+            stashes=stashes,
+            resolver=resolver,
+            keep_equipped=args.keep_gear,
+        )
+        diff_name = DIFFICULTY_NAMES[get_current_difficulty(primary)]
+        skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
+        report = format_build_report(
+            title,
+            optimize_builds(items, charms, constraints),
+            charms,
+            char_class=primary.char_class,
+            diff_name=diff_name,
+            primary_skill_name=skill_name,
+            primary_skill_base=base_skill_lvl,
+            primary_inv_loc=primary_inv_loc,
+        )
+    else:
+        title, options, resolved_spec, diff_name = optimize_paladin_leveling(
+            primary,
+            items,
+            charms,
+            max_charm_slots=args.charm_slots,
+            limit=args.limit,
+            extra_chars=extras,
+            stashes=stashes,
+            resolver=resolver,
+            keep_equipped=args.keep_gear,
+        )
+        skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
+        report = format_paladin_leveling_report(
+            title,
+            options,
+            charms,
+            diff_name=diff_name,
+            primary_skill_name=skill_name,
+            primary_skill_base=base_skill_lvl,
+            primary_inv_loc=primary_inv_loc,
+        )
+    print(report)
+    print()
 
 
 def _split_optimize_targets(
@@ -523,13 +652,13 @@ def _split_optimize_targets(
 def cmd_optimize(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="d2savior optimize",
-        description="Optimize Sorceress builds across characters and shared stash",
+        description="Optimize Sorceress or Paladin leveling builds across characters and shared stash",
         parents=[_common_parser],
     )
     parser.add_argument(
         "--char",
         default=None,
-        help="Target Sorceress character name (can also be passed positionally)",
+        help="Target character name (Sorceress or Paladin; can also be passed positionally)",
     )
     parser.add_argument(
         "-b",
@@ -550,6 +679,11 @@ def cmd_optimize(argv: list[str]) -> int:
         default=3,
         help="Maximum top options to show per build preset (default: 3)",
     )
+    parser.add_argument(
+        "--keep-gear",
+        action="store_true",
+        help="Keep currently equipped active gear and optimize inventory charms only",
+    )
     args = parser.parse_args(argv)
     target_char, args.file_path = _split_optimize_targets(args.file_path, args.char)
     files_to_process = _resolve_and_save_targets(args)
@@ -557,27 +691,30 @@ def cmd_optimize(argv: list[str]) -> int:
         return 1
 
     resolver = GameDataResolver.load(lang_key=args.lang or "enUS")
-    primary, extras, stashes, err = _load_optimize_pool(files_to_process, target_char, resolver)
+    primary, extras, stashes, err = _load_optimize_pool(
+        files_to_process, target_char, resolver, build=args.build
+    )
     if primary is None:
         print(err or "Error: Character not found in target saves", file=sys.stderr)
         return 1
 
+    primary_inv_loc = f"{primary.get_char_name()} Inv"
     try:
         items, charms = extract_pool(
-            primary, extra_chars=extras, stashes=stashes, resolver=resolver
-        )
-        for title, constraints in select_sorc_presets(
             primary,
-            build=args.build,
-            max_charm_slots=args.charm_slots,
-            limit=args.limit,
             extra_chars=extras,
             stashes=stashes,
             resolver=resolver,
-        ):
-            results = optimize_builds(items, charms, constraints)
-            print(format_build_report(title, results, charms))
-            print()
+            keep_equipped=args.keep_gear,
+        )
+        if primary.char_class == CharClass.SORCERESS:
+            _run_sorc_optimize(
+                primary, extras, stashes, items, charms, resolver, args, primary_inv_loc
+            )
+        else:
+            _run_paladin_optimize(
+                primary, extras, stashes, items, charms, resolver, args, primary_inv_loc
+            )
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -596,7 +733,7 @@ COMMANDS = frozendict(
         ),
         "optimize": (
             cmd_optimize,
-            "optimize [name]   Optimize Sorceress builds (-b base|mf|tz|max-res|all)",
+            "optimize [name]   Optimize Sorceress or Paladin leveling builds (-b ...)",
         ),
     }
 )

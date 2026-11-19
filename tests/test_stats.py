@@ -159,6 +159,54 @@ def test_set_properties_activated(game_data_resolver: GameDataResolver):
     assert stats2.fcr == 10
 
 
+def test_parent_set_grouping_sigons_and_duplicate_angelic_rings(
+    game_data_resolver: GameDataResolver,
+) -> None:
+    """Distinct pieces of the same parent set combine, while duplicate rings do not."""
+    char = D2SStruct()
+    char.version = 0x63
+    char.weapon_set = 0
+    char.item_list = ItemList()
+
+    def make_set_piece(
+        pos: int, code: bytes, set_id: int, sp_2pc: list[tuple[int, int, int]]
+    ) -> D2Item:
+        it = D2Item()
+        it.location = ItemLocation.EQUIPPED.value
+        it.position = pos
+        it.type_name = code
+        it.item_info = ItemInfo()
+        it.item_info.ext_info = ExtItemInfo()
+        it.item_info.ext_info.set_id = set_id
+        tp = TypeSpecificInfo()
+        sp = PropertyList()
+        sp.properties = sp_2pc
+        tp.set_properties = [sp, None, None, None, None]
+        it.item_info.type_specific_info = tp
+        return it
+
+    # Sigon's Gage (35) + Sigon's Wrap (39) -> activates Gage's +30% IAS (stat 93, save_add=20 -> 50)
+    gage = make_set_piece(EquipSlot.GLOVES.value, b"hgl ", 35, [(93, 0, 50)])
+    wrap = make_set_piece(EquipSlot.BELT.value, b"hbl ", 39, [])
+    # Two identical Angelic Halo rings (52) must count as 1 piece (no 2pc bonus activates)
+    halo1 = make_set_piece(EquipSlot.RING_LEFT.value, b"rin ", 52, [])
+    halo2 = make_set_piece(EquipSlot.RING_RIGHT.value, b"rin ", 52, [(105, 0, 30)])
+    char.item_list.items.extend([gage, wrap, halo1, halo2])
+
+    stats_rings = calculate_advanced_stats(char, resolver=game_data_resolver)
+    assert stats_rings.ias == 30
+    assert stats_rings.fcr == 0
+
+    # Replace second Angelic Halo with Angelic Wings amulet (53) -> 2 distinct Angelic pieces activate!
+    char.item_list.items.pop()
+    wings = make_set_piece(EquipSlot.AMULET.value, b"amu ", 53, [(105, 0, 30)])
+    char.item_list.items.append(wings)
+
+    stats_amu = calculate_advanced_stats(char, resolver=game_data_resolver)
+    assert stats_amu.ias == 30
+    assert stats_amu.fcr == 10
+
+
 def test_inventory_charm_filtering(game_data_resolver: GameDataResolver):
     """Ensure spare equipment in inventory does not contribute to stats, but charms do."""
     char = D2SStruct()

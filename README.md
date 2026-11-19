@@ -11,7 +11,7 @@ Supports both version 0x63 (v1.x) and 0x69 (v3.x / Reign of the Warlock) save fi
 - Parse standalone item files (`.d2i`)
 - Search for items across characters and shared stashes (`-f` / `--find`)
 - Multi-language item and skill name lookup support (`--lang enUS`, `--lang zhCN`, etc.)
-- Optional Sorceress build & charm loadout optimizer across character saves and shared stashes (`d2savior optimize`, enabled via `[optimize]`)
+- Optional Sorceress & Paladin leveling build & charm loadout optimizer across character saves and shared stashes (`d2savior optimize`, enabled via `[optimize]`)
 - Bit/byte search capabilities for reverse engineering and debugging
 
 ## Requirements
@@ -98,7 +98,7 @@ d2savior stash --no-config
 
 ### Build Optimizer (Optional)
 
-`d2savior optimize` evaluates Blizzard Sorceress gear and charm loadouts across your characters and shared stash. Optimization is an optional feature and is off by default:
+`d2savior optimize` evaluates Blizzard Sorceress and Paladin leveling gear and charm loadouts across your characters and shared stash. Optimization is an optional feature and is off by default:
 
 ```bash
 # Install with the optional optimizer extra
@@ -116,12 +116,19 @@ make build-rust
 Usage examples:
 
 ```bash
-# Optimize the Sorceress in the configured save folder across all saves & stashes
+# Optimize a character in the configured save folder across all saves & stashes
 d2savior optimize
 
-# Optimize a specific character and build preset
-# Presets: base, mf, mf-speed, mf-pure, tz, power, max-res, all (default)
+# Optimize a specific Sorceress build preset
+# Sorceress presets: base, mf, mf-speed, mf-pure, tz, power, max-res, all (default)
 d2savior optimize sork -b tz
+
+# Optimize a leveling Paladin (auto-detects highest damage skill, evaluates set bonuses)
+# Paladin presets: leveling, max-res, all (default)
+d2savior optimize smite -b leveling
+
+# Keep currently equipped active gear and optimize inventory charms only
+d2savior optimize smite --keep-gear
 
 # Customize charm inventory budget and number of options shown
 d2savior optimize sork -b mf --charm-slots 23 --limit 5

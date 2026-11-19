@@ -1,7 +1,27 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::eval::res_caps;
-use crate::types::{BuildConstraints, CharmSpec, ItemSpec, SearchMode, Stats};
+use crate::types::{
+    compute_effective_gear_stats, BuildConstraints, CharClass, CharmSpec, ItemSpec, SearchMode,
+    Stats, BASE_MAX_RES,
+};
+
+fn is_res_mode(mode: SearchMode) -> bool {
+    matches!(mode, SearchMode::MaxRes | SearchMode::LevelingRes)
+}
+
+fn res_opt_caps(caps: [i32; 4], mode: SearchMode) -> [i32; 4] {
+    match mode {
+        SearchMode::MaxRes => caps,
+        SearchMode::LevelingRes => [
+            caps[0].min(BASE_MAX_RES),
+            caps[1].min(BASE_MAX_RES),
+            caps[2].min(BASE_MAX_RES),
+            caps[3].min(BASE_MAX_RES),
+        ],
+        _ => [0; 4],
+    }
+}
 
 struct CharmState<'a, 'b> {
     pool: &'b [&'a CharmSpec],
@@ -132,7 +152,7 @@ pub(crate) fn charm_stat_ub(
     if rem_slots == 0 {
         return 0;
     }
-    let mut best_unique: HashMap<i32, (i32, i32)> = HashMap::new();
+    let mut best_unique: BTreeMap<i32, (i32, i32)> = BTreeMap::new();
     let mut entries: Vec<(i32, i32)> = Vec::new();
     let mut ub = 0;
     let mut push_entry = |val: i32, size: i32| {
@@ -242,11 +262,12 @@ fn greedy_fill_remaining(
         })
     });
 
+    let opt_caps = res_opt_caps(caps, mode);
     let pick_ordered = |state: &mut CharmState<'_, '_>, indices: Vec<usize>| {
         for idx in indices {
             if state.can_pick(idx)
                 && state.preserves_res_targets(idx, res_targets)
-                && (mode != SearchMode::MaxRes || state.preserves_res_sum(idx, caps))
+                && (!is_res_mode(mode) || state.preserves_res_sum(idx, opt_caps))
             {
                 state.pick(idx);
             }
@@ -266,13 +287,16 @@ fn greedy_fill_remaining(
         for (idx, c) in pool.iter().enumerate() {
             if !state.can_pick(idx)
                 || !state.preserves_res_targets(idx, res_targets)
-                || (mode == SearchMode::MaxRes && !state.preserves_res_sum(idx, caps))
+                || (is_res_mode(mode) && !state.preserves_res_sum(idx, opt_caps))
             {
                 continue;
             }
             let mut s = c.life as f64
                 + c.mana as f64 * 0.4
                 + (caps[3] - state.cur_res[3]).max(0).min(c.pr) as f64 * 1.2;
+            if matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) {
+                s += c.frw as f64 * 1.5;
+            }
             if state.cur_res[0] < caps[0] {
                 s += (caps[0] - state.cur_res[0]).min(c.fr) as f64 * 2.0;
             }
@@ -304,10 +328,8 @@ fn greedy_charms_pass_indices(
     fhr_first: bool,
     prepicked: Option<&CharmSpec>,
 ) -> Option<Vec<usize>> {
-    let gear = items
-        .iter()
-        .fold(Stats::default(), |acc, i| acc.add(i.stats()));
-    let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear);
+    let (gear, _) = compute_effective_gear_stats(items);
+    let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear, c);
     if c.min_fr > cap_fr || c.min_lr > cap_lr || c.min_cr > cap_cr || c.min_pr > cap_pr {
         return None;
     }
@@ -367,7 +389,7 @@ fn greedy_charms_pass_indices(
 
     let (mf_w, sk_w) = match mode {
         SearchMode::Mf => (0.05, 0.02),
-        SearchMode::Power | SearchMode::MaxRes => (0.0, 0.2),
+        _ => (0.0, 0.2),
     };
     let res_targets = [c.min_fr, c.min_lr, c.min_cr, c.min_pr];
     if fhr_first {
@@ -378,8 +400,14 @@ fn greedy_charms_pass_indices(
         greedy_fhr_loop(&mut state, c.min_fhr);
     }
 
-    if mode == SearchMode::MaxRes {
-        greedy_res_loop(&mut state, caps, [1.0, 1.0, 1.0, 1.0], 0.0, 0.2);
+    if is_res_mode(mode) {
+        greedy_res_loop(
+            &mut state,
+            res_opt_caps(caps, mode),
+            [1.0, 1.0, 1.0, 1.0],
+            0.0,
+            0.2,
+        );
     }
 
     greedy_fill_remaining(&mut state, caps, res_targets, mode);
@@ -817,13 +845,16 @@ impl<'a> CharmSolver<'a> {
         let raw_max_slots = c.max_charm_slots.max(0);
         let main_val_of = |ch: &CharmSpec| -> i32 {
             match mode {
-                SearchMode::Power => ch.skills.max(0),
+                SearchMode::Power | SearchMode::Leveling => ch.skills.max(0),
                 SearchMode::Mf => ch.mf.max(0),
-                SearchMode::MaxRes => ch.fr.max(0) + ch.lr.max(0) + ch.cr.max(0) + ch.pr.max(0),
+                SearchMode::MaxRes | SearchMode::LevelingRes => {
+                    ch.fr.max(0) + ch.lr.max(0) + ch.cr.max(0) + ch.pr.max(0)
+                }
             }
         };
 
-        let raw_sunders: Vec<&'a CharmSpec> = if mode != SearchMode::MaxRes {
+        let class = CharClass::from_id_or_default(c.char_class);
+        let raw_sunders: Vec<&'a CharmSpec> = if class.forces_cold_sunder() && !is_res_mode(mode) {
             raw_pool
                 .iter()
                 .copied()
@@ -909,16 +940,18 @@ impl<'a> CharmSolver<'a> {
                 || ch.cr > 0
                 || ch.pr > 0;
             let helps_main = match mode {
-                SearchMode::Power => ch.skills > 0,
+                SearchMode::Power | SearchMode::Leveling => ch.skills > 0,
                 SearchMode::Mf => ch.mf > 0,
-                SearchMode::MaxRes => ch.fr > 0 || ch.lr > 0 || ch.cr > 0 || ch.pr > 0,
+                SearchMode::MaxRes | SearchMode::LevelingRes => {
+                    ch.fr > 0 || ch.lr > 0 || ch.cr > 0 || ch.pr > 0
+                }
             };
             helps_feas || helps_main
         };
 
-        let mut unique_map: HashMap<i32, Vec<usize>> = HashMap::new();
+        let mut unique_map: BTreeMap<i32, Vec<usize>> = BTreeMap::new();
         type MultiKey = (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32);
-        let mut multi_map: HashMap<MultiKey, Vec<usize>> = HashMap::new();
+        let mut multi_map: BTreeMap<MultiKey, Vec<usize>> = BTreeMap::new();
 
         for (idx, &ch) in pool.iter().enumerate() {
             if !is_relevant(ch) {
@@ -990,10 +1023,11 @@ impl<'a> CharmSolver<'a> {
             }
         }
 
-        let group_sort_key = |g: &CharmGroup| -> (i64, i32, i32) {
+        let group_sort_key = |g: &CharmGroup| -> (i64, i32, i32, i32, i32, i32, i32) {
             match g {
                 CharmGroup::Unique { options, .. } => {
-                    let ch = pool[options[0]];
+                    let rep_idx = options[0];
+                    let ch = pool[rep_idx];
                     let sz = ch.size.max(1) as i64;
                     let mv = main_val_of(ch) as i64;
                     let feas = ch.str_bonus.max(0)
@@ -1003,20 +1037,37 @@ impl<'a> CharmSolver<'a> {
                         + ch.lr.max(0)
                         + ch.cr.max(0)
                         + ch.pr.max(0);
-                    (mv * 1000 / sz, feas, -ch.size)
+                    (
+                        mv * 1000 / sz,
+                        feas,
+                        -ch.size,
+                        ch.life,
+                        ch.mana,
+                        ch.frw,
+                        -(rep_idx as i32),
+                    )
                 }
                 CharmGroup::Multi {
                     members,
                     size,
                     stats,
                 } => {
-                    let ch = pool[members[0]];
+                    let rep_idx = members[0];
+                    let ch = pool[rep_idx];
                     let mv = main_val_of(ch) as i64;
                     let feas = stats.str_bonus.max(0)
                         + stats.dex_bonus.max(0)
                         + stats.fhr.max(0)
                         + stats.res.iter().map(|&r| r.max(0)).sum::<i32>();
-                    (mv * 1000 / (*size as i64), feas, -*size)
+                    (
+                        mv * 1000 / (*size as i64),
+                        feas,
+                        -*size,
+                        ch.life,
+                        ch.mana,
+                        ch.frw,
+                        -(rep_idx as i32),
+                    )
                 }
             }
         };
@@ -1086,9 +1137,11 @@ impl<'a> CharmSolver<'a> {
 
     fn main_score_of_indices(&self, idxs: &[usize], room: [i32; 4]) -> i32 {
         match self.mode {
-            SearchMode::Power => idxs.iter().map(|&i| self.pool[i].skills).sum(),
+            SearchMode::Power | SearchMode::Leveling => {
+                idxs.iter().map(|&i| self.pool[i].skills).sum()
+            }
             SearchMode::Mf => idxs.iter().map(|&i| self.pool[i].mf).sum(),
-            SearchMode::MaxRes => {
+            SearchMode::MaxRes | SearchMode::LevelingRes => {
                 let mut sum_r = [0i32; 4];
                 for &i in idxs {
                     let ch = self.pool[i];
@@ -1204,9 +1257,9 @@ impl<'a> CharmSolver<'a> {
 
             if all_met {
                 let cur_main = match s.mode {
-                    SearchMode::Power => cur_skills,
+                    SearchMode::Power | SearchMode::Leveling => cur_skills,
                     SearchMode::Mf => cur_mf,
-                    SearchMode::MaxRes => (0..4)
+                    SearchMode::MaxRes | SearchMode::LevelingRes => (0..4)
                         .map(|r| cur_res_added[r].min(ctx.room[r]) - ctx.room[r].min(0))
                         .sum(),
                 };
@@ -1236,11 +1289,11 @@ impl<'a> CharmSolver<'a> {
             // Objective upper-bound pruning once an incumbent exists.
             if let Some(best) = ctx.best_main {
                 let ub_total = match s.mode {
-                    SearchMode::Power => {
+                    SearchMode::Power | SearchMode::Leveling => {
                         cur_skills + eval_sorted_ub(&s.order_skills, g_idx, rem_slots)
                     }
                     SearchMode::Mf => cur_mf + eval_sorted_ub(&s.order_mf, g_idx, rem_slots),
-                    SearchMode::MaxRes => {
+                    SearchMode::MaxRes | SearchMode::LevelingRes => {
                         let cur_gain: i32 = (0..4)
                             .map(|r| cur_res_added[r].min(ctx.room[r]) - ctx.room[r].min(0))
                             .sum();
@@ -1327,9 +1380,9 @@ impl<'a> CharmSolver<'a> {
                 } => {
                     let max_k = ((rem_slots / *size).min(members.len() as i32)).max(0);
                     let has_main = match s.mode {
-                        SearchMode::Power => stats.skills > 0,
+                        SearchMode::Power | SearchMode::Leveling => stats.skills > 0,
                         SearchMode::Mf => stats.mf > 0,
-                        SearchMode::MaxRes => {
+                        SearchMode::MaxRes | SearchMode::LevelingRes => {
                             let neg_next = s.suf_neg_res[g_idx + 1];
                             (0..4).any(|r| {
                                 stats.res[r] > 0 && cur_res_added[r] + neg_next[r] < ctx.room[r]
@@ -1430,7 +1483,7 @@ impl<'a> CharmSolver<'a> {
         leaf: Stats,
         reqs: (i32, i32),
     ) -> Option<Vec<&'a CharmSpec>> {
-        let caps_t = res_caps(leaf);
+        let caps_t = res_caps(leaf, self.c);
         let caps = [caps_t.0, caps_t.1, caps_t.2, caps_t.3];
         if self.c.min_fr > caps[0]
             || self.c.min_lr > caps[1]
@@ -1476,9 +1529,9 @@ impl<'a> CharmSolver<'a> {
             };
             let rem_main = self.main_score_of_indices(&idxs, [0; 4]);
             let s_main = match self.mode {
-                SearchMode::Power => sunder.skills,
+                SearchMode::Power | SearchMode::Leveling => sunder.skills,
                 SearchMode::Mf => sunder.mf,
-                SearchMode::MaxRes => 0,
+                SearchMode::MaxRes | SearchMode::LevelingRes => 0,
             };
             let total_cr = leaf_s.cr + idxs.iter().map(|&i| self.pool[i].cr).sum::<i32>();
             let total_life = sunder.life + idxs.iter().map(|&i| self.pool[i].life).sum::<i32>();
@@ -1531,12 +1584,13 @@ impl<'a> CharmSolver<'a> {
             leaf_res[2].saturating_sub(mins[2]).min(-self.sum_neg[2]),
             leaf_res[3].saturating_sub(mins[3]).min(-self.sum_neg[3]),
         ];
-        let room = if self.mode == SearchMode::MaxRes {
+        let room = if is_res_mode(self.mode) {
+            let opt_caps = res_opt_caps(caps, self.mode);
             [
-                (caps[0] - leaf.fr).max(self.sum_neg[0]),
-                (caps[1] - leaf.lr).max(self.sum_neg[1]),
-                (caps[2] - leaf.cr).max(self.sum_neg[2]),
-                (caps[3] - leaf.pr).max(self.sum_neg[3]),
+                (opt_caps[0] - leaf.fr).max(self.sum_neg[0]),
+                (opt_caps[1] - leaf.lr).max(self.sum_neg[1]),
+                (opt_caps[2] - leaf.cr).max(self.sum_neg[2]),
+                (opt_caps[3] - leaf.pr).max(self.sum_neg[3]),
             ]
         } else {
             [0; 4]
@@ -1569,9 +1623,11 @@ impl<'a> CharmSolver<'a> {
         let greedy_res =
             greedy_charms_indices(items, &self.pool, self.c, reqs, self.mode, prepicked);
         let ub_main = match self.mode {
-            SearchMode::Power => self.ub_skills,
+            SearchMode::Power | SearchMode::Leveling => self.ub_skills,
             SearchMode::Mf => self.ub_mf,
-            SearchMode::MaxRes => (0..4).map(|r| room[r].max(0).min(self.ub_res[r])).sum(),
+            SearchMode::MaxRes | SearchMode::LevelingRes => {
+                (0..4).map(|r| room[r].max(0).min(self.ub_res[r])).sum()
+            }
         };
 
         let incumbent = match &greedy_res {

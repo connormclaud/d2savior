@@ -46,6 +46,23 @@ class D2IntEnum(IntEnum):
         return obj
 
 
+class CharClass(D2IntEnum):
+    """Diablo II playable character class IDs."""
+
+    AMAZON = 0
+    SORCERESS = 1
+    NECROMANCER = 2
+    PALADIN = 3
+    BARBARIAN = 4
+    DRUID = 5
+    ASSASSIN = 6
+    WARLOCK = 7
+
+    @classmethod
+    def _display_names(cls) -> dict[int, str]:
+        return dict(enumerate(CLASS_NAMES))
+
+
 class StoredIn(D2IntEnum):
     INVENTORY = 0
     EQUIP = 1

@@ -1,12 +1,19 @@
 #[cfg(feature = "python")]
+use pyo3::exceptions::PyValueError;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 
 use crate::types::{
-    BuildConstraints, BuildResult, CharmSpec, ItemSpec, Stats, BASE_MAX_RES, HARD_MAX_RES,
+    compute_effective_gear_stats, BuildConstraints, BuildResult, CharClass, CharmSpec, ItemSpec,
+    Stats, BASE_MAX_RES, HARD_MAX_RES,
 };
 
-const FCR_BPS: &[i32] = &[0, 9, 20, 37, 63, 105, 200];
-const FHR_BPS: &[i32] = &[0, 5, 9, 14, 20, 30, 42, 60, 86, 142, 280];
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn class_breakpoints(char_class: u8) -> PyResult<(Vec<i32>, Vec<i32>)> {
+    let class = CharClass::from_id(char_class).map_err(PyValueError::new_err)?;
+    Ok((class.fcr_bps().to_vec(), class.fhr_bps().to_vec()))
+}
 
 fn bp_tier(val: i32, bps: &[i32]) -> i32 {
     let mut best = 0;
@@ -71,18 +78,19 @@ pub fn blizzard_damage(skills: i32) -> (f64, f64, i32) {
     blizzard_damage_with_base(skills, 20, 54, 20)
 }
 
-pub(crate) fn res_caps(max_res: Stats) -> (i32, i32, i32, i32) {
+pub(crate) fn res_caps(max_res: Stats, c: &BuildConstraints) -> (i32, i32, i32, i32) {
     (
-        (BASE_MAX_RES + max_res.max_fr).min(HARD_MAX_RES),
-        (BASE_MAX_RES + max_res.max_lr).min(HARD_MAX_RES),
-        (BASE_MAX_RES + max_res.max_cr).min(HARD_MAX_RES),
-        (BASE_MAX_RES + max_res.max_pr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.base_max_fr + max_res.max_fr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.base_max_lr + max_res.max_lr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.base_max_cr + max_res.max_cr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.base_max_pr + max_res.max_pr).min(HARD_MAX_RES),
     )
 }
 
 #[derive(Clone, Copy)]
 pub(crate) struct EvalSummary {
     pub skills: i32,
+    pub primary_skill_bonus: i32,
     pub blizz_skills: i32,
     pub blizz_avg: f64,
     pub cm_pierce: i32,
@@ -91,6 +99,11 @@ pub(crate) struct EvalSummary {
     pub fhr: i32,
     pub fhr_bp: i32,
     pub frw: i32,
+    pub ias: i32,
+    pub cb: i32,
+    pub cbf: bool,
+    pub pdr_pct: i32,
+    pub life_leech: i32,
     pub mf: i32,
     pub fr: i32,
     pub fr_raw: i32,
@@ -122,6 +135,7 @@ impl EvalSummary {
     ) -> BuildResult {
         BuildResult {
             skills: self.skills,
+            primary_skill_bonus: self.primary_skill_bonus,
             blizz_avg: self.blizz_avg,
             cm_pierce: self.cm_pierce,
             fcr: self.fcr,
@@ -129,6 +143,11 @@ impl EvalSummary {
             fhr: self.fhr,
             fhr_bp: self.fhr_bp,
             frw: self.frw,
+            ias: self.ias,
+            cb: self.cb,
+            cbf: self.cbf,
+            pdr_pct: self.pdr_pct,
+            life_leech: self.life_leech,
             mf: self.mf,
             fr: self.fr,
             fr_raw: self.fr_raw,
@@ -182,37 +201,60 @@ pub(crate) fn eval_build_summary(
     let cr_raw = c.base_hell_res + gear.cr + charm_cr;
     let pr_raw = c.base_hell_res + gear.pr + charm_pr;
 
-    let life_no_bo = c.base_life + gear.life + gear.life_per_lvl + gear.vit * 2 + charm_life;
-    let bo_lvl = c.bo_base_bonus + all_sk_non_wep;
-    let bo_pct = 32 + 3 * bo_lvl;
+    let class = CharClass::from_id_or_default(c.char_class);
+    let vit_life = class.life_per_vit(gear.vit);
+    let ene_mana = class.mana_per_ene(gear.ene);
 
+    let life_no_bo = c.base_life + gear.life + gear.life_per_lvl + vit_life + charm_life;
     let bo_able_life = c.base_life + gear.life + charm_life;
     let bo_able_mana = c.base_mana + gear.mana + charm_mana;
-    let life_bo = (bo_able_life as f64 * (1.0 + bo_pct as f64 / 100.0)) as i32
-        + gear.vit * 2
-        + gear.life_per_lvl;
-    let mana_bo = (bo_able_mana as f64 * (1.0 + (bo_pct + gear.pct_mana) as f64 / 100.0)) as i32
-        + gear.ene * 2
-        + gear.mana_per_lvl;
-    let (_, blizz_avg, cm_pierce) = blizzard_damage_split(
-        skills + gear.blizz_skills,
-        c.blizz_base_lvl,
-        c.blizz_syn_pts,
-        skills + gear.cm_skills,
-        c.cm_base_lvl,
-    );
-    let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear);
+    let (bo_lvl, life_bo, mana_bo) = if c.use_bo {
+        let bo_lvl = c.bo_base_bonus + all_sk_non_wep;
+        let bo_pct = 32 + 3 * bo_lvl;
+        let life_bo = (bo_able_life as f64 * (1.0 + bo_pct as f64 / 100.0)) as i32
+            + vit_life
+            + gear.life_per_lvl;
+        let mana_bo = (bo_able_mana as f64 * (1.0 + (bo_pct + gear.pct_mana) as f64 / 100.0))
+            as i32
+            + ene_mana
+            + gear.mana_per_lvl;
+        (bo_lvl, life_bo, mana_bo)
+    } else {
+        let mana_no_bo = (bo_able_mana as f64 * (1.0 + gear.pct_mana as f64 / 100.0)) as i32
+            + ene_mana
+            + gear.mana_per_lvl;
+        (0, life_no_bo, mana_no_bo)
+    };
+
+    let (_, blizz_avg, cm_pierce) = if class.has_blizzard_calc() {
+        blizzard_damage_split(
+            skills + gear.blizz_skills,
+            c.blizz_base_lvl,
+            c.blizz_syn_pts,
+            skills + gear.cm_skills,
+            c.cm_base_lvl,
+        )
+    } else {
+        (0.0, 0.0, 0)
+    };
+    let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear, c);
 
     EvalSummary {
         skills,
+        primary_skill_bonus: gear.primary_skill,
         blizz_skills: gear.blizz_skills,
         blizz_avg,
         cm_pierce,
         fcr,
-        fcr_bp: bp_tier(fcr, FCR_BPS),
+        fcr_bp: bp_tier(fcr, class.fcr_bps()),
         fhr,
-        fhr_bp: bp_tier(fhr, FHR_BPS),
+        fhr_bp: bp_tier(fhr, class.fhr_bps()),
         frw,
+        ias: gear.ias,
+        cb: gear.cb,
+        cbf: gear.cbf > 0,
+        pdr_pct: gear.pdr_pct,
+        life_leech: gear.life_leech,
         mf,
         fr: fr_raw.min(cap_fr),
         fr_raw,
@@ -242,12 +284,7 @@ pub(crate) fn eval_build_core(
     c: &BuildConstraints,
     evaluated_candidates: usize,
 ) -> BuildResult {
-    let gear = items.iter().fold(Stats::default(), |acc, i| acc.add(i.stats()));
-    let all_sk_non_wep: i32 = items
-        .iter()
-        .filter(|i| !i.is_weapon_or_shield())
-        .map(|i| i.all_skills)
-        .sum();
+    let (gear, all_sk_non_wep) = compute_effective_gear_stats(items);
     eval_build_summary(gear, all_sk_non_wep, charms, c).into_result(
         items,
         charms,
@@ -255,22 +292,66 @@ pub(crate) fn eval_build_core(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn evaluate_build_core(
+    items: &[ItemSpec],
+    charms: &[CharmSpec],
+    base_life: i32,
+    base_mana: i32,
+    base_hell_res: i32,
+    bo_base_bonus: i32,
+    blizz_base_lvl: i32,
+    blizz_syn_pts: i32,
+    cm_base_lvl: i32,
+    char_class: u8,
+    use_bo: bool,
+    base_max_fr: i32,
+    base_max_lr: i32,
+    base_max_cr: i32,
+    base_max_pr: i32,
+) -> Result<BuildResult, String> {
+    CharClass::from_id(char_class)?;
+    let item_refs: Vec<&ItemSpec> = items.iter().collect();
+    let charm_refs: Vec<&CharmSpec> = charms.iter().collect();
+    let c = BuildConstraints {
+        base_life,
+        base_mana,
+        base_hell_res,
+        bo_base_bonus,
+        blizz_base_lvl,
+        blizz_syn_pts,
+        cm_base_lvl,
+        char_class,
+        use_bo,
+        base_max_fr,
+        base_max_lr,
+        base_max_cr,
+        base_max_pr,
+        ..Default::default()
+    };
+    Ok(eval_build_core(&item_refs, &charm_refs, &c, 1))
+}
+
 /// Evaluate a concrete list of equipped items and inventory charms.
-#[cfg_attr(feature = "python", pyfunction)]
-#[cfg_attr(
-    feature = "python",
-    pyo3(signature = (
-        items,
-        charms,
-        base_life = 0,
-        base_mana = 0,
-        base_hell_res = -100,
-        bo_base_bonus = 4,
-        blizz_base_lvl = 20,
-        blizz_syn_pts = 54,
-        cm_base_lvl = 20,
-    ))
-)]
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (
+    items,
+    charms,
+    base_life = 0,
+    base_mana = 0,
+    base_hell_res = -100,
+    bo_base_bonus = 4,
+    blizz_base_lvl = 20,
+    blizz_syn_pts = 54,
+    cm_base_lvl = 20,
+    char_class = 1,
+    use_bo = true,
+    base_max_fr = 0,
+    base_max_lr = 0,
+    base_max_cr = 0,
+    base_max_pr = 0,
+))]
 #[allow(clippy::too_many_arguments)]
 pub fn evaluate_build(
     items: Vec<ItemSpec>,
@@ -282,10 +363,16 @@ pub fn evaluate_build(
     blizz_base_lvl: i32,
     blizz_syn_pts: i32,
     cm_base_lvl: i32,
-) -> BuildResult {
-    let item_refs: Vec<&ItemSpec> = items.iter().collect();
-    let charm_refs: Vec<&CharmSpec> = charms.iter().collect();
-    let c = BuildConstraints {
+    char_class: u8,
+    use_bo: bool,
+    base_max_fr: i32,
+    base_max_lr: i32,
+    base_max_cr: i32,
+    base_max_pr: i32,
+) -> PyResult<BuildResult> {
+    evaluate_build_core(
+        &items,
+        &charms,
         base_life,
         base_mana,
         base_hell_res,
@@ -293,9 +380,14 @@ pub fn evaluate_build(
         blizz_base_lvl,
         blizz_syn_pts,
         cm_base_lvl,
-        ..Default::default()
-    };
-    eval_build_core(&item_refs, &charm_refs, &c, 1)
+        char_class,
+        use_bo,
+        base_max_fr,
+        base_max_lr,
+        base_max_cr,
+        base_max_pr,
+    )
+    .map_err(PyValueError::new_err)
 }
 
 #[cfg(test)]

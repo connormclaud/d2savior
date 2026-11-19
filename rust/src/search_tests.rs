@@ -764,55 +764,15 @@ impl SplitMix64 {
     }
 }
 
-fn score_summary(mode: SearchMode, sum: &crate::eval::EvalSummary) -> BuildScore {
-    let eff_blizz_sk = sum.skills + sum.blizz_skills;
-    let res_sum = sum.fr + sum.lr + sum.cr + sum.pr;
-    match mode {
-        SearchMode::Mf => (
-            sum.mf,
-            eff_blizz_sk,
-            sum.fcr_bp,
-            sum.fhr_bp,
-            sum.pr,
-            sum.life_bo,
-            sum.belt_slots,
-            sum.defense,
-        ),
-        SearchMode::Power => (
-            eff_blizz_sk,
-            sum.skills,
-            i32::from(sum.pr >= BASE_MAX_RES),
-            sum.pr,
-            sum.life_bo,
-            sum.mana_bo,
-            sum.belt_slots,
-            sum.defense,
-        ),
-        SearchMode::MaxRes => (
-            res_sum,
-            eff_blizz_sk,
-            sum.fcr_bp,
-            sum.fhr_bp,
-            sum.life_bo,
-            sum.fr_raw + sum.lr_raw + sum.cr_raw + sum.pr_raw,
-            sum.belt_slots,
-            sum.defense,
-        ),
-    }
-}
-
 fn validate_and_score_result(
     res: &BuildResult,
     c: &BuildConstraints,
     mode: SearchMode,
 ) -> BuildScore {
-    let gear = res.items.iter().fold(Stats::default(), |acc, i| acc.add(i.stats()));
-    let all_sk_non_wep: i32 = res
-        .items
-        .iter()
-        .filter(|i| !i.is_weapon_or_shield())
-        .map(|i| i.all_skills)
-        .sum();
+    let class = CharClass::from_id(c.char_class).unwrap();
+    let offense = OffenseProfile::parse(&c.offense, class).unwrap();
+    let item_refs: Vec<&ItemSpec> = res.items.iter().collect();
+    let (gear, all_sk_non_wep, reqs) = compute_effective_gear_stats_and_reqs(&item_refs);
     let charm_refs: Vec<&CharmSpec> = res.charms.iter().collect();
     let charm_slots: i32 = charm_refs.iter().map(|ch| ch.size).sum();
     assert!(charm_slots <= c.max_charm_slots);
@@ -828,18 +788,15 @@ fn validate_and_score_result(
         charm_dex += ch.dex_bonus;
     }
 
-    let reqs = res
-        .items
-        .iter()
-        .fold((0, 0), |acc, it| merge_reqs(acc, item_eff_reqs(it)));
     assert!(c.base_str + gear.str_bonus + charm_str >= reqs.0);
     assert!(c.base_dex + gear.dex_bonus + charm_dex >= reqs.1);
 
     let sum = eval_build_summary(gear, all_sk_non_wep, &charm_refs, c);
+    assert!(c.allow_mf || sum.mf == 0);
     assert!(sum.fcr >= c.min_fcr);
     assert!(sum.fhr >= c.min_fhr);
     assert!(sum.fr >= c.min_fr && sum.lr >= c.min_lr && sum.cr >= c.min_cr && sum.pr >= c.min_pr);
-    score_summary(mode, &sum)
+    score_eval_summary(mode, offense, &sum)
 }
 
 const TEST_EQUIP_SLOTS: &[&str] = &[
@@ -852,6 +809,11 @@ fn brute_force_top_scores(
     c: &BuildConstraints,
     mode: SearchMode,
 ) -> Vec<BuildScore> {
+    let class = CharClass::from_id(c.char_class).unwrap();
+    let offense = OffenseProfile::parse(&c.offense, class).unwrap();
+    let require_shield = offense.requires_shield();
+    let norm = normalize_set_items(items, c.allow_mf, require_shield, c.fixed_gear);
+    let items = norm.as_slice();
     let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;
     let empty_shield = ItemSpec::empty("shield");
     let empty_weapon = ItemSpec::empty("weapon");
@@ -867,15 +829,19 @@ fn brute_force_top_scores(
         .filter(|i| i.slot == "shield" && valid_item(i))
         .cloned()
         .collect();
-    let w2h: Vec<ItemSpec> = items
-        .iter()
-        .filter(|i| i.slot == "weapon2h" && valid_item(i))
-        .cloned()
-        .collect();
+    let w2h: Vec<ItemSpec> = if require_shield {
+        Vec::new()
+    } else {
+        items
+            .iter()
+            .filter(|i| i.slot == "weapon2h" && valid_item(i))
+            .cloned()
+            .collect()
+    };
     if !shs.is_empty() && empty_dominators(&w1h, c.base_str, c.base_dex) == 0 {
         w1h.push(empty_weapon.clone());
     }
-    if !w1h.is_empty() && empty_dominators(&shs, c.base_str, c.base_dex) == 0 {
+    if !require_shield && !w1h.is_empty() && empty_dominators(&shs, c.base_str, c.base_dex) == 0 {
         shs.push(empty_shield.clone());
     }
     let mut hand_pairs: Vec<(ItemSpec, ItemSpec)> = Vec::new();
@@ -887,15 +853,17 @@ fn brute_force_top_scores(
     for w in w2h {
         hand_pairs.push((w, empty_shield.clone()));
     }
-    if !hand_pairs.iter().any(|(a, b)| {
-        let comb = a.stats().add(b.stats());
-        let reqs = normalize_reqs(
-            merge_reqs(item_eff_reqs(a), item_eff_reqs(b)),
-            c.base_str,
-            c.base_dex,
-        );
-        dominates_empty(comb, reqs)
-    }) {
+    if !require_shield
+        && !hand_pairs.iter().any(|(a, b)| {
+            let comb = a.stats().add(b.stats());
+            let reqs = normalize_reqs(
+                merge_reqs(item_eff_reqs(a), item_eff_reqs(b)),
+                c.base_str,
+                c.base_dex,
+            );
+            a.set_group == 0 && b.set_group == 0 && dominates_empty(comb, reqs)
+        })
+    {
         hand_pairs.push((empty_weapon, empty_shield));
     }
 
@@ -926,7 +894,10 @@ fn brute_force_top_scores(
     }
     let pool: Vec<&CharmSpec> = charms
         .iter()
-        .filter(|ch| (c.allow_mf || ch.mf == 0) && ch.light_skills == 0)
+        .filter(|ch| {
+            (c.allow_mf || ch.mf == 0)
+                && (!class.excludes_light_skill_charms() || ch.light_skills == 0)
+        })
         .collect();
 
     let mut best_by_sig: HashMap<BuildSig, BuildScore> = HashMap::new();
@@ -936,20 +907,25 @@ fn brute_force_top_scores(
         for (h1, h2) in &hand_pairs {
             for ri in 0..rings.len() {
                 for rj in (ri + 1)..rings.len() {
-                    let mut loadout = Vec::with_capacity(2 + slot_items.len() + 2);
-                    loadout.push(h1);
-                    loadout.push(h2);
-                    loadout.extend_from_slice(&slot_items);
-                    loadout.push(&rings[ri]);
-                    loadout.push(&rings[rj]);
+                    let loadout = [
+                        h1,
+                        h2,
+                        slot_items[0],
+                        slot_items[1],
+                        slot_items[2],
+                        slot_items[3],
+                        slot_items[4],
+                        slot_items[5],
+                        &rings[ri],
+                        &rings[rj],
+                    ];
 
-                    let gear = loadout
-                        .iter()
-                        .fold(Stats::default(), |acc, i| acc.add(i.stats()));
-                    if gear.fcr < c.min_fcr {
+                    let (gear, all_sk_non_wep, reqs) =
+                        compute_effective_gear_stats_and_reqs(&loadout);
+                    if (!c.allow_mf && gear.mf > 0) || gear.fcr < c.min_fcr {
                         continue;
                     }
-                    let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear);
+                    let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear, c);
                     if c.min_fr > cap_fr
                         || c.min_lr > cap_lr
                         || c.min_cr > cap_cr
@@ -957,14 +933,6 @@ fn brute_force_top_scores(
                     {
                         continue;
                     }
-                    let reqs = loadout
-                        .iter()
-                        .fold((0, 0), |acc, it| merge_reqs(acc, item_eff_reqs(it)));
-                    let all_sk_non_wep: i32 = loadout
-                        .iter()
-                        .filter(|i| !i.is_weapon_or_shield())
-                        .map(|i| i.all_skills)
-                        .sum();
                     let item_names: Vec<String> = loadout.iter().map(|i| i.name.clone()).collect();
 
                     let mut best_for_gear: Option<(BuildSig, BuildScore)> = None;
@@ -1003,7 +971,8 @@ fn brute_force_top_scores(
                             continue;
                         }
                         let sum = eval_build_summary(gear, all_sk_non_wep, &chosen, c);
-                        if sum.fhr < c.min_fhr
+                        if (!c.allow_mf && sum.mf > 0)
+                            || sum.fhr < c.min_fhr
                             || sum.fr < c.min_fr
                             || sum.lr < c.min_lr
                             || sum.cr < c.min_cr
@@ -1011,7 +980,7 @@ fn brute_force_top_scores(
                         {
                             continue;
                         }
-                        let score = score_summary(mode, &sum);
+                        let score = score_eval_summary(mode, offense, &sum);
                         let sig = (sum.skills, sum.fcr_bp, sum.fhr_bp, sum.mf, item_names.clone());
                         if best_for_gear
                             .as_ref()
@@ -1043,12 +1012,12 @@ fn brute_force_top_scores(
             }
             idxs[pos] = 0;
             if pos == 0 {
-                let mut scores: Vec<BuildScore> = best_by_sig.into_values().collect();
-                scores.sort_by_key(|&s| Reverse(s));
-                if c.limit > 0 {
-                    scores.truncate(c.limit);
-                }
-                return scores;
+        let mut scores: Vec<BuildScore> = best_by_sig.into_values().collect();
+        scores.sort_by_key(|&s| Reverse(s));
+        if c.limit > 0 {
+            scores.truncate(c.limit);
+        }
+        return scores;
             }
         }
     }
@@ -1164,12 +1133,12 @@ fn run_exhaustive_brute_force_seeds(seed_count: usize) {
         let (items, charms, c, mode) = gen_random_case(&mut rng, seed_idx);
         let expected: Vec<i32> = brute_force_top_scores(&items, &charms, &c, mode)
             .into_iter()
-            .map(|s| s.0)
+            .map(|s| s.primary)
             .collect();
         let actual_res = optimize_builds_core(&items, &charms, &c).unwrap();
         let actual: Vec<i32> = actual_res
             .iter()
-            .map(|r| validate_and_score_result(r, &c, mode).0)
+            .map(|r| validate_and_score_result(r, &c, mode).primary)
             .collect();
         if actual != expected {
             mismatches.push(format!(
@@ -1394,12 +1363,12 @@ fn test_exhaustive_brute_force_max_res_negative_res_overcap() {
 
     let expected: Vec<i32> = brute_force_top_scores(&base, &charms, &c, SearchMode::MaxRes)
         .into_iter()
-        .map(|s| s.0)
+        .map(|s| s.primary)
         .collect();
     let actual_res = optimize_builds_core(&base, &charms, &c).unwrap();
     let actual: Vec<i32> = actual_res
         .iter()
-        .map(|r| validate_and_score_result(r, &c, SearchMode::MaxRes).0)
+        .map(|r| validate_and_score_result(r, &c, SearchMode::MaxRes).primary)
         .collect();
     assert_eq!(actual, vec![285, 265]);
     assert_eq!(actual, expected);
@@ -1460,12 +1429,12 @@ fn test_exhaustive_brute_force_max_res_negative_res_overcap() {
         };
         let exp: Vec<i32> = brute_force_top_scores(&items, &fuzz_charms, &fc, SearchMode::MaxRes)
             .into_iter()
-            .map(|s| s.0)
+            .map(|s| s.primary)
             .collect();
         let act: Vec<i32> = optimize_builds_core(&items, &fuzz_charms, &fc)
             .unwrap()
             .iter()
-            .map(|r| validate_and_score_result(r, &fc, SearchMode::MaxRes).0)
+            .map(|r| validate_and_score_result(r, &fc, SearchMode::MaxRes).primary)
             .collect();
         assert_eq!(act, exp, "seed={seed_idx}");
     }
@@ -1570,4 +1539,358 @@ fn test_cold_sunder_forced_with_min_cr_fallback_and_max_res_optional() {
     assert_eq!(res_max.len(), 1);
     assert!(!res_max[0].charms.iter().any(|ch| ch.cold_sunder));
     assert_eq!(res_max[0].cr, 75);
+}
+
+#[test]
+fn test_leveling_res_and_smite_modes_and_require_shield() {
+    let mut darkglow = mk_item("Darkglow", "armor", 0, 0, 0, 0, 0);
+    darkglow.max_fr = 5;
+    darkglow.max_lr = 5;
+    darkglow.max_cr = 5;
+    darkglow.max_pr = 5;
+
+    let mut spirit_shroud = mk_item("The Spirit Shroud", "armor", 0, 0, 1, 0, 0);
+    spirit_shroud.cbf = 1;
+
+    let mut smoke = mk_item("Smoke", "armor", 0, 20, 0, 50, 0);
+    smoke.defense = 400;
+
+    let mut goblin_toe = mk_item("Goblin Toe", "boots", 0, 0, 0, 0, 0);
+    goblin_toe.cb = 25;
+
+    let mut black_flail = mk_item("Black", "weapon", 0, 0, 0, 0, 0);
+    black_flail.ias = 15;
+    black_flail.cb = 40;
+
+    let mut kinemil = mk_item("Kinemil's Awl", "weapon2h", 0, 0, 0, 0, 0);
+    kinemil.primary_skill = 6;
+
+    let mut pal_shield = mk_item("Rondache", "shield", 0, 0, 0, 44, 0);
+    pal_shield.fr = 44;
+    pal_shield.lr = 44;
+    pal_shield.cr = 44;
+    pal_shield.pr = 44;
+
+    let items = vec![
+        darkglow,
+        spirit_shroud,
+        smoke,
+        goblin_toe,
+        black_flail,
+        kinemil,
+        pal_shield,
+        mk_item("Amulet", "amulet", 0, 0, 0, 40, 0),
+        mk_item("Belt", "belt", 0, 0, 0, 40, 0),
+    ];
+
+    // LevelingRes caps res score at 75, so once 75/75/75/75 is achieved via Rondache + Amulet + Belt (124 res -> capped 75 in Normal),
+    // Spirit Shroud (+1 all_skills, CBF) beats Darkglow (+5 max_res).
+    let c_lvl_res = BuildConstraints {
+        char_class: 3,
+        use_bo: false,
+        base_hell_res: 0,
+        mode: "leveling-res".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        limit: 3,
+        ..Default::default()
+    };
+    let res_lvl = optimize_builds_core(&items, &[], &c_lvl_res).unwrap();
+    assert!(!res_lvl.is_empty());
+    assert_eq!(res_lvl[0].items[3].name, "The Spirit Shroud");
+    assert!(res_lvl[0].cbf);
+
+    // Smite offense profile requires a shield (excludes Kinemil's Awl weapon2h) and equips Black + Rondache + Goblin Toe.
+    let c_smite = BuildConstraints {
+        mode: "leveling".to_string(),
+        offense: "smite".to_string(),
+        ..c_lvl_res
+    };
+    let res_smite = optimize_builds_core(&items, &[], &c_smite).unwrap();
+    assert!(!res_smite.is_empty());
+    assert_eq!(res_smite[0].items[0].name, "Black");
+    assert_eq!(res_smite[0].items[1].name, "Rondache");
+    assert_eq!(res_smite[0].cb, 65);
+    assert_eq!(res_smite[0].ias, 15);
+    assert!(
+        res_smite
+            .iter()
+            .all(|r| r.items[0].slot != "weapon2h" && r.items[1].name != "(empty)")
+    );
+}
+
+#[test]
+fn test_exhaustive_brute_force_paladin_leveling_modes() {
+    let mut rng = SplitMix64(0x9a1a_d100_cafe_babe);
+    let mut mismatches = Vec::new();
+    for seed_idx in 0..60 {
+        let mut items = Vec::new();
+        for &slot in TEST_EQUIP_SLOTS {
+            let count = rng.gen_range(1, 3) as usize;
+            for j in 0..count {
+                let mut it = mk_item(
+                    &format!("pal_{slot}_{j}_{seed_idx}"),
+                    slot,
+                    rng.pick(&[0, 10, 20]),
+                    rng.pick(&[0, 10, 20]),
+                    rng.pick(&[0, 1]),
+                    rng.gen_range(0, 25),
+                    0,
+                );
+                it.pal_skills = rng.pick(&[0, 0, 1]);
+                it.primary_skill = rng.pick(&[0, 0, 2, 4]);
+                it.ias = rng.pick(&[0, 10, 20]);
+                it.cb = rng.pick(&[0, 15, 25]);
+                it.cbf = rng.pick(&[0, 0, 1]);
+                it.pdr_pct = rng.pick(&[0, 10]);
+                it.life_leech = rng.pick(&[0, 5]);
+                it.max_fr = rng.pick(&[0, 0, 5]);
+                it.frw = rng.pick(&[0, 10, 20]);
+                it.life = rng.pick(&[0, 20]);
+                it.str_bonus = rng.pick(&[0, 10]);
+                it.dex_bonus = rng.pick(&[0, 10]);
+                it.req_str = rng.pick(&[0, 45, 75]);
+                it.req_dex = rng.pick(&[0, 20]);
+                it.defense = rng.gen_range(5, 80);
+                if matches!(slot, "gloves" | "belt" | "helm") && j == 0 && rng.gen_range(0, 2) == 0 {
+                    it.set_group = 1;
+                    it.set_item_id = match slot {
+                        "gloves" => 101,
+                        "belt" => 102,
+                        _ => 103,
+                    };
+                    let mut b2 = ItemSpec::empty("2pc");
+                    b2.ias = rng.pick(&[0, 20, 30]);
+                    b2.fr = rng.pick(&[0, 15]);
+                    b2.life = rng.pick(&[0, 25]);
+                    let mut b3 = ItemSpec::empty("3pc");
+                    b3.all_skills = rng.pick(&[0, 1]);
+                    it.set_bonuses = vec![(2, b2), (3, b3)];
+                }
+                items.push(it);
+            }
+        }
+        items.push(mk_item(&format!("w2h_{seed_idx}"), "weapon2h", 0, 0, 1, 10, 0));
+        items.push(mk_item(&format!("r0_{seed_idx}"), "ring", 10, 0, 0, 15, 0));
+        let mut r1 = mk_item(&format!("r1_{seed_idx}"), "ring", 0, 0, 1, 10, 0);
+        if rng.gen_range(0, 2) == 0 {
+            r1.set_group = 1;
+            r1.set_item_id = 104;
+            let mut b2 = ItemSpec::empty("2pc");
+            b2.life = 20;
+            r1.set_bonuses = vec![(2, b2)];
+        }
+        items.push(r1);
+
+        let charms: Vec<CharmSpec> = (0..5)
+            .map(|j| CharmSpec {
+                name: format!("pch_{j}_{seed_idx}"),
+                size: rng.pick(&[1, 2, 3]),
+                loc: "inv".to_string(),
+                skills: if j == 0 { 1 } else { 0 },
+                fhr: rng.pick(&[0, 5, 12]),
+                frw: rng.pick(&[0, 3, 5]),
+                fr: rng.gen_range(0, 18),
+                lr: rng.gen_range(0, 18),
+                cr: rng.gen_range(0, 18),
+                pr: rng.gen_range(0, 18),
+                life: rng.pick(&[0, 10, 15]),
+                str_bonus: rng.pick(&[0, 5]),
+                ..Default::default()
+            })
+            .collect();
+
+        let (mode_str, mode, offense_str) = match seed_idx % 5 {
+            0 => ("leveling", SearchMode::Leveling, "caster"),
+            1 => ("leveling", SearchMode::Leveling, "melee"),
+            2 => ("leveling-res", SearchMode::LevelingRes, "smite"),
+            3 => ("leveling", SearchMode::Leveling, "smite"),
+            _ => ("max-res", SearchMode::MaxRes, "caster"),
+        };
+        let c = BuildConstraints {
+            char_class: CharClass::PALADIN_ID,
+            use_bo: false,
+            offense: offense_str.to_string(),
+            base_hell_res: 0,
+            mode: mode_str.to_string(),
+            min_fcr: rng.pick(&[0, 9]),
+            min_fhr: rng.pick(&[0, 7, 15, 27]),
+            min_fr: rng.pick(&[0, 30]),
+            min_lr: rng.pick(&[0, 30]),
+            min_cr: rng.pick(&[0, 30]),
+            min_pr: 0,
+            max_charm_slots: rng.pick(&[3, 4, 6]),
+            base_str: rng.pick(&[50, 70]),
+            base_dex: rng.pick(&[20, 35]),
+            limit: rng.gen_range(1, 3) as usize,
+            ..Default::default()
+        };
+        let expected: Vec<BuildScore> = brute_force_top_scores(&items, &charms, &c, mode);
+        let actual: Vec<BuildScore> = optimize_builds_core(&items, &charms, &c)
+            .unwrap()
+            .iter()
+            .map(|r| validate_and_score_result(r, &c, mode))
+            .collect();
+        let top_prefix = |scores: &[BuildScore]| -> Vec<(i32, i32, i32)> {
+            scores
+                .iter()
+                .map(|s| match mode {
+                    SearchMode::MaxRes => (s.primary, s.secondary, 0),
+                    _ => (s.primary, s.secondary, s.tertiary),
+                })
+                .collect()
+        };
+        if top_prefix(&actual) != top_prefix(&expected) {
+            mismatches.push(format!(
+                "seed={seed_idx} mode={mode_str} offense={offense_str}: actual={actual:?} expected={expected:?}"
+            ));
+        }
+    }
+    assert!(
+        mismatches.is_empty(),
+        "Paladin optimizer diverged from brute force:\n{}",
+        mismatches.join("\n")
+    );
+}
+
+#[test]
+fn test_fixed_gear_keeps_zero_stat_equipped_items() {
+    let bow = mk_item("Raven Claw", "weapon2h", 0, 0, 0, 0, 0);
+    let amulet = mk_item("Angelic Wings", "amulet", 0, 0, 0, 0, 0);
+    let helm = mk_item("Tarnhelm", "helm", 0, 0, 1, 0, 25);
+    let armor = mk_item("Stealth", "armor", 25, 25, 0, 0, 0);
+    let belt = mk_item("Sigon's Wrap", "belt", 0, 0, 0, 0, 0);
+    let gloves = mk_item("Sigon's Gage", "gloves", 0, 0, 0, 0, 0);
+    let boots = mk_item("Tearhaunch", "boots", 0, 0, 0, 10, 0);
+    let ring1 = mk_item("Angelic Halo", "ring", 0, 0, 0, 0, 0);
+    let ring2 = mk_item("Manald Heal", "ring", 0, 0, 0, 0, 0);
+
+    let items = vec![bow, helm, armor, amulet, belt, gloves, boots, ring1, ring2];
+    let c_fixed = BuildConstraints {
+        char_class: 3,
+        use_bo: false,
+        base_hell_res: 0,
+        mode: "leveling-res".to_string(),
+        min_fcr: 0,
+        min_fhr: 15,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        limit: 3,
+        fixed_gear: true,
+        ..Default::default()
+    };
+    let res = optimize_builds_core(&items, &[], &c_fixed).unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].items[0].name, "Raven Claw");
+    assert_eq!(res[0].items[1].name, "(empty)");
+    assert_eq!(res[0].items[4].name, "Angelic Wings");
+    assert_eq!(res[0].items[5].name, "Sigon's Wrap");
+    assert_eq!(res[0].items[6].name, "Sigon's Gage");
+    assert_eq!(res[0].items[8].name, "Angelic Halo");
+    assert_eq!(res[0].items[9].name, "Manald Heal");
+}
+
+#[test]
+fn test_set_bonus_2pc_unlocks_ias_and_ignores_duplicate_rings() {
+    let mut b2_ias = ItemSpec::empty("2pc");
+    b2_ias.ias = 30;
+    let mut b3_mf = ItemSpec::empty("3pc");
+    b3_mf.mf = 50;
+
+    let mut sigon_gloves = mk_item("Sigon's Gage", "gloves", 0, 0, 0, 0, 0);
+    sigon_gloves.str_bonus = 10;
+    sigon_gloves.set_group = 10;
+    sigon_gloves.set_item_id = 35;
+    sigon_gloves.set_bonuses = vec![(2, b2_ias)];
+
+    let mut sigon_belt = mk_item("Sigon's Wrap", "belt", 0, 0, 0, 0, 0);
+    sigon_belt.fr = 20;
+    sigon_belt.life = 20;
+    sigon_belt.set_group = 10;
+    sigon_belt.set_item_id = 39;
+
+    let mut sigon_boots = mk_item("Sigon's Sabot", "boots", 0, 0, 0, 0, 0);
+    sigon_boots.frw = 20;
+    sigon_boots.cr = 40;
+    sigon_boots.set_group = 10;
+    sigon_boots.set_item_id = 38;
+    sigon_boots.set_bonuses = vec![(3, b3_mf)];
+
+    let mut magefist = mk_item("Magefist", "gloves", 20, 0, 0, 0, 0);
+    magefist.pal_skills = 1;
+
+    let mut halo_1 = mk_item("Angelic Halo A", "ring", 0, 0, 0, 0, 0);
+    halo_1.life = 20;
+    halo_1.set_group = 20;
+    halo_1.set_item_id = 52;
+    let mut angel_b2 = ItemSpec::empty("2pc");
+    angel_b2.life = 75;
+    let mut halo_b2 = ItemSpec::empty("2pc");
+    halo_b2.mana = 50;
+    let mut halo_2 = mk_item("Angelic Halo B", "ring", 0, 0, 0, 0, 0);
+    halo_2.life = 20;
+    halo_2.set_group = 20;
+    halo_2.set_item_id = 52;
+    halo_2.set_bonuses = vec![(2, halo_b2)];
+
+    let mut angel_amu = mk_item("Angelic Wings", "amulet", 0, 0, 0, 0, 0);
+    angel_amu.set_group = 20;
+    angel_amu.set_item_id = 53;
+    angel_amu.set_bonuses = vec![(2, angel_b2)];
+
+    let plain_boots = mk_item("Plain Boots", "boots", 0, 0, 0, 0, 0);
+    let armor_res = mk_item("Smoke", "armor", 0, 20, 0, 75, 0);
+
+    let items = vec![
+        sigon_gloves,
+        magefist,
+        sigon_belt,
+        sigon_boots,
+        plain_boots,
+        armor_res,
+        halo_1.clone(),
+        halo_2.clone(),
+    ];
+    let c_ias = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        use_bo: false,
+        offense: "melee".to_string(),
+        allow_mf: false,
+        base_hell_res: 0,
+        mode: "leveling-res".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 75,
+        min_lr: 75,
+        min_cr: 75,
+        min_pr: 75,
+        limit: 3,
+        ..Default::default()
+    };
+    let res = optimize_builds_core(&items, &[], &c_ias).unwrap();
+    assert!(!res.is_empty());
+    // 1. Sigon's 2pc (+30 IAS = 30 leveling_offense) beats Magefist (+1 skill = 20)
+    assert_eq!(res[0].items[6].name, "Sigon's Gage");
+    assert_eq!(res[0].items[5].name, "Sigon's Wrap");
+    assert_eq!(res[0].ias, 30);
+    // 2. allow_mf=false prevents picking Sigon's Sabot when Sigon's Gage + Wrap would trigger 3pc +50% MF
+    assert_ne!(res[0].items[7].name, "Sigon's Sabot");
+    assert_eq!(res[0].mf, 0);
+    // 3. Two identical Angelic Halo rings (set_item_id=52) must NOT unlock 2pc bonuses
+    assert_eq!(res[0].life_no_bo, 20 + 20 + 20);
+    assert_eq!(res[0].mana_bo, 0);
+
+    // Adding Angelic Wings (distinct set_item_id=53) DOES unlock 2pc +75 Life & +50 Mana!
+    let mut items_with_amu = items;
+    items_with_amu.push(angel_amu);
+    let res_amu = optimize_builds_core(&items_with_amu, &[], &c_ias).unwrap();
+    assert_eq!(res_amu[0].items[4].name, "Angelic Wings");
+    assert_eq!(res_amu[0].life_no_bo, 20 + 20 + 20 + 75);
+    assert_eq!(res_amu[0].mana_bo, 50);
 }
