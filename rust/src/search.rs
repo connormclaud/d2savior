@@ -397,42 +397,50 @@ fn prune_candidates<T>(
     let dom_threshold = if is_ring { limit + 1 } else { limit };
     let same_name_cap = if is_ring { 2 } else { 1 };
 
-    let mut stat_counts: HashMap<(Stats, i32, i32, ItemSetSig), usize> = HashMap::new();
+    let mut stat_counts: HashMap<(Stats, i32, i32, ItemSetSig), HashSet<String>> = HashMap::new();
     let mut name_stat_counts: HashMap<(String, Stats, i32, i32, ItemSetSig), usize> =
         HashMap::new();
     let mut deduped = Vec::with_capacity(items.len());
     for it in items {
         let (name, s, eff_reqs, set_sig) = meta(&it);
         let (rs, rd) = normalize_reqs(eff_reqs, base_str, base_dex);
+        let name_str = name.to_string();
         let ns_entry = name_stat_counts
-            .entry((name.to_string(), s, rs, rd, set_sig.clone()))
+            .entry((name_str.clone(), s, rs, rd, set_sig.clone()))
             .or_insert(0);
         if *ns_entry >= same_name_cap {
             continue;
         }
-        let s_entry = stat_counts.entry((s, rs, rd, set_sig)).or_insert(0);
-        if *s_entry >= dom_threshold {
+        let s_names = stat_counts.entry((s, rs, rd, set_sig)).or_default();
+        if !s_names.contains(&name_str) && s_names.len() >= dom_threshold {
             continue;
         }
         *ns_entry += 1;
-        *s_entry += 1;
+        s_names.insert(name_str);
         deduped.push(it);
     }
 
-    // Keep every candidate strictly dominated by fewer than `dom_threshold` others
-    // (`limit` for single slots, `limit + 1` for rings because one dominator may
-    // be the candidate's partner). Only compare within equal `set_sig` so items
-    // participating in set bonuses are preserved cleanly.
-    let metas: Vec<(Stats, (i32, i32), ItemSetSig)> = deduped
+    // Keep every candidate strictly dominated by fewer than `same_name_cap` same-named
+    // items AND fewer than `dom_threshold` distinct dominator names (`limit` for single
+    // slots, `limit + 1` for rings because one dominator may be the candidate's partner).
+    // Counting distinct dominator names prevents multiple rolls of the same item name
+    // (which collapse to one `BuildSig` in `TopResults`) from crowding out distinct items.
+    // Only compare within equal `set_sig` so items participating in set bonuses are preserved.
+    let metas: Vec<(String, Stats, (i32, i32), ItemSetSig)> = deduped
         .iter()
         .map(|it| {
-            let (_, s, eff_reqs, set_sig) = meta(it);
-            (s, normalize_reqs(eff_reqs, base_str, base_dex), set_sig)
+            let (name, s, eff_reqs, set_sig) = meta(it);
+            (
+                name.to_string(),
+                s,
+                normalize_reqs(eff_reqs, base_str, base_dex),
+                set_sig,
+            )
         })
         .collect();
     let dominates = |a: usize, b: usize| {
-        let (sa, ra, ref sig_a) = metas[a];
-        let (sb, rb, ref sig_b) = metas[b];
+        let (_, sa, ra, ref sig_a) = metas[a];
+        let (_, sb, rb, ref sig_b) = metas[b];
         sig_a == sig_b
             && sa.dominates(sb)
             && ra.0 <= rb.0
@@ -444,11 +452,23 @@ fn prune_candidates<T>(
         .into_iter()
         .enumerate()
         .filter(|&(i, _)| {
-            (0..metas.len())
-                .filter(|&j| j != i && dominates(j, i))
-                .take(dom_threshold)
-                .count()
-                < dom_threshold
+            let mut same_name_doms = 0usize;
+            let mut dom_names: HashSet<&str> = HashSet::new();
+            for j in 0..metas.len() {
+                if j != i && dominates(j, i) {
+                    if metas[j].0 == metas[i].0 {
+                        same_name_doms += 1;
+                        if same_name_doms >= same_name_cap {
+                            return false;
+                        }
+                    }
+                    dom_names.insert(metas[j].0.as_str());
+                    if dom_names.len() >= dom_threshold {
+                        return false;
+                    }
+                }
+            }
+            true
         })
         .map(|(_, it)| it)
         .collect()

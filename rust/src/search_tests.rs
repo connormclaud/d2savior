@@ -1959,3 +1959,36 @@ fn test_power_mode_pruning_respects_primary_skill_bonus() {
     assert_eq!(res[0].items[2].name, "High Primary Helm");
     assert_eq!(res[0].skills + res[0].primary_skill_bonus, 6);
 }
+
+#[test]
+fn test_prune_candidates_does_not_crowd_out_distinct_names_with_duplicate_rolls() {
+    // Regression test: three rolls of "Harlequin Crest" differing in a non-dominating stat
+    // (e.g., trade-off between defense and life) must not count as 2 distinct dominator names
+    // and prune "Tarnhelm" when `limit == 2`, because all "Harlequin Crest" builds with equal
+    // `(skills, fcr_bp, fhr_bp, mf)` collapse to 1 `BuildSig` in `TopResults`.
+    let mut shako_a = mk_item("Harlequin Crest", "helm", 0, 0, 2, 0, 50);
+    shako_a.defense = 141;
+    shako_a.life = 10;
+    let mut shako_b = mk_item("Harlequin Crest", "helm", 0, 0, 2, 0, 50);
+    shako_b.defense = 130;
+    shako_b.life = 20;
+    let mut tarnhelm = mk_item("Tarnhelm", "helm", 0, 0, 1, 0, 40);
+    tarnhelm.defense = 10;
+
+    let c = BuildConstraints {
+        base_hell_res: 0,
+        mode: "mf".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        limit: 2,
+        ..Default::default()
+    };
+    let res = optimize_builds_core(&[shako_a, shako_b, tarnhelm], &[], &c).unwrap();
+    assert_eq!(res.len(), 2);
+    assert_eq!(res[0].items[2].name, "Harlequin Crest");
+    assert_eq!(res[1].items[2].name, "Tarnhelm");
+}
