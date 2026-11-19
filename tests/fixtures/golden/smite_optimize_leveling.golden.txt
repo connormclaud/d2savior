@@ -39,21 +39,21 @@ Option #2: Lower FHR BP (48%) — Higher Skills (evaluated 8294 pruned sets):
       - add   : Large Charm of Dexterity [smite Stash], Beryl Grand Charm of Dexterity [smite Stash], Jade Large Charm of Balance [Stash Tab 5], Cobalt Small Charm of Life [Stash Tab 5], Crimson Small Charm of Greed [smite Stash]
 Option #3: Lower FHR BP (0%) — Higher IAS & Skills (evaluated 286 pruned sets):
   Skills: +2 (Holy Fire lvl 28) | CBF: Yes | IAS: 40% | CB: 0%
-  FHR: 0% (BP 0%, 9f) | FCR: 10% (BP 9%, 14f) | FRW: 28% | MF: 49%
-  Normal Res: F:76%(76) L:75%(91) C:75%(76) P:75%(82)
-  Life: 499 | Mana: 93 | Charm slots: 20
+  FHR: 0% (BP 0%, 9f) | FCR: 20% (BP 18%, 13f) | FRW: 35% | MF: 49%
+  Normal Res: F:76%(77) L:75%(76) C:75%(76) P:75%(82)
+  Life: 579 | Mana: 108 | Charm slots: 23
     - weapon2h: Kinemil's Awl (Giant Sword) (smite Equipped)
     - shield  : (empty)
-    - helm    : Lore (Cap) (Stash Tab 2)
+    - helm    : Peasant Crown (War Hat) (smite Equipped)
     - armor   : The Spirit Shroud (Ghost Armor) (smite Equipped)
     - amulet  : Bone Clasp (Rare Amulet) (Stash Tab 4)
     - belt    : Goldwrap (Heavy Belt) (mule_unique Inv)
     - gloves  : Sigon's Gage (Gauntlets) (smite Equipped)
     - boots   : Sigon's Sabot (Greaves) (Stash Tab 1)
-    - ring    : Garnet Ring of Lethargy (mule_charms Inv)
     - ring    : Doom Hold (Rare Ring) (Stash Tab 1)
+    - ring    : Manald Heal (Ring) (smite Equipped)
     - Charms  :
-      - remove: Tangerine Small Charm of Balance, Small Charm of Balance, Ocher Small Charm, Russet Grand Charm, Bronze Small Charm of Balance, Sapphire Grand Charm, Grand Charm of Balance
-      - keep  : Iron Large Charm of Inertia, Russet Small Charm, Ocher Small Charm of Sustenance, Lapis Small Charm, Shimmering Large Charm, Shimmering Large Charm, Lapis Small Charm
-      - add   : Large Charm of Dexterity [smite Stash], Beryl Grand Charm of Dexterity [smite Stash], Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Crimson Small Charm of Greed [smite Stash], Small Charm of Inertia [smite Stash], Jade Small Charm [smite Stash]
+      - remove: Iron Large Charm of Inertia, Tangerine Small Charm of Balance, Small Charm of Balance, Ocher Small Charm, Bronze Small Charm of Balance, Sapphire Grand Charm, Grand Charm of Balance
+      - keep  : Russet Small Charm, Ocher Small Charm of Sustenance, Lapis Small Charm, Shimmering Large Charm, Shimmering Large Charm, Russet Grand Charm, Lapis Small Charm
+      - add   : Large Charm of Dexterity [smite Stash], Beryl Grand Charm of Dexterity [smite Stash], Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Amber Large Charm of Greed [Stash Tab 5], Russet Small Charm [smite Stash], Crimson Small Charm of Greed [smite Stash], Jade Small Charm [smite Stash]
 

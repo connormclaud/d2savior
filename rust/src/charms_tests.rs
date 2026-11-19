@@ -568,3 +568,94 @@ fn test_leveling_res_caps_at_75_and_paladin_never_forces_sunder() {
     let solver_lvl = CharmSolver::new(&pool, &c_pal_lvl, SearchMode::Leveling);
     assert!(!solver_lvl.has_cold_sunder());
 }
+
+#[test]
+fn test_leveling_charm_cache_does_not_collide_across_res_deficits_and_prioritizes_res_base() {
+    // Regression test:
+    // 1. Two gear loadouts in Leveling mode with `min_fr/lr/cr/pr == 0` and identical
+    //    `(need_str, need_dex, need_fhr)` but different resistance deficits below 75 must not
+    //    collide in `CharmSolver.cache`.
+    // 2. After picking skill charms, Leveling mode must prioritize uncapped resistances up to 75
+    //    (`res_base`, `BuildScore.secondary`) ahead of life filler charms (`tiebreakers[0]`).
+    let charms = [
+        CharmSpec {
+            name: "Ruby SC".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Amber SC".to_string(),
+            size: 1,
+            lr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Vita SC".to_string(),
+            size: 1,
+            life: 20,
+            ..Default::default()
+        },
+    ];
+    let pool: Vec<&CharmSpec> = charms.iter().collect();
+    let c = BuildConstraints {
+        char_class: 3,
+        base_hell_res: 0,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 1,
+        ..Default::default()
+    };
+    let mut solver = CharmSolver::new(&pool, &c, SearchMode::Leveling);
+
+    // Loadout A: needs Fire Res (FR=64, LR=75, CR=75, PR=75) -> must pick Ruby SC (+11 FR -> 75),
+    // not Vita SC (+20 Life).
+    let item_need_fr = ItemSpec {
+        fr: 64,
+        lr: 75,
+        cr: 75,
+        pr: 75,
+        ..ItemSpec::empty("armor")
+    };
+    let leaf_fr = item_need_fr.stats();
+    let sel_fr = solver
+        .solve(&[&item_need_fr], leaf_fr, (0, 0))
+        .expect("should solve loadout A");
+    assert_eq!(sel_fr.len(), 1);
+    assert_eq!(sel_fr[0].name, "Ruby SC");
+
+    // Loadout B: evaluated on the SAME CharmSolver instance, needs Lightning Res
+    // (FR=75, LR=64, CR=75, PR=75) -> must NOT reuse cached Ruby SC from Loadout A!
+    let item_need_lr = ItemSpec {
+        fr: 75,
+        lr: 64,
+        cr: 75,
+        pr: 75,
+        ..ItemSpec::empty("armor")
+    };
+    let leaf_lr = item_need_lr.stats();
+    let sel_lr = solver
+        .solve(&[&item_need_lr], leaf_lr, (0, 0))
+        .expect("should solve loadout B");
+    assert_eq!(sel_lr.len(), 1);
+    assert_eq!(sel_lr[0].name, "Amber SC");
+
+    // Loadout C: already capped at 75/75/75/75 -> picks Vita SC (+20 Life).
+    let item_capped = ItemSpec {
+        fr: 75,
+        lr: 75,
+        cr: 75,
+        pr: 75,
+        ..ItemSpec::empty("armor")
+    };
+    let leaf_capped = item_capped.stats();
+    let sel_capped = solver
+        .solve(&[&item_capped], leaf_capped, (0, 0))
+        .expect("should solve loadout C");
+    assert_eq!(sel_capped.len(), 1);
+    assert_eq!(sel_capped[0].name, "Vita SC");
+}

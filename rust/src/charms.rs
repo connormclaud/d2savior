@@ -13,7 +13,7 @@ fn is_res_mode(mode: SearchMode) -> bool {
 fn res_opt_caps(caps: [i32; 4], mode: SearchMode) -> [i32; 4] {
     match mode {
         SearchMode::MaxRes => caps,
-        SearchMode::LevelingRes => [
+        SearchMode::LevelingRes | SearchMode::Leveling => [
             caps[0].min(BASE_MAX_RES),
             caps[1].min(BASE_MAX_RES),
             caps[2].min(BASE_MAX_RES),
@@ -281,13 +281,24 @@ fn greedy_fill_remaining(
         pick_ordered(state, sk_indices);
     }
 
+    if mode == SearchMode::Leveling {
+        greedy_res_loop(
+            state,
+            res_opt_caps(caps, mode),
+            [1.0, 1.0, 1.0, 1.0],
+            0.0,
+            0.2,
+        );
+    }
+
+    let preserve_res_caps = is_res_mode(mode) || mode == SearchMode::Leveling;
     loop {
         let mut best_idx = None;
         let mut best_score = 0.0_f64;
         for (idx, c) in pool.iter().enumerate() {
             if !state.can_pick(idx)
                 || !state.preserves_res_targets(idx, res_targets)
-                || (is_res_mode(mode) && !state.preserves_res_sum(idx, opt_caps))
+                || (preserve_res_caps && !state.preserves_res_sum(idx, opt_caps))
             {
                 continue;
             }
@@ -1593,7 +1604,12 @@ impl<'a> CharmSolver<'a> {
                 (opt_caps[3] - leaf.pr).max(self.sum_neg[3]),
             ]
         } else {
-            [0; 4]
+            [
+                (caps[0] - leaf.fr).max(0),
+                (caps[1] - leaf.lr).max(0),
+                (caps[2] - leaf.cr).max(0),
+                (caps[3] - leaf.pr).max(0),
+            ]
         };
 
         let key = CharmCacheKey {
