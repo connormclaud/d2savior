@@ -1338,3 +1338,40 @@ def test_paladin_unknown_spec_error_and_native_validation() -> None:
                 [],
                 BuildConstraints(char_class=int(CharClass.SORCERESS), offense=bad_offense),
             )
+
+
+@requires_native
+def test_extract_pool_locality_order() -> None:
+    resolver = GameDataResolver.load()
+    pal_dir = FIXTURES_DIR / "paladin_snapshot"
+    ok_p, smite, _ = parse_d2s_file(str(pal_dir / "smite.d2s"), resolver=resolver)
+    ok_m, mule, _ = parse_d2s_file(str(pal_dir / "mule_sets.d2s"), resolver=resolver)
+    ok_st, stash, _, _ = parse_d2i_file(
+        str(pal_dir / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
+    )
+    assert ok_p
+    assert smite is not None
+    assert ok_m
+    assert mule is not None
+    assert ok_st
+    assert isinstance(stash, SharedStash)
+
+    items, charms = extract_pool(smite, extra_chars=[mule], stashes=[stash], resolver=resolver)
+
+    def tier(loc: str) -> int:
+        if loc == "smite Equipped":
+            return 0
+        if loc == "smite Swap":
+            return 1
+        if loc == "smite Inv":
+            return 2
+        if loc == "smite Stash":
+            return 3
+        if loc.startswith("Stash Tab "):
+            return 4
+        return 5
+
+    item_tiers = [tier(it.loc) for it in items]
+    charm_tiers = [tier(ch.loc) for ch in charms]
+    assert item_tiers == sorted(item_tiers)
+    assert charm_tiers == sorted(charm_tiers)

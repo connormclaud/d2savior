@@ -575,6 +575,16 @@ def _item_to_spec(
     )
 
 
+def _char_item_locality_rank(item: D2Item) -> int:
+    if item.location == ItemLocation.EQUIPPED:
+        return 1 if item.position in _SWAP_SLOTS else 0
+    if item.stored_in == StoredIn.INVENTORY:
+        return 2
+    if item.stored_in == StoredIn.STASH:
+        return 3
+    return 4
+
+
 def _extract_char_specs(
     char: D2SStruct,
     *,
@@ -596,7 +606,7 @@ def _extract_char_specs(
         for it in char.item_list.items
     )
     char_name = char.get_char_name()
-    items_out: list[ItemSpec] = []
+    char_items: list[tuple[int, ItemSpec]] = []
     char_charms: list[tuple[tuple[int, int, int], CharmSpec]] = []
 
     for it in char.item_list.items:
@@ -626,7 +636,7 @@ def _extract_char_specs(
             skip_useful_check=use_active_eq,
         )
         if isinstance(spec, ItemSpec):
-            items_out.append(spec)
+            char_items.append((_char_item_locality_rank(it), spec))
         elif isinstance(spec, CharmSpec):
             sort_key = (
                 (0, getattr(it, "column", 0), getattr(it, "row", 0))
@@ -635,8 +645,9 @@ def _extract_char_specs(
             )
             char_charms.append((sort_key, spec))
 
+    char_items.sort(key=lambda pair: pair[0])
     char_charms.sort(key=lambda pair: pair[0])
-    return items_out, [spec for _, spec in char_charms]
+    return [spec for _, spec in char_items], [spec for _, spec in char_charms]
 
 
 def extract_pool(
@@ -673,20 +684,19 @@ def extract_pool(
         else (EquipSlot.WEAPON_I, EquipSlot.SHIELD_I)
     )
 
-    for char in (primary_char, *extra_chars):
-        ch_items, ch_charms = _extract_char_specs(
-            char,
-            is_primary=char is primary_char,
-            keep_equipped=keep_equipped,
-            primary_inactive_slots=primary_inactive_slots,
-            char_level=char_level,
-            char_class=char_class,
-            pal_spec=resolved_pal_spec,
-            resolver=resolver,
-            set_group_ids=set_group_ids,
-        )
-        items_out.extend(ch_items)
-        charms_out.extend(ch_charms)
+    ch_items, ch_charms = _extract_char_specs(
+        primary_char,
+        is_primary=True,
+        keep_equipped=keep_equipped,
+        primary_inactive_slots=primary_inactive_slots,
+        char_level=char_level,
+        char_class=char_class,
+        pal_spec=resolved_pal_spec,
+        resolver=resolver,
+        set_group_ids=set_group_ids,
+    )
+    items_out.extend(ch_items)
+    charms_out.extend(ch_charms)
 
     for stash in stashes:
         for idx, tab in enumerate(stash.tabs, start=1):
@@ -712,5 +722,20 @@ def extract_pool(
                     items_out.append(spec)
                 elif isinstance(spec, CharmSpec):
                     charms_out.append(spec)
+
+    for char in extra_chars:
+        ch_items, ch_charms = _extract_char_specs(
+            char,
+            is_primary=False,
+            keep_equipped=keep_equipped,
+            primary_inactive_slots=primary_inactive_slots,
+            char_level=char_level,
+            char_class=char_class,
+            pal_spec=resolved_pal_spec,
+            resolver=resolver,
+            set_group_ids=set_group_ids,
+        )
+        items_out.extend(ch_items)
+        charms_out.extend(ch_charms)
 
     return items_out, charms_out

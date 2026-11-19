@@ -2057,3 +2057,72 @@ fn test_non_caster_offense_zeroes_fcr_weight_against_manald_heal() {
     let res_capped = optimize_builds_core(&[armor_capped, angelic_halo, manald_a], &[], &c).unwrap();
     assert_eq!(res_capped.len(), 1);
 }
+
+#[test]
+fn test_locality_tiebreaker_order_equipped_inv_stash_shared_mule() {
+    // Regression test: when items have identical modeled stats, candidate sorting, pruning,
+    // and leaf BuildScore tiebreaking must prefer:
+    // Equipped > Swap > Char Inv > Char Stash > Shared Stash > Mule
+    // regardless of input order or inactive optimistic set bonuses in `max_total_stats()`.
+    let mk_ring = |name: &str, loc: &str| {
+        let mut r = mk_item(name, "ring", 0, 0, 0, 0, 0);
+        r.loc = loc.to_string();
+        r.life = 20;
+        r
+    };
+
+    let r_mule = mk_ring("Ring Mule", "mule_charms Inv");
+    let r_shared = mk_ring("Ring Shared", "Stash Tab 1");
+    let r_stash = mk_ring("Ring Char Stash", "smite Stash");
+    let r_inv = mk_ring("Ring Char Inv", "smite Inv");
+    let r_eq = mk_ring("Ring Equipped", "smite Equipped");
+
+    let c = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        use_bo: false,
+        offense: "melee".to_string(),
+        base_hell_res: 75,
+        mode: "leveling".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 75,
+        min_lr: 75,
+        min_cr: 75,
+        min_pr: 75,
+        limit: 1,
+        ..Default::default()
+    };
+
+    // Pass rings in reverse locality order (Mule first, Equipped last):
+    // top 2 rings chosen must be Equipped and Char Inv.
+    let res = optimize_builds_core(
+        &[
+            r_mule.clone(),
+            r_shared.clone(),
+            r_stash.clone(),
+            r_inv.clone(),
+            r_eq,
+        ],
+        &[],
+        &c,
+    )
+    .unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].items[8].name, "Ring Equipped");
+    assert_eq!(res[0].items[9].name, "Ring Char Inv");
+
+    // Without Equipped, top 2 must be Char Inv and Char Stash.
+    let res2 = optimize_builds_core(
+        &[r_mule.clone(), r_shared.clone(), r_stash.clone(), r_inv],
+        &[],
+        &c,
+    )
+    .unwrap();
+    assert_eq!(res2[0].items[8].name, "Ring Char Inv");
+    assert_eq!(res2[0].items[9].name, "Ring Char Stash");
+
+    // Without Char Inv, top 2 must be Char Stash and Shared Stash (beating Mule).
+    let res3 = optimize_builds_core(&[r_mule, r_shared, r_stash], &[], &c).unwrap();
+    assert_eq!(res3[0].items[8].name, "Ring Char Stash");
+    assert_eq!(res3[0].items[9].name, "Ring Shared");
+}

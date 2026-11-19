@@ -64,12 +64,33 @@ fn merge_reqs(cur: (i32, i32), next: (i32, i32)) -> (i32, i32) {
     (cur.0.max(next.0), cur.1.max(next.1))
 }
 
+fn item_locality_score(loc: &str) -> i32 {
+    if loc.is_empty() {
+        0
+    } else if loc.starts_with("Stash Tab ") || loc.eq_ignore_ascii_case("Shared Stash") {
+        2
+    } else if loc.len() >= 4 && loc[..4].eq_ignore_ascii_case("mule") {
+        1
+    } else if loc.ends_with(" Equipped") || loc.eq_ignore_ascii_case("Equipped") {
+        6
+    } else if loc.ends_with(" Swap") || loc.eq_ignore_ascii_case("Swap") {
+        5
+    } else if loc.ends_with(" Inv") || loc.eq_ignore_ascii_case("Inv") {
+        4
+    } else if loc.ends_with(" Stash") || loc.eq_ignore_ascii_case("Stash") {
+        3
+    } else {
+        1
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct BuildScore {
     pub(crate) primary: i32,
     pub(crate) secondary: i32,
     pub(crate) tertiary: i32,
     pub(crate) tiebreakers: [i32; 7],
+    pub(crate) locality: i32,
 }
 
 type BuildSig = (i32, i32, i32, i32, Vec<String>);
@@ -175,12 +196,14 @@ struct ItemPair {
     reqs: (i32, i32),
     max_stats: Stats,
     set_sig: ItemSetSig,
+    locality: i32,
 }
 
 impl ItemPair {
     fn from_pair(first: &ItemSpec, second: &ItemSpec, slot: &str) -> Self {
         let reqs = merge_reqs(item_eff_reqs(first), item_eff_reqs(second));
         let comb_stats = first.stats().add(second.stats());
+        let locality = item_locality_score(&first.loc) + item_locality_score(&second.loc);
         let loc = match (first.loc.is_empty(), second.loc.is_empty()) {
             (true, true) => String::new(),
             (false, true) => first.loc.clone(),
@@ -202,6 +225,7 @@ impl ItemPair {
             reqs,
             max_stats: first.max_total_stats().add(second.max_total_stats()),
             set_sig: pair_set_sig(first, second),
+            locality,
         }
     }
 
@@ -209,6 +233,7 @@ impl ItemPair {
         let reqs = item_eff_reqs(&w2h);
         let max_stats = w2h.max_total_stats();
         let set_sig = single_set_sig(&w2h);
+        let locality = item_locality_score(&w2h.loc);
         let mut combined = w2h.clone();
         combined.slot = "hands".to_string();
         Self {
@@ -218,6 +243,7 @@ impl ItemPair {
             reqs,
             max_stats,
             set_sig,
+            locality,
         }
     }
 }
@@ -267,12 +293,14 @@ pub(crate) fn score_eval_summary(
             secondary: eff_primary,
             tertiary: eff_fcr_bp,
             tiebreakers: [sum.fhr_bp, sum.pr, sum.life_bo, sum.belt_slots, sum.defense, 0, 0],
+            locality: 0,
         },
         SearchMode::Power => BuildScore {
             primary: eff_primary,
             secondary: sum.skills,
             tertiary: i32::from(sum.pr >= BASE_MAX_RES),
             tiebreakers: [sum.pr, sum.life_bo, sum.mana_bo, sum.belt_slots, sum.defense, 0, 0],
+            locality: 0,
         },
         SearchMode::MaxRes => BuildScore {
             primary: res_sum,
@@ -287,6 +315,7 @@ pub(crate) fn score_eval_summary(
                 0,
                 0,
             ],
+            locality: 0,
         },
         SearchMode::Leveling => BuildScore {
             primary: off,
@@ -313,6 +342,7 @@ pub(crate) fn score_eval_summary(
                     sum.defense,
                 ]
             },
+            locality: 0,
         },
         SearchMode::LevelingRes => BuildScore {
             primary: res_base,
@@ -327,6 +357,7 @@ pub(crate) fn score_eval_summary(
                 sum.belt_slots,
                 sum.defense,
             ],
+            locality: 0,
         },
     }
 }
@@ -335,7 +366,8 @@ fn item_sort_key(
     mode: SearchMode,
     offense: OffenseProfile,
     s: &Stats,
-) -> (i32, i32, i32, i32, i32, i32) {
+    locality: i32,
+) -> (i32, i32, i32, i32, i32, i32, i32) {
     let eff_fcr = if offense.uses_fcr() { s.fcr } else { 0 };
     match mode {
         SearchMode::Mf => (
@@ -345,6 +377,7 @@ fn item_sort_key(
             s.fr + s.lr,
             s.belt_slots,
             s.defense,
+            locality,
         ),
         SearchMode::Power => (
             s.primary_power_skills(),
@@ -353,6 +386,7 @@ fn item_sort_key(
             s.fhr,
             s.belt_slots,
             s.defense,
+            locality,
         ),
         SearchMode::MaxRes => (
             s.max_res_sum(),
@@ -361,6 +395,7 @@ fn item_sort_key(
             eff_fcr,
             s.belt_slots,
             s.defense,
+            locality,
         ),
         SearchMode::Leveling => (
             offense.score_stats(*s),
@@ -373,6 +408,7 @@ fn item_sort_key(
             },
             s.belt_slots,
             s.defense,
+            locality,
         ),
         SearchMode::LevelingRes => (
             s.res_sum(),
@@ -381,6 +417,7 @@ fn item_sort_key(
             s.fhr,
             s.belt_slots,
             s.defense,
+            locality,
         ),
     }
 }
@@ -563,9 +600,30 @@ fn build_hands(
         }
     }
 
-    weapons_1h.sort_by_key(|it| Reverse(item_sort_key(mode, offense, &it.max_total_stats())));
-    shields.sort_by_key(|it| Reverse(item_sort_key(mode, offense, &it.max_total_stats())));
-    weapons_2h.sort_by_key(|it| Reverse(item_sort_key(mode, offense, &it.max_total_stats())));
+    weapons_1h.sort_by_key(|it| {
+        Reverse(item_sort_key(
+            mode,
+            offense,
+            &it.max_total_stats(),
+            item_locality_score(&it.loc),
+        ))
+    });
+    shields.sort_by_key(|it| {
+        Reverse(item_sort_key(
+            mode,
+            offense,
+            &it.max_total_stats(),
+            item_locality_score(&it.loc),
+        ))
+    });
+    weapons_2h.sort_by_key(|it| {
+        Reverse(item_sort_key(
+            mode,
+            offense,
+            &it.max_total_stats(),
+            item_locality_score(&it.loc),
+        ))
+    });
 
     let weapons_1h =
         prune_slot_items(weapons_1h, c.limit, false, c.base_str, c.base_dex, offense, c.min_fcr);
@@ -609,7 +667,7 @@ fn build_hands(
         }
     }
 
-    hands.sort_by_key(|h| Reverse(item_sort_key(mode, offense, &h.max_stats)));
+    hands.sort_by_key(|h| Reverse(item_sort_key(mode, offense, &h.max_stats, h.locality)));
     prune_candidates(hands, c.limit, false, c.base_str, c.base_dex, |h| {
         (
             &h.combined.name,
@@ -730,7 +788,14 @@ pub fn optimize_builds_core(
         if need_empty {
             slot_items.push(ItemSpec::empty(slot));
         }
-        slot_items.sort_by_key(|it| Reverse(item_sort_key(mode, offense, &it.max_total_stats())));
+        slot_items.sort_by_key(|it| {
+            Reverse(item_sort_key(
+                mode,
+                offense,
+                &it.max_total_stats(),
+                item_locality_score(&it.loc),
+            ))
+        });
         groups.push(prune_slot_items(
             slot_items, c.limit, false, c.base_str, c.base_dex, offense, c.min_fcr,
         ));
@@ -751,7 +816,14 @@ pub fn optimize_builds_core(
     for _ in 0..empty_rings_needed {
         rngs.push(ItemSpec::empty("ring"));
     }
-    rngs.sort_by_key(|it| Reverse(item_sort_key(mode, offense, &it.max_total_stats())));
+    rngs.sort_by_key(|it| {
+        Reverse(item_sort_key(
+            mode,
+            offense,
+            &it.max_total_stats(),
+            item_locality_score(&it.loc),
+        ))
+    });
     let rngs = prune_slot_items(rngs, c.limit, true, c.base_str, c.base_dex, offense, c.min_fcr);
 
     let mut ring_pairs: Vec<ItemPair> = Vec::new();
@@ -768,7 +840,7 @@ pub fn optimize_builds_core(
             ring_pairs.push(rp);
         }
     }
-    ring_pairs.sort_by_key(|rp| Reverse(item_sort_key(mode, offense, &rp.max_stats)));
+    ring_pairs.sort_by_key(|rp| Reverse(item_sort_key(mode, offense, &rp.max_stats, rp.locality)));
 
     let n = 1 + groups.len() + 1;
     let mut suf = vec![Stats::default(); n + 1];
@@ -1001,7 +1073,8 @@ pub fn optimize_builds_core(
                     {
                         continue;
                     }
-                    let score = score_eval_summary(st.mode, st.offense, &sum);
+                    let mut score = score_eval_summary(st.mode, st.offense, &sum);
+                    score.locality = items_ref.iter().map(|it| item_locality_score(&it.loc)).sum();
                     if !st.top_results.would_accept(score) {
                         continue;
                     }
