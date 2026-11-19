@@ -412,7 +412,8 @@ def calculate_advanced_stats(
     inventory_items: list[D2Item] = [
         it
         for it in cats.inventory
-        if it.stored_in == StoredIn.INVENTORY and it.code_str.lower() in ("cm1", "cm2", "cm3")
+        if it.stored_in == StoredIn.INVENTORY
+        and it.code_str.strip().lower() in ("cm1", "cm2", "cm3", "cs2")
     ]
 
     acc = _AdvancedStatAcc()

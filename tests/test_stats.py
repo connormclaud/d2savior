@@ -670,3 +670,18 @@ def test_effective_skills_and_speed_bonuses(game_data_resolver: GameDataResolver
     plain_summary = format_char_summary(char, resolver=game_data_resolver)
     assert "Blizzard: 20, Cold Mastery: 20" in plain_summary
     assert "20 (20)" not in plain_summary
+
+    # Crafted Sunder Charm ("cs2") in inventory is counted as an active charm
+    sunder = D2Item()
+    sunder.location = ItemLocation.STORED.value
+    sunder.stored_in = StoredIn.INVENTORY.value
+    sunder.type_name = b"cs2 "
+    sunder.item_info = ItemInfo()
+    tp_s = TypeSpecificInfo()
+    pl_s = PropertyList()
+    pl_s._use_stat_cost = True
+    pl_s.properties = [(80, 0, 15)]  # +15% MF
+    tp_s.property_list = pl_s
+    sunder.item_info.type_specific_info = tp_s
+    char.item_list.items = [sunder]
+    assert calculate_advanced_stats(char, resolver=game_data_resolver).mf == 15
