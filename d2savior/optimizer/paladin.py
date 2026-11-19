@@ -261,10 +261,10 @@ def _step_below_bp(bp: int, table: tuple[int, ...]) -> int | None:
     return lower[-1] if lower else None
 
 
-def _result_dedup_key(res: BuildResult) -> tuple[object, ...]:
+def _result_dedup_key(res: BuildResult, *, is_caster: bool = False) -> tuple[object, ...]:
     return (
         res.fhr_bp,
-        res.fcr_bp,
+        res.fcr_bp if is_caster else 0,
         res.skills + res.primary_skill_bonus,
         res.cb,
         res.ias,
@@ -393,7 +393,7 @@ def _collect_paladin_alternatives(
     collected: list[tuple[str, BuildResult]] = [
         (_format_opt1_label(opt1, is_caster=is_caster), opt1)
     ]
-    seen: set[tuple[object, ...]] = {_result_dedup_key(opt1)}
+    seen: set[tuple[object, ...]] = {_result_dedup_key(opt1, is_caster=is_caster)}
 
     def try_add(constraints: BuildConstraints) -> None:
         if len(collected) >= limit:
@@ -401,7 +401,7 @@ def _collect_paladin_alternatives(
         for res in optimize_builds(items, charms, constraints):
             if len(collected) >= limit:
                 return
-            key = _result_dedup_key(res)
+            key = _result_dedup_key(res, is_caster=is_caster)
             if key not in seen:
                 seen.add(key)
                 collected.append(

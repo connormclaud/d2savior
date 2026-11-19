@@ -729,14 +729,22 @@ fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated()
 
     // With limit=1 (threshold 2), Ring C and Ring D (>=2 dominators) are dropped while Ring B (1 dominator) stays.
     let rings_only: Vec<ItemSpec> = items.into_iter().filter(|i| i.slot == "ring").collect();
-    let pruned1 = prune_slot_items(rings_only.clone(), 1, true, 156, 0);
+    let pruned1 = prune_slot_items(
+        rings_only.clone(),
+        1,
+        true,
+        156,
+        0,
+        OffenseProfile::Caster,
+        105,
+    );
     let names1: HashSet<&str> = pruned1.iter().map(|i| i.name.as_str()).collect();
     assert!(names1.contains("Ring A") && names1.contains("Ring B"));
     assert!(names1.contains("Ring FR") && names1.contains("Ring LR"));
     assert!(!names1.contains("Ring C") && !names1.contains("Ring D"));
 
     // With limit=2 (threshold 3), Ring C (2 dominators: A, B) stays for #2 pair (A+C), while Ring D (3 dominators) drops.
-    let pruned2 = prune_slot_items(rings_only, 2, true, 156, 0);
+    let pruned2 = prune_slot_items(rings_only, 2, true, 156, 0, OffenseProfile::Caster, 105);
     let names2: HashSet<&str> = pruned2.iter().map(|i| i.name.as_str()).collect();
     assert!(names2.contains("Ring C"));
     assert!(!names2.contains("Ring D"));
@@ -838,10 +846,13 @@ fn brute_force_top_scores(
             .cloned()
             .collect()
     };
-    if !shs.is_empty() && empty_dominators(&w1h, c.base_str, c.base_dex) == 0 {
+    if !shs.is_empty() && empty_dominators(&w1h, c.base_str, c.base_dex, offense, c.min_fcr) == 0 {
         w1h.push(empty_weapon.clone());
     }
-    if !require_shield && !w1h.is_empty() && empty_dominators(&shs, c.base_str, c.base_dex) == 0 {
+    if !require_shield
+        && !w1h.is_empty()
+        && empty_dominators(&shs, c.base_str, c.base_dex, offense, c.min_fcr) == 0
+    {
         shs.push(empty_shield.clone());
     }
     let mut hand_pairs: Vec<(ItemSpec, ItemSpec)> = Vec::new();
@@ -855,7 +866,7 @@ fn brute_force_top_scores(
     }
     if !require_shield
         && !hand_pairs.iter().any(|(a, b)| {
-            let comb = a.stats().add(b.stats());
+            let comb = a.stats().add(b.stats()).for_offense(offense, c.min_fcr);
             let reqs = normalize_reqs(
                 merge_reqs(item_eff_reqs(a), item_eff_reqs(b)),
                 c.base_str,
@@ -877,7 +888,7 @@ fn brute_force_top_scores(
                 .filter(|i| i.slot == slot && valid_item(i))
                 .cloned()
                 .collect();
-            if empty_dominators(&v, c.base_str, c.base_dex) == 0 {
+            if empty_dominators(&v, c.base_str, c.base_dex, offense, c.min_fcr) == 0 {
                 v.push(empty_singles[idx].clone());
             }
             v
@@ -888,7 +899,7 @@ fn brute_force_top_scores(
         .filter(|i| i.slot == "ring" && valid_item(i))
         .cloned()
         .collect();
-    let ring_dom = empty_dominators(&rings, c.base_str, c.base_dex);
+    let ring_dom = empty_dominators(&rings, c.base_str, c.base_dex, offense, c.min_fcr);
     for _ in 0..2usize.saturating_sub(ring_dom) {
         rings.push(empty_ring.clone());
     }
@@ -981,7 +992,8 @@ fn brute_force_top_scores(
                             continue;
                         }
                         let score = score_eval_summary(mode, offense, &sum);
-                        let sig = (sum.skills, sum.fcr_bp, sum.fhr_bp, sum.mf, item_names.clone());
+                        let eff_fcr_bp = if offense.uses_fcr() { sum.fcr_bp } else { 0 };
+                        let sig = (sum.skills, eff_fcr_bp, sum.fhr_bp, sum.mf, item_names.clone());
                         if best_for_gear
                             .as_ref()
                             .is_none_or(|(_, best)| score > *best)
@@ -1991,4 +2003,57 @@ fn test_prune_candidates_does_not_crowd_out_distinct_names_with_duplicate_rolls(
     assert_eq!(res.len(), 2);
     assert_eq!(res[0].items[2].name, "Harlequin Crest");
     assert_eq!(res[1].items[2].name, "Tarnhelm");
+}
+
+#[test]
+fn test_non_caster_offense_zeroes_fcr_weight_against_manald_heal() {
+    // Regression test: for non-caster offense profiles (Melee / Smite), FCR must carry
+    // 0 weight in item pruning, ring-pair dedup, and build scoring so Manald Heal (+20 Life,
+    // +10% FCR, 20% Mana Regen, 5% Mana Leech) does not beat resist/stat rings like Beast Gyre
+    // (+29% LR, +16% CR, +10% FCR) or Angelic Halo (+20 Life, 0% FCR).
+    let mut manald_a = mk_item("Manald Heal", "ring", 10, 0, 0, 0, 0);
+    manald_a.life = 20;
+    let mut manald_b = mk_item("Manald Heal", "ring", 10, 0, 0, 0, 0);
+    manald_b.life = 20;
+
+    let mut beast_gyre = mk_item("Beast Gyre", "ring", 10, 0, 0, 0, 0);
+    beast_gyre.lr = 29;
+    beast_gyre.cr = 16;
+
+    let mut angelic_halo = mk_item("Angelic Halo", "ring", 0, 0, 0, 0, 0);
+    angelic_halo.life = 20;
+
+    let c = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        use_bo: false,
+        offense: "melee".to_string(),
+        base_hell_res: 0,
+        mode: "leveling".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        limit: 1,
+        ..Default::default()
+    };
+    // 1. Beast Gyre (+29 LR, +16 CR) + Angelic Halo (+20 Life) beats double Manald Heal
+    let res = optimize_builds_core(
+        &[angelic_halo.clone(), manald_a.clone(), manald_b, beast_gyre],
+        &[],
+        &c,
+    )
+    .unwrap();
+    assert_eq!(res.len(), 1);
+    let ring_names: Vec<&str> = res[0].items[8..10].iter().map(|i| i.name.as_str()).collect();
+    assert!(ring_names.contains(&"Beast Gyre"));
+    assert!(ring_names.contains(&"Angelic Halo"));
+    assert!(!ring_names.contains(&"Manald Heal"));
+
+    // 2. When resists are already capped (75/75/75/75), Angelic Halo (+20 Life, 0 FCR)
+    //    is treated as stat-equivalent to Manald Heal (+20 Life, +10 FCR) for melee.
+    let armor_capped = mk_item("Smoke", "armor", 0, 0, 0, 75, 0);
+    let res_capped = optimize_builds_core(&[armor_capped, angelic_halo, manald_a], &[], &c).unwrap();
+    assert_eq!(res_capped.len(), 1);
 }

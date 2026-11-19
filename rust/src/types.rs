@@ -107,6 +107,10 @@ impl OffenseProfile {
         matches!(self, Self::Smite)
     }
 
+    pub(crate) fn uses_fcr(self) -> bool {
+        matches!(self, Self::Caster)
+    }
+
     pub(crate) fn score(self, eff_primary: i32, ias: i32, cb: i32) -> i32 {
         match self {
             Self::Caster => eff_primary,
@@ -185,6 +189,13 @@ impl Stats {
 
     pub(crate) fn max_res_sum(self) -> i32 {
         self.max_fr + self.max_lr + self.max_cr + self.max_pr
+    }
+
+    pub(crate) fn for_offense(mut self, offense: OffenseProfile, min_fcr: i32) -> Self {
+        if !offense.uses_fcr() && min_fcr <= 0 {
+            self.fcr = 0;
+        }
+        self
     }
 
     pub(crate) fn add(self, o: Stats) -> Stats {
