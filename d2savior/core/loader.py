@@ -301,6 +301,8 @@ class D2DataLoader:
                 belt_rows=belt_rows,
                 two_handed=row.get_bool("2handed"),
                 one_or_two_handed=row.get_bool("1or2handed"),
+                wclass=row.get("wclass").strip().lower(),
+                two_handed_wclass=row.get("2handedwclass").strip().lower(),
             )
 
             items[code] = item

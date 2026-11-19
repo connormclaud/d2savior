@@ -4,8 +4,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::types::{
-    compute_effective_gear_stats, BuildConstraints, BuildResult, CharClass, CharmSpec, ItemSpec,
-    Stats, BASE_MAX_RES, HARD_MAX_RES,
+    compute_effective_gear_stats, equipped_weapon_speed, BuildConstraints, BuildResult, CharClass,
+    CharmSpec, ItemSpec, OffenseProfile, Stats, WeaponClass, BASE_MAX_RES, HARD_MAX_RES,
 };
 
 #[cfg(feature = "python")]
@@ -100,6 +100,8 @@ pub(crate) struct EvalSummary {
     pub fhr_bp: i32,
     pub frw: i32,
     pub ias: i32,
+    pub ias_bp: i32,
+    pub ias_frames: i32,
     pub cb: i32,
     pub cbf: bool,
     pub pdr_pct: i32,
@@ -144,6 +146,8 @@ impl EvalSummary {
             fhr_bp: self.fhr_bp,
             frw: self.frw,
             ias: self.ias,
+            ias_bp: self.ias_bp,
+            ias_frames: self.ias_frames,
             cb: self.cb,
             cbf: self.cbf,
             pdr_pct: self.pdr_pct,
@@ -176,6 +180,7 @@ impl EvalSummary {
 pub(crate) fn eval_build_summary(
     gear: Stats,
     all_sk_non_wep: i32,
+    (wclass, wsm): (WeaponClass, i32),
     charms: &[&CharmSpec],
     c: &BuildConstraints,
 ) -> EvalSummary {
@@ -238,6 +243,8 @@ pub(crate) fn eval_build_summary(
         (0.0, 0.0, 0)
     };
     let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear, c);
+    let offense = OffenseProfile::parse(&c.offense, class).unwrap_or(OffenseProfile::Caster);
+    let (ias_bp, ias_frames) = offense.attack_speed(wclass, wsm, gear.ias);
 
     EvalSummary {
         skills,
@@ -251,6 +258,8 @@ pub(crate) fn eval_build_summary(
         fhr_bp: bp_tier(fhr, class.fhr_bps()),
         frw,
         ias: gear.ias,
+        ias_bp,
+        ias_frames,
         cb: gear.cb,
         cbf: gear.cbf > 0,
         pdr_pct: gear.pdr_pct,
@@ -285,7 +294,8 @@ pub(crate) fn eval_build_core(
     evaluated_candidates: usize,
 ) -> BuildResult {
     let (gear, all_sk_non_wep) = compute_effective_gear_stats(items);
-    eval_build_summary(gear, all_sk_non_wep, charms, c).into_result(
+    let wep_speed = equipped_weapon_speed(items);
+    eval_build_summary(gear, all_sk_non_wep, wep_speed, charms, c).into_result(
         items,
         charms,
         evaluated_candidates,

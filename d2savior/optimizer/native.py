@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Literal, Never
 
 type SearchModeStr = Literal["power", "mf", "max-res", "leveling", "leveling-res"]
-type OffenseProfileStr = Literal["caster", "melee", "smite"]
+type OffenseProfileStr = Literal["caster", "melee", "zeal", "smite"]
 
 _MISSING_NATIVE_MSG = (
     "Optimization requires the optional native extension. "

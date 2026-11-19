@@ -211,6 +211,8 @@ class _PropAcc:
         set_group: int = 0,
         set_item_id: int = 0,
         set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
+        wsm: int = 0,
+        wclass: str = "",
     ) -> ItemSpec:
         return ItemSpec(
             name=name,
@@ -258,6 +260,8 @@ class _PropAcc:
             set_group=set_group,
             set_item_id=set_item_id,
             set_bonuses=list(set_bonuses),
+            wsm=wsm,
+            wclass=wclass,
         )
 
     def to_charm_spec(
@@ -562,6 +566,11 @@ def _item_to_spec(
         return None
 
     belt_slots = resolver.get_belt_rows(code) * 4 if slot == "belt" else 0
+    wsm = 0
+    wclass = ""
+    if slot in ("weapon", "weapon2h") and (w_info := resolver.data.get_item(code)) is not None:
+        wsm = w_info.speed
+        wclass = w_info.two_handed_wclass or w_info.wclass
     return acc.to_item_spec(
         name=get_item_display_name(item, resolver=resolver, version=version),
         slot=slot,
@@ -572,6 +581,8 @@ def _item_to_spec(
         set_group=set_group,
         set_item_id=set_item_id,
         set_bonuses=set_bonuses,
+        wsm=wsm,
+        wclass=wclass,
     )
 
 

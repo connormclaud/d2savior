@@ -10,7 +10,7 @@ use crate::charms::CharmSolver;
 use crate::eval::{eval_build_summary, res_caps, EvalSummary};
 use crate::types::{
     compute_effective_gear_stats_and_reqs, eff_req, BuildConstraints, BuildResult, CharClass,
-    CharmSpec, ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, BASE_MAX_RES,
+    CharmSpec, ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, WeaponClass, BASE_MAX_RES,
 };
 
 const SINGLE_SLOTS: [&str; 6] = ["helm", "armor", "amulet", "belt", "gloves", "boots"];
@@ -210,7 +210,7 @@ impl ItemPair {
             (true, false) => second.loc.clone(),
             (false, false) => format!("{} / {}", first.loc, second.loc),
         };
-        let combined = ItemSpec::from_stats(
+        let mut combined = ItemSpec::from_stats(
             format!("{} + {}", first.name, second.name),
             slot.to_string(),
             loc,
@@ -218,6 +218,8 @@ impl ItemPair {
             reqs.0,
             reqs.1,
         );
+        combined.wsm = first.wsm;
+        combined.wclass = first.wclass.clone();
         Self {
             combined,
             first: first.clone(),
@@ -285,7 +287,7 @@ pub(crate) fn score_eval_summary(
     let eff_primary = sum.skills + sum.blizz_skills + sum.primary_skill_bonus;
     let res_sum = sum.fr + sum.lr + sum.cr + sum.pr;
     let res_base = res_base_sum(sum.fr, sum.lr, sum.cr, sum.pr);
-    let off = offense.score(eff_primary, sum.ias, sum.cb);
+    let off = offense.score(eff_primary, sum.ias_bp, sum.cb);
     let eff_fcr_bp = if offense.uses_fcr() { sum.fcr_bp } else { 0 };
     match mode {
         SearchMode::Mf => BuildScore {
@@ -422,13 +424,13 @@ fn item_sort_key(
     }
 }
 
-fn prune_candidates<T>(
+fn prune_candidates<T, S: Eq + std::hash::Hash + Clone>(
     items: Vec<T>,
     limit: usize,
     is_ring: bool,
     base_str: i32,
     base_dex: i32,
-    meta: impl Fn(&T) -> (&str, Stats, (i32, i32), ItemSetSig),
+    meta: impl Fn(&T) -> (&str, Stats, (i32, i32), S),
 ) -> Vec<T> {
     if limit == 0 {
         return items;
@@ -436,9 +438,8 @@ fn prune_candidates<T>(
     let dom_threshold = if is_ring { limit + 1 } else { limit };
     let same_name_cap = if is_ring { 2 } else { 1 };
 
-    let mut stat_counts: HashMap<(Stats, i32, i32, ItemSetSig), HashSet<String>> = HashMap::new();
-    let mut name_stat_counts: HashMap<(String, Stats, i32, i32, ItemSetSig), usize> =
-        HashMap::new();
+    let mut stat_counts: HashMap<(Stats, i32, i32, S), HashSet<String>> = HashMap::new();
+    let mut name_stat_counts: HashMap<(String, Stats, i32, i32, S), usize> = HashMap::new();
     let mut deduped = Vec::with_capacity(items.len());
     for it in items {
         let (name, s, eff_reqs, set_sig) = meta(&it);
@@ -465,7 +466,7 @@ fn prune_candidates<T>(
     // Counting distinct dominator names prevents multiple rolls of the same item name
     // (which collapse to one `BuildSig` in `TopResults`) from crowding out distinct items.
     // Only compare within equal `set_sig` so items participating in set bonuses are preserved.
-    let metas: Vec<(String, Stats, (i32, i32), ItemSetSig)> = deduped
+    let metas: Vec<(String, Stats, (i32, i32), S)> = deduped
         .iter()
         .map(|it| {
             let (name, s, eff_reqs, set_sig) = meta(it);
@@ -543,6 +544,8 @@ fn empty_dominators(
         .iter()
         .filter(|it| {
             it.set_group == 0
+                && it.weapon_class() == WeaponClass::OneHandSwing
+                && it.wsm == 0
                 && dominates_empty(
                     it.stats().for_offense(offense, min_fcr),
                     item_prune_reqs(it, base_str, base_dex),
@@ -625,12 +628,45 @@ fn build_hands(
         ))
     });
 
-    let weapons_1h =
-        prune_slot_items(weapons_1h, c.limit, false, c.base_str, c.base_dex, offense, c.min_fcr);
+    let empty_anim = offense.weapon_anim_key(mode, WeaponClass::OneHandSwing, 0);
+    let weapons_1h = prune_candidates(
+        weapons_1h,
+        c.limit,
+        false,
+        c.base_str,
+        c.base_dex,
+        |it| {
+            (
+                &it.name,
+                it.stats().for_offense(offense, c.min_fcr),
+                item_eff_reqs(it),
+                (
+                    offense.weapon_anim_key(mode, it.weapon_class(), it.wsm),
+                    single_set_sig(it),
+                ),
+            )
+        },
+    );
     let shields =
         prune_slot_items(shields, c.limit, false, c.base_str, c.base_dex, offense, c.min_fcr);
-    let weapons_2h =
-        prune_slot_items(weapons_2h, c.limit, false, c.base_str, c.base_dex, offense, c.min_fcr);
+    let weapons_2h = prune_candidates(
+        weapons_2h,
+        c.limit,
+        false,
+        c.base_str,
+        c.base_dex,
+        |it| {
+            (
+                &it.name,
+                it.stats().for_offense(offense, c.min_fcr),
+                item_eff_reqs(it),
+                (
+                    offense.weapon_anim_key(mode, it.weapon_class(), it.wsm),
+                    single_set_sig(it),
+                ),
+            )
+        },
+    );
 
     let mut hands = Vec::with_capacity(weapons_1h.len() * shields.len() + weapons_2h.len() + 1);
     for w in &weapons_1h {
@@ -653,6 +689,7 @@ fn build_hands(
     } else {
         let has_empty_dom = hands.iter().any(|h| {
             h.set_sig.is_none()
+                && offense.weapon_anim_key(mode, h.first.weapon_class(), h.first.wsm) == empty_anim
                 && dominates_empty(
                     h.combined.stats().for_offense(offense, c.min_fcr),
                     normalize_reqs(h.reqs, c.base_str, c.base_dex),
@@ -673,7 +710,10 @@ fn build_hands(
             &h.combined.name,
             h.combined.stats().for_offense(offense, c.min_fcr),
             h.reqs,
-            h.set_sig.clone(),
+            (
+                offense.weapon_anim_key(mode, h.first.weapon_class(), h.first.wsm),
+                h.set_sig.clone(),
+            ),
         )
     })
 }
@@ -882,10 +922,15 @@ pub fn optimize_builds_core(
             mode: SearchMode,
             offense: OffenseProfile,
             ub_ch: Stats,
+            hand_speed: Option<(WeaponClass, i32)>,
             caps: (i32, i32, i32, i32),
             top: &TopResults,
         ) -> bool {
-            let off_ub = offense.score_stats(ub_ch);
+            let ub_ias = match hand_speed {
+                Some((wclass, wsm)) => offense.attack_speed(wclass, wsm, ub_ch.ias).0,
+                None => ub_ch.ias,
+            };
+            let off_ub = offense.score(ub_ch.primary_power_skills(), ub_ias, ub_ch.cb);
             let res_base = res_base_ub(ub_ch, caps);
             let cbf_ub = i32::from(ub_ch.cbf > 0);
             match mode {
@@ -949,12 +994,24 @@ pub fn optimize_builds_core(
             if ub_ch.str_bonus < reqs.0 || ub_ch.dex_bonus < reqs.1 {
                 return;
             }
-            if can_prune_by_score(st.mode, st.offense, ub_ch, caps_ub, &st.top_results) {
+            let hand_speed = (idx > 0).then(|| {
+                let h = &st.hands[st.chosen_hand];
+                (h.first.weapon_class(), h.first.wsm)
+            });
+            if can_prune_by_score(
+                st.mode,
+                st.offense,
+                ub_ch,
+                hand_speed,
+                caps_ub,
+                &st.top_results,
+            ) {
                 return;
             }
 
             if idx == st.groups.len() + 1 {
                 let hand = &st.hands[st.chosen_hand];
+                let wep_speed = (hand.first.weapon_class(), hand.first.wsm);
                 for rp in st.ring_pairs {
                     let leaf_ub = acc.add(rp.max_stats);
                     if leaf_ub.fcr < st.c.min_fcr {
@@ -985,6 +1042,7 @@ pub fn optimize_builds_core(
                         st.mode,
                         st.offense,
                         leaf_ub_ch,
+                        Some(wep_speed),
                         caps_ub_leaf,
                         &st.top_results,
                     ) {
@@ -1044,6 +1102,7 @@ pub fn optimize_builds_core(
                             st.mode,
                             st.offense,
                             leaf_ch,
+                            Some(wep_speed),
                             caps_leaf,
                             &st.top_results,
                         ) {
@@ -1059,7 +1118,7 @@ pub fn optimize_builds_core(
                     ) else {
                         continue;
                     };
-                    let sum = eval_build_summary(gear, all_sk_non_wep, &charms_sel, st.c);
+                    let sum = eval_build_summary(gear, all_sk_non_wep, wep_speed, &charms_sel, st.c);
                     if (!st.c.allow_mf && sum.mf > 0)
                         || sum.fcr < st.c.min_fcr
                         || sum.fhr < st.c.min_fhr

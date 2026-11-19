@@ -392,6 +392,8 @@ class ItemTypeInfo:
     belt_rows: int = 0
     two_handed: bool = False
     one_or_two_handed: bool = False
+    wclass: str = ""
+    two_handed_wclass: str = ""
 
 
 @dataclass(slots=True)

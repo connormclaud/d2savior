@@ -1,5 +1,5 @@
 use super::*;
-use crate::types::{mk_test_item as mk_item, test_constraints};
+use crate::types::{equipped_weapon_speed, mk_test_item as mk_item, test_constraints};
 
 #[test]
 fn test_optimize_builds_basic() {
@@ -799,7 +799,8 @@ fn validate_and_score_result(
     assert!(c.base_str + gear.str_bonus + charm_str >= reqs.0);
     assert!(c.base_dex + gear.dex_bonus + charm_dex >= reqs.1);
 
-    let sum = eval_build_summary(gear, all_sk_non_wep, &charm_refs, c);
+    let wep_speed = equipped_weapon_speed(&item_refs);
+    let sum = eval_build_summary(gear, all_sk_non_wep, wep_speed, &charm_refs, c);
     assert!(c.allow_mf || sum.mf == 0);
     assert!(sum.fcr >= c.min_fcr);
     assert!(sum.fhr >= c.min_fhr);
@@ -872,7 +873,11 @@ fn brute_force_top_scores(
                 c.base_str,
                 c.base_dex,
             );
-            a.set_group == 0 && b.set_group == 0 && dominates_empty(comb, reqs)
+            a.set_group == 0
+                && b.set_group == 0
+                && a.weapon_class() == WeaponClass::OneHandSwing
+                && a.wsm == 0
+                && dominates_empty(comb, reqs)
         })
     {
         hand_pairs.push((empty_weapon, empty_shield));
@@ -981,7 +986,8 @@ fn brute_force_top_scores(
                         {
                             continue;
                         }
-                        let sum = eval_build_summary(gear, all_sk_non_wep, &chosen, c);
+                        let wep_speed = (h1.weapon_class(), h1.wsm);
+                        let sum = eval_build_summary(gear, all_sk_non_wep, wep_speed, &chosen, c);
                         if (!c.allow_mf && sum.mf > 0)
                             || sum.fhr < c.min_fhr
                             || sum.fr < c.min_fr

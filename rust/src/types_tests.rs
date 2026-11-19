@@ -43,6 +43,7 @@ fn test_char_class_and_offense_profile_parsing_and_scoring() {
     assert!(smite.requires_shield());
     assert!(!OffenseProfile::Melee.requires_shield());
     assert_eq!(OffenseProfile::Caster.score(3, 50, 50), 3);
-    assert_eq!(OffenseProfile::Melee.score(2, 100, 40), 2 * 20 + 80);
+    assert_eq!(OffenseProfile::Melee.score(2, 100, 40), 2 * 20 + (80 * 3) / 2);
+    assert_eq!(OffenseProfile::Zeal.score(2, 18, 40), 2 * 20 + (18 * 3) / 2);
     assert_eq!(smite.score(2, 100, 120), 100 * 4 + 80 * 2 + 20);
 }

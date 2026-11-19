@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from typing import Literal
 
 SearchModeStr = Literal["power", "mf", "max-res", "leveling", "leveling-res"]
-OffenseProfileStr = Literal["caster", "melee", "smite"]
+OffenseProfileStr = Literal["caster", "melee", "zeal", "smite"]
 
 class ItemSpec:
     name: str
@@ -50,6 +50,8 @@ class ItemSpec:
     set_group: int
     set_item_id: int
     set_bonuses: list[tuple[int, ItemSpec]]
+    wsm: int
+    wclass: str
 
     def __init__(
         self,
@@ -98,6 +100,8 @@ class ItemSpec:
         set_group: int = 0,
         set_item_id: int = 0,
         set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
+        wsm: int = 0,
+        wclass: str = "",
     ) -> None: ...
     @property
     def skills(self) -> int: ...
@@ -225,6 +229,10 @@ class BuildResult:
     def frw(self) -> int: ...
     @property
     def ias(self) -> int: ...
+    @property
+    def ias_bp(self) -> int: ...
+    @property
+    def ias_frames(self) -> int: ...
     @property
     def cb(self) -> int: ...
     @property

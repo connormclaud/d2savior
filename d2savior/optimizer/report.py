@@ -101,7 +101,7 @@ def _format_paladin_option_lines(
         f" | DR: {res.pdr_pct}% | LL: {res.life_leech}%" if (res.pdr_pct or res.life_leech) else ""
     )
     lines.append(
-        f"  {skill_str} | CBF: {'Yes' if res.cbf else 'No'} | IAS: {res.ias}% | CB: {res.cb}%{extra_combat}"
+        f"  {skill_str} | CBF: {'Yes' if res.cbf else 'No'} | IAS: {res.ias}% (BP {res.ias_bp}%, {res.ias_frames}f) | CB: {res.cb}%{extra_combat}"
     )
     fhr_f = PALADIN_FHR_FRAMES.get(res.fhr_bp, 9)
     fcr_f = PALADIN_FCR_FRAMES.get(res.fcr_bp, 15)

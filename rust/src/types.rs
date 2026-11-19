@@ -76,10 +76,63 @@ impl CharClass {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) enum WeaponClass {
+    #[default]
+    OneHandSwing,
+    TwoHandSwing,
+    OneHandThrust,
+    TwoHandThrust,
+    Staff,
+    Bow,
+    Crossbow,
+}
+
+impl WeaponClass {
+    pub(crate) fn from_item(wclass: &str, slot: &str, name: &str) -> Self {
+        match wclass.to_ascii_lowercase().as_str() {
+            "1hs" | "hth" => Self::OneHandSwing,
+            "2hs" => Self::TwoHandSwing,
+            "1ht" => Self::OneHandThrust,
+            "2ht" => Self::TwoHandThrust,
+            "stf" => Self::Staff,
+            "bow" => Self::Bow,
+            "xbw" => Self::Crossbow,
+            _ => match slot {
+                "weapon2h" if name != "(empty)" => Self::TwoHandSwing,
+                _ => Self::OneHandSwing,
+            },
+        }
+    }
+
+    pub(crate) fn is_ranged(self) -> bool {
+        matches!(self, Self::Bow | Self::Crossbow)
+    }
+
+    pub(crate) fn frames_per_dir(self) -> i32 {
+        match self {
+            Self::OneHandSwing => 15,
+            Self::TwoHandSwing | Self::Staff => 18,
+            Self::OneHandThrust => 17,
+            Self::TwoHandThrust | Self::Crossbow => 20,
+            Self::Bow => 16,
+        }
+    }
+
+    pub(crate) fn action_frame(self) -> i32 {
+        match self {
+            Self::OneHandSwing | Self::OneHandThrust | Self::Bow => 7,
+            Self::TwoHandSwing | Self::Staff => 8,
+            Self::TwoHandThrust | Self::Crossbow => 9,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum OffenseProfile {
     Caster,
     Melee,
+    Zeal,
     Smite,
 }
 
@@ -88,10 +141,11 @@ impl OffenseProfile {
         let profile = match s.to_ascii_lowercase().as_str() {
             "caster" => Self::Caster,
             "melee" => Self::Melee,
+            "zeal" => Self::Zeal,
             "smite" => Self::Smite,
             other => {
                 return Err(format!(
-                    "invalid offense profile '{other}'; expected 'caster', 'melee', or 'smite'"
+                    "invalid offense profile '{other}'; expected 'caster', 'melee', 'zeal', or 'smite'"
                 ))
             }
         };
@@ -111,11 +165,61 @@ impl OffenseProfile {
         matches!(self, Self::Caster)
     }
 
-    pub(crate) fn score(self, eff_primary: i32, ias: i32, cb: i32) -> i32 {
+    pub(crate) fn weapon_anim_key(
+        self,
+        mode: SearchMode,
+        wclass: WeaponClass,
+        wsm: i32,
+    ) -> (bool, i32, i32) {
+        if !matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) || self == Self::Caster {
+            return (false, 0, 0);
+        }
+        if self == Self::Smite {
+            (false, 12, wsm)
+        } else if self == Self::Zeal && !wclass.is_ranged() {
+            (true, wclass.action_frame(), wsm)
+        } else {
+            (false, wclass.frames_per_dir(), wsm)
+        }
+    }
+
+    pub(crate) fn attack_speed(self, wclass: WeaponClass, wsm: i32, ias: i32) -> (i32, i32) {
+        let clamped_ias = ias.max(0);
+        let eias = (120 * clamped_ias) / (120 + clamped_ias);
+        let net_eias = (eias - wsm).clamp(-85, 75);
+        let speed = (256 * (100 + net_eias)) / 100;
+        let (frames, min_speed) = if self == Self::Smite {
+            let fpd = 12;
+            let f = (256 * fpd + speed - 1) / speed - 1;
+            let ms = (256 * fpd + f) / (f + 1);
+            (f, ms)
+        } else if self == Self::Zeal && !wclass.is_ranged() {
+            let af = wclass.action_frame();
+            let f = (256 * af + speed - 1) / speed;
+            let ms = (256 * af + f - 1) / f;
+            (f, ms)
+        } else {
+            let fpd = wclass.frames_per_dir();
+            let f = (256 * fpd + speed - 1) / speed - 1;
+            let ms = (256 * fpd + f) / (f + 1);
+            (f, ms)
+        };
+        let min_net_eias = ((100 * min_speed + 255) / 256 - 100).max(-85);
+        let min_eias = (min_net_eias + wsm).max(0);
+        let ias_bp = if min_eias <= 0 {
+            0
+        } else {
+            let denom = (120 - min_eias).max(1);
+            (120 * min_eias + denom - 1) / denom
+        };
+        (ias_bp, frames)
+    }
+
+    pub(crate) fn score(self, eff_primary: i32, ias_bp: i32, cb: i32) -> i32 {
         match self {
             Self::Caster => eff_primary,
-            Self::Melee => eff_primary * 20 + ias.min(80),
-            Self::Smite => cb.min(100) * 4 + ias.min(80) * 2 + eff_primary * 10,
+            Self::Melee | Self::Zeal => eff_primary * 20 + (ias_bp.min(80) * 3) / 2,
+            Self::Smite => cb.min(100) * 4 + ias_bp.min(80) * 2 + eff_primary * 10,
         }
     }
 
@@ -372,9 +476,20 @@ pub struct ItemSpec {
     pub set_group: i32,
     pub set_item_id: i32,
     pub set_bonuses: Vec<(i32, ItemSpec)>,
+    pub wsm: i32,
+    pub wclass: String,
 }
 
 pub(crate) type SetBonusSig = Vec<(i32, Stats)>;
+
+pub(crate) fn equipped_weapon_speed(items: &[&ItemSpec]) -> (WeaponClass, i32) {
+    for &it in items {
+        if matches!(it.slot.as_str(), "weapon" | "weapon2h") && it.name != "(empty)" {
+            return (it.weapon_class(), it.wsm);
+        }
+    }
+    (WeaponClass::OneHandSwing, 0)
+}
 
 pub(crate) fn eff_req(req: i32, self_bonus: i32) -> i32 {
     if req > 0 {
@@ -455,6 +570,10 @@ pub(crate) fn compute_effective_gear_stats(items: &[&ItemSpec]) -> (Stats, i32) 
 impl ItemSpec {
     pub fn total_skills(&self) -> i32 {
         self.all_skills + self.sorc_skills + self.pal_skills
+    }
+
+    pub(crate) fn weapon_class(&self) -> WeaponClass {
+        WeaponClass::from_item(&self.wclass, &self.slot, &self.name)
     }
 
     pub(crate) fn is_weapon_or_shield(&self) -> bool {
@@ -591,6 +710,8 @@ impl ItemSpec {
             set_group: 0,
             set_item_id: 0,
             set_bonuses: Vec::new(),
+            wsm: 0,
+            wclass: String::new(),
         }
     }
 }
@@ -645,6 +766,8 @@ impl ItemSpec {
         set_group = 0,
         set_item_id = 0,
         set_bonuses = Vec::new(),
+        wsm = 0,
+        wclass = String::new(),
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -693,6 +816,8 @@ impl ItemSpec {
         set_group: i32,
         set_item_id: i32,
         set_bonuses: Vec<(i32, ItemSpec)>,
+        wsm: i32,
+        wclass: String,
     ) -> Self {
         Self {
             name,
@@ -740,6 +865,8 @@ impl ItemSpec {
             set_group,
             set_item_id,
             set_bonuses,
+            wsm,
+            wclass,
         }
     }
 
@@ -1036,6 +1163,8 @@ pub struct BuildResult {
     pub fhr_bp: i32,
     pub frw: i32,
     pub ias: i32,
+    pub ias_bp: i32,
+    pub ias_frames: i32,
     pub cb: i32,
     pub cbf: bool,
     pub pdr_pct: i32,

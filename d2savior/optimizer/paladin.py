@@ -84,12 +84,18 @@ PALADIN_SPEC_INFO: frozendict[str, tuple[int | None, str | None, frozenset[int]]
 _PALADIN_CASTER_SPECS: frozenset[str] = frozenset({"hammer", "foh", "holy-bolt"})
 
 
-def paladin_offense_profile(spec: str) -> OffenseProfileStr:
-    """Return Rust OffenseProfile name ('smite', 'caster', or 'melee') for a Paladin spec."""
+def paladin_offense_profile(spec: str, char_data: D2SStruct | None = None) -> OffenseProfileStr:
+    """Return Rust OffenseProfile name ('smite', 'caster', 'zeal', or 'melee') for a Paladin spec."""
     if spec == "smite":
         return "smite"
     if spec in _PALADIN_CASTER_SPECS:
         return "caster"
+    if spec == "zeal":
+        return "zeal"
+    if spec in ("holy-fire", "holy-freeze", "holy-shock", "leveling") and char_data is not None:
+        skills = char_data.skills.skill_levels if char_data.skills else ()
+        if len(skills) > _PAL_ZEAL and skills[_PAL_ZEAL] > 0:
+            return "zeal"
     return "melee"
 
 
@@ -250,7 +256,7 @@ def select_paladin_max_res_preset(
     constraints = baseline.build_constraints(
         mode="max-res",
         limit=limit,
-        offense=paladin_offense_profile(resolved_spec),
+        offense=paladin_offense_profile(resolved_spec, char_data),
     )
     title = f"Paladin Max Resist (lvl {char_level}, {diff_name})"
     return title, constraints, resolved_spec
@@ -267,7 +273,7 @@ def _result_dedup_key(res: BuildResult, *, is_caster: bool = False) -> tuple[obj
         res.fcr_bp if is_caster else 0,
         res.skills + res.primary_skill_bonus,
         res.cb,
-        res.ias,
+        res.ias_bp,
         res.cbf,
         res.fr,
         res.lr,
@@ -288,7 +294,7 @@ def _describe_lower_fhr_tradeoff(
     res_diff: int,
 ) -> str:
     prefix = f"Lower FHR BP ({res.fhr_bp}%)"
-    gained_ias = res.ias > opt1.ias
+    gained_ias = res.ias_bp > opt1.ias_bp
     if sk_diff > 0 and res_diff > 0:
         return f"{prefix} — Higher Skills & Resists"
     if gained_ias and sk_diff > 0:
@@ -329,7 +335,7 @@ def _describe_paladin_tradeoff(
         return "Max Resist Cap"
     if is_smite and res.cb > opt1.cb:
         return "Max Smite Offense (CB/IAS)"
-    if res.ias > opt1.ias:
+    if res.ias_bp > opt1.ias_bp:
         return "Higher IAS"
     if sk_diff > 0:
         return "Max Skill Damage"
@@ -481,7 +487,7 @@ def optimize_paladin_leveling(
         bo_base_bonus=bo_base_bonus,
         keep_equipped=keep_equipped,
     )
-    offense = paladin_offense_profile(resolved_spec)
+    offense = paladin_offense_profile(resolved_spec, char_data)
     is_caster = offense == "caster"
     is_smite = offense == "smite"
 
