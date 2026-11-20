@@ -85,8 +85,16 @@ PALADIN_SPEC_INFO: frozendict[str, tuple[int | None, str | None, frozenset[int]]
 _PALADIN_CASTER_SPECS: frozenset[str] = frozenset({"hammer", "foh", "holy-bolt"})
 
 
+_SKILL_ID_ZEAL = 106
+
+
 def paladin_offense_profile(spec: str, char_data: D2SStruct | None = None) -> OffenseProfileStr:
-    """Return Rust OffenseProfile name ('smite', 'caster', 'zeal', or 'melee') for a Paladin spec."""
+    """Return Rust OffenseProfile name ('smite', 'caster', 'zeal', or 'melee') for a Paladin spec.
+
+    For aura/leveling specs, locks to the active bound skills in the save file when present
+    (e.g. normal Attack + Holy Fire -> 'melee', Zeal + Holy Fire -> 'zeal'), falling back
+    to hard skill points only when no active bindings are populated.
+    """
     if spec == "smite":
         return "smite"
     if spec in _PALADIN_CASTER_SPECS:
@@ -95,7 +103,13 @@ def paladin_offense_profile(spec: str, char_data: D2SStruct | None = None) -> Of
         return "zeal"
     if spec in ("holy-fire", "holy-freeze", "holy-shock", "leveling") and char_data is not None:
         skills = char_data.skills.skill_levels if char_data.skills else ()
-        if len(skills) > _PAL_ZEAL and skills[_PAL_ZEAL] > 0:
+        has_zeal = len(skills) > _PAL_ZEAL and skills[_PAL_ZEAL] > 0
+        has_bindings = char_data.left_skill_1 != 0 or char_data.right_skill_1 != 0
+        if has_bindings:
+            if has_zeal and _SKILL_ID_ZEAL in (char_data.left_skill_1, char_data.right_skill_1):
+                return "zeal"
+            return "melee"
+        if has_zeal:
             return "zeal"
     return "melee"
 

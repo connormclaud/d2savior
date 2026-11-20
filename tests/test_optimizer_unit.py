@@ -1034,3 +1034,23 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     )
     assert isinstance(indes_opt, _FakeItemSpec)
     assert indes_opt.name.endswith(" (eth)")
+
+    # 4. Active save skill bindings lock offense profile (Attack + Holy Fire -> melee, Zeal + Holy Fire -> zeal).
+    from d2savior.core.d2s_struct import CharSkills
+
+    pal = D2SStruct()
+    pal.char_class = int(CharClass.PALADIN)
+    pal.skills = CharSkills()
+    pal.skills.skill_levels = [0] * 30
+    pal.skills.skill_levels[6] = 20  # Holy Fire
+    pal.skills.skill_levels[10] = 1  # Zeal
+    # No bindings (0, 0) -> fallback to hard points ('zeal')
+    assert paladin_offense_profile("holy-fire", pal) == "zeal"
+    # Active binding Attack (0) + Holy Fire (102) -> locked to 'melee'
+    pal.left_skill_1 = 0
+    pal.right_skill_1 = 102
+    assert paladin_offense_profile("holy-fire", pal) == "melee"
+    # Active binding Zeal (106) + Holy Fire (102) -> locked to 'zeal'
+    pal.left_skill_1 = 106
+    pal.right_skill_1 = 102
+    assert paladin_offense_profile("holy-fire", pal) == "zeal"
