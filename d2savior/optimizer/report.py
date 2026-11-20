@@ -27,6 +27,8 @@ def _charm_key(c: CharmSpec) -> tuple[object, ...]:
         c.str_bonus,
         c.dex_bonus,
         c.skills,
+        getattr(c, "action_skills", 0),
+        getattr(c, "aura_skills", 0),
         c.unique_id,
         c.cold_sunder,
     )
@@ -93,15 +95,22 @@ def _format_paladin_option_lines(
 ) -> list[str]:
     lines = [header]
     if primary_skill_name:
-        total_lvl = primary_skill_base + res.skills + res.primary_skill_bonus
+        extra_skill = getattr(res, "aura_skill_bonus", 0) or getattr(res, "action_skill_bonus", 0)
+        total_lvl = primary_skill_base + res.skills + res.primary_skill_bonus + extra_skill
         skill_str = f"Skills: +{res.skills} ({primary_skill_name} lvl {total_lvl})"
     else:
         skill_str = f"Skills: +{res.skills}"
+    dps_val = getattr(res, "dps", 0.0)
+    dps_prefix = (
+        f"DPS: {dps_val:.0f} ({'Zeal' if getattr(res, 'used_zeal', False) else 'Attack'}) | "
+        if dps_val > 0.0
+        else ""
+    )
     extra_combat = (
         f" | DR: {res.pdr_pct}% | LL: {res.life_leech}%" if (res.pdr_pct or res.life_leech) else ""
     )
     lines.append(
-        f"  {skill_str} | CBF: {'Yes' if res.cbf else 'No'} | IAS: {res.ias}% (BP {res.ias_bp}%, {res.ias_frames}f) | CB: {res.cb}%{extra_combat}"
+        f"  {dps_prefix}{skill_str} | CBF: {'Yes' if res.cbf else 'No'} | IAS: {res.ias}% (BP {res.ias_bp}%, {res.ias_frames}f) | CB: {res.cb}%{extra_combat}"
     )
     fhr_f = PALADIN_FHR_FRAMES.get(res.fhr_bp, 9)
     fcr_f = PALADIN_FCR_FRAMES.get(res.fcr_bp, 15)

@@ -25,6 +25,7 @@ from d2savior.optimizer.native import (
     class_breakpoints,
     optimize_builds,
 )
+from d2savior.optimizer.skill_tables import build_paladin_dps_tables
 
 PALADIN_BUILD_CHOICES: tuple[str, ...] = ("leveling",)
 
@@ -151,7 +152,19 @@ def detect_paladin_spec(char_data: D2SStruct) -> str:
         ),
         (skills[_PAL_SACRIFICE], skills[_PAL_SACRIFICE] + skills[_PAL_FANATICISM], "sacrifice"),
     ]
-    best_pts, _, best_spec = max(candidates, key=lambda c: (c[0], c[1]))
+    active_bindings = {char_data.left_skill_1, char_data.right_skill_1}
+    best_pts, _, _, best_spec = max(
+        (
+            (
+                pts,
+                syn,
+                1 if PALADIN_SPEC_INFO[name][0] in active_bindings else 0,
+                name,
+            )
+            for pts, syn, name in candidates
+        ),
+        key=lambda c: (c[0], c[1], c[2]),
+    )
     return best_spec if best_pts > 0 else "leveling"
 
 
@@ -213,6 +226,20 @@ def _build_paladin_baseline(
         bo_base_bonus = detect_cta_bo_bonus(
             (char_data, *extra_chars), stashes, res_obj, max_level=char_level, default=0
         )
+    offense = paladin_offense_profile(resolved_spec, char_data)
+    if offense in ("zeal", "melee"):
+        dps_tables = build_paladin_dps_tables(char_data, resolved_spec, offense)
+        aura_hit_dmg = dps_tables.aura_hit_dmg
+        aura_pulse_dps = dps_tables.aura_pulse_dps
+        action_ed = dps_tables.action_ed
+        action_hits = dps_tables.action_hits
+        has_aura = dps_tables.has_aura
+    else:
+        aura_hit_dmg = ()
+        aura_pulse_dps = ()
+        action_ed = ()
+        action_hits = ()
+        has_aura = False
     baseline = CharacterBaseline(
         char_class=int(CharClass.PALADIN),
         base_life=char_data.player_stats.max_life,
@@ -227,6 +254,11 @@ def _build_paladin_baseline(
         base_max_fr=base_max_fr,
         base_max_lr=base_max_lr,
         base_max_cr=base_max_cr,
+        aura_hit_dmg=aura_hit_dmg,
+        aura_pulse_dps=aura_pulse_dps,
+        action_ed=action_ed,
+        action_hits=action_hits,
+        has_aura=has_aura,
     )
     return baseline, char_level, diff_name, resolved_spec
 
@@ -267,11 +299,17 @@ def _step_below_bp(bp: int, table: tuple[int, ...]) -> int | None:
     return lower[-1] if lower else None
 
 
+def _eff_paladin_skills(res: BuildResult) -> int:
+    extra = getattr(res, "aura_skill_bonus", 0) or getattr(res, "action_skill_bonus", 0)
+    return res.skills + res.primary_skill_bonus + extra
+
+
 def _result_dedup_key(res: BuildResult, *, is_caster: bool = False) -> tuple[object, ...]:
     return (
         res.fhr_bp,
         res.fcr_bp if is_caster else 0,
-        res.skills + res.primary_skill_bonus,
+        _eff_paladin_skills(res),
+        round(getattr(res, "dps", 0.0)),
         res.cb,
         res.ias_bp,
         res.cbf,
@@ -294,7 +332,14 @@ def _describe_lower_fhr_tradeoff(
     res_diff: int,
 ) -> str:
     prefix = f"Lower FHR BP ({res.fhr_bp}%)"
+    dps1 = getattr(opt1, "dps", 0.0)
+    dps2 = getattr(res, "dps", 0.0)
+    gained_dps = dps2 > dps1 * 1.02 if dps1 > 0.0 else False
     gained_ias = res.ias_bp > opt1.ias_bp
+    if gained_dps and res_diff > 0:
+        return f"{prefix} — Higher DPS & Resists"
+    if gained_dps:
+        return f"{prefix} — Higher DPS"
     if sk_diff > 0 and res_diff > 0:
         return f"{prefix} — Higher Skills & Resists"
     if gained_ias and sk_diff > 0:
@@ -322,7 +367,9 @@ def _describe_paladin_tradeoff(
     opt1: BuildResult, res: BuildResult, *, is_caster: bool, is_smite: bool
 ) -> str:
     res_diff = (res.fr + res.lr + res.cr + res.pr) - (opt1.fr + opt1.lr + opt1.cr + opt1.pr)
-    sk_diff = (res.skills + res.primary_skill_bonus) - (opt1.skills + opt1.primary_skill_bonus)
+    sk_diff = _eff_paladin_skills(res) - _eff_paladin_skills(opt1)
+    dps1 = getattr(opt1, "dps", 0.0)
+    dps2 = getattr(res, "dps", 0.0)
     if res.fhr_bp < opt1.fhr_bp:
         return _describe_lower_fhr_tradeoff(opt1, res, sk_diff=sk_diff, res_diff=res_diff)
     if is_caster and res.fcr_bp < opt1.fcr_bp:
@@ -335,6 +382,8 @@ def _describe_paladin_tradeoff(
         return "Max Resist Cap"
     if is_smite and res.cb > opt1.cb:
         return "Max Smite Offense (CB/IAS)"
+    if dps1 > 0.0 and dps2 > dps1 * 1.02:
+        return "Higher DPS"
     if res.ias_bp > opt1.ias_bp:
         return "Higher IAS"
     if sk_diff > 0:

@@ -17,12 +17,19 @@ from d2savior.core.stats import (
 )
 from d2savior.optimizer.common import _SWAP_SLOTS, _item_cta_bo, _item_levelreq
 from d2savior.optimizer.native import CharmSpec, ItemSpec
-from d2savior.optimizer.paladin import PALADIN_SPEC_INFO, detect_paladin_spec
+from d2savior.optimizer.paladin import (
+    PALADIN_SPEC_INFO,
+    detect_paladin_spec,
+    paladin_offense_profile,
+)
 
 _CHARM_SIZES: frozendict[str, int] = frozendict({"cm1": 1, "cm2": 2, "cm3": 3, "cs2": 3})
 
 _SKILL_BLIZZARD = 59
 _SKILL_COLD_MASTERY = 65
+_SKILL_ZEAL = 106
+_FLAT_ELEM_PIDS: frozenset[int] = frozenset({48, 49, 50, 51, 52, 53, 54, 55})
+_ELEMENTAL_AURA_SPECS: frozenset[str] = frozenset({"holy-fire", "holy-freeze", "holy-shock"})
 
 _CLASS_EXCLUSIVE_TYPES: tuple[tuple[str, int], ...] = (
     ("abow", int(CharClass.AMAZON)),
@@ -94,6 +101,11 @@ _USEFUL_ITEM_STATS: tuple[str, ...] = (
     "blizz_skills",
     "cm_skills",
     "primary_skill",
+    "action_skill_bonus",
+    "aura_skill_bonus",
+    "off_ed",
+    "flat_phys_2x",
+    "flat_elem_2x",
     "fcr",
     "fhr",
     "frw",
@@ -165,6 +177,11 @@ class _PropAcc:
     blizz_skills: int = 0
     cm_skills: int = 0
     primary_skill: int = 0
+    action_skill_bonus: int = 0
+    aura_skill_bonus: int = 0
+    off_ed: int = 0
+    flat_phys_2x: int = 0
+    flat_elem_2x: int = 0
     fcr: int = 0
     fhr: int = 0
     frw: int = 0
@@ -213,6 +230,10 @@ class _PropAcc:
         set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
         wsm: int = 0,
         wclass: str = "",
+        wep_phys_2x: int = 0,
+        wep_str_pct: int = 0,
+        wep_dex_pct: int = 0,
+        can_zeal: bool = False,
     ) -> ItemSpec:
         return ItemSpec(
             name=name,
@@ -262,6 +283,15 @@ class _PropAcc:
             set_bonuses=list(set_bonuses),
             wsm=wsm,
             wclass=wclass,
+            action_skill_bonus=self.action_skill_bonus,
+            aura_skill_bonus=self.aura_skill_bonus,
+            off_ed=self.off_ed,
+            flat_phys_2x=self.flat_phys_2x,
+            flat_elem_2x=self.flat_elem_2x,
+            wep_phys_2x=wep_phys_2x,
+            wep_str_pct=wep_str_pct,
+            wep_dex_pct=wep_dex_pct,
+            can_zeal=can_zeal,
         )
 
     def to_charm_spec(
@@ -292,6 +322,8 @@ class _PropAcc:
             skills=self.all_skills + cls_skills,
             unique_id=unique_id,
             cold_sunder=bool(self.cold_sunder) and char_class == int(CharClass.SORCERESS),
+            action_skills=self.action_skill_bonus,
+            aura_skills=self.aura_skill_bonus,
         )
 
 
@@ -321,6 +353,51 @@ def _apply_sorc_prop(acc: _PropAcc, pid: int, params: list[int]) -> None:
             acc.sorc_skills += params[2]
 
 
+def _apply_paladin_skill_prop(
+    acc: _PropAcc,
+    pid: int,
+    params: list[int],
+    pal_spec: str,
+    pal_primary_id: int | None,
+    pal_tabs: frozenset[int],
+    pal_offense: str,
+) -> bool:
+    pal_id = int(CharClass.PALADIN)
+    split_skills = pal_offense in ("zeal", "melee")
+    if pid == 83 and len(params) >= 2 and params[0] == pal_id:
+        acc.pal_skills += params[1]
+        return True
+    if pid == 188 and len(params) >= 3 and params[1] == pal_id:
+        if split_skills:
+            if params[0] == 0:
+                acc.action_skill_bonus += params[2]
+            elif params[0] == 1:
+                acc.aura_skill_bonus += params[2]
+        elif params[0] in pal_tabs:
+            acc.pal_skills += params[2]
+        return True
+    if pid == 126 and len(params) >= 2 and params[0] == 1 and pal_spec == "holy-fire":
+        if split_skills:
+            acc.aura_skill_bonus += params[1]
+        else:
+            acc.pal_skills += params[1]
+        return True
+    if pid == 107 and len(params) >= 2:
+        if split_skills:
+            if params[0] == _SKILL_ZEAL and pal_offense == "zeal":
+                acc.action_skill_bonus += params[1]
+            if (
+                pal_spec in _ELEMENTAL_AURA_SPECS
+                and pal_primary_id is not None
+                and params[0] == pal_primary_id
+            ):
+                acc.aura_skill_bonus += params[1]
+        elif pal_primary_id is not None and params[0] == pal_primary_id:
+            acc.primary_skill += params[1]
+        return True
+    return False
+
+
 def _apply_paladin_prop(
     acc: _PropAcc,
     pid: int,
@@ -331,24 +408,31 @@ def _apply_paladin_prop(
     pal_spec: str,
     pal_primary_id: int | None,
     pal_tabs: frozenset[int],
+    *,
+    pal_offense: str = "caster",
+    is_weapon: bool = False,
 ) -> None:
-    pal_id = int(CharClass.PALADIN)
     if pal_attr := _PAL_SIMPLE_STAT_MAP.get(pid):
         setattr(acc, pal_attr, getattr(acc, pal_attr) + pval)
-    elif pid == 83 and len(params) >= 2 and params[0] == pal_id:
-        acc.pal_skills += params[1]
-    elif pid == 188 and len(params) >= 3 and params[1] == pal_id:
-        if params[0] in pal_tabs:
-            acc.pal_skills += params[2]
-    elif pid == 126 and len(params) >= 2 and params[0] == 1 and pal_spec == "holy-fire":
-        acc.pal_skills += params[1]
-    elif (
-        pid == 107
-        and len(params) >= 2
-        and pal_primary_id is not None
-        and params[0] == pal_primary_id
+    elif _apply_paladin_skill_prop(
+        acc, pid, params, pal_spec, pal_primary_id, pal_tabs, pal_offense
     ):
-        acc.primary_skill += params[1]
+        return
+    elif pid in _FLAT_ELEM_PIDS and pal_offense in ("zeal", "melee"):
+        acc.flat_elem_2x += pval
+    elif pal_offense in ("zeal", "melee") and not is_weapon and pid in (17, 25):
+        acc.off_ed += pval
+    elif pal_offense in ("zeal", "melee") and not is_weapon and pid in (21, 22):
+        acc.flat_phys_2x += pval
+    elif pal_offense in ("zeal", "melee") and not is_weapon and pid in (218, 219):
+        scaled = adjust_property_values(
+            pid, [pval], resolver.data.get_stat(pid), char_level=char_level
+        )
+        if isinstance(scaled, int):
+            if pid == 218:
+                acc.flat_phys_2x += scaled
+            else:
+                acc.off_ed += scaled
     elif pid == 247:
         scaled = adjust_property_values(
             pid, [pval], resolver.data.get_stat(pid), char_level=char_level
@@ -359,6 +443,76 @@ def _apply_paladin_prop(
         acc.cbf = 1
 
 
+def _compute_weapon_phys_2x(
+    item: D2Item,
+    props: Sequence[tuple[int, int, list[int]]],
+    resolver: GameDataResolver,
+    char_level: int,
+    *,
+    slot: str,
+    code: str,
+) -> tuple[int, int, int, bool]:
+    """Return `(wep_phys_2x, str_pct, dex_pct, can_zeal)` for a weapon item."""
+    w_info = resolver.data.get_item(code)
+    if w_info is None:
+        return 0, 0, 0, False
+
+    if slot == "weapon2h":
+        base_min = w_info.two_hand_mindam or w_info.mindam
+        base_max = w_info.two_hand_maxdam or w_info.maxdam
+    else:
+        base_min = w_info.mindam
+        base_max = w_info.maxdam
+
+    ed_max = 0
+    ed_min = 0
+    add_min_1h = 0
+    add_max_1h = 0
+    add_min_2h = 0
+    add_max_2h = 0
+    for pid, val, params in props:
+        pval = params[0] if params else val
+        if pid == 17:
+            ed_max += pval
+        elif pid == 18:
+            ed_min += pval
+        elif pid == 21:
+            add_min_1h += pval
+        elif pid == 22:
+            add_max_1h += pval
+        elif pid == 23:
+            add_min_2h += pval
+        elif pid == 24:
+            add_max_2h += pval
+        elif pid in (218, 219):
+            scaled = adjust_property_values(
+                pid, [pval], resolver.data.get_stat(pid), char_level=char_level
+            )
+            if isinstance(scaled, int):
+                if pid == 218:
+                    add_max_1h += scaled
+                    add_max_2h += scaled
+                else:
+                    ed_max += scaled
+                    ed_min += scaled
+
+    if ed_min == 0 and ed_max > 0:
+        ed_min = ed_max
+
+    if item.is_ethereal:
+        base_min = (base_min * 3) // 2
+        base_max = (base_max * 3) // 2
+
+    add_min = add_min_2h if (slot == "weapon2h" and add_min_2h > 0) else add_min_1h
+    add_max = add_max_2h if (slot == "weapon2h" and add_max_2h > 0) else add_max_1h
+    eff_min = (base_min * (100 + ed_min)) // 100 + add_min
+    eff_max = (base_max * (100 + ed_max)) // 100 + add_max
+
+    w_type = w_info.type.lower() if w_info.type else ""
+    can_zeal = bool(w_type) and resolver.is_descendant(w_type, "mele")
+    return max(0, eff_min + eff_max), w_info.str_bonus, w_info.dex_bonus, can_zeal
+
+
 def _apply_props_to_acc(
     acc: _PropAcc,
     props: Sequence[tuple[int, int, list[int]]],
@@ -367,6 +521,8 @@ def _apply_props_to_acc(
     *,
     char_class: int,
     pal_spec: str,
+    pal_offense: str = "caster",
+    is_weapon: bool = False,
     include_defense_props: bool = False,
 ) -> None:
     pal_primary_id, _, pal_tabs = PALADIN_SPEC_INFO.get(pal_spec, (None, None, frozenset({0, 1})))
@@ -388,7 +544,17 @@ def _apply_props_to_acc(
             _apply_sorc_prop(acc, pid, params)
         elif char_class == int(CharClass.PALADIN):
             _apply_paladin_prop(
-                acc, pid, pval, params, resolver, char_level, pal_spec, pal_primary_id, pal_tabs
+                acc,
+                pid,
+                pval,
+                params,
+                resolver,
+                char_level,
+                pal_spec,
+                pal_primary_id,
+                pal_tabs,
+                pal_offense=pal_offense,
+                is_weapon=is_weapon,
             )
 
 
@@ -400,9 +566,18 @@ def _extract_prop_acc(
     *,
     char_class: int = int(CharClass.SORCERESS),
     pal_spec: str = "leveling",
+    pal_offense: str | None = None,
+    is_weapon: bool = False,
 ) -> _PropAcc:
     acc = _PropAcc()
     props = list(collect_item_properties(item, resolver=resolver, version=version))
+    resolved_offense = (
+        pal_offense
+        if pal_offense is not None
+        else (
+            paladin_offense_profile(pal_spec) if char_class == int(CharClass.PALADIN) else "caster"
+        )
+    )
     _apply_props_to_acc(
         acc,
         props,
@@ -410,6 +585,8 @@ def _extract_prop_acc(
         char_level,
         char_class=char_class,
         pal_spec=pal_spec,
+        pal_offense=resolved_offense,
+        is_weapon=is_weapon,
     )
     tp = item.type_specific_info
     if tp and tp.defence is not None:
@@ -425,6 +602,7 @@ def _extract_set_bonuses(
     *,
     char_class: int,
     pal_spec: str,
+    pal_offense: str = "caster",
 ) -> list[tuple[int, ItemSpec]]:
     tp = item.type_specific_info
     if not (tp and tp.set_properties):
@@ -442,6 +620,7 @@ def _extract_set_bonuses(
             char_level,
             char_class=char_class,
             pal_spec=pal_spec,
+            pal_offense=pal_offense,
             include_defense_props=True,
         )
         if b_acc.defense != 0 or any(getattr(b_acc, attr) != 0 for attr in _USEFUL_ITEM_STATS):
@@ -476,6 +655,7 @@ def _resolve_item_set_info(
     *,
     char_class: int,
     pal_spec: str,
+    pal_offense: str = "caster",
     set_group_ids: dict[str, int] | None,
 ) -> tuple[int, int, list[tuple[int, ItemSpec]]]:
     ext = item.ext_info
@@ -496,6 +676,7 @@ def _resolve_item_set_info(
         char_level,
         char_class=char_class,
         pal_spec=pal_spec,
+        pal_offense=pal_offense,
     )
     return group_id, ext.set_id + 1, bonuses
 
@@ -509,6 +690,7 @@ def _item_to_spec(
     *,
     char_class: int = int(CharClass.SORCERESS),
     pal_spec: str = "leveling",
+    pal_offense: str | None = None,
     set_group_ids: dict[str, int] | None = None,
     skip_useful_check: bool = False,
 ) -> ItemSpec | CharmSpec | None:
@@ -516,6 +698,13 @@ def _item_to_spec(
         return None
     if _item_levelreq(item, resolver) > char_level:
         return None
+    resolved_offense = (
+        pal_offense
+        if pal_offense is not None
+        else (
+            paladin_offense_profile(pal_spec) if char_class == int(CharClass.PALADIN) else "caster"
+        )
+    )
     code = item.code_str.strip().lower()
     if code in _CHARM_SIZES:
         acc = _extract_prop_acc(
@@ -525,6 +714,7 @@ def _item_to_spec(
             char_level,
             char_class=char_class,
             pal_spec=pal_spec,
+            pal_offense=resolved_offense,
         )
         name = get_item_display_name(item, resolver=resolver, version=version)
         ext = item.ext_info
@@ -541,14 +731,22 @@ def _item_to_spec(
     if classified is None:
         return None
     slot, base_req_str, base_req_dex = classified
-    acc = _extract_prop_acc(
-        item,
+    is_weapon = slot in ("weapon", "weapon2h")
+    props = list(collect_item_properties(item, resolver=resolver, version=version))
+    acc = _PropAcc()
+    _apply_props_to_acc(
+        acc,
+        props,
         resolver,
-        version,
         char_level,
         char_class=char_class,
         pal_spec=pal_spec,
+        pal_offense=resolved_offense,
+        is_weapon=is_weapon,
     )
+    tp = item.type_specific_info
+    if tp and tp.defence is not None:
+        acc.defense = calculate_effective_defence(tp.get_defence(), props)
     set_group, set_item_id, set_bonuses = _resolve_item_set_info(
         item,
         resolver,
@@ -556,21 +754,39 @@ def _item_to_spec(
         char_level,
         char_class=char_class,
         pal_spec=pal_spec,
+        pal_offense=resolved_offense,
         set_group_ids=set_group_ids,
     )
-    if (
-        not skip_useful_check
-        and set_group == 0
-        and all(getattr(acc, attr) == 0 for attr in _USEFUL_ITEM_STATS)
-    ):
-        return None
 
     belt_slots = resolver.get_belt_rows(code) * 4 if slot == "belt" else 0
     wsm = 0
     wclass = ""
-    if slot in ("weapon", "weapon2h") and (w_info := resolver.data.get_item(code)) is not None:
+    wep_phys_2x = 0
+    wep_str_pct = 0
+    wep_dex_pct = 0
+    can_zeal = False
+    if is_weapon and (w_info := resolver.data.get_item(code)) is not None:
         wsm = w_info.speed
         wclass = w_info.two_handed_wclass or w_info.wclass
+        wep_phys_2x, wep_str_pct, wep_dex_pct, can_zeal = _compute_weapon_phys_2x(
+            item,
+            props,
+            resolver,
+            char_level,
+            slot=slot,
+            code=code,
+        )
+
+    has_useful_stat = any(getattr(acc, attr) != 0 for attr in _USEFUL_ITEM_STATS)
+    has_weapon_dps = (
+        is_weapon
+        and resolved_offense in ("zeal", "melee")
+        and wep_phys_2x > 0
+        and char_class == int(CharClass.PALADIN)
+    )
+    if not skip_useful_check and set_group == 0 and not has_useful_stat and not has_weapon_dps:
+        return None
+
     return acc.to_item_spec(
         name=get_item_display_name(item, resolver=resolver, version=version),
         slot=slot,
@@ -583,6 +799,10 @@ def _item_to_spec(
         set_bonuses=set_bonuses,
         wsm=wsm,
         wclass=wclass,
+        wep_phys_2x=wep_phys_2x,
+        wep_str_pct=wep_str_pct,
+        wep_dex_pct=wep_dex_pct,
+        can_zeal=can_zeal,
     )
 
 
@@ -605,6 +825,7 @@ def _extract_char_specs(
     char_level: int,
     char_class: int,
     pal_spec: str,
+    pal_offense: str,
     resolver: GameDataResolver,
     set_group_ids: dict[str, int],
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
@@ -643,6 +864,7 @@ def _extract_char_specs(
             char_level=char_level,
             char_class=char_class,
             pal_spec=pal_spec,
+            pal_offense=pal_offense,
             set_group_ids=set_group_ids,
             skip_useful_check=use_active_eq,
         )
@@ -685,6 +907,11 @@ def extract_pool(
             else "leveling"
         )
     )
+    resolved_pal_offense = (
+        paladin_offense_profile(resolved_pal_spec, primary_char)
+        if char_class == int(CharClass.PALADIN)
+        else "caster"
+    )
     items_out: list[ItemSpec] = []
     charms_out: list[CharmSpec] = []
     set_group_ids: dict[str, int] = {}
@@ -703,6 +930,7 @@ def extract_pool(
         char_level=char_level,
         char_class=char_class,
         pal_spec=resolved_pal_spec,
+        pal_offense=resolved_pal_offense,
         resolver=resolver,
         set_group_ids=set_group_ids,
     )
@@ -727,6 +955,7 @@ def extract_pool(
                     char_level,
                     char_class=char_class,
                     pal_spec=resolved_pal_spec,
+                    pal_offense=resolved_pal_offense,
                     set_group_ids=set_group_ids,
                 )
                 if isinstance(spec, ItemSpec):
@@ -743,6 +972,7 @@ def extract_pool(
             char_level=char_level,
             char_class=char_class,
             pal_spec=resolved_pal_spec,
+            pal_offense=resolved_pal_offense,
             resolver=resolver,
             set_group_ids=set_group_ids,
         )

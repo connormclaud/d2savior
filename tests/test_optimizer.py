@@ -1004,8 +1004,10 @@ def test_paladin_prop_extraction_and_detect_spec(monkeypatch: pytest.MonkeyPatch
     )
 
     hf_acc = _extract_prop_acc(dummy_item, d2r, 0x63, 29, char_class=3, pal_spec="holy-fire")
-    assert hf_acc.pal_skills == 4  # +2 pal +1 off aura +1 fire
-    assert hf_acc.primary_skill == 6
+    assert hf_acc.pal_skills == 2  # +2 pal only (tabs/fire/single split for melee/zeal)
+    assert hf_acc.primary_skill == 0
+    assert hf_acc.action_skill_bonus == 1  # +1 combat tab
+    assert hf_acc.aura_skill_bonus == 8  # +1 off aura +1 fire +6 Holy Fire
     assert hf_acc.ias == 20
     assert hf_acc.cb == 25
     assert hf_acc.cbf == 1
@@ -1015,6 +1017,8 @@ def test_paladin_prop_extraction_and_detect_spec(monkeypatch: pytest.MonkeyPatch
     smite_acc = _extract_prop_acc(dummy_item, d2r, 0x63, 29, char_class=3, pal_spec="smite")
     assert smite_acc.pal_skills == 3  # +2 pal +1 combat (no fire, no off aura)
     assert smite_acc.primary_skill == 0
+    assert smite_acc.action_skill_bonus == 0
+    assert smite_acc.aura_skill_bonus == 0
 
 
 @requires_native
@@ -1094,7 +1098,7 @@ def test_optimize_paladin_leveling_tradeoffs_and_keep_gear(monkeypatch: pytest.M
         mule, extra_chars=[sork], resolver=resolver, pal_spec="holy-fire", keep_equipped=True
     )
     assert len(kept_items) == 1
-    assert kept_items[0].primary_skill == 4
+    assert kept_items[0].aura_skill_bonus == 4
     assert len(kept_charms) >= 1
 
 
@@ -1284,7 +1288,7 @@ def test_extract_pool_and_optimize_paladin_set_bonuses(monkeypatch: pytest.Monke
     mule.item_list.items = [sig_gage, sig_wrap, ang_halo, ang_wings, alt_gloves]
     alt_specs = [it for it in items_full if it.name == "Magefist-like"]
     assert len(alt_specs) == 1
-    assert alt_specs[0].pal_skills == 1
+    assert alt_specs[0].aura_skill_bonus == 1
     _t, opts_full, _s, _d = optimize_paladin_leveling(
         mule, items_full, charms_full, resolver=resolver, bo_base_bonus=0
     )

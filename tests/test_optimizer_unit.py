@@ -113,6 +113,15 @@ class _FakeItemSpec:
     set_bonuses: list[tuple[int, object]] = field(default_factory=list)
     wsm: int = 0
     wclass: str = ""
+    action_skill_bonus: int = 0
+    aura_skill_bonus: int = 0
+    off_ed: int = 0
+    flat_phys_2x: int = 0
+    flat_elem_2x: int = 0
+    wep_phys_2x: int = 0
+    wep_str_pct: int = 0
+    wep_dex_pct: int = 0
+    can_zeal: bool = False
 
 
 @dataclass
@@ -133,6 +142,8 @@ class _FakeCharmSpec:
     str_bonus: int = 0
     dex_bonus: int = 0
     skills: int = 0
+    action_skills: int = 0
+    aura_skills: int = 0
     unique_id: int | None = None
     cold_sunder: bool = False
 
@@ -166,6 +177,11 @@ class _FakeConstraints:
     use_bo: bool = True
     fixed_gear: bool = False
     offense: str = "caster"
+    aura_hit_dmg: list[float] = field(default_factory=list)
+    aura_pulse_dps: list[float] = field(default_factory=list)
+    action_ed: list[int] = field(default_factory=list)
+    action_hits: list[int] = field(default_factory=list)
+    has_aura: bool = False
 
 
 @dataclass

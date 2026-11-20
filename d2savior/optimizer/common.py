@@ -166,6 +166,11 @@ class CharacterBaseline:
     base_max_lr: int = 0
     base_max_cr: int = 0
     base_max_pr: int = 0
+    aura_hit_dmg: tuple[float, ...] = ()
+    aura_pulse_dps: tuple[float, ...] = ()
+    action_ed: tuple[int, ...] = ()
+    action_hits: tuple[int, ...] = ()
+    has_aura: bool = False
 
     def build_constraints(
         self,
@@ -209,4 +214,9 @@ class CharacterBaseline:
             use_bo=self.use_bo,
             fixed_gear=self.fixed_gear,
             offense=offense,
+            aura_hit_dmg=list(self.aura_hit_dmg),
+            aura_pulse_dps=list(self.aura_pulse_dps),
+            action_ed=list(self.action_ed),
+            action_hits=list(self.action_hits),
+            has_aura=self.has_aura,
         )
