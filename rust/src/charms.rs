@@ -802,6 +802,7 @@ pub(crate) struct CharmSolver<'a> {
     order_skills: Vec<UbGroupEntry>,
     order_mf: Vec<UbGroupEntry>,
     cache: HashMap<CharmCacheKey, Option<Vec<usize>>>,
+    failed_floor: HashMap<CharmCacheKey, i32>,
 }
 
 impl<'a> CharmSolver<'a> {
@@ -1162,6 +1163,7 @@ impl<'a> CharmSolver<'a> {
             order_skills,
             order_mf,
             cache: HashMap::new(),
+            failed_floor: HashMap::new(),
         }
     }
 
@@ -1185,7 +1187,13 @@ impl<'a> CharmSolver<'a> {
         }
     }
 
-    fn max_res_gain_ub(&self, min_g_idx: usize, rem_slots: i32, rem_room: [i32; 4]) -> i32 {
+    fn max_res_gain_ub(
+        &self,
+        min_g_idx: usize,
+        rem_slots: i32,
+        rem_room: [i32; 4],
+        scratch: &mut Vec<(i32, i32, i32)>,
+    ) -> i32 {
         if rem_slots <= 0 {
             return 0;
         }
@@ -1201,7 +1209,7 @@ impl<'a> CharmSolver<'a> {
         if per_res_ub == 0 {
             return 0;
         }
-        let mut entries: Vec<(i32, i32, i32)> = Vec::new();
+        scratch.clear();
         for g in &self.groups[min_g_idx..] {
             match g {
                 CharmGroup::Unique {
@@ -1219,7 +1227,7 @@ impl<'a> CharmSolver<'a> {
                         .max()
                         .unwrap_or(0);
                     if val > 0 {
-                        entries.push((val, *min_size, 1));
+                        scratch.push((val, *min_size, 1));
                     }
                 }
                 CharmGroup::Multi {
@@ -1231,15 +1239,15 @@ impl<'a> CharmSolver<'a> {
                         .map(|r| stats.res[r].max(0).min(rem_room[r]))
                         .sum::<i32>();
                     if val > 0 {
-                        entries.push((val, *size, members.len() as i32));
+                        scratch.push((val, *size, members.len() as i32));
                     }
                 }
             }
         }
-        entries.sort_by(|a, b| (b.0 as i64 * a.1 as i64).cmp(&(a.0 as i64 * b.1 as i64)));
+        scratch.sort_unstable_by(|a, b| (b.0 as i64 * a.1 as i64).cmp(&(a.0 as i64 * b.1 as i64)));
         let mut rem = rem_slots;
         let mut joint_ub = 0;
-        for (val, sz, cnt) in entries {
+        for &(val, sz, cnt) in scratch.iter() {
             let take = (rem / sz).min(cnt);
             if take > 0 {
                 joint_ub += val * take;
@@ -1258,12 +1266,26 @@ impl<'a> CharmSolver<'a> {
 
     fn solve_exact(
         &self,
-        init_delta: [i32; 7], // [str_delta, dex_delta, fhr_delta, fr_delta, lr_delta, cr_delta, pr_delta] (signed: >=0 means met, <0 means shortfall)
+        mut init_delta: [i32; 7], // [str_delta, dex_delta, fhr_delta, fr_delta, lr_delta, cr_delta, pr_delta] (signed: >=0 means met, <0 means shortfall)
         room: [i32; 4],
         slot_budget: i32,
         forbidden_uid: Option<i32>,
         incumbent: Option<(i32, Vec<usize>)>,
+        min_main_needed: i32,
     ) -> Option<Vec<usize>> {
+        if is_res_mode(self.mode) && min_main_needed > 0 {
+            let room_sum: i32 = (0..4).map(|r| room[r].max(0)).sum();
+            let slack = room_sum - min_main_needed;
+            if slack < 0 {
+                return None;
+            }
+            for r in 0..4 {
+                if room[r] > slack {
+                    init_delta[3 + r] = init_delta[3 + r].min(-(room[r] - slack));
+                }
+            }
+        }
+
         struct ExactCtx<'b, 'a> {
             solver: &'b CharmSolver<'a>,
             room: [i32; 4],
@@ -1271,6 +1293,7 @@ impl<'a> CharmSolver<'a> {
             best_main: Option<i32>,
             best_indices: Option<Vec<usize>>,
             cur_indices: Vec<usize>,
+            scratch: Vec<(i32, i32, i32)>,
         }
 
         fn dfs_charms(
@@ -1316,7 +1339,7 @@ impl<'a> CharmSolver<'a> {
                 return;
             }
 
-            // Objective upper-bound pruning once an incumbent exists.
+            // Objective upper-bound pruning once an incumbent or floor exists.
             if let Some(best) = ctx.best_main {
                 let ub_total = match s.mode {
                     SearchMode::Power | SearchMode::Leveling => {
@@ -1333,7 +1356,7 @@ impl<'a> CharmSolver<'a> {
                             (ctx.room[2] - cur_res_added[2]).max(0),
                             (ctx.room[3] - cur_res_added[3]).max(0),
                         ];
-                        cur_gain + s.max_res_gain_ub(g_idx, rem_slots, rem_room)
+                        cur_gain + s.max_res_gain_ub(g_idx, rem_slots, rem_room, &mut ctx.scratch)
                     }
                 };
                 if ub_total <= best {
@@ -1491,9 +1514,11 @@ impl<'a> CharmSolver<'a> {
             }
         }
 
+        let floor_main = (min_main_needed > 0).then_some(min_main_needed - 1);
         let (best_main, best_indices) = match incumbent {
-            Some((m, idxs)) => (Some(m), Some(idxs)),
-            None => (None, None),
+            Some((m, idxs)) if m >= min_main_needed => (Some(m), Some(idxs)),
+            Some((m, _)) => (Some(m.max(min_main_needed - 1)), None),
+            None => (floor_main, None),
         };
         let mut ctx = ExactCtx {
             solver: self,
@@ -1502,16 +1527,28 @@ impl<'a> CharmSolver<'a> {
             best_main,
             best_indices,
             cur_indices: Vec::new(),
+            scratch: Vec::with_capacity(self.groups.len()),
         };
         dfs_charms(&mut ctx, 0, slot_budget.max(0), init_delta, [0; 4], 0, 0);
         ctx.best_indices
     }
 
+    #[cfg(test)]
     pub(crate) fn solve(
         &mut self,
         items: &[&ItemSpec],
         leaf: Stats,
         reqs: (i32, i32),
+    ) -> Option<Vec<&'a CharmSpec>> {
+        self.solve_with_min_main(items, leaf, reqs, 0)
+    }
+
+    pub(crate) fn solve_with_min_main(
+        &mut self,
+        items: &[&ItemSpec],
+        leaf: Stats,
+        reqs: (i32, i32),
+        min_main_needed: i32,
     ) -> Option<Vec<&'a CharmSpec>> {
         let caps_t = res_caps(leaf, self.c);
         let caps = [caps_t.0, caps_t.1, caps_t.2, caps_t.3];
@@ -1525,7 +1562,16 @@ impl<'a> CharmSolver<'a> {
 
         if self.sunder_opts.is_empty() {
             return self
-                .solve_for_sunder(items, leaf, caps, reqs, 0, self.max_slots, None)
+                .solve_for_sunder(
+                    items,
+                    leaf,
+                    caps,
+                    reqs,
+                    0,
+                    self.max_slots,
+                    None,
+                    min_main_needed,
+                )
                 .map(|idxs| idxs.into_iter().map(|i| self.pool[i]).collect());
         }
 
@@ -1534,7 +1580,7 @@ impl<'a> CharmSolver<'a> {
             let slot_budget = (self.raw_max_slots - sunder.size).max(0);
             let leaf_s = add_charm_to_leaf(leaf, sunder);
             return self
-                .solve_for_sunder(items, leaf_s, caps, reqs, 0, slot_budget, Some(sunder))
+                .solve_for_sunder(items, leaf_s, caps, reqs, 0, slot_budget, Some(sunder), 0)
                 .map(|idxs| {
                     std::iter::once(sunder)
                         .chain(idxs.into_iter().map(|i| self.pool[i]))
@@ -1552,9 +1598,16 @@ impl<'a> CharmSolver<'a> {
             let sunder = self.sunder_opts[s_idx];
             let slot_budget = (self.raw_max_slots - sunder.size).max(0);
             let leaf_s = add_charm_to_leaf(leaf, sunder);
-            let Some(idxs) =
-                self.solve_for_sunder(items, leaf_s, caps, reqs, s_idx, slot_budget, Some(sunder))
-            else {
+            let Some(idxs) = self.solve_for_sunder(
+                items,
+                leaf_s,
+                caps,
+                reqs,
+                s_idx,
+                slot_budget,
+                Some(sunder),
+                0,
+            ) else {
                 continue;
             };
             let rem_main = self.main_score_of_indices(&idxs, [0; 4]);
@@ -1601,6 +1654,7 @@ impl<'a> CharmSolver<'a> {
         sunder_idx: usize,
         slot_budget: i32,
         prepicked: Option<&'a CharmSpec>,
+        min_main_needed: i32,
     ) -> Option<Vec<usize>> {
         // `leaf` already includes base_str, base_dex, base_hell_res, and any prepicked sunder.
         let need_str = (reqs.0 - leaf.str_bonus).max(0);
@@ -1642,6 +1696,14 @@ impl<'a> CharmSolver<'a> {
         if let Some(cached) = self.cache.get(&key) {
             return cached.clone();
         }
+        if min_main_needed > 0
+            && self
+                .failed_floor
+                .get(&key)
+                .is_some_and(|&f| min_main_needed >= f)
+        {
+            return None;
+        }
 
         if need_str > self.ub_str
             || need_dex > self.ub_dex
@@ -1653,6 +1715,23 @@ impl<'a> CharmSolver<'a> {
         {
             self.cache.insert(key, None);
             return None;
+        }
+
+        if is_res_mode(self.mode) && min_main_needed > 0 {
+            let rem_room_init = [
+                room[0].max(0),
+                room[1].max(0),
+                room[2].max(0),
+                room[3].max(0),
+            ];
+            let mut scratch = Vec::with_capacity(self.groups.len());
+            if self.max_res_gain_ub(0, slot_budget, rem_room_init, &mut scratch) < min_main_needed {
+                self.failed_floor
+                    .entry(key)
+                    .and_modify(|f| *f = (*f).min(min_main_needed))
+                    .or_insert(min_main_needed);
+                return None;
+            }
         }
 
         let greedy_res =
@@ -1687,7 +1766,14 @@ impl<'a> CharmSolver<'a> {
             delta_res[3],
         ];
         let forbidden_uid = prepicked.and_then(|s| s.unique_id);
-        let best_core = self.solve_exact(init_delta, room, slot_budget, forbidden_uid, incumbent);
+        let best_core = self.solve_exact(
+            init_delta,
+            room,
+            slot_budget,
+            forbidden_uid,
+            incumbent,
+            min_main_needed,
+        );
         let final_indices = match (greedy_res, best_core) {
             (Some(g_idxs), Some(e_idxs)) => {
                 if self.main_score_of_indices(&e_idxs, room)
@@ -1701,11 +1787,25 @@ impl<'a> CharmSolver<'a> {
             (None, Some(e_idxs)) => {
                 Some(self.top_off_filler(&e_idxs, leaf, caps, slot_budget, forbidden_uid))
             }
-            (Some(g_idxs), None) => Some(g_idxs),
+            (Some(g_idxs), None) => {
+                if min_main_needed > 0 && self.main_score_of_indices(&g_idxs, room) < min_main_needed
+                {
+                    None
+                } else {
+                    Some(g_idxs)
+                }
+            }
             (None, None) => None,
         };
 
-        self.cache.insert(key, final_indices.clone());
+        if final_indices.is_some() || min_main_needed <= 0 {
+            self.cache.insert(key, final_indices.clone());
+        } else {
+            self.failed_floor
+                .entry(key)
+                .and_modify(|f| *f = (*f).min(min_main_needed))
+                .or_insert(min_main_needed);
+        }
         final_indices
     }
 

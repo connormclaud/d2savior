@@ -1157,10 +1157,23 @@ pub fn optimize_builds_core(
                     }
                     st.evals += 1;
 
-                    let Some(charms_sel) = st.charm_solver.solve(
+                    let min_main_needed = match st.mode {
+                        SearchMode::LevelingRes => st.top_results.nth_primary().map_or(0, |cut| {
+                            let cur = res_base_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr);
+                            (cut - cur).max(0)
+                        }),
+                        SearchMode::MaxRes => st.top_results.nth_primary().map_or(0, |cut| {
+                            let caps_l = res_caps(leaf, st.c);
+                            let cur = capped_res_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr, caps_l);
+                            (cut - cur).max(0)
+                        }),
+                        _ => 0,
+                    };
+                    let Some(charms_sel) = st.charm_solver.solve_with_min_main(
                         &items_ref,
                         leaf,
                         (final_req_str, final_req_dex),
+                        min_main_needed,
                     ) else {
                         continue;
                     };
