@@ -224,6 +224,7 @@ def _build_paladin_baseline(
     resolver: GameDataResolver | None,
     bo_base_bonus: int | None,
     keep_equipped: bool,
+    targets: int = 1,
 ) -> tuple[CharacterBaseline, int, str, str]:
     validate_paladin(char_data)
     resolved_spec = spec.lower() if spec else detect_paladin_spec(char_data)
@@ -248,12 +249,14 @@ def _build_paladin_baseline(
         action_ed = dps_tables.action_ed
         action_hits = dps_tables.action_hits
         has_aura = dps_tables.has_aura
+        aura_is_fire = dps_tables.aura_is_fire
     else:
         aura_hit_dmg = ()
         aura_pulse_dps = ()
         action_ed = ()
         action_hits = ()
         has_aura = False
+        aura_is_fire = False
     baseline = CharacterBaseline(
         char_class=int(CharClass.PALADIN),
         base_life=char_data.player_stats.max_life,
@@ -273,6 +276,8 @@ def _build_paladin_baseline(
         action_ed=action_ed,
         action_hits=action_hits,
         has_aura=has_aura,
+        aura_is_fire=aura_is_fire,
+        targets=max(1, targets),
     )
     return baseline, char_level, diff_name, resolved_spec
 
@@ -287,6 +292,7 @@ def select_paladin_max_res_preset(
     bo_base_bonus: int | None = None,
     spec: str | None = None,
     keep_equipped: bool = False,
+    targets: int = 1,
 ) -> tuple[str, BuildConstraints, str]:
     """Build a Max Resist constraint profile for a Paladin at its current difficulty."""
     baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
@@ -298,6 +304,7 @@ def select_paladin_max_res_preset(
         resolver=resolver,
         bo_base_bonus=bo_base_bonus,
         keep_equipped=keep_equipped,
+        targets=targets,
     )
     constraints = baseline.build_constraints(
         mode="max-res",
@@ -552,8 +559,10 @@ def optimize_paladin_leveling(
     resolver: GameDataResolver | None = None,
     bo_base_bonus: int | None = None,
     keep_equipped: bool = False,
+    targets: int = 1,
 ) -> tuple[str, list[tuple[str, BuildResult]], str, str]:
     """Optimize Paladin leveling gear and inventory charms across breakpoint/resist trade-offs."""
+    eff_targets = max(1, targets)
     baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
         char_data,
         spec=spec,
@@ -563,6 +572,7 @@ def optimize_paladin_leveling(
         resolver=resolver,
         bo_base_bonus=bo_base_bonus,
         keep_equipped=keep_equipped,
+        targets=eff_targets,
     )
     offense = paladin_offense_profile(resolved_spec, char_data)
     is_caster = offense == "caster"
@@ -570,7 +580,8 @@ def optimize_paladin_leveling(
 
     skill_name, _ = paladin_primary_skill_info(char_data, resolved_spec)
     spec_label = skill_name or resolved_spec.replace("-", " ").title()
-    title = f"Paladin Leveling — {spec_label} (lvl {char_level}, {diff_name})"
+    target_suffix = f", {eff_targets} targets" if eff_targets > 1 else ""
+    title = f"Paladin Leveling — {spec_label} (lvl {char_level}, {diff_name}{target_suffix})"
     if limit <= 0:
         return title, [], resolved_spec, diff_name
 

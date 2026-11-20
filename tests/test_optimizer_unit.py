@@ -122,6 +122,8 @@ class _FakeItemSpec:
     wep_str_pct: int = 0
     wep_dex_pct: int = 0
     can_zeal: bool = False
+    splash_fire: bool = False
+    splash_fire_2x: int = 0
 
 
 @dataclass
@@ -182,6 +184,8 @@ class _FakeConstraints:
     action_ed: list[int] = field(default_factory=list)
     action_hits: list[int] = field(default_factory=list)
     has_aura: bool = False
+    aura_is_fire: bool = False
+    targets: int = 1
 
 
 @dataclass

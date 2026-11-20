@@ -225,6 +225,8 @@ impl ItemPair {
         combined.wep_str_pct = first.wep_str_pct;
         combined.wep_dex_pct = first.wep_dex_pct;
         combined.can_zeal = first.can_zeal;
+        combined.splash_fire = first.splash_fire;
+        combined.splash_fire_2x = first.splash_fire_2x;
         Self {
             combined,
             first: first.clone(),

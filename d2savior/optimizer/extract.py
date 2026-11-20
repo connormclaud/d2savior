@@ -22,6 +22,7 @@ from d2savior.optimizer.paladin import (
     detect_paladin_spec,
     paladin_offense_profile,
 )
+from d2savior.optimizer.skill_tables import exploding_arrow_fire_2x
 
 _CHARM_SIZES: frozendict[str, int] = frozendict({"cm1": 1, "cm2": 2, "cm3": 3, "cs2": 3})
 
@@ -235,6 +236,8 @@ class _PropAcc:
         wep_str_pct: int = 0,
         wep_dex_pct: int = 0,
         can_zeal: bool = False,
+        splash_fire: bool = False,
+        splash_fire_2x: int = 0,
     ) -> ItemSpec:
         return ItemSpec(
             name=name,
@@ -293,6 +296,8 @@ class _PropAcc:
             wep_str_pct=wep_str_pct,
             wep_dex_pct=wep_dex_pct,
             can_zeal=can_zeal,
+            splash_fire=splash_fire,
+            splash_fire_2x=splash_fire_2x,
         )
 
     def to_charm_spec(
@@ -782,6 +787,8 @@ def _item_to_spec(
     wep_str_pct = 0
     wep_dex_pct = 0
     can_zeal = False
+    splash_fire = False
+    splash_fire_2x = 0
     if is_weapon and (w_info := resolver.data.get_item(code)) is not None:
         if (
             not skip_useful_check
@@ -801,6 +808,13 @@ def _item_to_spec(
             slot=slot,
             code=code,
         )
+        exp_lvl = max(
+            (params[0] if params else val for pid, val, params in props if pid == 158),
+            default=0,
+        )
+        if exp_lvl > 0:
+            splash_fire = True
+            splash_fire_2x = exploding_arrow_fire_2x(exp_lvl)
 
     has_useful_stat = any(getattr(acc, attr) != 0 for attr in _USEFUL_ITEM_STATS)
     has_weapon_dps = (
@@ -832,6 +846,8 @@ def _item_to_spec(
         wep_str_pct=wep_str_pct,
         wep_dex_pct=wep_dex_pct,
         can_zeal=can_zeal,
+        splash_fire=splash_fire,
+        splash_fire_2x=splash_fire_2x,
     )
 
 

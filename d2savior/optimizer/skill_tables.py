@@ -13,6 +13,7 @@ from d2savior.core.loader import TsvReader
 DEFAULT_MAX_SKILL_BONUS = 40
 
 _PAL_SKILL_BASE = CLASS_SKILL_BASES[int(CharClass.PALADIN)]
+_SKILL_EXPLODING_ARROW = 16
 _SKILL_SACRIFICE = 96
 _SKILL_HOLY_FIRE = 102
 _SKILL_ZEAL = 106
@@ -55,6 +56,7 @@ class PaladinDpsTables:
     action_ed: tuple[int, ...]
     action_hits: tuple[int, ...]
     has_aura: bool
+    aura_is_fire: bool = False
 
 
 def _piecewise_linear(base: int, levs: tuple[int, int, int, int, int], slvl: int) -> int:
@@ -78,7 +80,13 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
     skills_path = files("d2savior.data") / "d2r" / "skills.txt"
     formulas: dict[int, _SkillFormula] = {}
     name_to_id: dict[str, int] = {}
-    wanted = {_SKILL_HOLY_FIRE, _SKILL_HOLY_FREEZE, _SKILL_HOLY_SHOCK, _SKILL_ZEAL}
+    wanted = {
+        _SKILL_EXPLODING_ARROW,
+        _SKILL_HOLY_FIRE,
+        _SKILL_HOLY_FREEZE,
+        _SKILL_HOLY_SHOCK,
+        _SKILL_ZEAL,
+    }
 
     for row in TsvReader(skills_path):
         sid = row.get_int("*Id", -1)
@@ -122,6 +130,20 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
             synergies=synergies,
         )
     return formulas, name_to_id
+
+
+def exploding_arrow_fire_2x(slvl: int) -> int:
+    """Return 2x average base fire damage of Exploding Arrow at `slvl` (from skills.txt)."""
+    if slvl <= 0:
+        return 0
+    formulas, _ = _load_skill_formulas()
+    ef = formulas.get(_SKILL_EXPLODING_ARROW)
+    if ef is None:
+        return 0
+    scale = 2.0 ** (ef.hit_shift - 8)
+    f_min = _piecewise_linear(ef.emin, ef.emin_lev, slvl) * scale
+    f_max = _piecewise_linear(ef.emax, ef.emax_lev, slvl) * scale
+    return round(f_min + f_max)
 
 
 def _pal_hard_pts(skill_levels: tuple[int, ...] | list[int], skill_id: int) -> int:
@@ -203,4 +225,5 @@ def build_paladin_dps_tables(
         action_ed=action_ed_t,
         action_hits=action_hits_t,
         has_aura=has_aura,
+        aura_is_fire=has_aura and aura_id == _SKILL_HOLY_FIRE,
     )

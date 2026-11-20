@@ -591,6 +591,7 @@ def _run_paladin_optimize(
             stashes=stashes,
             resolver=resolver,
             keep_equipped=args.keep_gear,
+            targets=args.targets,
         )
         diff_name = DIFFICULTY_NAMES[get_current_difficulty(primary)]
         skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
@@ -615,6 +616,7 @@ def _run_paladin_optimize(
             stashes=stashes,
             resolver=resolver,
             keep_equipped=args.keep_gear,
+            targets=args.targets,
         )
         skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
         report = format_paladin_leveling_report(
@@ -684,7 +686,15 @@ def cmd_optimize(argv: list[str]) -> int:
         action="store_true",
         help="Keep currently equipped active gear and optimize inventory charms only",
     )
+    parser.add_argument(
+        "--targets",
+        type=int,
+        default=1,
+        help="Number of simultaneous targets for AoE DPS (e.g. 1=boss, 3=pack; default: 1)",
+    )
     args = parser.parse_args(argv)
+    if args.targets < 1:
+        parser.error("--targets must be >= 1")
     target_char, args.file_path = _split_optimize_targets(args.file_path, args.char)
     files_to_process = _resolve_and_save_targets(args)
     if not files_to_process:

@@ -136,6 +136,8 @@ pub(crate) struct HandWeapon {
     pub(crate) str_pct: i32,
     pub(crate) dex_pct: i32,
     pub(crate) can_zeal: bool,
+    pub(crate) splash_fire: bool,
+    pub(crate) splash_fire_2x: i32,
 }
 
 impl HandWeapon {
@@ -147,6 +149,8 @@ impl HandWeapon {
             str_pct: 100,
             dex_pct: 0,
             can_zeal: true,
+            splash_fire: false,
+            splash_fire_2x: 0,
         }
     }
 }
@@ -200,12 +204,12 @@ impl OffenseProfile {
         self,
         mode: SearchMode,
         hand: HandWeapon,
-    ) -> (bool, WeaponClass, i32, i32, i32) {
+    ) -> (bool, WeaponClass, i32, i32, i32, bool, i32) {
         if !matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) || self == Self::Caster {
-            return (false, WeaponClass::OneHandSwing, 0, 0, 0);
+            return (false, WeaponClass::OneHandSwing, 0, 0, 0, false, 0);
         }
         if self == Self::Smite {
-            (false, WeaponClass::OneHandSwing, hand.wsm, 0, 0)
+            (false, WeaponClass::OneHandSwing, hand.wsm, 0, 0, false, 0)
         } else {
             (
                 hand.can_zeal,
@@ -213,6 +217,8 @@ impl OffenseProfile {
                 hand.wsm,
                 hand.str_pct,
                 hand.dex_pct,
+                hand.splash_fire,
+                hand.splash_fire_2x,
             )
         }
     }
@@ -350,8 +356,20 @@ impl OffenseProfile {
             c.aura_pulse_dps[eff_aura.min(c.aura_pulse_dps.len() - 1)]
         };
         let d_elem_gear = s.flat_elem_2x.max(0) as f64 / 2.0;
+        let targets = c.targets.max(1) as f64;
+        let aura_hit_mult = if hand.splash_fire && c.aura_is_fire {
+            targets
+        } else {
+            1.0
+        };
+        let d_splash_fire = if hand.splash_fire {
+            (hand.splash_fire_2x.max(0) as f64 / 2.0) * targets
+        } else {
+            0.0
+        };
 
-        let dps = (d_phys + d_aura_hit + d_elem_gear) * rate + d_aura_pulse;
+        let dps = (d_phys + d_aura_hit * aura_hit_mult + d_splash_fire + d_elem_gear) * rate
+            + d_aura_pulse * targets;
         (dps, ias_bp, display_frames, used_zeal)
     }
 
@@ -669,6 +687,8 @@ pub struct ItemSpec {
     pub wep_str_pct: i32,
     pub wep_dex_pct: i32,
     pub can_zeal: bool,
+    pub splash_fire: bool,
+    pub splash_fire_2x: i32,
 }
 
 pub(crate) type SetBonusSig = Vec<(i32, Stats)>;
@@ -784,6 +804,8 @@ impl ItemSpec {
             str_pct: self.wep_str_pct,
             dex_pct: self.wep_dex_pct,
             can_zeal,
+            splash_fire: self.splash_fire,
+            splash_fire_2x: self.splash_fire_2x,
         }
     }
 
@@ -937,6 +959,8 @@ impl ItemSpec {
             wep_str_pct: 0,
             wep_dex_pct: 0,
             can_zeal: false,
+            splash_fire: false,
+            splash_fire_2x: 0,
         }
     }
 }
@@ -1002,6 +1026,8 @@ impl ItemSpec {
         wep_str_pct = 0,
         wep_dex_pct = 0,
         can_zeal = false,
+        splash_fire = false,
+        splash_fire_2x = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1061,6 +1087,8 @@ impl ItemSpec {
         wep_str_pct: i32,
         wep_dex_pct: i32,
         can_zeal: bool,
+        splash_fire: bool,
+        splash_fire_2x: i32,
     ) -> Self {
         Self {
             name,
@@ -1119,6 +1147,8 @@ impl ItemSpec {
             wep_str_pct,
             wep_dex_pct,
             can_zeal,
+            splash_fire,
+            splash_fire_2x,
         }
     }
 
@@ -1289,6 +1319,8 @@ pub struct BuildConstraints {
     pub action_ed: Vec<i32>,
     pub action_hits: Vec<i32>,
     pub has_aura: bool,
+    pub aura_is_fire: bool,
+    pub targets: i32,
 }
 
 impl Default for BuildConstraints {
@@ -1326,6 +1358,8 @@ impl Default for BuildConstraints {
             action_ed: Vec::new(),
             action_hits: Vec::new(),
             has_aura: false,
+            aura_is_fire: false,
+            targets: 1,
         }
     }
 }
@@ -1367,6 +1401,8 @@ impl BuildConstraints {
         action_ed = Vec::new(),
         action_hits = Vec::new(),
         has_aura = false,
+        aura_is_fire = false,
+        targets = 1,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1402,6 +1438,8 @@ impl BuildConstraints {
         action_ed: Vec<i32>,
         action_hits: Vec<i32>,
         has_aura: bool,
+        aura_is_fire: bool,
+        targets: i32,
     ) -> Self {
         Self {
             allow_mf,
@@ -1436,6 +1474,8 @@ impl BuildConstraints {
             action_ed,
             action_hits,
             has_aura,
+            aura_is_fire,
+            targets,
         }
     }
 }

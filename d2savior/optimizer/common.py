@@ -171,6 +171,8 @@ class CharacterBaseline:
     action_ed: tuple[int, ...] = ()
     action_hits: tuple[int, ...] = ()
     has_aura: bool = False
+    aura_is_fire: bool = False
+    targets: int = 1
 
     def build_constraints(
         self,
@@ -219,4 +221,6 @@ class CharacterBaseline:
             action_ed=list(self.action_ed),
             action_hits=list(self.action_hits),
             has_aura=self.has_aura,
+            aura_is_fire=self.aura_is_fire,
+            targets=self.targets,
         )

@@ -2296,3 +2296,80 @@ fn test_paladin_dps_zeal_vs_bow_fallback_and_brute_force_parity() {
     assert!(flail_dps > thrust_dps, "1hs F_last=15 must out-DPS 1ht F_last=17");
     assert!(flail_dps > bow_dps, "1h Zeal must out-DPS bow Attack fallback");
 }
+
+#[test]
+fn paladin_explosive_arrow_splash_targets_and_brute_force_parity() {
+    let spirit = ItemSpec {
+        name: "Spirit".into(),
+        slot: "weapon".into(),
+        all_skills: 2,
+        wclass: "1hs".into(),
+        wsm: 0,
+        wep_phys_2x: 34,
+        wep_str_pct: 100,
+        can_zeal: true,
+        ..Default::default()
+    };
+    let shield = ItemSpec {
+        name: "Sigon's Guard".into(),
+        slot: "shield".into(),
+        all_skills: 1,
+        ..Default::default()
+    };
+    let raven_claw = ItemSpec {
+        name: "Raven Claw".into(),
+        slot: "weapon2h".into(),
+        wclass: "bow".into(),
+        wsm: 0,
+        wep_phys_2x: 20,
+        wep_dex_pct: 100,
+        can_zeal: false,
+        splash_fire: true,
+        splash_fire_2x: 44, // lvl 3 Exploding Arrow (17-27)
+        ..Default::default()
+    };
+    let items = vec![spirit, shield, raven_claw];
+    let mut c = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        offense: "melee".to_string(),
+        mode: "leveling".to_string(),
+        base_hell_res: 0,
+        base_str: 50,
+        base_dex: 50,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 0,
+        limit: 2,
+        use_bo: false,
+        aura_hit_dmg: (0..=10).map(|b| 400.0 + b as f64 * 45.0).collect(),
+        aura_pulse_dps: (0..=10).map(|b| 35.0 + b as f64 * 4.0).collect(),
+        action_ed: vec![0],
+        action_hits: vec![1],
+        has_aura: true,
+        aura_is_fire: true,
+        targets: 1,
+        ..Default::default()
+    };
+
+    // Single target: 1H + shield (+3 skills) beats Raven Claw.
+    let res1 = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res1[0].items[0].name, "Spirit");
+
+    // 3 targets with Holy Fire: Raven Claw fire splash wins and matches brute force.
+    c.targets = 3;
+    let res3 = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res3[0].items[0].name, "Raven Claw");
+    let bf3 = brute_force_top_scores(&items, &[], &c, SearchMode::Leveling);
+    let mut sc3 = validate_and_score_result(&res3[0], &c, SearchMode::Leveling);
+    sc3.locality = 0;
+    assert_eq!(sc3, bf3[0]);
+
+    // 3 targets with non-fire aura (Holy Freeze/Shock): aura on-hit does NOT splash, Spirit wins.
+    c.aura_is_fire = false;
+    let res_cold = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res_cold[0].items[0].name, "Spirit");
+}

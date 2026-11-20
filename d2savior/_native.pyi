@@ -61,6 +61,8 @@ class ItemSpec:
     wep_str_pct: int
     wep_dex_pct: int
     can_zeal: bool
+    splash_fire: bool
+    splash_fire_2x: int
 
     def __init__(
         self,
@@ -120,6 +122,8 @@ class ItemSpec:
         wep_str_pct: int = 0,
         wep_dex_pct: int = 0,
         can_zeal: bool = False,
+        splash_fire: bool = False,
+        splash_fire_2x: int = 0,
     ) -> None: ...
     @property
     def skills(self) -> int: ...
@@ -203,6 +207,8 @@ class BuildConstraints:
     action_ed: list[int]
     action_hits: list[int]
     has_aura: bool
+    aura_is_fire: bool
+    targets: int
 
     def __init__(
         self,
@@ -238,6 +244,8 @@ class BuildConstraints:
         action_ed: Sequence[int] = (),
         action_hits: Sequence[int] = (),
         has_aura: bool = False,
+        aura_is_fire: bool = False,
+        targets: int = 1,
     ) -> None: ...
 
 class BuildResult:

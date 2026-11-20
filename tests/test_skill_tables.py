@@ -4,7 +4,7 @@ import pytest
 
 from d2savior.core.d2s_struct import CharSkills, D2SStruct
 from d2savior.core.enums import CharClass
-from d2savior.optimizer.skill_tables import build_paladin_dps_tables
+from d2savior.optimizer.skill_tables import build_paladin_dps_tables, exploding_arrow_fire_2x
 
 
 def _make_paladin(skill_pts: dict[int, int]) -> D2SStruct:
@@ -72,3 +72,16 @@ class TestPaladinDpsTables:
         assert t.aura_pulse_dps == (0.0,)
         assert t.action_hits == (1,)
         assert t.action_ed == (0,)
+        assert t.aura_is_fire is False
+
+    def test_aura_is_fire_and_exploding_arrow_fire_2x(self):
+        assert build_paladin_dps_tables(_make_paladin({6: 20}), "holy-fire", "melee").aura_is_fire
+        assert not build_paladin_dps_tables(
+            _make_paladin({18: 20}), "holy-freeze", "melee"
+        ).aura_is_fire
+        assert not build_paladin_dps_tables(
+            _make_paladin({22: 20}), "holy-shock", "melee"
+        ).aura_is_fire
+        # Exploding Arrow lvl 3 (Raven Claw): 17-27 fire -> 2x = 44; lvl 0 -> 0
+        assert exploding_arrow_fire_2x(0) == 0
+        assert exploding_arrow_fire_2x(3) == 44
