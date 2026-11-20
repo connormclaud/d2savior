@@ -4,7 +4,13 @@ import pytest
 
 from d2savior.core.d2s_struct import CharSkills, D2SStruct
 from d2savior.core.enums import CharClass
-from d2savior.optimizer.skill_tables import build_paladin_dps_tables, exploding_arrow_fire_2x
+from d2savior.optimizer.skill_tables import (
+    build_paladin_dps_tables,
+    build_sorc_dps_tables,
+    exploding_arrow_fire_2x,
+    resolve_skill_override,
+    resolve_sorc_filler_skill,
+)
 
 
 def _make_paladin(skill_pts: dict[int, int]) -> D2SStruct:
@@ -85,3 +91,55 @@ class TestPaladinDpsTables:
         # Exploding Arrow lvl 3 (Raven Claw): 17-27 fire -> 2x = 44; lvl 0 -> 0
         assert exploding_arrow_fire_2x(0) == 0
         assert exploding_arrow_fire_2x(3) == 44
+
+
+def _make_sorc(skill_pts: dict[int, int], left: int = 0, right: int = 0) -> D2SStruct:
+    char = D2SStruct()
+    char.char_class = int(CharClass.SORCERESS)
+    char.left_skill_1 = left
+    char.right_skill_1 = right
+    sd = CharSkills()
+    sd.skill_levels = [0] * 30
+    for offset, pts in skill_pts.items():
+        sd.skill_levels[offset] = pts
+    char.skills = sd
+    return char
+
+
+class TestSorcDpsTablesAndOverrides:
+    def test_sorc_blizzard_and_filler_tables(self):
+        # Sorc offsets relative to 36: Ice Bolt=3, Ice Blast=9, Glacial Spike=19, Blizzard=23
+        c = _make_sorc({3: 14, 9: 20, 19: 20, 23: 20})
+        t_ib = build_sorc_dps_tables(c, targets=1, max_bonus=5)
+        # Blizzard lvl 20, 54 syn pts (+270%): raw avg 594.5 * 3.7 = 2199.65
+        assert t_ib.blizz_dmg[0] == pytest.approx(594.5 * 3.7)
+        assert t_ib.filler_skill_name == "Ice Blast"
+        assert t_ib.filler_is_aoe is False
+        # Ice Blast lvl 20 (HitShift=7 => 0.5x), 34 syn pts (Ice Bolt 14 + Blizz 20 => +272%):
+        # EMin(20)=16+7*14+8*28+4*42=506, EMax(20)=24+7*15+8*29+4*43=533 => avg 519.5*0.5*3.72
+        assert t_ib.filler_dmg[0] == pytest.approx(519.5 * 0.5 * 3.72)
+
+        # Tie between 20 IB and 20 GS picks Glacial Spike for targets > 1, or explicit override.
+        t_gs = build_sorc_dps_tables(c, targets=3, max_bonus=5)
+        assert t_gs.filler_skill_name == "Glacial Spike"
+        assert t_gs.filler_is_aoe is True
+
+        # Most allocated skill points wins when save has neither bound.
+        c_more_gs = _make_sorc({3: 1, 9: 10, 19: 20, 23: 20})
+        assert resolve_sorc_filler_skill(c_more_gs, targets=1) == 55
+
+        # Explicit --left-skill none disables filler.
+        t_none = build_sorc_dps_tables(c, left_skill=-1)
+        assert t_none.filler_dmg == ()
+        assert t_none.filler_skill_name is None
+
+    def test_resolve_skill_override(self):
+        assert resolve_skill_override("none") == -1
+        assert resolve_skill_override("attack") == 0
+        assert resolve_skill_override("ice-blast") == 45
+        assert resolve_skill_override("Glacial Spike") == 55
+        assert resolve_skill_override("blizzard") == 59
+        assert resolve_skill_override("zeal") == 106
+        assert resolve_skill_override("holy-fire") == 102
+        with pytest.raises(ValueError, match="Unknown skill"):
+            resolve_skill_override("not-a-skill")

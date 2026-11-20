@@ -173,6 +173,9 @@ class CharacterBaseline:
     has_aura: bool = False
     aura_is_fire: bool = False
     targets: int = 1
+    blizz_dmg: tuple[float, ...] = ()
+    filler_dmg: tuple[float, ...] = ()
+    filler_is_aoe: bool = False
 
     def build_constraints(
         self,
@@ -223,4 +226,7 @@ class CharacterBaseline:
             has_aura=self.has_aura,
             aura_is_fire=self.aura_is_fire,
             targets=self.targets,
+            blizz_dmg=list(self.blizz_dmg),
+            filler_dmg=list(self.filler_dmg),
+            filler_is_aoe=self.filler_is_aoe,
         )

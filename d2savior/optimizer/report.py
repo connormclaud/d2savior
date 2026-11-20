@@ -154,6 +154,7 @@ def format_build_report(
     primary_skill_name: str | None = None,
     primary_skill_base: int = 0,
     primary_inv_loc: str | None = None,
+    filler_skill_name: str | None = None,
 ) -> str:
     """Format BuildResult options into a human-readable report."""
     lines = [f"=== {title} ==="]
@@ -177,8 +178,14 @@ def format_build_report(
             )
             continue
         lines.append(header)
+        dps_val = getattr(res, "dps", 0.0)
+        if dps_val > 0.0:
+            dps_label = f"Blizz + {filler_skill_name}" if filler_skill_name else "Blizz"
+            dps_prefix = f"DPS: {dps_val:.0f} ({dps_label}) | "
+        else:
+            dps_prefix = ""
         lines.append(
-            f"  Skills: +{res.skills} | Blizz Avg: {res.blizz_avg:.0f} | CM: {res.cm_pierce}%"
+            f"  {dps_prefix}Skills: +{res.skills} | Blizz Avg: {res.blizz_avg:.0f} | CM: {res.cm_pierce}%"
         )
         lines.append(
             f"  FCR: {res.fcr}% (BP {res.fcr_bp}%) | FHR: {res.fhr}% (BP {res.fhr_bp}%) | FRW: {res.frw}% | MF: {res.mf}%"

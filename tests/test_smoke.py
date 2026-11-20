@@ -30,6 +30,7 @@ from d2savior.optimizer import (
     select_paladin_max_res_preset,
     select_sorc_presets,
 )
+from d2savior.optimizer.skill_tables import build_sorc_dps_tables
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
@@ -186,8 +187,14 @@ class TestSmokeAPI:
         items, charms = extract_pool(
             sork, extra_chars=[mule], stashes=[stash], resolver=game_data_resolver
         )
+        filler_name = build_sorc_dps_tables(sork).filler_skill_name
         sections = [
-            format_build_report(title, optimize_builds(items, charms, constraints), charms)
+            format_build_report(
+                title,
+                optimize_builds(items, charms, constraints),
+                charms,
+                filler_skill_name=filler_name,
+            )
             for title, constraints in select_sorc_presets(
                 sork,
                 extra_chars=[mule],

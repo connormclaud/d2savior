@@ -88,12 +88,18 @@ _PALADIN_CASTER_SPECS: frozenset[str] = frozenset({"hammer", "foh", "holy-bolt"}
 _SKILL_ID_ZEAL = 106
 
 
-def paladin_offense_profile(spec: str, char_data: D2SStruct | None = None) -> OffenseProfileStr:
+def paladin_offense_profile(
+    spec: str,
+    char_data: D2SStruct | None = None,
+    *,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
+) -> OffenseProfileStr:
     """Return Rust OffenseProfile name ('smite', 'caster', 'zeal', or 'melee') for a Paladin spec.
 
-    For aura/leveling specs, locks to the active bound skills in the save file when present
-    (e.g. normal Attack + Holy Fire -> 'melee', Zeal + Holy Fire -> 'zeal'), falling back
-    to hard skill points only when no active bindings are populated.
+    For aura/leveling specs, locks to the active bound skills in the save file (or CLI overrides)
+    when present (e.g. normal Attack + Holy Fire -> 'melee', Zeal + Holy Fire -> 'zeal'), falling
+    back to hard skill points only when no active bindings are populated.
     """
     if spec == "smite":
         return "smite"
@@ -104,9 +110,13 @@ def paladin_offense_profile(spec: str, char_data: D2SStruct | None = None) -> Of
     if spec in ("holy-fire", "holy-freeze", "holy-shock", "leveling") and char_data is not None:
         skills = char_data.skills.skill_levels if char_data.skills else ()
         has_zeal = len(skills) > _PAL_ZEAL and skills[_PAL_ZEAL] > 0
-        has_bindings = char_data.left_skill_1 != 0 or char_data.right_skill_1 != 0
+        eff_left = left_skill if left_skill is not None else char_data.left_skill_1
+        eff_right = right_skill if right_skill is not None else char_data.right_skill_1
+        has_bindings = (
+            left_skill is not None or right_skill is not None or eff_left != 0 or eff_right != 0
+        )
         if has_bindings:
-            if has_zeal and _SKILL_ID_ZEAL in (char_data.left_skill_1, char_data.right_skill_1):
+            if has_zeal and _SKILL_ID_ZEAL in (eff_left, eff_right):
                 return "zeal"
             return "melee"
         if has_zeal:
@@ -114,11 +124,20 @@ def paladin_offense_profile(spec: str, char_data: D2SStruct | None = None) -> Of
     return "melee"
 
 
-def detect_paladin_spec(char_data: D2SStruct) -> str:
+def detect_paladin_spec(
+    char_data: D2SStruct,
+    *,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
+) -> str:
     """Infer the primary Paladin leveling specialization from allocated hard skill points."""
     skills = char_data.skills.skill_levels if char_data.skills else ()
     if len(skills) < 30:
         return "leveling"
+    if right_skill is not None and right_skill > 0:
+        for spec_name in ("holy-fire", "holy-freeze", "holy-shock"):
+            if PALADIN_SPEC_INFO[spec_name][0] == right_skill:
+                return spec_name
     candidates: list[tuple[int, int, str]] = [
         (skills[_PAL_HOLY_FIRE], skills[_PAL_HOLY_FIRE] + skills[_PAL_RESIST_FIRE], "holy-fire"),
         (
@@ -166,7 +185,9 @@ def detect_paladin_spec(char_data: D2SStruct) -> str:
         ),
         (skills[_PAL_SACRIFICE], skills[_PAL_SACRIFICE] + skills[_PAL_FANATICISM], "sacrifice"),
     ]
-    active_bindings = {char_data.left_skill_1, char_data.right_skill_1}
+    eff_left = left_skill if left_skill is not None else char_data.left_skill_1
+    eff_right = right_skill if right_skill is not None else char_data.right_skill_1
+    active_bindings = {eff_left, eff_right}
     best_pts, _, _, best_spec = max(
         (
             (
@@ -225,9 +246,15 @@ def _build_paladin_baseline(
     bo_base_bonus: int | None,
     keep_equipped: bool,
     targets: int = 1,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
 ) -> tuple[CharacterBaseline, int, str, str]:
     validate_paladin(char_data)
-    resolved_spec = spec.lower() if spec else detect_paladin_spec(char_data)
+    resolved_spec = (
+        spec.lower()
+        if spec
+        else detect_paladin_spec(char_data, left_skill=left_skill, right_skill=right_skill)
+    )
     if resolved_spec not in PALADIN_SPEC_INFO:
         valid = ", ".join(PALADIN_SPEC_INFO)
         raise ValueError(f"Unknown Paladin spec '{resolved_spec}'; expected one of: {valid}")
@@ -241,7 +268,9 @@ def _build_paladin_baseline(
         bo_base_bonus = detect_cta_bo_bonus(
             (char_data, *extra_chars), stashes, res_obj, max_level=char_level, default=0
         )
-    offense = paladin_offense_profile(resolved_spec, char_data)
+    offense = paladin_offense_profile(
+        resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
+    )
     if offense in ("zeal", "melee"):
         dps_tables = build_paladin_dps_tables(char_data, resolved_spec, offense)
         aura_hit_dmg = dps_tables.aura_hit_dmg
@@ -293,6 +322,8 @@ def select_paladin_max_res_preset(
     spec: str | None = None,
     keep_equipped: bool = False,
     targets: int = 1,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
 ) -> tuple[str, BuildConstraints, str]:
     """Build a Max Resist constraint profile for a Paladin at its current difficulty."""
     baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
@@ -305,11 +336,15 @@ def select_paladin_max_res_preset(
         bo_base_bonus=bo_base_bonus,
         keep_equipped=keep_equipped,
         targets=targets,
+        left_skill=left_skill,
+        right_skill=right_skill,
     )
     constraints = baseline.build_constraints(
         mode="max-res",
         limit=limit,
-        offense=paladin_offense_profile(resolved_spec, char_data),
+        offense=paladin_offense_profile(
+            resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
+        ),
     )
     title = f"Paladin Max Resist (lvl {char_level}, {diff_name})"
     return title, constraints, resolved_spec
@@ -562,6 +597,8 @@ def optimize_paladin_leveling(
     bo_base_bonus: int | None = None,
     keep_equipped: bool = False,
     targets: int = 1,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
 ) -> tuple[str, list[tuple[str, BuildResult]], str, str]:
     """Optimize Paladin leveling gear and inventory charms across breakpoint/resist trade-offs."""
     eff_targets = max(1, targets)
@@ -575,8 +612,12 @@ def optimize_paladin_leveling(
         bo_base_bonus=bo_base_bonus,
         keep_equipped=keep_equipped,
         targets=eff_targets,
+        left_skill=left_skill,
+        right_skill=right_skill,
     )
-    offense = paladin_offense_profile(resolved_spec, char_data)
+    offense = paladin_offense_profile(
+        resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
+    )
     is_caster = offense == "caster"
     is_smite = offense == "smite"
 

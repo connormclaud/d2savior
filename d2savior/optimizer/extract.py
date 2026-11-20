@@ -22,7 +22,7 @@ from d2savior.optimizer.paladin import (
     detect_paladin_spec,
     paladin_offense_profile,
 )
-from d2savior.optimizer.skill_tables import exploding_arrow_fire_2x
+from d2savior.optimizer.skill_tables import exploding_arrow_fire_2x, resolve_sorc_filler_skill
 
 _CHARM_SIZES: frozendict[str, int] = frozendict({"cm1": 1, "cm2": 2, "cm3": 3, "cs2": 3})
 
@@ -108,6 +108,7 @@ _USEFUL_ITEM_STATS: tuple[str, ...] = (
     "off_ed",
     "flat_phys_2x",
     "flat_elem_2x",
+    "cold_dmg_pct",
     "fcr",
     "fhr",
     "frw",
@@ -184,6 +185,7 @@ class _PropAcc:
     off_ed: int = 0
     flat_phys_2x: int = 0
     flat_elem_2x: int = 0
+    cold_dmg_pct: int = 0
     fcr: int = 0
     fhr: int = 0
     frw: int = 0
@@ -298,6 +300,7 @@ class _PropAcc:
             can_zeal=can_zeal,
             splash_fire=splash_fire,
             splash_fire_2x=splash_fire_2x,
+            cold_dmg_pct=self.cold_dmg_pct,
         )
 
     def to_charm_spec(
@@ -342,15 +345,26 @@ def _apply_per_lvl_prop(
         setattr(acc, per_lvl_attr, getattr(acc, per_lvl_attr) + scaled)
 
 
-def _apply_sorc_prop(acc: _PropAcc, pid: int, params: list[int]) -> None:
+def _apply_sorc_prop(
+    acc: _PropAcc,
+    pid: int,
+    params: list[int],
+    *,
+    pval: int | None = None,
+    sorc_filler_id: int | None = None,
+) -> None:
     sorc_id = int(CharClass.SORCERESS)
     if pid == 83 and len(params) >= 2 and params[0] == sorc_id:
         acc.sorc_skills += params[1]
+    elif pid == 331:
+        acc.cold_dmg_pct += pval if pval is not None else (params[0] if params else 0)
     elif pid == 107 and len(params) >= 2:
         if params[0] == _SKILL_BLIZZARD:
             acc.blizz_skills += params[1]
         elif params[0] == _SKILL_COLD_MASTERY:
             acc.cm_skills += params[1]
+        elif sorc_filler_id is not None and params[0] == sorc_filler_id:
+            acc.action_skill_bonus += params[1]
     elif pid == 188 and len(params) >= 3 and params[1] == sorc_id:
         # Sorceress skill tab: 0=Fire, 1=Lightning, 2=Cold
         if params[0] == 1:
@@ -533,6 +547,7 @@ def _apply_props_to_acc(
     pal_offense: str = "caster",
     is_weapon: bool = False,
     include_defense_props: bool = False,
+    sorc_filler_id: int | None = None,
 ) -> None:
     pal_primary_id, _, pal_tabs = PALADIN_SPEC_INFO.get(pal_spec, (None, None, frozenset({0, 1})))
     for pid, val, params in props:
@@ -550,7 +565,7 @@ def _apply_props_to_acc(
             if isinstance(scaled, int):
                 acc.defense += scaled
         elif char_class == int(CharClass.SORCERESS):
-            _apply_sorc_prop(acc, pid, params)
+            _apply_sorc_prop(acc, pid, params, pval=pval, sorc_filler_id=sorc_filler_id)
         elif char_class == int(CharClass.PALADIN):
             _apply_paladin_prop(
                 acc,
@@ -577,6 +592,7 @@ def _extract_prop_acc(
     pal_spec: str = "leveling",
     pal_offense: str | None = None,
     is_weapon: bool = False,
+    sorc_filler_id: int | None = None,
 ) -> _PropAcc:
     acc = _PropAcc()
     props = list(collect_item_properties(item, resolver=resolver, version=version))
@@ -596,6 +612,7 @@ def _extract_prop_acc(
         pal_spec=pal_spec,
         pal_offense=resolved_offense,
         is_weapon=is_weapon,
+        sorc_filler_id=sorc_filler_id,
     )
     tp = item.type_specific_info
     if tp and tp.defence is not None:
@@ -715,6 +732,7 @@ def _item_to_spec(
     set_group_ids: dict[str, int] | None = None,
     skip_useful_check: bool = False,
     allow_eth_melee: bool = False,
+    sorc_filler_id: int | None = None,
 ) -> ItemSpec | CharmSpec | None:
     if item.location == ItemLocation.SOCKET:
         return None
@@ -765,6 +783,7 @@ def _item_to_spec(
         pal_spec=pal_spec,
         pal_offense=resolved_offense,
         is_weapon=is_weapon,
+        sorc_filler_id=sorc_filler_id,
     )
     tp = item.type_specific_info
     if tp and tp.defence is not None:
@@ -874,6 +893,7 @@ def _extract_char_specs(
     resolver: GameDataResolver,
     set_group_ids: dict[str, int],
     allow_eth_melee: bool = False,
+    sorc_filler_id: int | None = None,
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
     ver = char.version or 0x63
     char_resolver = resolver.for_version(ver)
@@ -914,6 +934,7 @@ def _extract_char_specs(
             set_group_ids=set_group_ids,
             skip_useful_check=use_active_eq,
             allow_eth_melee=allow_eth_melee,
+            sorc_filler_id=sorc_filler_id,
         )
         if isinstance(spec, ItemSpec):
             char_items.append((_char_item_locality_rank(it), spec))
@@ -939,6 +960,9 @@ def extract_pool(
     pal_spec: str | None = None,
     keep_equipped: bool = False,
     allow_eth_melee: bool = False,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
+    targets: int = 1,
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
     """Extract class-equippable ItemSpecs and CharmSpecs across characters and shared stashes."""
     if resolver is None:
@@ -950,15 +974,24 @@ def extract_pool(
         pal_spec
         if pal_spec is not None
         else (
-            detect_paladin_spec(primary_char)
+            detect_paladin_spec(primary_char, left_skill=left_skill, right_skill=right_skill)
             if char_class == int(CharClass.PALADIN)
             else "leveling"
         )
     )
     resolved_pal_offense = (
-        paladin_offense_profile(resolved_pal_spec, primary_char)
+        paladin_offense_profile(
+            resolved_pal_spec, primary_char, left_skill=left_skill, right_skill=right_skill
+        )
         if char_class == int(CharClass.PALADIN)
         else "caster"
+    )
+    sorc_filler_id = (
+        resolve_sorc_filler_skill(
+            primary_char, left_skill=left_skill, right_skill=right_skill, targets=max(1, targets)
+        )
+        if char_class == int(CharClass.SORCERESS)
+        else None
     )
     items_out: list[ItemSpec] = []
     charms_out: list[CharmSpec] = []
@@ -982,6 +1015,7 @@ def extract_pool(
         resolver=resolver,
         set_group_ids=set_group_ids,
         allow_eth_melee=allow_eth_melee,
+        sorc_filler_id=sorc_filler_id,
     )
     items_out.extend(ch_items)
     charms_out.extend(ch_charms)
@@ -1007,6 +1041,7 @@ def extract_pool(
                     pal_offense=resolved_pal_offense,
                     set_group_ids=set_group_ids,
                     allow_eth_melee=allow_eth_melee,
+                    sorc_filler_id=sorc_filler_id,
                 )
                 if isinstance(spec, ItemSpec):
                     items_out.append(spec)
@@ -1026,6 +1061,7 @@ def extract_pool(
             resolver=resolver,
             set_group_ids=set_group_ids,
             allow_eth_melee=allow_eth_melee,
+            sorc_filler_id=sorc_filler_id,
         )
         items_out.extend(ch_items)
         charms_out.extend(ch_charms)

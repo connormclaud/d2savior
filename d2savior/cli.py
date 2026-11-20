@@ -56,6 +56,7 @@ lazy from d2savior.optimizer import (
     select_sorc_presets,
     validate_supported_class,
 )
+lazy from d2savior.optimizer.skill_tables import build_sorc_dps_tables, resolve_skill_override
 
 _PARSE_ERRORS = (OSError, ValueError, LookupError, EOFError, struct.error)
 
@@ -556,7 +557,13 @@ def _run_sorc_optimize(
     resolver: GameDataResolver,
     args: argparse.Namespace,
     primary_inv_loc: str,
+    *,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
 ) -> None:
+    filler_name = build_sorc_dps_tables(
+        primary, left_skill=left_skill, right_skill=right_skill, targets=args.targets
+    ).filler_skill_name
     for title, constraints in select_sorc_presets(
         primary,
         build=args.build,
@@ -566,9 +573,20 @@ def _run_sorc_optimize(
         stashes=stashes,
         resolver=resolver,
         keep_equipped=args.keep_gear,
+        targets=args.targets,
+        left_skill=left_skill,
+        right_skill=right_skill,
     ):
         results = optimize_builds(items, charms, constraints)
-        print(format_build_report(title, results, charms, primary_inv_loc=primary_inv_loc))
+        print(
+            format_build_report(
+                title,
+                results,
+                charms,
+                primary_inv_loc=primary_inv_loc,
+                filler_skill_name=filler_name,
+            )
+        )
         print()
 
 
@@ -581,6 +599,9 @@ def _run_paladin_optimize(
     resolver: GameDataResolver,
     args: argparse.Namespace,
     primary_inv_loc: str,
+    *,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
 ) -> None:
     if args.build.lower() == "max-res":
         title, constraints, resolved_spec = select_paladin_max_res_preset(
@@ -592,6 +613,8 @@ def _run_paladin_optimize(
             resolver=resolver,
             keep_equipped=args.keep_gear,
             targets=args.targets,
+            left_skill=left_skill,
+            right_skill=right_skill,
         )
         diff_name = DIFFICULTY_NAMES[get_current_difficulty(primary)]
         skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
@@ -617,6 +640,8 @@ def _run_paladin_optimize(
             resolver=resolver,
             keep_equipped=args.keep_gear,
             targets=args.targets,
+            left_skill=left_skill,
+            right_skill=right_skill,
         )
         skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
         report = format_paladin_leveling_report(
@@ -692,9 +717,24 @@ def cmd_optimize(argv: list[str]) -> int:
         default=1,
         help="Number of simultaneous targets for AoE DPS (e.g. 1=boss, 3=pack; default: 1)",
     )
+    parser.add_argument(
+        "--left-skill",
+        default=None,
+        help="Override left-click active skill (e.g. ice-blast, glacial-spike, zeal, attack, none)",
+    )
+    parser.add_argument(
+        "--right-skill",
+        default=None,
+        help="Override right-click active skill (e.g. blizzard, holy-fire, holy-freeze, holy-shock)",
+    )
     args = parser.parse_args(argv)
     if args.targets < 1:
         parser.error("--targets must be >= 1")
+    try:
+        left_skill = resolve_skill_override(args.left_skill) if args.left_skill else None
+        right_skill = resolve_skill_override(args.right_skill) if args.right_skill else None
+    except ValueError as exc:
+        parser.error(str(exc))
     target_char, args.file_path = _split_optimize_targets(args.file_path, args.char)
     files_to_process = _resolve_and_save_targets(args)
     if not files_to_process:
@@ -716,14 +756,35 @@ def cmd_optimize(argv: list[str]) -> int:
             stashes=stashes,
             resolver=resolver,
             keep_equipped=args.keep_gear,
+            left_skill=left_skill,
+            right_skill=right_skill,
+            targets=args.targets,
         )
         if primary.char_class == CharClass.SORCERESS:
             _run_sorc_optimize(
-                primary, extras, stashes, items, charms, resolver, args, primary_inv_loc
+                primary,
+                extras,
+                stashes,
+                items,
+                charms,
+                resolver,
+                args,
+                primary_inv_loc,
+                left_skill=left_skill,
+                right_skill=right_skill,
             )
         else:
             _run_paladin_optimize(
-                primary, extras, stashes, items, charms, resolver, args, primary_inv_loc
+                primary,
+                extras,
+                stashes,
+                items,
+                charms,
+                resolver,
+                args,
+                primary_inv_loc,
+                left_skill=left_skill,
+                right_skill=right_skill,
             )
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)

@@ -14,6 +14,7 @@ from d2savior.optimizer.common import (
     validate_sorceress,
 )
 from d2savior.optimizer.native import BuildConstraints, SearchModeStr
+from d2savior.optimizer.skill_tables import build_sorc_dps_tables
 
 _SKILL_BLIZZARD = 59
 _SKILL_COLD_MASTERY = 65
@@ -121,6 +122,9 @@ def select_sorc_presets(
     resolver: GameDataResolver | None = None,
     bo_base_bonus: int | None = None,
     keep_equipped: bool = False,
+    targets: int = 1,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
 ) -> list[tuple[str, BuildConstraints]]:
     """Select one or more Sorceress build preset profiles by name."""
     validate_sorceress(char_data)
@@ -132,7 +136,14 @@ def select_sorc_presets(
         res_obj = resolver if resolver is not None else GameDataResolver.load()
         bo_base_bonus = detect_cta_bo_bonus((char_data, *extra_chars), stashes, res_obj, default=4)
 
+    eff_targets = max(1, targets)
     blizz_base_lvl, blizz_syn_pts, cm_base_lvl = _extract_blizz_base_skills(char_data)
+    sorc_dps = build_sorc_dps_tables(
+        char_data,
+        left_skill=left_skill,
+        right_skill=right_skill,
+        targets=eff_targets,
+    )
     baseline = CharacterBaseline(
         char_class=int(CharClass.SORCERESS),
         base_life=char_data.player_stats.max_life,
@@ -146,6 +157,10 @@ def select_sorc_presets(
         blizz_base_lvl=blizz_base_lvl,
         blizz_syn_pts=blizz_syn_pts,
         cm_base_lvl=cm_base_lvl,
+        targets=eff_targets,
+        blizz_dmg=sorc_dps.blizz_dmg,
+        filler_dmg=sorc_dps.filler_dmg,
+        filler_is_aoe=sorc_dps.filler_is_aoe,
     )
 
     out: list[tuple[str, BuildConstraints]] = []
@@ -153,6 +168,8 @@ def select_sorc_presets(
         title, mode, allow_mf, min_fcr, min_fhr, min_fr, min_lr, min_cr, min_pr = (
             _SORC_PRESET_SPECS[key]
         )
+        if eff_targets > 1:
+            title = f"{title} [{eff_targets} targets]"
         out.append(
             (
                 title,

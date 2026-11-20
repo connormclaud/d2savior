@@ -12,8 +12,12 @@ from d2savior.core.loader import TsvReader
 
 DEFAULT_MAX_SKILL_BONUS = 40
 
+_SORC_SKILL_BASE = CLASS_SKILL_BASES[int(CharClass.SORCERESS)]
 _PAL_SKILL_BASE = CLASS_SKILL_BASES[int(CharClass.PALADIN)]
 _SKILL_EXPLODING_ARROW = 16
+_SKILL_ICE_BLAST = 45
+_SKILL_GLACIAL_SPIKE = 55
+_SKILL_BLIZZARD = 59
 _SKILL_SACRIFICE = 96
 _SKILL_HOLY_FIRE = 102
 _SKILL_ZEAL = 106
@@ -28,7 +32,28 @@ _ELEMENTAL_AURA_SPECS: frozendict[str, int] = frozendict(
     }
 )
 
-_SYNERGY_RE = re.compile(r"skill\('([^']+)'\.blvl\)\*par(\d+)")
+_SYNERGY_RE = re.compile(r"skill\('([^']+)'\.blvl\)\s*\*\s*par(\d+)")
+_SYNERGY_GROUP_RE = re.compile(r"\((.+)\)\s*\*\s*par(\d+)")
+_SKILL_BLVL_RE = re.compile(r"skill\('([^']+)'\.blvl\)")
+_SORC_FILLER_NAMES: frozendict[int, str] = frozendict(
+    {_SKILL_ICE_BLAST: "Ice Blast", _SKILL_GLACIAL_SPIKE: "Glacial Spike"}
+)
+
+
+def _parse_synergies(syn_expr: str, params: dict[int, int]) -> tuple[tuple[str, int], ...]:
+    if not syn_expr:
+        return ()
+    direct = tuple(
+        (m.group(1), params.get(int(m.group(2)), 0)) for m in _SYNERGY_RE.finditer(syn_expr)
+    )
+    if direct:
+        return direct
+    out: list[tuple[str, int]] = []
+    for grp in _SYNERGY_GROUP_RE.finditer(syn_expr):
+        pct = params.get(int(grp.group(2)), 0)
+        for sname in _SKILL_BLVL_RE.findall(grp.group(1)):
+            out.append((sname, pct))
+    return tuple(out)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +107,9 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
     name_to_id: dict[str, int] = {}
     wanted = {
         _SKILL_EXPLODING_ARROW,
+        _SKILL_ICE_BLAST,
+        _SKILL_GLACIAL_SPIKE,
+        _SKILL_BLIZZARD,
         _SKILL_HOLY_FIRE,
         _SKILL_HOLY_FREEZE,
         _SKILL_HOLY_SHOCK,
@@ -100,9 +128,7 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
 
         params = {i: row.get_int(f"Param{i}") for i in range(1, 9)}
         syn_expr = row.get("EDmgSymPerCalc") or row.get("calc2")
-        synergies = tuple(
-            (m.group(1), params.get(int(m.group(2)), 0)) for m in _SYNERGY_RE.finditer(syn_expr)
-        )
+        synergies = _parse_synergies(syn_expr, params)
         formulas[sid] = _SkillFormula(
             skill_id=sid,
             name=name,
@@ -227,3 +253,129 @@ def build_paladin_dps_tables(
         has_aura=has_aura,
         aura_is_fire=has_aura and aura_id == _SKILL_HOLY_FIRE,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class SorcDpsTables:
+    """1D Blizzard + filler (Ice Blast / Glacial Spike) damage tables from skills.txt."""
+
+    blizz_dmg: tuple[float, ...]
+    filler_dmg: tuple[float, ...]
+    filler_is_aoe: bool
+    filler_skill_id: int | None
+    filler_skill_name: str | None
+
+
+def _norm_skill_key(name: str) -> str:
+    return re.sub(r"[\s_-]+", "", name.strip().lower())
+
+
+def resolve_skill_override(name: str) -> int:
+    """Resolve a CLI skill override name (e.g. 'ice-blast', 'zeal', 'attack', 'none') to a skill ID."""
+    key = _norm_skill_key(name)
+    if key == "none":
+        return -1
+    if key in ("attack", "normalattack"):
+        return 0
+    _, name_to_id = _load_skill_formulas()
+    for sname, sid in name_to_id.items():
+        if _norm_skill_key(sname) == key:
+            return sid
+    raise ValueError(f"Unknown skill '{name}'")
+
+
+def _sorc_hard_pts(skill_levels: tuple[int, ...] | list[int], skill_id: int) -> int:
+    offset = skill_id - _SORC_SKILL_BASE
+    return skill_levels[offset] if 0 <= offset < len(skill_levels) else 0
+
+
+def resolve_sorc_filler_skill(
+    char_data: D2SStruct,
+    *,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
+    targets: int = 1,
+) -> int | None:
+    """Resolve active Blizzard Sorceress filler skill (Ice Blast or Glacial Spike)."""
+    if left_skill == -1:
+        return None
+    skill_levels = char_data.skills.skill_levels if char_data.skills else ()
+    ib_pts = _sorc_hard_pts(skill_levels, _SKILL_ICE_BLAST)
+    gs_pts = _sorc_hard_pts(skill_levels, _SKILL_GLACIAL_SPIKE)
+
+    eff_left = left_skill if left_skill is not None else char_data.left_skill_1
+    eff_right = right_skill if right_skill is not None else char_data.right_skill_1
+    for sid, explicit in ((eff_left, left_skill is not None), (eff_right, right_skill is not None)):
+        if sid in _SORC_FILLER_NAMES and (explicit or _sorc_hard_pts(skill_levels, sid) > 0):
+            return sid
+
+    if ib_pts <= 0 and gs_pts <= 0:
+        return None
+    if gs_pts > ib_pts:
+        return _SKILL_GLACIAL_SPIKE
+    if ib_pts > gs_pts:
+        return _SKILL_ICE_BLAST
+    return _SKILL_GLACIAL_SPIKE if targets > 1 else _SKILL_ICE_BLAST
+
+
+def _eval_skill_dmg_table(
+    sf: _SkillFormula,
+    base_lvl: int,
+    syn_mult: float,
+    max_bonus: int,
+) -> tuple[float, ...]:
+    scale = 2.0 ** (sf.hit_shift - 8)
+    out: list[float] = []
+    for b in range(max_bonus + 1):
+        slvl = base_lvl + b
+        d_min = _piecewise_linear(sf.emin, sf.emin_lev, slvl) * scale * syn_mult
+        d_max = _piecewise_linear(sf.emax, sf.emax_lev, slvl) * scale * syn_mult
+        out.append((d_min + d_max) / 2.0)
+    return tuple(out)
+
+
+def build_sorc_dps_tables(
+    char_data: D2SStruct,
+    *,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
+    targets: int = 1,
+    max_bonus: int = DEFAULT_MAX_SKILL_BONUS,
+) -> SorcDpsTables:
+    """Build 1D Blizzard + filler (Ice Blast / Glacial Spike) damage tables from skills.txt."""
+    formulas, name_to_id = _load_skill_formulas()
+    skill_levels = char_data.skills.skill_levels if char_data.skills else ()
+
+    base_blizz = _sorc_hard_pts(skill_levels, _SKILL_BLIZZARD)
+    if base_blizz <= 0 or _SKILL_BLIZZARD not in formulas:
+        return SorcDpsTables((), (), False, None, None)
+
+    bf = formulas[_SKILL_BLIZZARD]
+    blizz_syn = sum(
+        _sorc_hard_pts(skill_levels, name_to_id[sname]) * pct
+        for sname, pct in bf.synergies
+        if sname in name_to_id
+    )
+    blizz_tbl = _eval_skill_dmg_table(bf, base_blizz, 1.0 + blizz_syn / 100.0, max_bonus)
+
+    filler_id = resolve_sorc_filler_skill(
+        char_data, left_skill=left_skill, right_skill=right_skill, targets=targets
+    )
+    if filler_id is not None and filler_id in formulas:
+        base_filler = max(1, _sorc_hard_pts(skill_levels, filler_id))
+        ff = formulas[filler_id]
+        filler_syn = sum(
+            _sorc_hard_pts(skill_levels, name_to_id[sname]) * pct
+            for sname, pct in ff.synergies
+            if sname in name_to_id
+        )
+        filler_tbl = _eval_skill_dmg_table(ff, base_filler, 1.0 + filler_syn / 100.0, max_bonus)
+        return SorcDpsTables(
+            blizz_dmg=blizz_tbl,
+            filler_dmg=filler_tbl,
+            filler_is_aoe=(filler_id == _SKILL_GLACIAL_SPIKE),
+            filler_skill_id=filler_id,
+            filler_skill_name=_SORC_FILLER_NAMES.get(filler_id),
+        )
+
+    return SorcDpsTables(blizz_tbl, (), False, None, None)

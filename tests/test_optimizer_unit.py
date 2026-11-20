@@ -124,6 +124,7 @@ class _FakeItemSpec:
     can_zeal: bool = False
     splash_fire: bool = False
     splash_fire_2x: int = 0
+    cold_dmg_pct: int = 0
 
 
 @dataclass
@@ -186,6 +187,9 @@ class _FakeConstraints:
     has_aura: bool = False
     aura_is_fire: bool = False
     targets: int = 1
+    blizz_dmg: list[float] = field(default_factory=list)
+    filler_dmg: list[float] = field(default_factory=list)
+    filler_is_aoe: bool = False
 
 
 @dataclass
