@@ -118,6 +118,25 @@ class TestD2DataManager:
         stat = self.manager.for_version(0x63).get_stat(1)
         assert stat is not None, "Stat data loading failed"
 
+    def test_weapon_2h_damage_and_stat_bonuses(self):
+        """Verify 2handmindam/maxdam and StrBonus/DexBonus are loaded from Weapons.txt."""
+        v69 = self.manager.for_version(0x69)
+        gis = v69.get_item("gis")
+        assert gis is not None
+        assert (gis.mindam, gis.maxdam) == (3, 16)
+        assert (gis.two_hand_mindam, gis.two_hand_maxdam) == (9, 28)
+        assert (gis.str_bonus, gis.dex_bonus) == (100, 0)
+
+        lbw = v69.get_item("lbw")
+        assert lbw is not None
+        assert (lbw.two_hand_mindam, lbw.two_hand_maxdam) == (3, 10)
+        assert (lbw.str_bonus, lbw.dex_bonus) == (0, 100)
+
+        dgr = v69.get_item("dgr")
+        assert dgr is not None
+        assert (dgr.mindam, dgr.maxdam) == (1, 4)
+        assert (dgr.str_bonus, dgr.dex_bonus) == (75, 75)
+
     def test_property_access(self):
         """Test property data access."""
         prop = self.manager.for_version(0x63).get_property(1)

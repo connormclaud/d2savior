@@ -371,8 +371,12 @@ class ItemTypeInfo:
     durability: int = 0
     mindam: int = 0
     maxdam: int = 0
+    two_hand_mindam: int = 0
+    two_hand_maxdam: int = 0
     minmisdam: int = 0
     maxmisdam: int = 0
+    str_bonus: int = 0
+    dex_bonus: int = 0
     speed: int = 0
     reqstr: int = 0
     reqdex: int = 0
