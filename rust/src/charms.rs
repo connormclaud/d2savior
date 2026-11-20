@@ -32,11 +32,14 @@ struct CharmState<'a, 'b> {
     cur_res: [i32; 4],
     cur_str: i32,
     cur_dex: i32,
+    cur_frw: i32,
+    cur_mf: i32,
     chosen_indices: Vec<usize>,
     unique_ids: HashSet<i32>,
 }
 
 impl<'a, 'b> CharmState<'a, 'b> {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         pool: &'b [&'a CharmSpec],
         max_slots: i32,
@@ -44,6 +47,8 @@ impl<'a, 'b> CharmState<'a, 'b> {
         cur_res: [i32; 4],
         cur_str: i32,
         cur_dex: i32,
+        cur_frw: i32,
+        cur_mf: i32,
     ) -> Self {
         Self {
             pool,
@@ -54,6 +59,8 @@ impl<'a, 'b> CharmState<'a, 'b> {
             cur_res,
             cur_str,
             cur_dex,
+            cur_frw,
+            cur_mf,
             chosen_indices: Vec::new(),
             unique_ids: HashSet::new(),
         }
@@ -89,6 +96,8 @@ impl<'a, 'b> CharmState<'a, 'b> {
         self.cur_str += c.str_bonus;
         self.cur_dex += c.dex_bonus;
         self.cur_fhr += c.fhr;
+        self.cur_frw += c.frw;
+        self.cur_mf += c.mf;
         self.cur_res[0] += c.fr;
         self.cur_res[1] += c.lr;
         self.cur_res[2] += c.cr;
@@ -207,6 +216,56 @@ fn greedy_fhr_loop(state: &mut CharmState<'_, '_>, target_fhr: i32) {
                     c.fhr.min(need) as f64 / c.size.max(1) as f64,
                     c.skills_total(),
                     c.fhr,
+                );
+                if key > best_key {
+                    best_key = key;
+                    best_idx = Some(idx);
+                }
+            }
+        }
+        match best_idx {
+            Some(idx) => state.pick(idx),
+            None => break,
+        }
+    }
+}
+
+fn greedy_frw_loop(state: &mut CharmState<'_, '_>, target_frw: i32) {
+    while state.cur_frw < target_frw {
+        let need = target_frw - state.cur_frw;
+        let mut best_idx = None;
+        let mut best_key = (-1.0_f64, -1, -1);
+        for (idx, c) in state.pool.iter().enumerate() {
+            if state.can_pick(idx) && c.frw > 0 {
+                let key = (
+                    c.frw.min(need) as f64 / c.size.max(1) as f64,
+                    c.skills_total(),
+                    c.frw,
+                );
+                if key > best_key {
+                    best_key = key;
+                    best_idx = Some(idx);
+                }
+            }
+        }
+        match best_idx {
+            Some(idx) => state.pick(idx),
+            None => break,
+        }
+    }
+}
+
+fn greedy_mf_loop(state: &mut CharmState<'_, '_>, target_mf: i32) {
+    while state.cur_mf < target_mf {
+        let need = target_mf - state.cur_mf;
+        let mut best_idx = None;
+        let mut best_key = (-1.0_f64, -1, -1);
+        for (idx, c) in state.pool.iter().enumerate() {
+            if state.can_pick(idx) && c.mf > 0 {
+                let key = (
+                    c.mf.min(need) as f64 / c.size.max(1) as f64,
+                    c.skills_total(),
+                    c.mf,
                 );
                 if key > best_key {
                     best_key = key;
@@ -350,9 +409,19 @@ fn greedy_charms_pass_indices(
     if slot_budget < 0 {
         return None;
     }
-    let (s_fhr, s_fr, s_lr, s_cr, s_pr, s_str, s_dex) = match prepicked {
-        Some(s) => (s.fhr, s.fr, s.lr, s.cr, s.pr, s.str_bonus, s.dex_bonus),
-        None => (0, 0, 0, 0, 0, 0, 0),
+    let (s_fhr, s_fr, s_lr, s_cr, s_pr, s_str, s_dex, s_frw, s_mf) = match prepicked {
+        Some(s) => (
+            s.fhr,
+            s.fr,
+            s.lr,
+            s.cr,
+            s.pr,
+            s.str_bonus,
+            s.dex_bonus,
+            s.frw,
+            s.mf,
+        ),
+        None => (0, 0, 0, 0, 0, 0, 0, 0, 0),
     };
     let mut state = CharmState::new(
         pool,
@@ -366,6 +435,8 @@ fn greedy_charms_pass_indices(
         ],
         c.base_str + gear.str_bonus + s_str,
         c.base_dex + gear.dex_bonus + s_dex,
+        gear.frw + s_frw,
+        gear.mf + s_mf,
     );
     if let Some(uid) = prepicked.and_then(|s| s.unique_id) {
         state.unique_ids.insert(uid);
@@ -411,6 +482,12 @@ fn greedy_charms_pass_indices(
         greedy_res_loop(&mut state, res_targets, [1.5, 1.5, 1.2, 1.0], mf_w, sk_w);
         greedy_fhr_loop(&mut state, c.min_fhr);
     }
+    if c.min_frw > 0 {
+        greedy_frw_loop(&mut state, c.min_frw);
+    }
+    if c.min_mf > 0 {
+        greedy_mf_loop(&mut state, c.min_mf);
+    }
 
     if is_res_mode(mode) {
         greedy_res_loop(
@@ -425,6 +502,8 @@ fn greedy_charms_pass_indices(
     greedy_fill_remaining(&mut state, caps, res_targets, mode);
 
     if state.cur_fhr < c.min_fhr
+        || state.cur_frw < c.min_frw
+        || state.cur_mf < c.min_mf
         || state.cur_res[0] < c.min_fr
         || state.cur_res[1] < c.min_lr
         || state.cur_res[2] < c.min_cr
@@ -575,6 +654,7 @@ struct StatTotals {
     str_bonus: i32,
     dex_bonus: i32,
     fhr: i32,
+    frw: i32,
     res: [i32; 4],
     skills: i32,
     mf: i32,
@@ -586,6 +666,7 @@ impl StatTotals {
             str_bonus: c.str_bonus,
             dex_bonus: c.dex_bonus,
             fhr: c.fhr,
+            frw: c.frw,
             res: [c.fr, c.lr, c.cr, c.pr],
             skills: c.skills_total(),
             mf: c.mf,
@@ -597,6 +678,7 @@ impl StatTotals {
             str_bonus: self.str_bonus.max(o.str_bonus),
             dex_bonus: self.dex_bonus.max(o.dex_bonus),
             fhr: self.fhr.max(o.fhr),
+            frw: self.frw.max(o.frw),
             res: [
                 self.res[0].max(o.res[0]),
                 self.res[1].max(o.res[1]),
@@ -613,6 +695,7 @@ impl StatTotals {
             str_bonus: self.str_bonus.max(0),
             dex_bonus: self.dex_bonus.max(0),
             fhr: self.fhr.max(0),
+            frw: self.frw.max(0),
             res: [
                 self.res[0].max(0),
                 self.res[1].max(0),
@@ -629,6 +712,7 @@ impl StatTotals {
             str_bonus: self.str_bonus + o.str_bonus * k,
             dex_bonus: self.dex_bonus + o.dex_bonus * k,
             fhr: self.fhr + o.fhr * k,
+            frw: self.frw + o.frw * k,
             res: [
                 self.res[0] + o.res[0] * k,
                 self.res[1] + o.res[1] * k,
@@ -715,6 +799,8 @@ struct CharmCacheKey {
     need_str: i32,
     need_dex: i32,
     need_fhr: i32,
+    need_frw: i32,
+    need_mf: i32,
     delta_res: [i32; 4],
     room: [i32; 4],
 }
@@ -787,6 +873,7 @@ pub(crate) struct CharmSolver<'a> {
     ub_str: i32,
     ub_dex: i32,
     ub_fhr: i32,
+    ub_frw: i32,
     ub_res: [i32; 4],
     ub_skills: i32,
     ub_action_skills: i32,
@@ -798,6 +885,7 @@ pub(crate) struct CharmSolver<'a> {
     order_str: Vec<UbGroupEntry>,
     order_dex: Vec<UbGroupEntry>,
     order_fhr: Vec<UbGroupEntry>,
+    order_frw: Vec<UbGroupEntry>,
     order_res: [Vec<UbGroupEntry>; 4],
     order_skills: Vec<UbGroupEntry>,
     order_mf: Vec<UbGroupEntry>,
@@ -817,6 +905,7 @@ impl<'a> CharmSolver<'a> {
                 action_skill_bonus: first.action_skills,
                 aura_skill_bonus: first.aura_skills,
                 fhr: first.fhr,
+                frw: first.frw,
                 fr: first.fr,
                 lr: first.lr,
                 cr: first.cr,
@@ -832,6 +921,7 @@ impl<'a> CharmSolver<'a> {
                     action_skill_bonus: s.action_skills,
                     aura_skill_bonus: s.aura_skills,
                     fhr: s.fhr,
+                    frw: s.frw,
                     fr: s.fr,
                     lr: s.lr,
                     cr: s.cr,
@@ -851,6 +941,7 @@ impl<'a> CharmSolver<'a> {
             action_skill_bonus: base.action_skill_bonus + self.ub_action_skills,
             aura_skill_bonus: base.aura_skill_bonus + self.ub_aura_skills,
             fhr: base.fhr + self.ub_fhr,
+            frw: base.frw + self.ub_frw,
             fr: base.fr + self.ub_res[0],
             lr: base.lr + self.ub_res[1],
             cr: base.cr + self.ub_res[2],
@@ -947,6 +1038,7 @@ impl<'a> CharmSolver<'a> {
         let ub_str = charm_stat_ub(&pool, max_slots, |ch| ch.str_bonus);
         let ub_dex = charm_stat_ub(&pool, max_slots, |ch| ch.dex_bonus);
         let ub_fhr = charm_stat_ub(&pool, max_slots, |ch| ch.fhr);
+        let ub_frw = charm_stat_ub(&pool, max_slots, |ch| ch.frw);
         let ub_res = [
             charm_stat_ub(&pool, max_slots, |ch| ch.fr),
             charm_stat_ub(&pool, max_slots, |ch| ch.lr),
@@ -962,6 +1054,8 @@ impl<'a> CharmSolver<'a> {
             let helps_feas = ch.str_bonus > 0
                 || ch.dex_bonus > 0
                 || ch.fhr > 0
+                || (c.min_frw > 0 && ch.frw > 0)
+                || (c.min_mf > 0 && ch.mf > 0)
                 || ch.fr > 0
                 || ch.lr > 0
                 || ch.cr > 0
@@ -977,7 +1071,7 @@ impl<'a> CharmSolver<'a> {
         };
 
         let mut unique_map: BTreeMap<i32, Vec<usize>> = BTreeMap::new();
-        type MultiKey = (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32);
+        type MultiKey = [i32; 13];
         let mut multi_map: BTreeMap<MultiKey, Vec<usize>> = BTreeMap::new();
 
         for (idx, &ch) in pool.iter().enumerate() {
@@ -987,9 +1081,10 @@ impl<'a> CharmSolver<'a> {
             if let Some(uid) = ch.unique_id {
                 unique_map.entry(uid).or_default().push(idx);
             } else {
-                let key = (
+                let key = [
                     ch.size,
                     ch.fhr,
+                    if c.min_frw > 0 { ch.frw } else { 0 },
                     ch.fr,
                     ch.lr,
                     ch.cr,
@@ -1000,7 +1095,7 @@ impl<'a> CharmSolver<'a> {
                     ch.skills,
                     ch.action_skills,
                     ch.aura_skills,
-                );
+                ];
                 multi_map.entry(key).or_default().push(idx);
             }
         }
@@ -1110,6 +1205,7 @@ impl<'a> CharmSolver<'a> {
                 str_bonus: suf_pos[i + 1].str_bonus + gp.str_bonus,
                 dex_bonus: suf_pos[i + 1].dex_bonus + gp.dex_bonus,
                 fhr: suf_pos[i + 1].fhr + gp.fhr,
+                frw: suf_pos[i + 1].frw + gp.frw,
                 res: [
                     suf_pos[i + 1].res[0] + gp.res[0],
                     suf_pos[i + 1].res[1] + gp.res[1],
@@ -1128,6 +1224,7 @@ impl<'a> CharmSolver<'a> {
         let order_str = sorted_ub_entries(&groups, &pool, |ch| ch.str_bonus);
         let order_dex = sorted_ub_entries(&groups, &pool, |ch| ch.dex_bonus);
         let order_fhr = sorted_ub_entries(&groups, &pool, |ch| ch.fhr);
+        let order_frw = sorted_ub_entries(&groups, &pool, |ch| ch.frw);
         let order_res = [
             sorted_ub_entries(&groups, &pool, |ch| ch.fr),
             sorted_ub_entries(&groups, &pool, |ch| ch.lr),
@@ -1148,6 +1245,7 @@ impl<'a> CharmSolver<'a> {
             ub_str,
             ub_dex,
             ub_fhr,
+            ub_frw,
             ub_res,
             ub_skills,
             ub_action_skills,
@@ -1159,6 +1257,7 @@ impl<'a> CharmSolver<'a> {
             order_str,
             order_dex,
             order_fhr,
+            order_frw,
             order_res,
             order_skills,
             order_mf,
@@ -1266,7 +1365,7 @@ impl<'a> CharmSolver<'a> {
 
     fn solve_exact(
         &self,
-        mut init_delta: [i32; 7], // [str_delta, dex_delta, fhr_delta, fr_delta, lr_delta, cr_delta, pr_delta] (signed: >=0 means met, <0 means shortfall)
+        mut init_delta: [i32; 9], // [str, dex, fhr, fr, lr, cr, pr, frw, mf] (signed: >=0 means met, <0 means shortfall)
         room: [i32; 4],
         slot_budget: i32,
         forbidden_uid: Option<i32>,
@@ -1300,7 +1399,7 @@ impl<'a> CharmSolver<'a> {
             ctx: &mut ExactCtx<'_, '_>,
             g_idx: usize,
             rem_slots: i32,
-            delta: [i32; 7],
+            delta: [i32; 9],
             cur_res_added: [i32; 4],
             cur_skills: i32,
             cur_mf: i32,
@@ -1335,6 +1434,8 @@ impl<'a> CharmSolver<'a> {
                 || delta[4] + sp.res[1] < 0
                 || delta[5] + sp.res[2] < 0
                 || delta[6] + sp.res[3] < 0
+                || delta[7] + sp.frw < 0
+                || delta[8] + sp.mf < 0
             {
                 return;
             }
@@ -1381,6 +1482,12 @@ impl<'a> CharmSolver<'a> {
                     return;
                 }
             }
+            if delta[7] < 0 && delta[7] + eval_sorted_ub(&s.order_frw, g_idx, rem_slots) < 0 {
+                return;
+            }
+            if delta[8] < 0 && delta[8] + eval_sorted_ub(&s.order_mf, g_idx, rem_slots) < 0 {
+                return;
+            }
 
             match &s.groups[g_idx] {
                 CharmGroup::Unique { options, .. } => {
@@ -1404,6 +1511,8 @@ impl<'a> CharmSolver<'a> {
                                 delta[4] + ch.lr,
                                 delta[5] + ch.cr,
                                 delta[6] + ch.pr,
+                                delta[7] + ch.frw,
+                                delta[8] + ch.mf,
                             ],
                             [
                                 cur_res_added[0] + ch.fr,
@@ -1454,6 +1563,8 @@ impl<'a> CharmSolver<'a> {
                             (-(delta[4] + neg_next[1])).max(0),
                             (-(delta[5] + neg_next[2])).max(0),
                             (-(delta[6] + neg_next[3])).max(0),
+                            (-delta[7]).max(0),
+                            (-delta[8]).max(0),
                         ];
                         let gains = [
                             stats.str_bonus,
@@ -1463,9 +1574,11 @@ impl<'a> CharmSolver<'a> {
                             stats.res[1],
                             stats.res[2],
                             stats.res[3],
+                            stats.frw,
+                            stats.mf,
                         ];
                         let mut cap = 0i32;
-                        for i in 0..7 {
+                        for i in 0..9 {
                             if deficits[i] > 0 && gains[i] > 0 {
                                 cap = cap.max((deficits[i] + gains[i] - 1) / gains[i]);
                             }
@@ -1488,6 +1601,8 @@ impl<'a> CharmSolver<'a> {
                                 delta[4] + stats.res[1] * k,
                                 delta[5] + stats.res[2] * k,
                                 delta[6] + stats.res[3] * k,
+                                delta[7] + stats.frw * k,
+                                delta[8] + stats.mf * k,
                             ],
                             [
                                 cur_res_added[0] + stats.res[0] * k,
@@ -1660,6 +1775,8 @@ impl<'a> CharmSolver<'a> {
         let need_str = (reqs.0 - leaf.str_bonus).max(0);
         let need_dex = (reqs.1 - leaf.dex_bonus).max(0);
         let need_fhr = (self.c.min_fhr - leaf.fhr).max(0);
+        let need_frw = (self.c.min_frw - leaf.frw).max(0);
+        let need_mf = (self.c.min_mf - leaf.mf).max(0);
         let leaf_res = [leaf.fr, leaf.lr, leaf.cr, leaf.pr];
         let mins = [self.c.min_fr, self.c.min_lr, self.c.min_cr, self.c.min_pr];
         let delta_res = [
@@ -1690,6 +1807,8 @@ impl<'a> CharmSolver<'a> {
             need_str,
             need_dex,
             need_fhr,
+            need_frw,
+            need_mf,
             delta_res,
             room,
         };
@@ -1708,6 +1827,8 @@ impl<'a> CharmSolver<'a> {
         if need_str > self.ub_str
             || need_dex > self.ub_dex
             || need_fhr > self.ub_fhr
+            || need_frw > self.ub_frw
+            || need_mf > self.ub_mf
             || -delta_res[0] > self.ub_res[0]
             || -delta_res[1] > self.ub_res[1]
             || -delta_res[2] > self.ub_res[2]
@@ -1764,6 +1885,8 @@ impl<'a> CharmSolver<'a> {
             delta_res[1],
             delta_res[2],
             delta_res[3],
+            -need_frw,
+            -need_mf,
         ];
         let forbidden_uid = prepicked.and_then(|s| s.unique_id);
         let best_core = self.solve_exact(
@@ -1824,6 +1947,8 @@ impl<'a> CharmSolver<'a> {
             [leaf.fr, leaf.lr, leaf.cr, leaf.pr],
             leaf.str_bonus,
             leaf.dex_bonus,
+            leaf.frw,
+            leaf.mf,
         );
         if let Some(uid) = forbidden_uid {
             state.unique_ids.insert(uid);
@@ -1841,6 +1966,8 @@ fn add_charm_to_leaf(mut leaf: Stats, ch: &CharmSpec) -> Stats {
     leaf.str_bonus += ch.str_bonus;
     leaf.dex_bonus += ch.dex_bonus;
     leaf.fhr += ch.fhr;
+    leaf.frw += ch.frw;
+    leaf.mf += ch.mf;
     leaf.fr += ch.fr;
     leaf.lr += ch.lr;
     leaf.cr += ch.cr;

@@ -1040,7 +1040,13 @@ pub fn optimize_builds_core(
 
         fn dfs(st: &mut State<'_>, idx: usize, acc: Stats, reqs: (i32, i32)) {
             let ub = acc.add(st.suf[idx]);
-            if ub.fcr < st.c.min_fcr {
+            if ub.fcr < st.c.min_fcr
+                || (st.c.require_cbf && ub.cbf <= 0)
+                || ub.ias < st.c.min_ias
+                || ub.cb < st.c.min_cb
+                || ub.life_leech < st.c.min_ll
+                || ub.pdr_pct < st.c.min_pdr
+            {
                 return;
             }
             let ub_ch = ub.add(st.ch);
@@ -1049,6 +1055,8 @@ pub fn optimize_builds_core(
                 || ub_ch.lr < st.c.min_lr
                 || ub_ch.cr < st.c.min_cr
                 || ub_ch.pr < st.c.min_pr
+                || ub_ch.frw < st.c.min_frw
+                || ub_ch.mf < st.c.min_mf
             {
                 return;
             }
@@ -1082,7 +1090,13 @@ pub fn optimize_builds_core(
                 let hw = hand.first.hand_weapon();
                 for rp in st.ring_pairs {
                     let leaf_ub = acc.add(rp.max_stats);
-                    if leaf_ub.fcr < st.c.min_fcr {
+                    if leaf_ub.fcr < st.c.min_fcr
+                        || (st.c.require_cbf && leaf_ub.cbf <= 0)
+                        || leaf_ub.ias < st.c.min_ias
+                        || leaf_ub.cb < st.c.min_cb
+                        || leaf_ub.life_leech < st.c.min_ll
+                        || leaf_ub.pdr_pct < st.c.min_pdr
+                    {
                         continue;
                     }
                     let leaf_ub_ch = leaf_ub.add(st.ch);
@@ -1091,6 +1105,8 @@ pub fn optimize_builds_core(
                         || leaf_ub_ch.lr < st.c.min_lr
                         || leaf_ub_ch.cr < st.c.min_cr
                         || leaf_ub_ch.pr < st.c.min_pr
+                        || leaf_ub_ch.frw < st.c.min_frw
+                        || leaf_ub_ch.mf < st.c.min_mf
                     {
                         continue;
                     }
@@ -1145,7 +1161,13 @@ pub fn optimize_builds_core(
                         if !st.c.allow_mf && leaf.mf > 0 {
                             continue;
                         }
-                        if leaf.fcr < st.c.min_fcr {
+                        if leaf.fcr < st.c.min_fcr
+                            || (st.c.require_cbf && leaf.cbf <= 0)
+                            || leaf.ias < st.c.min_ias
+                            || leaf.cb < st.c.min_cb
+                            || leaf.life_leech < st.c.min_ll
+                            || leaf.pdr_pct < st.c.min_pdr
+                        {
                             continue;
                         }
                         let leaf_ch = leaf.add(st.ch);
@@ -1154,6 +1176,8 @@ pub fn optimize_builds_core(
                             || leaf_ch.lr < st.c.min_lr
                             || leaf_ch.cr < st.c.min_cr
                             || leaf_ch.pr < st.c.min_pr
+                            || leaf_ch.frw < st.c.min_frw
+                            || leaf_ch.mf < st.c.min_mf
                         {
                             continue;
                         }
@@ -1207,6 +1231,13 @@ pub fn optimize_builds_core(
                     if (!st.c.allow_mf && sum.mf > 0)
                         || sum.fcr < st.c.min_fcr
                         || sum.fhr < st.c.min_fhr
+                        || (st.c.require_cbf && !sum.cbf)
+                        || sum.ias < st.c.min_ias
+                        || sum.cb < st.c.min_cb
+                        || sum.life_leech < st.c.min_ll
+                        || sum.pdr_pct < st.c.min_pdr
+                        || sum.frw < st.c.min_frw
+                        || sum.mf < st.c.min_mf
                     {
                         continue;
                     }

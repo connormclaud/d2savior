@@ -190,6 +190,13 @@ class CharacterBaseline:
         min_cr: int = 0,
         min_pr: int = 0,
         offense: OffenseProfileStr = "caster",
+        require_cbf: bool = False,
+        min_frw: int = 0,
+        min_ias: int = 0,
+        min_cb: int = 0,
+        min_ll: int = 0,
+        min_pdr: int = 0,
+        min_mf: int = 0,
     ) -> BuildConstraints:
         return BuildConstraints(
             allow_mf=allow_mf,
@@ -229,4 +236,11 @@ class CharacterBaseline:
             blizz_dmg=list(self.blizz_dmg),
             filler_dmg=list(self.filler_dmg),
             filler_is_aoe=self.filler_is_aoe,
+            require_cbf=require_cbf,
+            min_frw=min_frw,
+            min_ias=min_ias,
+            min_cb=min_cb,
+            min_ll=min_ll,
+            min_pdr=min_pdr,
+            min_mf=min_mf,
         )

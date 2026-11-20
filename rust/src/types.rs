@@ -1402,6 +1402,13 @@ pub struct BuildConstraints {
     pub blizz_dmg: Vec<f64>,
     pub filler_dmg: Vec<f64>,
     pub filler_is_aoe: bool,
+    pub require_cbf: bool,
+    pub min_frw: i32,
+    pub min_ias: i32,
+    pub min_cb: i32,
+    pub min_ll: i32,
+    pub min_pdr: i32,
+    pub min_mf: i32,
 }
 
 impl Default for BuildConstraints {
@@ -1444,6 +1451,13 @@ impl Default for BuildConstraints {
             blizz_dmg: Vec::new(),
             filler_dmg: Vec::new(),
             filler_is_aoe: false,
+            require_cbf: false,
+            min_frw: 0,
+            min_ias: 0,
+            min_cb: 0,
+            min_ll: 0,
+            min_pdr: 0,
+            min_mf: 0,
         }
     }
 }
@@ -1490,6 +1504,13 @@ impl BuildConstraints {
         blizz_dmg = Vec::new(),
         filler_dmg = Vec::new(),
         filler_is_aoe = false,
+        require_cbf = false,
+        min_frw = 0,
+        min_ias = 0,
+        min_cb = 0,
+        min_ll = 0,
+        min_pdr = 0,
+        min_mf = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1530,6 +1551,13 @@ impl BuildConstraints {
         blizz_dmg: Vec<f64>,
         filler_dmg: Vec<f64>,
         filler_is_aoe: bool,
+        require_cbf: bool,
+        min_frw: i32,
+        min_ias: i32,
+        min_cb: i32,
+        min_ll: i32,
+        min_pdr: i32,
+        min_mf: i32,
     ) -> Self {
         Self {
             allow_mf,
@@ -1569,6 +1597,13 @@ impl BuildConstraints {
             blizz_dmg,
             filler_dmg,
             filler_is_aoe,
+            require_cbf,
+            min_frw,
+            min_ias,
+            min_cb,
+            min_ll,
+            min_pdr,
+            min_mf,
         }
     }
 }

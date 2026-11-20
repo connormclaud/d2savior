@@ -804,6 +804,13 @@ fn validate_and_score_result(
     assert!(c.allow_mf || sum.mf == 0);
     assert!(sum.fcr >= c.min_fcr);
     assert!(sum.fhr >= c.min_fhr);
+    assert!(!c.require_cbf || sum.cbf);
+    assert!(sum.frw >= c.min_frw);
+    assert!(sum.ias >= c.min_ias);
+    assert!(sum.cb >= c.min_cb);
+    assert!(sum.life_leech >= c.min_ll);
+    assert!(sum.pdr_pct >= c.min_pdr);
+    assert!(sum.mf >= c.min_mf);
     assert!(sum.fr >= c.min_fr && sum.lr >= c.min_lr && sum.cr >= c.min_cr && sum.pr >= c.min_pr);
     score_eval_summary(mode, offense, &sum, c)
 }
@@ -997,6 +1004,13 @@ fn brute_force_top_scores(
                         let sum = eval_build_summary(gear, all_sk_non_wep, hand, &chosen, c);
                         if (!c.allow_mf && sum.mf > 0)
                             || sum.fhr < c.min_fhr
+                            || (c.require_cbf && !sum.cbf)
+                            || sum.frw < c.min_frw
+                            || sum.ias < c.min_ias
+                            || sum.cb < c.min_cb
+                            || sum.life_leech < c.min_ll
+                            || sum.pdr_pct < c.min_pdr
+                            || sum.mf < c.min_mf
                             || sum.fr < c.min_fr
                             || sum.lr < c.min_lr
                             || sum.cr < c.min_cr
@@ -2478,4 +2492,140 @@ fn sorc_blizzard_caster_dps_cold_pct_fcr_and_brute_force_parity() {
         assert!(d >= prev_dps, "caster DPS must be monotone in FCR: {d} < {prev_dps} at {fcr}");
         prev_dps = d;
     }
+}
+
+#[test]
+fn test_hard_constraint_floors_and_brute_force_parity() {
+    let mut ring_cbf = mk_item("Raven Frost", "ring", 0, 0, 0, 0, 0);
+    ring_cbf.cbf = 1;
+    let mut ring_ll = mk_item("BK Ring", "ring", 1, 0, 0, 0, 0);
+    ring_ll.life_leech = 5;
+    let mut ring_plain = mk_item("SOJ", "ring", 1, 0, 0, 0, 0);
+    ring_plain.mana = 50;
+
+    let mut helm_cb = mk_item("G-Face", "helm", 0, 0, 30, 0, 0);
+    helm_cb.cb = 35;
+    let mut helm_pdr = mk_item("Shako", "helm", 2, 0, 0, 0, 50);
+    helm_pdr.pdr_pct = 10;
+
+    let mut gloves_ias = mk_item("Laying of Hands", "gloves", 0, 0, 0, 0, 0);
+    gloves_ias.ias = 20;
+    let mut gloves_plain = mk_item("Magefist", "gloves", 0, 20, 0, 0, 0);
+    gloves_plain.life = 20;
+
+    let mut belt_ias = mk_item("Goldwrap", "belt", 0, 0, 0, 0, 30);
+    belt_ias.ias = 10;
+    let mut belt_pdr = mk_item("String of Ears", "belt", 0, 0, 0, 0, 0);
+    belt_pdr.pdr_pct = 15;
+    belt_pdr.life_leech = 7;
+
+    let mut boots_frw = mk_item("Natalya's Soul", "boots", 0, 0, 0, 0, 0);
+    boots_frw.frw = 40;
+    let mut boots_mf = mk_item("War Traveler", "boots", 0, 0, 0, 0, 50);
+    boots_mf.frw = 25;
+
+    let items = vec![
+        ring_cbf,
+        ring_ll,
+        ring_plain,
+        helm_cb,
+        helm_pdr,
+        gloves_ias,
+        gloves_plain,
+        belt_ias,
+        belt_pdr,
+        boots_frw,
+        boots_mf,
+    ];
+
+    let ch_frw_1 = CharmSpec {
+        name: "Inertia SC 1".to_string(),
+        size: 1,
+        frw: 5,
+        ..Default::default()
+    };
+    let ch_frw_2 = CharmSpec {
+        name: "Inertia SC 2".to_string(),
+        size: 1,
+        frw: 5,
+        ..Default::default()
+    };
+    let ch_mf_1 = CharmSpec {
+        name: "Good Luck SC 1".to_string(),
+        size: 1,
+        mf: 7,
+        ..Default::default()
+    };
+    let ch_mf_2 = CharmSpec {
+        name: "Good Luck SC 2".to_string(),
+        size: 1,
+        mf: 7,
+        ..Default::default()
+    };
+    let ch_sk = CharmSpec {
+        name: "Skiller GC".to_string(),
+        size: 3,
+        skills: 1,
+        ..Default::default()
+    };
+    let charms = vec![ch_frw_1, ch_frw_2, ch_mf_1, ch_mf_2, ch_sk];
+
+    let base_c = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        offense: "melee".to_string(),
+        mode: "leveling".to_string(),
+        use_bo: false,
+        base_hell_res: 75,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 5,
+        limit: 3,
+        ..Default::default()
+    };
+
+    // Case 1: CBF + IAS >= 30 + FRW >= 50 (needs 40 from boots + 10 from 2x Inertia SCs).
+    let c1 = BuildConstraints {
+        require_cbf: true,
+        min_ias: 30,
+        min_frw: 50,
+        ..base_c.clone()
+    };
+    let opt1 = optimize_builds_core(&items, &charms, &c1).unwrap();
+    let bf1 = brute_force_top_scores(&items, &charms, &c1, SearchMode::Leveling);
+    assert!(!opt1.is_empty());
+    assert_eq!(opt1.len(), bf1.len());
+    for (r, exp) in opt1.iter().zip(bf1.iter()) {
+        let mut sc = validate_and_score_result(r, &c1, SearchMode::Leveling);
+        sc.locality = 0;
+        assert_eq!(sc, *exp);
+    }
+
+    // Case 2: CB >= 35 + LL >= 7 + PDR >= 15 + MF >= 64 (50 boots + 14 from 2x MF SCs).
+    let c2 = BuildConstraints {
+        min_cb: 35,
+        min_ll: 7,
+        min_pdr: 15,
+        min_mf: 64,
+        ..base_c.clone()
+    };
+    let opt2 = optimize_builds_core(&items, &charms, &c2).unwrap();
+    let bf2 = brute_force_top_scores(&items, &charms, &c2, SearchMode::Leveling);
+    assert!(!opt2.is_empty());
+    assert_eq!(opt2.len(), bf2.len());
+    for (r, exp) in opt2.iter().zip(bf2.iter()) {
+        let mut sc = validate_and_score_result(r, &c2, SearchMode::Leveling);
+        sc.locality = 0;
+        assert_eq!(sc, *exp);
+    }
+
+    // Case 3: Impossible FRW floor (needs 60, max is 40 + 10 = 50) returns empty cleanly.
+    let c3 = BuildConstraints {
+        min_frw: 60,
+        ..base_c
+    };
+    assert!(optimize_builds_core(&items, &charms, &c3).unwrap().is_empty());
 }

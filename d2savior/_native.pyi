@@ -214,6 +214,13 @@ class BuildConstraints:
     blizz_dmg: list[float]
     filler_dmg: list[float]
     filler_is_aoe: bool
+    require_cbf: bool
+    min_frw: int
+    min_ias: int
+    min_cb: int
+    min_ll: int
+    min_pdr: int
+    min_mf: int
 
     def __init__(
         self,
@@ -254,6 +261,13 @@ class BuildConstraints:
         blizz_dmg: Sequence[float] = (),
         filler_dmg: Sequence[float] = (),
         filler_is_aoe: bool = False,
+        require_cbf: bool = False,
+        min_frw: int = 0,
+        min_ias: int = 0,
+        min_cb: int = 0,
+        min_ll: int = 0,
+        min_pdr: int = 0,
+        min_mf: int = 0,
     ) -> None: ...
 
 class BuildResult:
