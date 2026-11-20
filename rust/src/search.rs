@@ -10,7 +10,8 @@ use crate::charms::CharmSolver;
 use crate::eval::{eval_build_summary, res_caps, EvalSummary};
 use crate::types::{
     compute_effective_gear_stats_and_reqs, eff_req, BuildConstraints, BuildResult, CharClass,
-    CharmSpec, ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, WeaponClass, BASE_MAX_RES,
+    CharmSpec, HandWeapon, ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, WeaponClass,
+    BASE_MAX_RES,
 };
 
 const SINGLE_SLOTS: [&str; 6] = ["helm", "armor", "amulet", "belt", "gloves", "boots"];
@@ -220,6 +221,10 @@ impl ItemPair {
         );
         combined.wsm = first.wsm;
         combined.wclass = first.wclass.clone();
+        combined.wep_phys_2x = first.wep_phys_2x;
+        combined.wep_str_pct = first.wep_str_pct;
+        combined.wep_dex_pct = first.wep_dex_pct;
+        combined.can_zeal = first.can_zeal;
         Self {
             combined,
             first: first.clone(),
@@ -283,11 +288,27 @@ pub(crate) fn score_eval_summary(
     mode: SearchMode,
     offense: OffenseProfile,
     sum: &EvalSummary,
+    c: &BuildConstraints,
 ) -> BuildScore {
-    let eff_primary = sum.skills + sum.blizz_skills + sum.primary_skill_bonus;
+    let eff_primary = if offense.is_melee_dps()
+        && (c.has_aura || sum.action_skill_bonus != 0 || sum.aura_skill_bonus != 0)
+    {
+        let bonus = if c.has_aura {
+            sum.aura_skill_bonus
+        } else {
+            sum.action_skill_bonus.max(sum.aura_skill_bonus)
+        };
+        sum.skills + sum.blizz_skills + sum.primary_skill_bonus + bonus
+    } else {
+        sum.skills + sum.blizz_skills + sum.primary_skill_bonus
+    };
     let res_sum = sum.fr + sum.lr + sum.cr + sum.pr;
     let res_base = res_base_sum(sum.fr, sum.lr, sum.cr, sum.pr);
-    let off = offense.score(eff_primary, sum.ias_bp, sum.cb);
+    let off = if offense.uses_dps_tables(c) {
+        OffenseProfile::dps_bucket(sum.dps)
+    } else {
+        offense.score(eff_primary, sum.ias_bp, sum.cb)
+    };
     let eff_fcr_bp = if offense.uses_fcr() { sum.fcr_bp } else { 0 };
     match mode {
         SearchMode::Mf => BuildScore {
@@ -628,7 +649,17 @@ fn build_hands(
         ))
     });
 
-    let empty_anim = offense.weapon_anim_key(mode, WeaponClass::OneHandSwing, 0);
+    let empty_hand = ItemSpec::empty("weapon").hand_weapon();
+    let empty_anim = offense.weapon_anim_key(mode, empty_hand);
+    let fold_wep_phys =
+        offense.is_melee_dps() && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes);
+    let wep_prune_stats = |it: &ItemSpec| {
+        let mut s = it.stats().for_offense(offense, c.min_fcr);
+        if fold_wep_phys {
+            s.flat_phys_2x += it.wep_phys_2x;
+        }
+        s
+    };
     let weapons_1h = prune_candidates(
         weapons_1h,
         c.limit,
@@ -638,10 +669,10 @@ fn build_hands(
         |it| {
             (
                 &it.name,
-                it.stats().for_offense(offense, c.min_fcr),
+                wep_prune_stats(it),
                 item_eff_reqs(it),
                 (
-                    offense.weapon_anim_key(mode, it.weapon_class(), it.wsm),
+                    offense.weapon_anim_key(mode, it.hand_weapon()),
                     single_set_sig(it),
                 ),
             )
@@ -658,10 +689,10 @@ fn build_hands(
         |it| {
             (
                 &it.name,
-                it.stats().for_offense(offense, c.min_fcr),
+                wep_prune_stats(it),
                 item_eff_reqs(it),
                 (
-                    offense.weapon_anim_key(mode, it.weapon_class(), it.wsm),
+                    offense.weapon_anim_key(mode, it.hand_weapon()),
                     single_set_sig(it),
                 ),
             )
@@ -689,9 +720,9 @@ fn build_hands(
     } else {
         let has_empty_dom = hands.iter().any(|h| {
             h.set_sig.is_none()
-                && offense.weapon_anim_key(mode, h.first.weapon_class(), h.first.wsm) == empty_anim
+                && offense.weapon_anim_key(mode, h.first.hand_weapon()) == empty_anim
                 && dominates_empty(
-                    h.combined.stats().for_offense(offense, c.min_fcr),
+                    wep_prune_stats(&h.combined),
                     normalize_reqs(h.reqs, c.base_str, c.base_dex),
                 )
         });
@@ -708,10 +739,10 @@ fn build_hands(
     prune_candidates(hands, c.limit, false, c.base_str, c.base_dex, |h| {
         (
             &h.combined.name,
-            h.combined.stats().for_offense(offense, c.min_fcr),
+            wep_prune_stats(&h.combined),
             h.reqs,
             (
-                offense.weapon_anim_key(mode, h.first.weapon_class(), h.first.wsm),
+                offense.weapon_anim_key(mode, h.first.hand_weapon()),
                 h.set_sig.clone(),
             ),
         )
@@ -922,26 +953,36 @@ pub fn optimize_builds_core(
             mode: SearchMode,
             offense: OffenseProfile,
             ub_ch: Stats,
-            hand_speed: Option<(WeaponClass, i32)>,
+            hand: Option<HandWeapon>,
+            max_hand_ub_dps: i32,
             caps: (i32, i32, i32, i32),
+            c: &BuildConstraints,
             top: &TopResults,
         ) -> bool {
-            let ub_ias = match hand_speed {
-                Some((wclass, wsm)) => offense.attack_speed(wclass, wsm, ub_ch.ias).0,
-                None => ub_ch.ias,
+            let eff_primary_ub = ub_ch.primary_power_skills_for(offense, c.has_aura);
+            let off_ub = if offense.uses_dps_tables(c) {
+                match hand {
+                    Some(hw) => OffenseProfile::dps_bucket(offense.compute_dps(hw, ub_ch, c).0),
+                    None => max_hand_ub_dps,
+                }
+            } else {
+                let ub_ias = match hand {
+                    Some(hw) => offense.attack_speed(hw.wclass, hw.wsm, ub_ch.ias).0,
+                    None => ub_ch.ias,
+                };
+                offense.score(eff_primary_ub, ub_ias, ub_ch.cb)
             };
-            let off_ub = offense.score(ub_ch.primary_power_skills(), ub_ias, ub_ch.cb);
             let res_base = res_base_ub(ub_ch, caps);
             let cbf_ub = i32::from(ub_ch.cbf > 0);
             match mode {
                 SearchMode::Power => top
                     .nth_primary()
-                    .is_some_and(|cutoff| ub_ch.primary_power_skills() < cutoff),
+                    .is_some_and(|cutoff| eff_primary_ub < cutoff),
                 SearchMode::Mf => top.nth_primary().is_some_and(|cutoff| ub_ch.mf < cutoff),
                 SearchMode::MaxRes => top.nth_top2().is_some_and(|cutoff| {
                     (
                         capped_res_sum(ub_ch.fr, ub_ch.lr, ub_ch.cr, ub_ch.pr, caps),
-                        ub_ch.primary_power_skills(),
+                        eff_primary_ub,
                     ) < cutoff
                 }),
                 SearchMode::Leveling => top
@@ -955,6 +996,8 @@ pub fn optimize_builds_core(
 
         struct State<'a> {
             hands: &'a [ItemPair],
+            hand_order: Vec<usize>,
+            max_hand_ub_dps: i32,
             groups: &'a [Vec<ItemSpec>],
             ring_pairs: &'a [ItemPair],
             suf: &'a [Stats],
@@ -994,16 +1037,15 @@ pub fn optimize_builds_core(
             if ub_ch.str_bonus < reqs.0 || ub_ch.dex_bonus < reqs.1 {
                 return;
             }
-            let hand_speed = (idx > 0).then(|| {
-                let h = &st.hands[st.chosen_hand];
-                (h.first.weapon_class(), h.first.wsm)
-            });
+            let hand_opt = (idx > 0).then(|| st.hands[st.chosen_hand].first.hand_weapon());
             if can_prune_by_score(
                 st.mode,
                 st.offense,
                 ub_ch,
-                hand_speed,
+                hand_opt,
+                st.max_hand_ub_dps,
                 caps_ub,
+                st.c,
                 &st.top_results,
             ) {
                 return;
@@ -1011,7 +1053,7 @@ pub fn optimize_builds_core(
 
             if idx == st.groups.len() + 1 {
                 let hand = &st.hands[st.chosen_hand];
-                let wep_speed = (hand.first.weapon_class(), hand.first.wsm);
+                let hw = hand.first.hand_weapon();
                 for rp in st.ring_pairs {
                     let leaf_ub = acc.add(rp.max_stats);
                     if leaf_ub.fcr < st.c.min_fcr {
@@ -1042,8 +1084,10 @@ pub fn optimize_builds_core(
                         st.mode,
                         st.offense,
                         leaf_ub_ch,
-                        Some(wep_speed),
+                        Some(hw),
+                        st.max_hand_ub_dps,
                         caps_ub_leaf,
+                        st.c,
                         &st.top_results,
                     ) {
                         continue;
@@ -1102,8 +1146,10 @@ pub fn optimize_builds_core(
                             st.mode,
                             st.offense,
                             leaf_ch,
-                            Some(wep_speed),
+                            Some(hw),
+                            st.max_hand_ub_dps,
                             caps_leaf,
+                            st.c,
                             &st.top_results,
                         ) {
                             continue;
@@ -1118,7 +1164,7 @@ pub fn optimize_builds_core(
                     ) else {
                         continue;
                     };
-                    let sum = eval_build_summary(gear, all_sk_non_wep, wep_speed, &charms_sel, st.c);
+                    let sum = eval_build_summary(gear, all_sk_non_wep, hw, &charms_sel, st.c);
                     if (!st.c.allow_mf && sum.mf > 0)
                         || sum.fcr < st.c.min_fcr
                         || sum.fhr < st.c.min_fhr
@@ -1132,7 +1178,7 @@ pub fn optimize_builds_core(
                     {
                         continue;
                     }
-                    let mut score = score_eval_summary(st.mode, st.offense, &sum);
+                    let mut score = score_eval_summary(st.mode, st.offense, &sum, st.c);
                     score.locality = items_ref.iter().map(|it| item_locality_score(&it.loc)).sum();
                     if !st.top_results.would_accept(score) {
                         continue;
@@ -1144,7 +1190,9 @@ pub fn optimize_builds_core(
             }
 
             if idx == 0 {
-                for (i, h) in st.hands.iter().enumerate() {
+                for pos in 0..st.hand_order.len() {
+                    let i = st.hand_order[pos];
+                    let h = &st.hands[i];
                     st.chosen_hand = i;
                     dfs(
                         st,
@@ -1170,8 +1218,41 @@ pub fn optimize_builds_core(
             }
         }
 
+        let init_acc = Stats {
+            fr: c.base_hell_res,
+            lr: c.base_hell_res,
+            cr: c.base_hell_res,
+            pr: c.base_hell_res,
+            str_bonus: c.base_str,
+            dex_bonus: c.base_dex,
+            ..Default::default()
+        };
+
+        let mut hand_order: Vec<usize> = (0..pool.hands.len()).collect();
+        let max_hand_ub_dps = if offense.uses_dps_tables(c) {
+            let tail_ub = init_acc.add(pool.suf[1]).add(ch);
+            let hand_ubs: Vec<i32> = pool
+                .hands
+                .iter()
+                .map(|h| {
+                    let ub_h = tail_ub.add(h.max_stats);
+                    OffenseProfile::dps_bucket(
+                        offense.compute_dps(h.first.hand_weapon(), ub_h, c).0,
+                    )
+                })
+                .collect();
+            if mode == SearchMode::Leveling {
+                hand_order.sort_by_key(|&i| Reverse(hand_ubs[i]));
+            }
+            hand_ubs.into_iter().max().unwrap_or(0)
+        } else {
+            0
+        };
+
         let mut state = State {
             hands: pool.hands,
+            hand_order,
+            max_hand_ub_dps,
             groups: pool.groups,
             ring_pairs: pool.ring_pairs,
             suf: pool.suf,
@@ -1186,15 +1267,6 @@ pub fn optimize_builds_core(
             top_results: TopResults::new(c.limit),
         };
 
-        let init_acc = Stats {
-            fr: c.base_hell_res,
-            lr: c.base_hell_res,
-            cr: c.base_hell_res,
-            pr: c.base_hell_res,
-            str_bonus: c.base_str,
-            dex_bonus: c.base_dex,
-            ..Default::default()
-        };
         dfs(&mut state, 0, init_acc, (0, 0));
 
         let total_evals = state.evals;

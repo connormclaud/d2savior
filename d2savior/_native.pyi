@@ -14,6 +14,11 @@ class ItemSpec:
     blizz_skills: int
     cm_skills: int
     primary_skill: int
+    action_skill_bonus: int
+    aura_skill_bonus: int
+    off_ed: int
+    flat_phys_2x: int
+    flat_elem_2x: int
     fcr: int
     fhr: int
     frw: int
@@ -52,6 +57,10 @@ class ItemSpec:
     set_bonuses: list[tuple[int, ItemSpec]]
     wsm: int
     wclass: str
+    wep_phys_2x: int
+    wep_str_pct: int
+    wep_dex_pct: int
+    can_zeal: bool
 
     def __init__(
         self,
@@ -102,6 +111,15 @@ class ItemSpec:
         set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
         wsm: int = 0,
         wclass: str = "",
+        action_skill_bonus: int = 0,
+        aura_skill_bonus: int = 0,
+        off_ed: int = 0,
+        flat_phys_2x: int = 0,
+        flat_elem_2x: int = 0,
+        wep_phys_2x: int = 0,
+        wep_str_pct: int = 0,
+        wep_dex_pct: int = 0,
+        can_zeal: bool = False,
     ) -> None: ...
     @property
     def skills(self) -> int: ...
@@ -123,6 +141,8 @@ class CharmSpec:
     str_bonus: int
     dex_bonus: int
     skills: int
+    action_skills: int
+    aura_skills: int
     unique_id: int | None
     cold_sunder: bool
 
@@ -146,6 +166,8 @@ class CharmSpec:
         skills: int = 0,
         unique_id: int | None = None,
         cold_sunder: bool = False,
+        action_skills: int = 0,
+        aura_skills: int = 0,
     ) -> None: ...
 
 class BuildConstraints:
@@ -176,6 +198,11 @@ class BuildConstraints:
     use_bo: bool
     fixed_gear: bool
     offense: OffenseProfileStr
+    aura_hit_dmg: list[float]
+    aura_pulse_dps: list[float]
+    action_ed: list[int]
+    action_hits: list[int]
+    has_aura: bool
 
     def __init__(
         self,
@@ -206,6 +233,11 @@ class BuildConstraints:
         use_bo: bool = True,
         fixed_gear: bool = False,
         offense: OffenseProfileStr = "caster",
+        aura_hit_dmg: Sequence[float] = (),
+        aura_pulse_dps: Sequence[float] = (),
+        action_ed: Sequence[int] = (),
+        action_hits: Sequence[int] = (),
+        has_aura: bool = False,
     ) -> None: ...
 
 class BuildResult:
@@ -213,6 +245,14 @@ class BuildResult:
     def skills(self) -> int: ...
     @property
     def primary_skill_bonus(self) -> int: ...
+    @property
+    def action_skill_bonus(self) -> int: ...
+    @property
+    def aura_skill_bonus(self) -> int: ...
+    @property
+    def dps(self) -> float: ...
+    @property
+    def used_zeal(self) -> bool: ...
     @property
     def blizz_avg(self) -> float: ...
     @property

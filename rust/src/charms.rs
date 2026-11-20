@@ -128,7 +128,7 @@ fn greedy_res_loop(
                 + (deficits[2].min(c.cr) as f64) * weights[2]
                 + (deficits[3].min(c.pr) as f64) * weights[3];
             if gain > 0.0 {
-                let tie_bonus = c.mf as f64 * mf_weight + c.skills as f64 * skill_weight;
+                let tie_bonus = c.mf as f64 * mf_weight + c.skills_total() as f64 * skill_weight;
                 let score = (gain + tie_bonus + c.life as f64 * 0.02) / c.size.max(1) as f64;
                 if score > best_score {
                     best_score = score;
@@ -205,7 +205,7 @@ fn greedy_fhr_loop(state: &mut CharmState<'_, '_>, target_fhr: i32) {
             if state.can_pick(idx) && c.fhr > 0 {
                 let key = (
                     c.fhr.min(need) as f64 / c.size.max(1) as f64,
-                    c.skills,
+                    c.skills_total(),
                     c.fhr,
                 );
                 if key > best_key {
@@ -234,27 +234,28 @@ fn greedy_fill_remaining(
     mf_indices.sort_by(|&a, &b| {
         let ka = (
             pool[a].mf * 100 / pool[a].size.max(1),
-            pool[a].skills,
+            pool[a].skills_total(),
             pool[a].lr,
         );
         let kb = (
             pool[b].mf * 100 / pool[b].size.max(1),
-            pool[b].skills,
+            pool[b].skills_total(),
             pool[b].lr,
         );
         kb.cmp(&ka)
     });
 
     let mut sk_indices: Vec<usize> = (0..pool.len())
-        .filter(|&i| state.can_pick(i) && pool[i].skills > 0)
+        .filter(|&i| state.can_pick(i) && pool[i].skills_total() > 0)
         .collect();
     sk_indices.sort_by(|&a, &b| {
         let ca = pool[a];
         let cb = pool[b];
-        let eff = (cb.skills * ca.size.max(1)).cmp(&(ca.skills * cb.size.max(1)));
+        let eff =
+            (cb.skills_total() * ca.size.max(1)).cmp(&(ca.skills_total() * cb.size.max(1)));
         eff.then_with(|| {
-            (cb.skills, cb.life, cb.fr + cb.lr + cb.cr, cb.mana).cmp(&(
-                ca.skills,
+            (cb.skills_total(), cb.life, cb.fr + cb.lr + cb.cr, cb.mana).cmp(&(
+                ca.skills_total(),
                 ca.life,
                 ca.fr + ca.lr + ca.cr,
                 ca.mana,
@@ -382,7 +383,7 @@ fn greedy_charms_pass_indices(
             }
             let gain = need_str.min(ch.str_bonus) + need_dex.min(ch.dex_bonus);
             if gain > 0 {
-                let score = (gain as f64 + ch.skills as f64 * 0.1) / ch.size.max(1) as f64;
+                let score = (gain as f64 + ch.skills_total() as f64 * 0.1) / ch.size.max(1) as f64;
                 if score > best_key {
                     best_key = score;
                     best_idx = Some(idx);
@@ -497,6 +498,8 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
         || a.str_bonus < b.str_bonus
         || a.dex_bonus < b.dex_bonus
         || a.skills < b.skills
+        || a.action_skills < b.action_skills
+        || a.aura_skills < b.aura_skills
     {
         return false;
     }
@@ -513,7 +516,9 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
         || a.frw > b.frw
         || a.str_bonus > b.str_bonus
         || a.dex_bonus > b.dex_bonus
-        || a.skills > b.skills;
+        || a.skills > b.skills
+        || a.action_skills > b.action_skills
+        || a.aura_skills > b.aura_skills;
     strictly_better || a_idx < b_idx
 }
 
@@ -582,7 +587,7 @@ impl StatTotals {
             dex_bonus: c.dex_bonus,
             fhr: c.fhr,
             res: [c.fr, c.lr, c.cr, c.pr],
-            skills: c.skills,
+            skills: c.skills_total(),
             mf: c.mf,
         }
     }
@@ -784,6 +789,8 @@ pub(crate) struct CharmSolver<'a> {
     ub_fhr: i32,
     ub_res: [i32; 4],
     ub_skills: i32,
+    ub_action_skills: i32,
+    ub_aura_skills: i32,
     ub_mf: i32,
     groups: Vec<CharmGroup>,
     suf_pos: Vec<StatTotals>,
@@ -806,6 +813,8 @@ impl<'a> CharmSolver<'a> {
         let base = if let Some(&first) = self.sunder_opts.first() {
             let mut acc = Stats {
                 all_skills: first.skills,
+                action_skill_bonus: first.action_skills,
+                aura_skill_bonus: first.aura_skills,
                 fhr: first.fhr,
                 fr: first.fr,
                 lr: first.lr,
@@ -819,6 +828,8 @@ impl<'a> CharmSolver<'a> {
             for &s in &self.sunder_opts[1..] {
                 acc = acc.max_each(Stats {
                     all_skills: s.skills,
+                    action_skill_bonus: s.action_skills,
+                    aura_skill_bonus: s.aura_skills,
                     fhr: s.fhr,
                     fr: s.fr,
                     lr: s.lr,
@@ -836,6 +847,8 @@ impl<'a> CharmSolver<'a> {
         };
         Stats {
             all_skills: base.all_skills + self.ub_skills,
+            action_skill_bonus: base.action_skill_bonus + self.ub_action_skills,
+            aura_skill_bonus: base.aura_skill_bonus + self.ub_aura_skills,
             fhr: base.fhr + self.ub_fhr,
             fr: base.fr + self.ub_res[0],
             lr: base.lr + self.ub_res[1],
@@ -856,7 +869,7 @@ impl<'a> CharmSolver<'a> {
         let raw_max_slots = c.max_charm_slots.max(0);
         let main_val_of = |ch: &CharmSpec| -> i32 {
             match mode {
-                SearchMode::Power | SearchMode::Leveling => ch.skills.max(0),
+                SearchMode::Power | SearchMode::Leveling => ch.skills_total().max(0),
                 SearchMode::Mf => ch.mf.max(0),
                 SearchMode::MaxRes | SearchMode::LevelingRes => {
                     ch.fr.max(0) + ch.lr.max(0) + ch.cr.max(0) + ch.pr.max(0)
@@ -940,6 +953,8 @@ impl<'a> CharmSolver<'a> {
             charm_stat_ub(&pool, max_slots, |ch| ch.pr),
         ];
         let ub_skills = charm_stat_ub(&pool, max_slots, |ch| ch.skills);
+        let ub_action_skills = charm_stat_ub(&pool, max_slots, |ch| ch.action_skills);
+        let ub_aura_skills = charm_stat_ub(&pool, max_slots, |ch| ch.aura_skills);
         let ub_mf = charm_stat_ub(&pool, max_slots, |ch| ch.mf);
 
         let is_relevant = |ch: &CharmSpec| {
@@ -951,7 +966,7 @@ impl<'a> CharmSolver<'a> {
                 || ch.cr > 0
                 || ch.pr > 0;
             let helps_main = match mode {
-                SearchMode::Power | SearchMode::Leveling => ch.skills > 0,
+                SearchMode::Power | SearchMode::Leveling => ch.skills_total() > 0,
                 SearchMode::Mf => ch.mf > 0,
                 SearchMode::MaxRes | SearchMode::LevelingRes => {
                     ch.fr > 0 || ch.lr > 0 || ch.cr > 0 || ch.pr > 0
@@ -961,7 +976,7 @@ impl<'a> CharmSolver<'a> {
         };
 
         let mut unique_map: BTreeMap<i32, Vec<usize>> = BTreeMap::new();
-        type MultiKey = (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32);
+        type MultiKey = (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32);
         let mut multi_map: BTreeMap<MultiKey, Vec<usize>> = BTreeMap::new();
 
         for (idx, &ch) in pool.iter().enumerate() {
@@ -982,6 +997,8 @@ impl<'a> CharmSolver<'a> {
                     ch.str_bonus,
                     ch.dex_bonus,
                     ch.skills,
+                    ch.action_skills,
+                    ch.aura_skills,
                 );
                 multi_map.entry(key).or_default().push(idx);
             }
@@ -992,8 +1009,8 @@ impl<'a> CharmSolver<'a> {
             opts.sort_by(|&a, &b| {
                 let ca = pool[a];
                 let cb = pool[b];
-                let va = (main_val_of(ca), ca.skills, ca.life, ca.mana);
-                let vb = (main_val_of(cb), cb.skills, cb.life, cb.mana);
+                let va = (main_val_of(ca), ca.skills_total(), ca.life, ca.mana);
+                let vb = (main_val_of(cb), cb.skills_total(), cb.life, cb.mana);
                 vb.cmp(&va)
             });
             let mut max_pos = StatTotals::default();
@@ -1116,7 +1133,7 @@ impl<'a> CharmSolver<'a> {
             sorted_ub_entries(&groups, &pool, |ch| ch.cr),
             sorted_ub_entries(&groups, &pool, |ch| ch.pr),
         ];
-        let order_skills = sorted_ub_entries(&groups, &pool, |ch| ch.skills);
+        let order_skills = sorted_ub_entries(&groups, &pool, |ch| ch.skills_total());
         let order_mf = sorted_ub_entries(&groups, &pool, |ch| ch.mf);
 
         Self {
@@ -1132,6 +1149,8 @@ impl<'a> CharmSolver<'a> {
             ub_fhr,
             ub_res,
             ub_skills,
+            ub_action_skills,
+            ub_aura_skills,
             ub_mf,
             groups,
             suf_pos,
@@ -1149,7 +1168,7 @@ impl<'a> CharmSolver<'a> {
     fn main_score_of_indices(&self, idxs: &[usize], room: [i32; 4]) -> i32 {
         match self.mode {
             SearchMode::Power | SearchMode::Leveling => {
-                idxs.iter().map(|&i| self.pool[i].skills).sum()
+                idxs.iter().map(|&i| self.pool[i].skills_total()).sum()
             }
             SearchMode::Mf => idxs.iter().map(|&i| self.pool[i].mf).sum(),
             SearchMode::MaxRes | SearchMode::LevelingRes => {
@@ -1369,7 +1388,7 @@ impl<'a> CharmSolver<'a> {
                                 cur_res_added[2] + ch.cr,
                                 cur_res_added[3] + ch.pr,
                             ],
-                            cur_skills + ch.skills,
+                            cur_skills + ch.skills_total(),
                             cur_mf + ch.mf,
                         );
                         ctx.cur_indices.pop();
@@ -1540,7 +1559,7 @@ impl<'a> CharmSolver<'a> {
             };
             let rem_main = self.main_score_of_indices(&idxs, [0; 4]);
             let s_main = match self.mode {
-                SearchMode::Power | SearchMode::Leveling => sunder.skills,
+                SearchMode::Power | SearchMode::Leveling => sunder.skills_total(),
                 SearchMode::Mf => sunder.mf,
                 SearchMode::MaxRes | SearchMode::LevelingRes => 0,
             };

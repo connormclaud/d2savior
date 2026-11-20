@@ -128,6 +128,16 @@ impl WeaponClass {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub(crate) struct HandWeapon {
+    pub(crate) wclass: WeaponClass,
+    pub(crate) wsm: i32,
+    pub(crate) phys_2x: i32,
+    pub(crate) str_pct: i32,
+    pub(crate) dex_pct: i32,
+    pub(crate) can_zeal: bool,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum OffenseProfile {
     Caster,
@@ -165,21 +175,43 @@ impl OffenseProfile {
         matches!(self, Self::Caster)
     }
 
+    pub(crate) fn is_melee_dps(self) -> bool {
+        matches!(self, Self::Melee | Self::Zeal)
+    }
+
+    pub(crate) fn uses_dps_tables(self, c: &BuildConstraints) -> bool {
+        self.is_melee_dps() && !c.action_hits.is_empty()
+    }
+
     pub(crate) fn weapon_anim_key(
         self,
         mode: SearchMode,
-        wclass: WeaponClass,
-        wsm: i32,
-    ) -> (bool, i32, i32) {
+        hand: HandWeapon,
+    ) -> (bool, WeaponClass, i32, i32, i32) {
         if !matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) || self == Self::Caster {
-            return (false, 0, 0);
+            return (false, WeaponClass::OneHandSwing, 0, 0, 0);
         }
         if self == Self::Smite {
-            (false, 12, wsm)
-        } else if self == Self::Zeal && !wclass.is_ranged() {
-            (true, wclass.action_frame(), wsm)
+            (false, WeaponClass::OneHandSwing, hand.wsm, 0, 0)
         } else {
-            (false, wclass.frames_per_dir(), wsm)
+            (
+                hand.can_zeal,
+                hand.wclass,
+                hand.wsm,
+                hand.str_pct,
+                hand.dex_pct,
+            )
+        }
+    }
+
+    fn ias_bp_for_min_speed(min_speed: i32, wsm: i32) -> i32 {
+        let min_net_eias = ((100 * min_speed + 255) / 256 - 100).max(-85);
+        let min_eias = (min_net_eias + wsm).max(0);
+        if min_eias <= 0 {
+            0
+        } else {
+            let denom = (120 - min_eias).max(1);
+            (120 * min_eias + denom - 1) / denom
         }
     }
 
@@ -204,15 +236,110 @@ impl OffenseProfile {
             let ms = (256 * fpd + f) / (f + 1);
             (f, ms)
         };
-        let min_net_eias = ((100 * min_speed + 255) / 256 - 100).max(-85);
-        let min_eias = (min_net_eias + wsm).max(0);
-        let ias_bp = if min_eias <= 0 {
+        (Self::ias_bp_for_min_speed(min_speed, wsm), frames)
+    }
+
+    /// Return `(hits_per_sec, ias_bp, display_frames, used_zeal)` using exact D2R rollback frames.
+    pub(crate) fn attack_rate_and_frames(
+        self,
+        hand: HandWeapon,
+        ias: i32,
+        zeal_hits: i32,
+    ) -> (f64, i32, i32, bool) {
+        let clamped_ias = ias.max(0);
+        let eias = (120 * clamped_ias) / (120 + clamped_ias);
+        let net_eias = (eias - hand.wsm).clamp(-85, 75);
+        let speed = (256 * (100 + net_eias)) / 100;
+
+        if self == Self::Zeal && hand.can_zeal && zeal_hits >= 2 {
+            let af = hand.wclass.action_frame();
+            let f_rollback = (256 * af + speed - 1) / speed;
+            let ms = (256 * af + f_rollback - 1) / f_rollback;
+            let fpd = hand.wclass.frames_per_dir();
+            let f_last = (256 * fpd + speed - 1) / speed - 1;
+            let cycle = (zeal_hits - 1) * f_rollback + f_last;
+            let rate = (25.0 * zeal_hits as f64) / (cycle.max(1) as f64);
+            (
+                rate,
+                Self::ias_bp_for_min_speed(ms, hand.wsm),
+                f_rollback,
+                true,
+            )
+        } else {
+            let fpd = if self == Self::Smite {
+                12
+            } else {
+                hand.wclass.frames_per_dir()
+            };
+            let f_normal = (256 * fpd + speed - 1) / speed - 1;
+            let ms = (256 * fpd + f_normal) / (f_normal + 1);
+            let rate = 25.0 / (f_normal.max(1) as f64);
+            (
+                rate,
+                Self::ias_bp_for_min_speed(ms, hand.wsm),
+                f_normal,
+                false,
+            )
+        }
+    }
+
+    /// Quantize continuous DPS into ~2% logarithmic buckets (monotone in `dps`).
+    pub(crate) fn dps_bucket(dps: f64) -> i32 {
+        if dps <= 0.0 || !dps.is_finite() {
             0
         } else {
-            let denom = (120 - min_eias).max(1);
-            (120 * min_eias + denom - 1) / denom
+            (dps.ln() / 1.02_f64.ln()).floor().max(0.0) as i32
+        }
+    }
+
+    /// Compute exact single-target DPS for `Zeal`/`Melee` with precomputed skill tables.
+    ///
+    /// Expects `s.str_bonus` and `s.dex_bonus` to be total character strength/dexterity
+    /// (`c.base_str + gear + charms`), matching `ub_ch` in `search.rs`.
+    pub(crate) fn compute_dps(
+        self,
+        hand: HandWeapon,
+        s: Stats,
+        c: &BuildConstraints,
+    ) -> (f64, i32, i32, bool) {
+        let eff_action = (s.all_skills + s.pal_skills + s.action_skill_bonus).max(0) as usize;
+        let eff_aura = (s.all_skills + s.pal_skills + s.aura_skill_bonus).max(0) as usize;
+
+        let hits = if c.action_hits.is_empty() {
+            1
+        } else {
+            c.action_hits[eff_action.min(c.action_hits.len() - 1)].max(1)
         };
-        (ias_bp, frames)
+        let (rate, ias_bp, display_frames, used_zeal) =
+            self.attack_rate_and_frames(hand, s.ias, hits);
+
+        let action_ed = if used_zeal && !c.action_ed.is_empty() {
+            c.action_ed[eff_action.min(c.action_ed.len() - 1)]
+        } else {
+            0
+        };
+
+        let total_str = s.str_bonus.max(0);
+        let total_dex = s.dex_bonus.max(0);
+        let stat_ed = (total_str * hand.str_pct + total_dex * hand.dex_pct) / 100;
+
+        let phys_avg = (hand.phys_2x + s.flat_phys_2x).max(0) as f64 / 2.0;
+        let d_phys = phys_avg * (1.0 + (stat_ed + action_ed + s.off_ed).max(0) as f64 / 100.0);
+
+        let d_aura_hit = if c.aura_hit_dmg.is_empty() {
+            0.0
+        } else {
+            c.aura_hit_dmg[eff_aura.min(c.aura_hit_dmg.len() - 1)]
+        };
+        let d_aura_pulse = if c.aura_pulse_dps.is_empty() {
+            0.0
+        } else {
+            c.aura_pulse_dps[eff_aura.min(c.aura_pulse_dps.len() - 1)]
+        };
+        let d_elem_gear = s.flat_elem_2x.max(0) as f64 / 2.0;
+
+        let dps = (d_phys + d_aura_hit + d_elem_gear) * rate + d_aura_pulse;
+        (dps, ias_bp, display_frames, used_zeal)
     }
 
     pub(crate) fn score(self, eff_primary: i32, ias_bp: i32, cb: i32) -> i32 {
@@ -245,6 +372,11 @@ pub(crate) struct Stats {
     pub(crate) blizz_skills: i32,
     pub(crate) cm_skills: i32,
     pub(crate) primary_skill: i32,
+    pub(crate) action_skill_bonus: i32,
+    pub(crate) aura_skill_bonus: i32,
+    pub(crate) off_ed: i32,
+    pub(crate) flat_phys_2x: i32,
+    pub(crate) flat_elem_2x: i32,
     pub(crate) fcr: i32,
     pub(crate) fhr: i32,
     pub(crate) frw: i32,
@@ -287,6 +419,21 @@ impl Stats {
         self.total_skills() + self.blizz_skills + self.primary_skill
     }
 
+    pub(crate) fn primary_power_skills_for(self, offense: OffenseProfile, has_aura: bool) -> i32 {
+        if offense.is_melee_dps()
+            && (has_aura || self.action_skill_bonus != 0 || self.aura_skill_bonus != 0)
+        {
+            let bonus = if has_aura {
+                self.aura_skill_bonus
+            } else {
+                self.action_skill_bonus.max(self.aura_skill_bonus)
+            };
+            self.total_skills() + self.blizz_skills + self.primary_skill + bonus
+        } else {
+            self.primary_power_skills()
+        }
+    }
+
     pub(crate) fn res_sum(self) -> i32 {
         self.fr + self.lr + self.cr + self.pr
     }
@@ -299,6 +446,13 @@ impl Stats {
         if !offense.uses_fcr() && min_fcr <= 0 {
             self.fcr = 0;
         }
+        if !offense.is_melee_dps() {
+            self.action_skill_bonus = 0;
+            self.aura_skill_bonus = 0;
+            self.off_ed = 0;
+            self.flat_phys_2x = 0;
+            self.flat_elem_2x = 0;
+        }
         self
     }
 
@@ -310,6 +464,11 @@ impl Stats {
             blizz_skills: self.blizz_skills + o.blizz_skills,
             cm_skills: self.cm_skills + o.cm_skills,
             primary_skill: self.primary_skill + o.primary_skill,
+            action_skill_bonus: self.action_skill_bonus + o.action_skill_bonus,
+            aura_skill_bonus: self.aura_skill_bonus + o.aura_skill_bonus,
+            off_ed: self.off_ed + o.off_ed,
+            flat_phys_2x: self.flat_phys_2x + o.flat_phys_2x,
+            flat_elem_2x: self.flat_elem_2x + o.flat_elem_2x,
             fcr: self.fcr + o.fcr,
             fhr: self.fhr + o.fhr,
             frw: self.frw + o.frw,
@@ -352,6 +511,11 @@ impl Stats {
             blizz_skills: self.blizz_skills.max(o.blizz_skills),
             cm_skills: self.cm_skills.max(o.cm_skills),
             primary_skill: self.primary_skill.max(o.primary_skill),
+            action_skill_bonus: self.action_skill_bonus.max(o.action_skill_bonus),
+            aura_skill_bonus: self.aura_skill_bonus.max(o.aura_skill_bonus),
+            off_ed: self.off_ed.max(o.off_ed),
+            flat_phys_2x: self.flat_phys_2x.max(o.flat_phys_2x),
+            flat_elem_2x: self.flat_elem_2x.max(o.flat_elem_2x),
             fcr: self.fcr.max(o.fcr),
             fhr: self.fhr.max(o.fhr),
             frw: self.frw.max(o.frw),
@@ -393,6 +557,11 @@ impl Stats {
             && self.blizz_skills >= o.blizz_skills
             && self.cm_skills >= o.cm_skills
             && self.primary_skill >= o.primary_skill
+            && self.action_skill_bonus >= o.action_skill_bonus
+            && self.aura_skill_bonus >= o.aura_skill_bonus
+            && self.off_ed >= o.off_ed
+            && self.flat_phys_2x >= o.flat_phys_2x
+            && self.flat_elem_2x >= o.flat_elem_2x
             && self.fcr >= o.fcr
             && self.fhr >= o.fhr
             && self.frw >= o.frw
@@ -440,6 +609,11 @@ pub struct ItemSpec {
     pub blizz_skills: i32,
     pub cm_skills: i32,
     pub primary_skill: i32,
+    pub action_skill_bonus: i32,
+    pub aura_skill_bonus: i32,
+    pub off_ed: i32,
+    pub flat_phys_2x: i32,
+    pub flat_elem_2x: i32,
     pub fcr: i32,
     pub fhr: i32,
     pub frw: i32,
@@ -478,17 +652,28 @@ pub struct ItemSpec {
     pub set_bonuses: Vec<(i32, ItemSpec)>,
     pub wsm: i32,
     pub wclass: String,
+    pub wep_phys_2x: i32,
+    pub wep_str_pct: i32,
+    pub wep_dex_pct: i32,
+    pub can_zeal: bool,
 }
 
 pub(crate) type SetBonusSig = Vec<(i32, Stats)>;
 
-pub(crate) fn equipped_weapon_speed(items: &[&ItemSpec]) -> (WeaponClass, i32) {
+pub(crate) fn equipped_hand_weapon(items: &[&ItemSpec]) -> HandWeapon {
     for &it in items {
         if matches!(it.slot.as_str(), "weapon" | "weapon2h") && it.name != "(empty)" {
-            return (it.weapon_class(), it.wsm);
+            return it.hand_weapon();
         }
     }
-    (WeaponClass::OneHandSwing, 0)
+    HandWeapon {
+        wclass: WeaponClass::OneHandSwing,
+        wsm: 0,
+        phys_2x: 0,
+        str_pct: 100,
+        dex_pct: 0,
+        can_zeal: true,
+    }
 }
 
 pub(crate) fn eff_req(req: i32, self_bonus: i32) -> i32 {
@@ -576,6 +761,23 @@ impl ItemSpec {
         WeaponClass::from_item(&self.wclass, &self.slot, &self.name)
     }
 
+    pub(crate) fn hand_weapon(&self) -> HandWeapon {
+        let wclass = self.weapon_class();
+        let can_zeal = if self.name == "(empty)" {
+            true
+        } else {
+            self.can_zeal || (!wclass.is_ranged() && self.wep_phys_2x == 0 && self.wep_str_pct == 0 && self.wep_dex_pct == 0)
+        };
+        HandWeapon {
+            wclass,
+            wsm: self.wsm,
+            phys_2x: self.wep_phys_2x,
+            str_pct: self.wep_str_pct,
+            dex_pct: self.wep_dex_pct,
+            can_zeal,
+        }
+    }
+
     pub(crate) fn is_weapon_or_shield(&self) -> bool {
         matches!(self.slot.as_str(), "weapon" | "weapon2h" | "shield")
     }
@@ -622,6 +824,11 @@ impl ItemSpec {
             blizz_skills: self.blizz_skills,
             cm_skills: self.cm_skills,
             primary_skill: self.primary_skill,
+            action_skill_bonus: self.action_skill_bonus,
+            aura_skill_bonus: self.aura_skill_bonus,
+            off_ed: self.off_ed,
+            flat_phys_2x: self.flat_phys_2x,
+            flat_elem_2x: self.flat_elem_2x,
             fcr: self.fcr,
             fhr: self.fhr,
             frw: self.frw,
@@ -674,6 +881,11 @@ impl ItemSpec {
             blizz_skills: s.blizz_skills,
             cm_skills: s.cm_skills,
             primary_skill: s.primary_skill,
+            action_skill_bonus: s.action_skill_bonus,
+            aura_skill_bonus: s.aura_skill_bonus,
+            off_ed: s.off_ed,
+            flat_phys_2x: s.flat_phys_2x,
+            flat_elem_2x: s.flat_elem_2x,
             fcr: s.fcr,
             fhr: s.fhr,
             frw: s.frw,
@@ -712,6 +924,10 @@ impl ItemSpec {
             set_bonuses: Vec::new(),
             wsm: 0,
             wclass: String::new(),
+            wep_phys_2x: 0,
+            wep_str_pct: 0,
+            wep_dex_pct: 0,
+            can_zeal: false,
         }
     }
 }
@@ -768,6 +984,15 @@ impl ItemSpec {
         set_bonuses = Vec::new(),
         wsm = 0,
         wclass = String::new(),
+        action_skill_bonus = 0,
+        aura_skill_bonus = 0,
+        off_ed = 0,
+        flat_phys_2x = 0,
+        flat_elem_2x = 0,
+        wep_phys_2x = 0,
+        wep_str_pct = 0,
+        wep_dex_pct = 0,
+        can_zeal = false,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -818,6 +1043,15 @@ impl ItemSpec {
         set_bonuses: Vec<(i32, ItemSpec)>,
         wsm: i32,
         wclass: String,
+        action_skill_bonus: i32,
+        aura_skill_bonus: i32,
+        off_ed: i32,
+        flat_phys_2x: i32,
+        flat_elem_2x: i32,
+        wep_phys_2x: i32,
+        wep_str_pct: i32,
+        wep_dex_pct: i32,
+        can_zeal: bool,
     ) -> Self {
         Self {
             name,
@@ -829,6 +1063,11 @@ impl ItemSpec {
             blizz_skills,
             cm_skills,
             primary_skill,
+            action_skill_bonus,
+            aura_skill_bonus,
+            off_ed,
+            flat_phys_2x,
+            flat_elem_2x,
             fcr,
             fhr,
             frw,
@@ -867,6 +1106,10 @@ impl ItemSpec {
             set_bonuses,
             wsm,
             wclass,
+            wep_phys_2x,
+            wep_str_pct,
+            wep_dex_pct,
+            can_zeal,
         }
     }
 
@@ -908,8 +1151,16 @@ pub struct CharmSpec {
     pub str_bonus: i32,
     pub dex_bonus: i32,
     pub skills: i32,
+    pub action_skills: i32,
+    pub aura_skills: i32,
     pub unique_id: Option<i32>,
     pub cold_sunder: bool,
+}
+
+impl CharmSpec {
+    pub(crate) fn skills_total(&self) -> i32 {
+        self.skills + self.action_skills + self.aura_skills
+    }
 }
 
 #[cfg(feature = "python")]
@@ -935,6 +1186,8 @@ impl CharmSpec {
         skills = 0,
         unique_id = None,
         cold_sunder = false,
+        action_skills = 0,
+        aura_skills = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -956,6 +1209,8 @@ impl CharmSpec {
         skills: i32,
         unique_id: Option<i32>,
         cold_sunder: bool,
+        action_skills: i32,
+        aura_skills: i32,
     ) -> Self {
         Self {
             name,
@@ -974,6 +1229,8 @@ impl CharmSpec {
             str_bonus,
             dex_bonus,
             skills,
+            action_skills,
+            aura_skills,
             unique_id,
             cold_sunder,
         }
@@ -1018,6 +1275,11 @@ pub struct BuildConstraints {
     pub use_bo: bool,
     pub fixed_gear: bool,
     pub offense: String,
+    pub aura_hit_dmg: Vec<f64>,
+    pub aura_pulse_dps: Vec<f64>,
+    pub action_ed: Vec<i32>,
+    pub action_hits: Vec<i32>,
+    pub has_aura: bool,
 }
 
 impl Default for BuildConstraints {
@@ -1050,6 +1312,11 @@ impl Default for BuildConstraints {
             use_bo: true,
             fixed_gear: false,
             offense: String::from("caster"),
+            aura_hit_dmg: Vec::new(),
+            aura_pulse_dps: Vec::new(),
+            action_ed: Vec::new(),
+            action_hits: Vec::new(),
+            has_aura: false,
         }
     }
 }
@@ -1086,6 +1353,11 @@ impl BuildConstraints {
         use_bo = true,
         fixed_gear = false,
         offense = String::from("caster"),
+        aura_hit_dmg = Vec::new(),
+        aura_pulse_dps = Vec::new(),
+        action_ed = Vec::new(),
+        action_hits = Vec::new(),
+        has_aura = false,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1116,6 +1388,11 @@ impl BuildConstraints {
         use_bo: bool,
         fixed_gear: bool,
         offense: String,
+        aura_hit_dmg: Vec<f64>,
+        aura_pulse_dps: Vec<f64>,
+        action_ed: Vec<i32>,
+        action_hits: Vec<i32>,
+        has_aura: bool,
     ) -> Self {
         Self {
             allow_mf,
@@ -1145,6 +1422,11 @@ impl BuildConstraints {
             use_bo,
             fixed_gear,
             offense,
+            aura_hit_dmg,
+            aura_pulse_dps,
+            action_ed,
+            action_hits,
+            has_aura,
         }
     }
 }
@@ -1155,6 +1437,10 @@ impl BuildConstraints {
 pub struct BuildResult {
     pub skills: i32,
     pub primary_skill_bonus: i32,
+    pub action_skill_bonus: i32,
+    pub aura_skill_bonus: i32,
+    pub dps: f64,
+    pub used_zeal: bool,
     pub blizz_avg: f64,
     pub cm_pierce: i32,
     pub fcr: i32,

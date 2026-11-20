@@ -1,5 +1,5 @@
 use super::*;
-use crate::types::{equipped_weapon_speed, mk_test_item as mk_item, test_constraints};
+use crate::types::{equipped_hand_weapon, mk_test_item as mk_item, test_constraints};
 
 #[test]
 fn test_optimize_builds_basic() {
@@ -799,13 +799,13 @@ fn validate_and_score_result(
     assert!(c.base_str + gear.str_bonus + charm_str >= reqs.0);
     assert!(c.base_dex + gear.dex_bonus + charm_dex >= reqs.1);
 
-    let wep_speed = equipped_weapon_speed(&item_refs);
-    let sum = eval_build_summary(gear, all_sk_non_wep, wep_speed, &charm_refs, c);
+    let hand = equipped_hand_weapon(&item_refs);
+    let sum = eval_build_summary(gear, all_sk_non_wep, hand, &charm_refs, c);
     assert!(c.allow_mf || sum.mf == 0);
     assert!(sum.fcr >= c.min_fcr);
     assert!(sum.fhr >= c.min_fhr);
     assert!(sum.fr >= c.min_fr && sum.lr >= c.min_lr && sum.cr >= c.min_cr && sum.pr >= c.min_pr);
-    score_eval_summary(mode, offense, &sum)
+    score_eval_summary(mode, offense, &sum, c)
 }
 
 const TEST_EQUIP_SLOTS: &[&str] = &[
@@ -986,8 +986,8 @@ fn brute_force_top_scores(
                         {
                             continue;
                         }
-                        let wep_speed = (h1.weapon_class(), h1.wsm);
-                        let sum = eval_build_summary(gear, all_sk_non_wep, wep_speed, &chosen, c);
+                        let hand = h1.hand_weapon();
+                        let sum = eval_build_summary(gear, all_sk_non_wep, hand, &chosen, c);
                         if (!c.allow_mf && sum.mf > 0)
                             || sum.fhr < c.min_fhr
                             || sum.fr < c.min_fr
@@ -997,7 +997,7 @@ fn brute_force_top_scores(
                         {
                             continue;
                         }
-                        let score = score_eval_summary(mode, offense, &sum);
+                        let score = score_eval_summary(mode, offense, &sum, c);
                         let eff_fcr_bp = if offense.uses_fcr() { sum.fcr_bp } else { 0 };
                         let sig = (sum.skills, eff_fcr_bp, sum.fhr_bp, sum.mf, item_names.clone());
                         if best_for_gear
@@ -2131,4 +2131,168 @@ fn test_locality_tiebreaker_order_equipped_inv_stash_shared_mule() {
     let res3 = optimize_builds_core(&[r_mule, r_shared, r_stash], &[], &c).unwrap();
     assert_eq!(res3[0].items[8].name, "Ring Char Stash");
     assert_eq!(res3[0].items[9].name, "Ring Shared");
+}
+
+#[test]
+fn test_paladin_dps_zeal_vs_bow_fallback_and_brute_force_parity() {
+    let kinemil = ItemSpec {
+        name: "Kinemil's Awl".to_string(),
+        slot: "weapon2h".to_string(),
+        aura_skill_bonus: 6,
+        flat_elem_2x: 44, // 6-38 fire
+        wep_phys_2x: 68,  // ~34 avg
+        wep_str_pct: 100,
+        wep_dex_pct: 0,
+        wsm: 0,
+        wclass: "2hs".to_string(),
+        can_zeal: true,
+        ..Default::default()
+    };
+    let fast_1h = ItemSpec {
+        name: "Fast Flail".to_string(),
+        slot: "weapon".to_string(),
+        ias: 20,
+        wep_phys_2x: 25,
+        wep_str_pct: 100,
+        wep_dex_pct: 0,
+        wsm: -10,
+        wclass: "1hs".to_string(),
+        can_zeal: true,
+        ..Default::default()
+    };
+    let thrust_1h = ItemSpec {
+        name: "Thrust Spear".to_string(),
+        slot: "weapon".to_string(),
+        ias: 20,
+        wep_phys_2x: 25,
+        wep_str_pct: 100,
+        wep_dex_pct: 0,
+        wsm: -10,
+        wclass: "1ht".to_string(),
+        can_zeal: true,
+        ..Default::default()
+    };
+    let bow = ItemSpec {
+        name: "Raven Claw".to_string(),
+        slot: "weapon2h".to_string(),
+        wep_phys_2x: 22,
+        wep_str_pct: 0,
+        wep_dex_pct: 100,
+        wsm: 0,
+        wclass: "bow".to_string(),
+        can_zeal: false,
+        ..Default::default()
+    };
+    let shield = ItemSpec {
+        name: "Res Shield".to_string(),
+        slot: "shield".to_string(),
+        fr: 40,
+        lr: 40,
+        cr: 40,
+        pr: 40,
+        ..Default::default()
+    };
+    let gloves_ias = ItemSpec {
+        name: "IAS Gloves".to_string(),
+        slot: "gloves".to_string(),
+        ias: 20,
+        ..Default::default()
+    };
+    let helm_sk = ItemSpec {
+        name: "Skill Helm".to_string(),
+        slot: "helm".to_string(),
+        all_skills: 1,
+        ..Default::default()
+    };
+    let charms = vec![
+        CharmSpec {
+            name: "Offensive Aura GC".to_string(),
+            size: 3,
+            aura_skills: 1,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Combat GC".to_string(),
+            size: 3,
+            action_skills: 1,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Res SC".to_string(),
+            size: 1,
+            fr: 10,
+            lr: 10,
+            cr: 10,
+            pr: 10,
+            ..Default::default()
+        },
+    ];
+    let items = vec![
+        kinemil.clone(),
+        fast_1h.clone(),
+        thrust_1h.clone(),
+        bow.clone(),
+        shield,
+        gloves_ias,
+        helm_sk,
+    ];
+    let mut c = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        offense: "zeal".to_string(),
+        mode: "leveling".to_string(),
+        base_hell_res: 0,
+        base_str: 60,
+        base_dex: 20,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 6,
+        limit: 3,
+        use_bo: false,
+        aura_hit_dmg: (0..=15).map(|b| 350.0 + b as f64 * 40.0).collect(),
+        aura_pulse_dps: (0..=15).map(|b| 30.0 + b as f64 * 3.5).collect(),
+        action_ed: vec![12; 16],
+        action_hits: (0..=15).map(|b| (2 + b).min(5)).collect(),
+        has_aura: true,
+        ..Default::default()
+    };
+
+    // 1. Verify brute-force parity in both Leveling and LevelingRes modes.
+    for (mode_str, mode_enum) in [
+        ("leveling", SearchMode::Leveling),
+        ("leveling-res", SearchMode::LevelingRes),
+    ] {
+        c.mode = mode_str.to_string();
+        let opt = optimize_builds_core(&items, &charms, &c).unwrap();
+        let bf = brute_force_top_scores(&items, &charms, &c, mode_enum);
+        let opt_scores: Vec<BuildScore> = opt
+            .iter()
+            .map(|r| {
+                let mut sc = validate_and_score_result(r, &c, mode_enum);
+                sc.locality = 0;
+                sc
+            })
+            .collect();
+        assert_eq!(opt_scores[0], bf[0], "top score mismatch in {mode_str}");
+    }
+
+    // 2. Verify bow falls back to Attack (used_zeal == false) and 1hs beats 1ht (F_last 15 vs 17).
+    let s = Stats {
+        str_bonus: 60,
+        dex_bonus: 20,
+        ias: 20,
+        ..Default::default()
+    };
+    let (bow_dps, _, _, bow_zeal) = OffenseProfile::Zeal.compute_dps(bow.hand_weapon(), s, &c);
+    let (flail_dps, _, _, flail_zeal) =
+        OffenseProfile::Zeal.compute_dps(fast_1h.hand_weapon(), s, &c);
+    let (thrust_dps, _, _, thrust_zeal) =
+        OffenseProfile::Zeal.compute_dps(thrust_1h.hand_weapon(), s, &c);
+    assert!(!bow_zeal);
+    assert!(flail_zeal && thrust_zeal);
+    assert!(flail_dps > thrust_dps, "1hs F_last=15 must out-DPS 1ht F_last=17");
+    assert!(flail_dps > bow_dps, "1h Zeal must out-DPS bow Attack fallback");
 }

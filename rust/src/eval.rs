@@ -4,8 +4,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::types::{
-    compute_effective_gear_stats, equipped_weapon_speed, BuildConstraints, BuildResult, CharClass,
-    CharmSpec, ItemSpec, OffenseProfile, Stats, WeaponClass, BASE_MAX_RES, HARD_MAX_RES,
+    compute_effective_gear_stats, equipped_hand_weapon, BuildConstraints, BuildResult, CharClass,
+    CharmSpec, HandWeapon, ItemSpec, OffenseProfile, Stats, BASE_MAX_RES, HARD_MAX_RES,
 };
 
 #[cfg(feature = "python")]
@@ -91,6 +91,10 @@ pub(crate) fn res_caps(max_res: Stats, c: &BuildConstraints) -> (i32, i32, i32, 
 pub(crate) struct EvalSummary {
     pub skills: i32,
     pub primary_skill_bonus: i32,
+    pub action_skill_bonus: i32,
+    pub aura_skill_bonus: i32,
+    pub dps: f64,
+    pub used_zeal: bool,
     pub blizz_skills: i32,
     pub blizz_avg: f64,
     pub cm_pierce: i32,
@@ -138,6 +142,10 @@ impl EvalSummary {
         BuildResult {
             skills: self.skills,
             primary_skill_bonus: self.primary_skill_bonus,
+            action_skill_bonus: self.action_skill_bonus,
+            aura_skill_bonus: self.aura_skill_bonus,
+            dps: self.dps,
+            used_zeal: self.used_zeal,
             blizz_avg: self.blizz_avg,
             cm_pierce: self.cm_pierce,
             fcr: self.fcr,
@@ -180,11 +188,15 @@ impl EvalSummary {
 pub(crate) fn eval_build_summary(
     gear: Stats,
     all_sk_non_wep: i32,
-    (wclass, wsm): (WeaponClass, i32),
+    hand: HandWeapon,
     charms: &[&CharmSpec],
     c: &BuildConstraints,
 ) -> EvalSummary {
     let charm_skills: i32 = charms.iter().map(|ch| ch.skills).sum();
+    let charm_action_skills: i32 = charms.iter().map(|ch| ch.action_skills).sum();
+    let charm_aura_skills: i32 = charms.iter().map(|ch| ch.aura_skills).sum();
+    let charm_str: i32 = charms.iter().map(|ch| ch.str_bonus).sum();
+    let charm_dex: i32 = charms.iter().map(|ch| ch.dex_bonus).sum();
     let charm_fhr: i32 = charms.iter().map(|ch| ch.fhr).sum();
     let charm_frw: i32 = charms.iter().map(|ch| ch.frw).sum();
     let charm_mf: i32 = charms.iter().map(|ch| ch.mf).sum();
@@ -244,11 +256,30 @@ pub(crate) fn eval_build_summary(
     };
     let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear, c);
     let offense = OffenseProfile::parse(&c.offense, class).unwrap_or(OffenseProfile::Caster);
-    let (ias_bp, ias_frames) = offense.attack_speed(wclass, wsm, gear.ias);
+    let action_skill_bonus = gear.action_skill_bonus + charm_action_skills;
+    let aura_skill_bonus = gear.aura_skill_bonus + charm_aura_skills;
+    let (dps, ias_bp, ias_frames, used_zeal) = if offense.uses_dps_tables(c) {
+        let combined = Stats {
+            all_skills: gear.all_skills + charm_skills,
+            action_skill_bonus,
+            aura_skill_bonus,
+            str_bonus: c.base_str + gear.str_bonus + charm_str,
+            dex_bonus: c.base_dex + gear.dex_bonus + charm_dex,
+            ..gear
+        };
+        offense.compute_dps(hand, combined, c)
+    } else {
+        let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
+        (0.0, bp, frames, offense == OffenseProfile::Zeal && hand.can_zeal)
+    };
 
     EvalSummary {
         skills,
         primary_skill_bonus: gear.primary_skill,
+        action_skill_bonus,
+        aura_skill_bonus,
+        dps,
+        used_zeal,
         blizz_skills: gear.blizz_skills,
         blizz_avg,
         cm_pierce,
@@ -294,8 +325,8 @@ pub(crate) fn eval_build_core(
     evaluated_candidates: usize,
 ) -> BuildResult {
     let (gear, all_sk_non_wep) = compute_effective_gear_stats(items);
-    let wep_speed = equipped_weapon_speed(items);
-    eval_build_summary(gear, all_sk_non_wep, wep_speed, charms, c).into_result(
+    let hand = equipped_hand_weapon(items);
+    eval_build_summary(gear, all_sk_non_wep, hand, charms, c).into_result(
         items,
         charms,
         evaluated_candidates,
