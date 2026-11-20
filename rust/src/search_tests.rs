@@ -2464,4 +2464,18 @@ fn sorc_blizzard_caster_dps_cold_pct_fcr_and_brute_force_parity() {
     let dps_gs_3 = OffenseProfile::Caster.compute_caster_dps(s, &c);
     assert!(dps_ib_3 > dps_ib_1);
     assert!(dps_gs_3 > dps_ib_3);
+
+    // Verify discrete cycle monotonicity across all Sorceress FCR breakpoints (0..=200).
+    let mut prev_dps = 0.0_f64;
+    for &fcr in &[0, 9, 20, 37, 63, 105, 200] {
+        let sf = Stats {
+            all_skills: 10,
+            fcr,
+            cold_dmg_pct: 20,
+            ..Default::default()
+        };
+        let d = OffenseProfile::Caster.compute_caster_dps(sf, &c);
+        assert!(d >= prev_dps, "caster DPS must be monotone in FCR: {d} < {prev_dps} at {fcr}");
+        prev_dps = d;
+    }
 }

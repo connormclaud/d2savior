@@ -208,21 +208,22 @@ impl OffenseProfile {
         self == Self::Caster && !c.blizz_dmg.is_empty()
     }
 
-    pub(crate) fn sorc_cast_frames(fcr: i32) -> i32 {
+    /// Return `(cast_frames, action_frame)` for Sorceress standard cast (`SC`, FPD=14, AF=7).
+    pub(crate) fn sorc_cast_and_action_frames(fcr: i32) -> (i32, i32) {
         if fcr >= 200 {
-            7
+            (7, 4)
         } else if fcr >= 105 {
-            8
+            (8, 5)
         } else if fcr >= 63 {
-            9
+            (9, 5)
         } else if fcr >= 37 {
-            10
+            (10, 6)
         } else if fcr >= 20 {
-            11
+            (11, 6)
         } else if fcr >= 9 {
-            12
+            (12, 7)
         } else {
-            13
+            (13, 7)
         }
     }
 
@@ -233,23 +234,33 @@ impl OffenseProfile {
         let targets = c.targets.max(1) as f64;
         let cold_mult = 1.0 + s.cold_dmg_pct.max(0) as f64 / 100.0;
         let eff_blizz = (s.all_skills + s.sorc_skills + s.blizz_skills).max(0) as usize;
-        let blizz_hit = c.blizz_dmg[eff_blizz.min(c.blizz_dmg.len() - 1)] * cold_mult;
-        // Blizzard: avg 3 shard hits per cast, recast on 45-frame (1.8s) cooldown, AoE across targets.
-        let blizz_dps = blizz_hit * (3.0 / 1.8) * targets;
+        let blizz_per_cast =
+            c.blizz_dmg[eff_blizz.min(c.blizz_dmg.len() - 1)] * cold_mult * 3.0 * targets;
 
-        let filler_dps = if c.filler_dmg.is_empty() {
-            0.0
-        } else {
-            let eff_filler =
-                (s.all_skills + s.sorc_skills + s.action_skill_bonus).max(0) as usize;
-            let filler_hit = c.filler_dmg[eff_filler.min(c.filler_dmg.len() - 1)] * cold_mult;
-            let cast_f = Self::sorc_cast_frames(s.fcr) as f64;
-            let filler_rate = 25.0 * (45.0 - cast_f) / (45.0 * cast_f);
-            let filler_mult = if c.filler_is_aoe { targets } else { 1.0 };
-            filler_hit * filler_rate * filler_mult
-        };
+        let (cast_f, action_f) = Self::sorc_cast_and_action_frames(s.fcr);
+        let cd_ready = action_f + 45;
 
-        blizz_dps + filler_dps
+        if c.filler_dmg.is_empty() {
+            return blizz_per_cast * (25.0 / cd_ready as f64);
+        }
+
+        let eff_filler = (s.all_skills + s.sorc_skills + s.action_skill_bonus).max(0) as usize;
+        let filler_mult = if c.filler_is_aoe { targets } else { 1.0 };
+        let filler_per_cast =
+            c.filler_dmg[eff_filler.min(c.filler_dmg.len() - 1)] * cold_mult * filler_mult;
+
+        // Discrete Blizzard + filler cycle: compare idle (k_idle fillers, cycle = cd_ready)
+        // vs over-cast (k_over fillers, cycle = (1 + k_over) * cast_f). Strictly monotone in FCR.
+        let rem = (cd_ready - cast_f).max(0);
+        let k_idle = rem / cast_f;
+        let dps_idle = (blizz_per_cast + k_idle as f64 * filler_per_cast) * (25.0 / cd_ready as f64);
+
+        let k_over = (rem + cast_f - 1) / cast_f;
+        let cycle_over = (1 + k_over) * cast_f;
+        let dps_over =
+            (blizz_per_cast + k_over as f64 * filler_per_cast) * (25.0 / cycle_over as f64);
+
+        dps_idle.max(dps_over)
     }
 
     pub(crate) fn weapon_anim_key(

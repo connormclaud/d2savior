@@ -134,6 +134,9 @@ def detect_paladin_spec(
     skills = char_data.skills.skill_levels if char_data.skills else ()
     if len(skills) < 30:
         return "leveling"
+    if right_skill == -1:
+        eff_left = left_skill if left_skill is not None else char_data.left_skill_1
+        return "zeal" if eff_left == _SKILL_ID_ZEAL else "leveling"
     if right_skill is not None and right_skill > 0:
         for spec_name in ("holy-fire", "holy-freeze", "holy-shock"):
             if PALADIN_SPEC_INFO[spec_name][0] == right_skill:
