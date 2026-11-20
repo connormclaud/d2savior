@@ -29,6 +29,7 @@ _SKILL_BLIZZARD = 59
 _SKILL_COLD_MASTERY = 65
 _SKILL_ZEAL = 106
 _FLAT_ELEM_PIDS: frozenset[int] = frozenset({48, 49, 50, 51, 52, 53, 54, 55})
+_ETH_SAFE_PIDS: frozenset[int] = frozenset({152, 252, 253})
 _ELEMENTAL_AURA_SPECS: frozenset[str] = frozenset({"holy-fire", "holy-freeze", "holy-shock"})
 
 _CLASS_EXCLUSIVE_TYPES: tuple[tuple[str, int], ...] = (
@@ -470,6 +471,7 @@ def _compute_weapon_phys_2x(
     add_max_1h = 0
     add_min_2h = 0
     add_max_2h = 0
+    flat_dmg = 0
     for pid, val, params in props:
         pval = params[0] if params else val
         if pid == 17:
@@ -484,6 +486,8 @@ def _compute_weapon_phys_2x(
             add_min_2h += pval
         elif pid == 24:
             add_max_2h += pval
+        elif pid == 111:
+            flat_dmg += pval
         elif pid in (218, 219):
             scaled = adjust_property_values(
                 pid, [pval], resolver.data.get_stat(pid), char_level=char_level
@@ -505,8 +509,8 @@ def _compute_weapon_phys_2x(
 
     add_min = add_min_2h if (slot == "weapon2h" and add_min_2h > 0) else add_min_1h
     add_max = add_max_2h if (slot == "weapon2h" and add_max_2h > 0) else add_max_1h
-    eff_min = (base_min * (100 + ed_min)) // 100 + add_min
-    eff_max = (base_max * (100 + ed_max)) // 100 + add_max
+    eff_min = (base_min * (100 + ed_min)) // 100 + add_min + flat_dmg
+    eff_max = (base_max * (100 + ed_max)) // 100 + add_max + flat_dmg
 
     w_type = w_info.type.lower() if w_info.type else ""
     can_zeal = bool(w_type) and resolver.is_descendant(w_type, "mele")
@@ -681,6 +685,18 @@ def _resolve_item_set_info(
     return group_id, ext.set_id + 1, bonuses
 
 
+def _is_eth_weapon_breakable(
+    item: D2Item,
+    w_info: object,
+    props: Sequence[tuple[int, int, list[int]]],
+) -> bool:
+    if not item.is_ethereal:
+        return False
+    if getattr(w_info, "nodurability", False):
+        return False
+    return not any(pid in _ETH_SAFE_PIDS for pid, _, _ in props)
+
+
 def _item_to_spec(
     item: D2Item,
     loc: str,
@@ -693,6 +709,7 @@ def _item_to_spec(
     pal_offense: str | None = None,
     set_group_ids: dict[str, int] | None = None,
     skip_useful_check: bool = False,
+    allow_eth_melee: bool = False,
 ) -> ItemSpec | CharmSpec | None:
     if item.location == ItemLocation.SOCKET:
         return None
@@ -766,6 +783,14 @@ def _item_to_spec(
     wep_dex_pct = 0
     can_zeal = False
     if is_weapon and (w_info := resolver.data.get_item(code)) is not None:
+        if (
+            not skip_useful_check
+            and not allow_eth_melee
+            and char_class == int(CharClass.PALADIN)
+            and resolved_offense in ("zeal", "melee")
+            and _is_eth_weapon_breakable(item, w_info, props)
+        ):
+            return None
         wsm = w_info.speed
         wclass = w_info.two_handed_wclass or w_info.wclass
         wep_phys_2x, wep_str_pct, wep_dex_pct, can_zeal = _compute_weapon_phys_2x(
@@ -787,8 +812,12 @@ def _item_to_spec(
     if not skip_useful_check and set_group == 0 and not has_useful_stat and not has_weapon_dps:
         return None
 
+    display_name = get_item_display_name(item, resolver=resolver, version=version)
+    if is_weapon and item.is_ethereal and not display_name.endswith(" (eth)"):
+        display_name = f"{display_name} (eth)"
+
     return acc.to_item_spec(
-        name=get_item_display_name(item, resolver=resolver, version=version),
+        name=display_name,
         slot=slot,
         loc=loc,
         req_str=_effective_req(base_req_str, item.is_ethereal, acc.req_pct),
@@ -828,6 +857,7 @@ def _extract_char_specs(
     pal_offense: str,
     resolver: GameDataResolver,
     set_group_ids: dict[str, int],
+    allow_eth_melee: bool = False,
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
     ver = char.version or 0x63
     char_resolver = resolver.for_version(ver)
@@ -867,6 +897,7 @@ def _extract_char_specs(
             pal_offense=pal_offense,
             set_group_ids=set_group_ids,
             skip_useful_check=use_active_eq,
+            allow_eth_melee=allow_eth_melee,
         )
         if isinstance(spec, ItemSpec):
             char_items.append((_char_item_locality_rank(it), spec))
@@ -891,6 +922,7 @@ def extract_pool(
     *,
     pal_spec: str | None = None,
     keep_equipped: bool = False,
+    allow_eth_melee: bool = False,
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
     """Extract class-equippable ItemSpecs and CharmSpecs across characters and shared stashes."""
     if resolver is None:
@@ -933,6 +965,7 @@ def extract_pool(
         pal_offense=resolved_pal_offense,
         resolver=resolver,
         set_group_ids=set_group_ids,
+        allow_eth_melee=allow_eth_melee,
     )
     items_out.extend(ch_items)
     charms_out.extend(ch_charms)
@@ -957,6 +990,7 @@ def extract_pool(
                     pal_spec=resolved_pal_spec,
                     pal_offense=resolved_pal_offense,
                     set_group_ids=set_group_ids,
+                    allow_eth_melee=allow_eth_melee,
                 )
                 if isinstance(spec, ItemSpec):
                     items_out.append(spec)
@@ -975,6 +1009,7 @@ def extract_pool(
             pal_offense=resolved_pal_offense,
             resolver=resolver,
             set_group_ids=set_group_ids,
+            allow_eth_melee=allow_eth_melee,
         )
         items_out.extend(ch_items)
         charms_out.extend(ch_charms)

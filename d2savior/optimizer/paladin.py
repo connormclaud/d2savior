@@ -299,16 +299,20 @@ def _step_below_bp(bp: int, table: tuple[int, ...]) -> int | None:
     return lower[-1] if lower else None
 
 
-def _eff_paladin_skills(res: BuildResult) -> int:
-    extra = getattr(res, "aura_skill_bonus", 0) or getattr(res, "action_skill_bonus", 0)
+def _eff_paladin_skills(res: BuildResult, *, has_aura: bool = False) -> int:
+    extra = (
+        getattr(res, "aura_skill_bonus", 0) if has_aura else getattr(res, "action_skill_bonus", 0)
+    )
     return res.skills + res.primary_skill_bonus + extra
 
 
-def _result_dedup_key(res: BuildResult, *, is_caster: bool = False) -> tuple[object, ...]:
+def _result_dedup_key(
+    res: BuildResult, *, is_caster: bool = False, has_aura: bool = False
+) -> tuple[object, ...]:
     return (
         res.fhr_bp,
         res.fcr_bp if is_caster else 0,
-        _eff_paladin_skills(res),
+        _eff_paladin_skills(res, has_aura=has_aura),
         round(getattr(res, "dps", 0.0)),
         res.cb,
         res.ias_bp,
@@ -364,10 +368,17 @@ def _describe_lower_fhr_tradeoff(
 
 
 def _describe_paladin_tradeoff(
-    opt1: BuildResult, res: BuildResult, *, is_caster: bool, is_smite: bool
+    opt1: BuildResult,
+    res: BuildResult,
+    *,
+    is_caster: bool,
+    is_smite: bool,
+    has_aura: bool = False,
 ) -> str:
     res_diff = (res.fr + res.lr + res.cr + res.pr) - (opt1.fr + opt1.lr + opt1.cr + opt1.pr)
-    sk_diff = _eff_paladin_skills(res) - _eff_paladin_skills(opt1)
+    sk_diff = _eff_paladin_skills(res, has_aura=has_aura) - _eff_paladin_skills(
+        opt1, has_aura=has_aura
+    )
     dps1 = getattr(opt1, "dps", 0.0)
     dps2 = getattr(res, "dps", 0.0)
     if res.fhr_bp < opt1.fhr_bp:
@@ -445,10 +456,13 @@ def _collect_paladin_alternatives(
     is_caster: bool,
     is_smite: bool,
 ) -> list[tuple[str, BuildResult]]:
+    has_aura = baseline.has_aura
     collected: list[tuple[str, BuildResult]] = [
         (_format_opt1_label(opt1, is_caster=is_caster), opt1)
     ]
-    seen: set[tuple[object, ...]] = {_result_dedup_key(opt1, is_caster=is_caster)}
+    seen: set[tuple[object, ...]] = {
+        _result_dedup_key(opt1, is_caster=is_caster, has_aura=has_aura)
+    }
 
     def try_add(constraints: BuildConstraints) -> None:
         if len(collected) >= limit:
@@ -456,13 +470,13 @@ def _collect_paladin_alternatives(
         for res in optimize_builds(items, charms, constraints):
             if len(collected) >= limit:
                 return
-            key = _result_dedup_key(res, is_caster=is_caster)
+            key = _result_dedup_key(res, is_caster=is_caster, has_aura=has_aura)
             if key not in seen:
                 seen.add(key)
                 collected.append(
                     (
                         _describe_paladin_tradeoff(
-                            opt1, res, is_caster=is_caster, is_smite=is_smite
+                            opt1, res, is_caster=is_caster, is_smite=is_smite, has_aura=has_aura
                         ),
                         res,
                     )

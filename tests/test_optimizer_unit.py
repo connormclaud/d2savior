@@ -189,6 +189,10 @@ class _FakeBuildResult:
     items: list[_FakeItemSpec] = field(default_factory=list)
     charms: list[_FakeCharmSpec] = field(default_factory=list)
     skills: int = 0
+    action_skill_bonus: int = 0
+    aura_skill_bonus: int = 0
+    dps: float = 0.0
+    used_zeal: bool = False
     primary_skill_bonus: int = 0
     blizz_avg: float = 0.0
     cm_pierce: int = -115
@@ -925,3 +929,108 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
     )
     assert all(it.loc == "sork Equipped" for it in kept_items)
     assert len(kept_charms) > 0
+
+
+def test_split_skill_reporting_eth_filter_and_flat_damage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from typing import cast
+
+    from d2savior.optimizer.extract import _compute_weapon_phys_2x
+    from d2savior.optimizer.paladin import _eff_paladin_skills
+
+    # 1. Split skill reporting: Holy Fire (has_aura=True) must not bleed action_skill_bonus,
+    #    and pure Zeal (has_aura=False) must pick action_skill_bonus even when aura_skill_bonus > 0.
+    r_combat_only = cast(
+        BuildResult,
+        _FakeBuildResult(skills=0, aura_skill_bonus=0, action_skill_bonus=2),
+    )
+    assert _eff_paladin_skills(r_combat_only, has_aura=True) == 0
+    assert _eff_paladin_skills(r_combat_only, has_aura=False) == 2
+
+    r_both = cast(
+        BuildResult,
+        _FakeBuildResult(skills=1, aura_skill_bonus=1, action_skill_bonus=2),
+    )
+    assert _eff_paladin_skills(r_both, has_aura=True) == 2
+    assert _eff_paladin_skills(r_both, has_aura=False) == 3
+
+    rep_hf = format_paladin_leveling_report(
+        "Test",
+        [("Opt", r_combat_only)],
+        primary_skill_name="Holy Fire",
+        primary_skill_base=20,
+    )
+    assert "(Holy Fire lvl 20)" in rep_hf
+
+    rep_zeal = format_paladin_leveling_report(
+        "Test",
+        [("Opt", r_both)],
+        primary_skill_name="Zeal",
+        primary_skill_base=20,
+    )
+    assert "(Zeal lvl 23)" in rep_zeal
+
+    # 2. Flat +Damage (pid 111, item_normaldamage) adds 2*val to wep_phys_2x.
+    resolver = GameDataResolver.load()
+    d2r = resolver.for_version(0x69)
+    wep = D2Item()
+    wep.type_name = b"bsd "
+    phys_no_flat, _, _, _ = _compute_weapon_phys_2x(wep, [], d2r, 85, slot="weapon", code="bsd")
+    phys_grief, _, _, _ = _compute_weapon_phys_2x(
+        wep, [(111, 400, [400])], d2r, 85, slot="weapon", code="bsd"
+    )
+    assert phys_grief == phys_no_flat + 800
+
+    # 3. Breakable eth melee weapon filtered by default; indestructible/allow_eth_melee kept + tagged (eth).
+    monkeypatch.setattr("d2savior.optimizer.extract.ItemSpec", _FakeItemSpec)
+    eth_wep = D2Item()
+    eth_wep.type_name = b"mau "
+    eth_wep.is_ethereal = True
+    monkeypatch.setattr(
+        "d2savior.optimizer.extract.collect_item_properties",
+        lambda *a, **kw: [(17, 200, [200]), (18, 200, [200])],
+    )
+    assert (
+        _item_to_spec(
+            eth_wep,
+            "loc",
+            d2r,
+            0x69,
+            30,
+            char_class=int(CharClass.PALADIN),
+            pal_spec="holy-fire",
+            pal_offense="zeal",
+        )
+        is None
+    )
+    kept_opt = _item_to_spec(
+        eth_wep,
+        "loc",
+        d2r,
+        0x69,
+        30,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="holy-fire",
+        pal_offense="zeal",
+        allow_eth_melee=True,
+    )
+    assert isinstance(kept_opt, _FakeItemSpec)
+    assert kept_opt.name.endswith(" (eth)")
+
+    monkeypatch.setattr(
+        "d2savior.optimizer.extract.collect_item_properties",
+        lambda *a, **kw: [(17, 200, [200]), (152, 1, [1])],
+    )
+    indes_opt = _item_to_spec(
+        eth_wep,
+        "loc",
+        d2r,
+        0x69,
+        30,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="holy-fire",
+        pal_offense="zeal",
+    )
+    assert isinstance(indes_opt, _FakeItemSpec)
+    assert indes_opt.name.endswith(" (eth)")

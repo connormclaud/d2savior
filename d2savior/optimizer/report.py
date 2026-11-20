@@ -83,6 +83,9 @@ def _format_charm_diff_lines(
     ]
 
 
+_AURA_PRIMARY_NAMES: frozenset[str] = frozenset({"Holy Fire", "Holy Freeze", "Holy Shock"})
+
+
 def _format_paladin_option_lines(
     header: str,
     res: BuildResult,
@@ -92,10 +95,16 @@ def _format_paladin_option_lines(
     primary_skill_name: str | None,
     primary_skill_base: int,
     primary_inv_loc: str | None,
+    has_aura: bool | None = None,
 ) -> list[str]:
     lines = [header]
     if primary_skill_name:
-        extra_skill = getattr(res, "aura_skill_bonus", 0) or getattr(res, "action_skill_bonus", 0)
+        is_aura = has_aura if has_aura is not None else (primary_skill_name in _AURA_PRIMARY_NAMES)
+        extra_skill = (
+            getattr(res, "aura_skill_bonus", 0)
+            if is_aura
+            else getattr(res, "action_skill_bonus", 0)
+        )
         total_lvl = primary_skill_base + res.skills + res.primary_skill_bonus + extra_skill
         skill_str = f"Skills: +{res.skills} ({primary_skill_name} lvl {total_lvl})"
     else:
