@@ -11,6 +11,11 @@ def get_config_path() -> Path:
     return platformdirs.user_config_path("d2savior") / "config.toml"
 
 
+def get_presets_dir() -> Path:
+    """Return the platform-specific directory for user preset TOML files."""
+    return platformdirs.user_config_path("d2savior") / "presets"
+
+
 def load_save_dir(config_path: Path | None = None) -> Path | None:
     """Load the save_dir path from config.toml if present and valid."""
     path = config_path or get_config_path()

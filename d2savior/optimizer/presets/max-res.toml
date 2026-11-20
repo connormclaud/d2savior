@@ -1,0 +1,11 @@
+mode = "max-res"
+allow_mf = true
+
+[sorceress]
+title = "4. Max Resist (63% FCR, 60% FHR, Max All Res)"
+min_fcr = 63
+min_fhr = 60
+min_fr = 75
+min_lr = 75
+min_cr = 75
+min_pr = 75

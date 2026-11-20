@@ -1,0 +1,5 @@
+[sorceress]
+presets = ["base", "mf-speed", "mf-pure", "tz", "max-res"]
+
+[paladin]
+presets = ["leveling"]

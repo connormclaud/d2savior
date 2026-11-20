@@ -1,0 +1,10 @@
+title = "2A. Max MF & Boss Farm — Speed (105% FCR, 60% FHR, 75% F/L/C)"
+class = "sorceress"
+mode = "mf"
+allow_mf = true
+min_fcr = 105
+min_fhr = 60
+min_fr = 75
+min_lr = 75
+min_cr = 75
+min_pr = 0

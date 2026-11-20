@@ -1,0 +1,10 @@
+title = "2B. Max MF & Boss Farm — Pure MF (63% FCR, 60% FHR, 75% F/L/C)"
+class = "sorceress"
+mode = "mf"
+allow_mf = true
+min_fcr = 63
+min_fhr = 60
+min_fr = 75
+min_lr = 75
+min_cr = 75
+min_pr = 0

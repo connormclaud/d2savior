@@ -1,0 +1,4 @@
+class = "paladin"
+strategy = "leveling-probe"
+mode = "leveling-res"
+allow_mf = true

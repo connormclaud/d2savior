@@ -1,0 +1,10 @@
+title = "1. 0% MF Base Hunting (105% FCR, 86% FHR, 75% All Res)"
+class = "sorceress"
+mode = "power"
+allow_mf = false
+min_fcr = 105
+min_fhr = 86
+min_fr = 75
+min_lr = 75
+min_cr = 75
+min_pr = 75

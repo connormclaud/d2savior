@@ -1,0 +1,2 @@
+class = "sorceress"
+presets = ["mf-speed", "mf-pure"]
