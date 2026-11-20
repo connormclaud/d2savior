@@ -474,11 +474,11 @@ def test_paladin_pure_helpers_and_tradeoff_descriptions() -> None:
         _describe_lower_fhr_tradeoff(
             base, _as_result(_FakeBuildResult(fhr_bp=27, life_bo=400)), sk_diff=0, res_diff=0
         )
-        == "Lower FHR BP (27%)"
+        == "Lower FHR BP (27%, 6f)"
     )
 
     # All branches of _describe_paladin_tradeoff
-    assert "Lower FHR BP (27%)" in _describe_paladin_tradeoff(
+    assert "Lower FHR BP (27%, 6f)" in _describe_paladin_tradeoff(
         base,
         _as_result(_FakeBuildResult(fhr_bp=27, fr=60, lr=50, cr=50, pr=50)),
         is_caster=False,
@@ -491,7 +491,7 @@ def test_paladin_pure_helpers_and_tradeoff_descriptions() -> None:
             is_caster=True,
             is_smite=False,
         )
-        == "Lower FCR BP (30%) — Better Resists"
+        == "Lower FCR BP (30%, 12f) — Better Resists"
     )
     assert (
         _describe_paladin_tradeoff(
@@ -502,7 +502,7 @@ def test_paladin_pure_helpers_and_tradeoff_descriptions() -> None:
             is_caster=True,
             is_smite=False,
         )
-        == "Lower FCR BP (30%) — Higher Skills"
+        == "Lower FCR BP (30%, 12f) — Higher Skills"
     )
     assert (
         _describe_paladin_tradeoff(
@@ -513,7 +513,7 @@ def test_paladin_pure_helpers_and_tradeoff_descriptions() -> None:
             is_caster=True,
             is_smite=False,
         )
-        == "Lower FCR BP (30%)"
+        == "Lower FCR BP (30%, 12f)"
     )
     assert (
         _describe_paladin_tradeoff(

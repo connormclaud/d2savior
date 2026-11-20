@@ -356,7 +356,8 @@ def _describe_lower_fhr_tradeoff(
     sk_diff: int,
     res_diff: int,
 ) -> str:
-    prefix = f"Lower FHR BP ({res.fhr_bp}%)"
+    frames = PALADIN_FHR_FRAMES.get(res.fhr_bp, 9)
+    prefix = f"Lower FHR BP ({res.fhr_bp}%, {frames}f)"
     dps1 = getattr(opt1, "dps", 0.0)
     dps2 = getattr(res, "dps", 0.0)
     gained_dps = dps2 > dps1 * 1.02 if dps1 > 0.0 else False
@@ -405,11 +406,12 @@ def _describe_paladin_tradeoff(
     if res.fhr_bp < opt1.fhr_bp:
         return _describe_lower_fhr_tradeoff(opt1, res, sk_diff=sk_diff, res_diff=res_diff)
     if is_caster and res.fcr_bp < opt1.fcr_bp:
+        fcr_f = PALADIN_FCR_FRAMES.get(res.fcr_bp, 15)
         if res_diff > 0:
-            return f"Lower FCR BP ({res.fcr_bp}%) — Better Resists"
+            return f"Lower FCR BP ({res.fcr_bp}%, {fcr_f}f) — Better Resists"
         if sk_diff > 0:
-            return f"Lower FCR BP ({res.fcr_bp}%) — Higher Skills"
-        return f"Lower FCR BP ({res.fcr_bp}%)"
+            return f"Lower FCR BP ({res.fcr_bp}%, {fcr_f}f) — Higher Skills"
+        return f"Lower FCR BP ({res.fcr_bp}%, {fcr_f}f)"
     if res_diff > 0:
         return "Max Resist Cap"
     if is_smite and res.cb > opt1.cb:

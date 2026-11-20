@@ -18,7 +18,7 @@ Option #1: High Breakpoint (27% FHR, 6f) (evaluated 1 pruned sets):
       - remove: Iron Large Charm of Inertia, Ocher Small Charm, Lapis Small Charm, Bronze Small Charm of Balance, Lapis Small Charm
       - keep  : Tangerine Small Charm of Balance, Small Charm of Balance, Russet Small Charm, Ocher Small Charm of Sustenance, Shimmering Large Charm, Shimmering Large Charm, Russet Grand Charm, Sapphire Grand Charm, Grand Charm of Balance
       - add   : Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Amber Large Charm of Greed [Stash Tab 5], Jade Large Charm of Balance [Stash Tab 5]
-Option #2: Lower FHR BP (15%) — Better Resists (evaluated 1 pruned sets):
+Option #2: Lower FHR BP (15%, 7f) — Better Resists (evaluated 1 pruned sets):
   DPS: 1021 (Attack) | Skills: +2 (Holy Fire lvl 22) | CBF: Yes | IAS: 30% (BP 30%, 12f) | CB: 0%
   FHR: 18% (BP 15%, 7f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
   Normal Res: F:71%(71) L:49%(49) C:75%(76) P:75%(77)
@@ -37,7 +37,7 @@ Option #2: Lower FHR BP (15%) — Better Resists (evaluated 1 pruned sets):
       - remove: Iron Large Charm of Inertia, Ocher Small Charm, Lapis Small Charm, Bronze Small Charm of Balance, Lapis Small Charm, Grand Charm of Balance
       - keep  : Tangerine Small Charm of Balance, Small Charm of Balance, Russet Small Charm, Ocher Small Charm of Sustenance, Shimmering Large Charm, Shimmering Large Charm, Russet Grand Charm, Sapphire Grand Charm
       - add   : Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Jade Grand Charm of Thunder [Stash Tab 5], Amber Large Charm of Greed [Stash Tab 5], Sapphire Large Charm [Stash Tab 5], Jade Large Charm of Balance [Stash Tab 5]
-Option #3: Lower FHR BP (0%) — Better Resists (evaluated 1 pruned sets):
+Option #3: Lower FHR BP (0%, 9f) — Better Resists (evaluated 1 pruned sets):
   DPS: 1021 (Attack) | Skills: +2 (Holy Fire lvl 22) | CBF: Yes | IAS: 30% (BP 30%, 12f) | CB: 0%
   FHR: 5% (BP 0%, 9f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
   Normal Res: F:76%(77) L:55%(55) C:75%(76) P:74%(74)
