@@ -944,7 +944,6 @@ def test_format_build_report_charm_diff_and_inventory_order() -> None:
     ]
 
 
-@requires_native
 def test_paladin_prop_extraction_and_detect_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     assert PALADIN_BUILD_CHOICES == ("leveling",)
     for legacy_spec in ("holy-fire", "hammer", "foh", "smite"):
