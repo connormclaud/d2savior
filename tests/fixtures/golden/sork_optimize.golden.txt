@@ -7,7 +7,7 @@
 === 2B. Max MF & Boss Farm — Pure MF (63% FCR, 60% FHR, 75% F/L/C) ===
 Option #1 (evaluated 30 pruned sets):
   DPS: 4475 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 102%
+  FCR: 65% (BP 63%, 9f) | FHR: 60% (BP 60%, 8f) | FRW: 30% | MF: 102%
   Hell Res: F:75%(78) L:75%(75) C:75%(82) P:35%(35)
   Life: 1013 (BO lvl 4: 1427) | Mana (BO): 358 | Charm slots: 17
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
@@ -26,7 +26,7 @@ Option #1 (evaluated 30 pruned sets):
       - add   : Bronze Small Charm of Balance [Stash Tab 5], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
 Option #2 (evaluated 30 pruned sets):
   DPS: 4475 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 102%
+  FCR: 65% (BP 63%, 9f) | FHR: 60% (BP 60%, 8f) | FRW: 30% | MF: 102%
   Hell Res: F:75%(78) L:75%(75) C:75%(82) P:35%(35)
   Life: 1013 (BO lvl 4: 1427) | Mana (BO): 358 | Charm slots: 17
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
@@ -45,7 +45,7 @@ Option #2 (evaluated 30 pruned sets):
       - add   : Bronze Small Charm of Balance [Stash Tab 5], Small Charm of Fortune [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
 Option #3 (evaluated 30 pruned sets):
   DPS: 4475 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | FRW: 30% | MF: 102%
+  FCR: 65% (BP 63%, 9f) | FHR: 60% (BP 60%, 8f) | FRW: 30% | MF: 102%
   Hell Res: F:75%(78) L:75%(75) C:75%(82) P:35%(35)
   Life: 993 (BO lvl 4: 1399) | Mana (BO): 358 | Charm slots: 17
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
@@ -69,7 +69,7 @@ Option #3 (evaluated 30 pruned sets):
 === 4. Max Resist (63% FCR, 60% FHR, Max All Res) ===
 Option #1 (evaluated 1222 pruned sets):
   DPS: 4475 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 72% (BP 60%) | FRW: 30% | MF: 50%
+  FCR: 65% (BP 63%, 9f) | FHR: 72% (BP 60%, 8f) | FRW: 30% | MF: 50%
   Hell Res: F:75%(79) L:75%(75) C:75%(88) P:75%(75)
   Life: 1008 (BO lvl 4: 1420) | Mana (BO): 340 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
@@ -88,7 +88,7 @@ Option #1 (evaluated 1222 pruned sets):
       - add   : Iron Large Charm of Sustenance [Stash Tab 5]
 Option #2 (evaluated 1222 pruned sets):
   DPS: 4475 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 72% (BP 60%) | FRW: 30% | MF: 50%
+  FCR: 65% (BP 63%, 9f) | FHR: 72% (BP 60%, 8f) | FRW: 30% | MF: 50%
   Hell Res: F:75%(79) L:75%(75) C:75%(88) P:75%(75)
   Life: 1008 (BO lvl 4: 1420) | Mana (BO): 340 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
@@ -107,7 +107,7 @@ Option #2 (evaluated 1222 pruned sets):
       - add   : Iron Large Charm of Sustenance [Stash Tab 5]
 Option #3 (evaluated 1222 pruned sets):
   DPS: 4475 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
-  FCR: 65% (BP 63%) | FHR: 72% (BP 60%) | FRW: 50% | MF: 50%
+  FCR: 65% (BP 63%, 9f) | FHR: 72% (BP 60%, 8f) | FRW: 50% | MF: 50%
   Hell Res: F:75%(84) L:75%(75) C:75%(80) P:75%(75)
   Life: 1008 (BO lvl 4: 1420) | Mana (BO): 340 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)

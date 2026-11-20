@@ -20,6 +20,13 @@ _SKILL_BLIZZARD = 59
 _SKILL_COLD_MASTERY = 65
 _BLIZZ_SYNERGY_SKILLS: tuple[int, ...] = (39, 45, 55)
 
+SORCERESS_FCR_FRAMES: frozendict[int, int] = frozendict(
+    {0: 13, 9: 12, 20: 11, 37: 10, 63: 9, 105: 8, 200: 7}
+)
+SORCERESS_FHR_FRAMES: frozendict[int, int] = frozendict(
+    {0: 15, 5: 14, 9: 13, 14: 12, 20: 11, 30: 10, 42: 9, 60: 8, 86: 7, 142: 6, 280: 5}
+)
+
 BUILD_PRESET_ALIASES: frozendict[str, tuple[str, ...]] = frozendict(
     {
         "all": ("base", "mf-speed", "mf-pure", "tz", "max-res"),

@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from d2savior.core.enums import CharClass
 from d2savior.optimizer.native import BuildResult, CharmSpec
 from d2savior.optimizer.paladin import PALADIN_FCR_FRAMES, PALADIN_FHR_FRAMES
+from d2savior.optimizer.sorc import SORCERESS_FCR_FRAMES, SORCERESS_FHR_FRAMES
 
 
 def _charm_key(c: CharmSpec) -> tuple[object, ...]:
@@ -187,8 +188,10 @@ def format_build_report(
         lines.append(
             f"  {dps_prefix}Skills: +{res.skills} | Blizz Avg: {res.blizz_avg:.0f} | CM: {res.cm_pierce}%"
         )
+        fcr_f = SORCERESS_FCR_FRAMES.get(res.fcr_bp, 13)
+        fhr_f = SORCERESS_FHR_FRAMES.get(res.fhr_bp, 15)
         lines.append(
-            f"  FCR: {res.fcr}% (BP {res.fcr_bp}%) | FHR: {res.fhr}% (BP {res.fhr_bp}%) | FRW: {res.frw}% | MF: {res.mf}%"
+            f"  FCR: {res.fcr}% (BP {res.fcr_bp}%, {fcr_f}f) | FHR: {res.fhr}% (BP {res.fhr_bp}%, {fhr_f}f) | FRW: {res.frw}% | MF: {res.mf}%"
         )
         lines.append(
             f"  Hell Res: F:{res.fr}%({res.fr_raw}) L:{res.lr}%({res.lr_raw}) C:{res.cr}%({res.cr_raw}) P:{res.pr}%({res.pr_raw})"
