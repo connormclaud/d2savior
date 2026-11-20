@@ -589,9 +589,12 @@ fn build_hands(
     c: &BuildConstraints,
 ) -> Vec<ItemPair> {
     let require_shield = offense.requires_shield();
+    let require_melee = offense.requires_melee() && !c.fixed_gear;
     let mut weapons_1h: Vec<ItemSpec> = items
         .iter()
-        .filter(|i| i.slot == "weapon" && valid_item(i))
+        .filter(|i| {
+            i.slot == "weapon" && valid_item(i) && (!require_melee || i.hand_weapon().can_zeal)
+        })
         .cloned()
         .collect();
     let mut shields: Vec<ItemSpec> = items
@@ -604,7 +607,11 @@ fn build_hands(
     } else {
         items
             .iter()
-            .filter(|i| i.slot == "weapon2h" && valid_item(i))
+            .filter(|i| {
+                i.slot == "weapon2h"
+                    && valid_item(i)
+                    && (!require_melee || i.hand_weapon().can_zeal)
+            })
             .cloned()
             .collect()
     };
@@ -759,14 +766,19 @@ pub(crate) fn normalize_set_items(
     items: &[ItemSpec],
     allow_mf: bool,
     require_shield: bool,
+    require_melee: bool,
     fixed_gear: bool,
 ) -> Vec<ItemSpec> {
+    let excluded = |it: &ItemSpec| {
+        (!allow_mf && it.mf != 0)
+            || (require_shield && it.slot == "weapon2h")
+            || (require_melee
+                && matches!(it.slot.as_str(), "weapon" | "weapon2h")
+                && !it.hand_weapon().can_zeal)
+    };
     let mut group_seen: HashMap<i32, HashSet<i32>> = HashMap::new();
     for (idx, it) in items.iter().enumerate() {
-        if (!allow_mf && it.mf != 0)
-            || (require_shield && it.slot == "weapon2h")
-            || it.set_group == 0
-        {
+        if excluded(it) || it.set_group == 0 {
             continue;
         }
         let eid = if it.set_item_id != 0 {
@@ -779,10 +791,7 @@ pub(crate) fn normalize_set_items(
 
     let mut active_groups: HashSet<i32> = HashSet::new();
     for it in items {
-        if (!allow_mf && it.mf != 0)
-            || (require_shield && it.slot == "weapon2h")
-            || it.set_group == 0
-        {
+        if excluded(it) || it.set_group == 0 {
             continue;
         }
         let max_pcs = group_seen.get(&it.set_group).map_or(0, |s| s.len() as i32);
@@ -846,7 +855,13 @@ pub fn optimize_builds_core(
     };
 
     let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;
-    let norm_items = normalize_set_items(items, c.allow_mf, offense.requires_shield(), c.fixed_gear);
+    let norm_items = normalize_set_items(
+        items,
+        c.allow_mf,
+        offense.requires_shield(),
+        offense.requires_melee() && !c.fixed_gear,
+        c.fixed_gear,
+    );
 
     let hands = build_hands(&norm_items, &valid_item, mode, offense, c);
 

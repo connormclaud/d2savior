@@ -188,6 +188,10 @@ impl OffenseProfile {
         matches!(self, Self::Smite)
     }
 
+    pub(crate) fn requires_melee(self) -> bool {
+        matches!(self, Self::Zeal)
+    }
+
     pub(crate) fn uses_fcr(self) -> bool {
         matches!(self, Self::Caster)
     }

@@ -821,7 +821,8 @@ fn brute_force_top_scores(
     let class = CharClass::from_id(c.char_class).unwrap();
     let offense = OffenseProfile::parse(&c.offense, class).unwrap();
     let require_shield = offense.requires_shield();
-    let norm = normalize_set_items(items, c.allow_mf, require_shield, c.fixed_gear);
+    let require_melee = offense.requires_melee() && !c.fixed_gear;
+    let norm = normalize_set_items(items, c.allow_mf, require_shield, require_melee, c.fixed_gear);
     let items = norm.as_slice();
     let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;
     let empty_shield = ItemSpec::empty("shield");
@@ -830,7 +831,9 @@ fn brute_force_top_scores(
 
     let mut w1h: Vec<ItemSpec> = items
         .iter()
-        .filter(|i| i.slot == "weapon" && valid_item(i))
+        .filter(|i| {
+            i.slot == "weapon" && valid_item(i) && (!require_melee || i.hand_weapon().can_zeal)
+        })
         .cloned()
         .collect();
     let mut shs: Vec<ItemSpec> = items
@@ -843,7 +846,11 @@ fn brute_force_top_scores(
     } else {
         items
             .iter()
-            .filter(|i| i.slot == "weapon2h" && valid_item(i))
+            .filter(|i| {
+                i.slot == "weapon2h"
+                    && valid_item(i)
+                    && (!require_melee || i.hand_weapon().can_zeal)
+            })
             .cloned()
             .collect()
     };
@@ -1926,7 +1933,7 @@ fn test_set_bonus_2pc_unlocks_ias_and_ignores_duplicate_rings() {
     anon_bonus.ias = 20;
     anon_a.set_bonuses = vec![(2, anon_bonus.clone())];
     anon_b.set_bonuses = vec![(2, anon_bonus)];
-    let norm = normalize_set_items(&[anon_a, anon_b, anon_shield], true, false, false);
+    let norm = normalize_set_items(&[anon_a, anon_b, anon_shield], true, false, false, false);
     assert_eq!(norm.len(), 3);
     assert_eq!(norm[0].set_item_id, -1);
     assert_eq!(norm[1].set_item_id, -2);
@@ -2372,6 +2379,14 @@ fn paladin_explosive_arrow_splash_targets_and_brute_force_parity() {
     c.aura_is_fire = false;
     let res_cold = optimize_builds_core(&items, &[], &c).unwrap();
     assert_eq!(res_cold[0].items[0].name, "Spirit");
+
+    // 3 targets with Holy Fire in Zeal mode: ranged weapons (Raven Claw) are excluded; Spirit Zeals.
+    c.aura_is_fire = true;
+    c.offense = "zeal".to_string();
+    c.action_hits = vec![5; 11];
+    let res_zeal = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res_zeal[0].items[0].name, "Spirit");
+    assert!(res_zeal[0].used_zeal);
 }
 
 #[test]
