@@ -200,6 +200,54 @@ impl OffenseProfile {
         self.is_melee_dps() && !c.action_hits.is_empty()
     }
 
+    pub(crate) fn uses_caster_dps(self, c: &BuildConstraints) -> bool {
+        self == Self::Caster && !c.blizz_dmg.is_empty()
+    }
+
+    pub(crate) fn sorc_cast_frames(fcr: i32) -> i32 {
+        if fcr >= 200 {
+            7
+        } else if fcr >= 105 {
+            8
+        } else if fcr >= 63 {
+            9
+        } else if fcr >= 37 {
+            10
+        } else if fcr >= 20 {
+            11
+        } else if fcr >= 9 {
+            12
+        } else {
+            13
+        }
+    }
+
+    pub(crate) fn compute_caster_dps(self, s: Stats, c: &BuildConstraints) -> f64 {
+        if c.blizz_dmg.is_empty() {
+            return 0.0;
+        }
+        let targets = c.targets.max(1) as f64;
+        let cold_mult = 1.0 + s.cold_dmg_pct.max(0) as f64 / 100.0;
+        let eff_blizz = (s.all_skills + s.sorc_skills + s.blizz_skills).max(0) as usize;
+        let blizz_hit = c.blizz_dmg[eff_blizz.min(c.blizz_dmg.len() - 1)] * cold_mult;
+        // Blizzard: avg 3 shard hits per cast, recast on 45-frame (1.8s) cooldown, AoE across targets.
+        let blizz_dps = blizz_hit * (3.0 / 1.8) * targets;
+
+        let filler_dps = if c.filler_dmg.is_empty() {
+            0.0
+        } else {
+            let eff_filler =
+                (s.all_skills + s.sorc_skills + s.action_skill_bonus).max(0) as usize;
+            let filler_hit = c.filler_dmg[eff_filler.min(c.filler_dmg.len() - 1)] * cold_mult;
+            let cast_f = Self::sorc_cast_frames(s.fcr) as f64;
+            let filler_rate = 25.0 * (45.0 - cast_f) / (45.0 * cast_f);
+            let filler_mult = if c.filler_is_aoe { targets } else { 1.0 };
+            filler_hit * filler_rate * filler_mult
+        };
+
+        blizz_dps + filler_dps
+    }
+
     pub(crate) fn weapon_anim_key(
         self,
         mode: SearchMode,
@@ -408,6 +456,7 @@ pub(crate) struct Stats {
     pub(crate) off_ed: i32,
     pub(crate) flat_phys_2x: i32,
     pub(crate) flat_elem_2x: i32,
+    pub(crate) cold_dmg_pct: i32,
     pub(crate) fcr: i32,
     pub(crate) fhr: i32,
     pub(crate) frw: i32,
@@ -478,11 +527,13 @@ impl Stats {
             self.fcr = 0;
         }
         if !offense.is_melee_dps() {
-            self.action_skill_bonus = 0;
             self.aura_skill_bonus = 0;
             self.off_ed = 0;
             self.flat_phys_2x = 0;
             self.flat_elem_2x = 0;
+        }
+        if !offense.uses_fcr() {
+            self.cold_dmg_pct = 0;
         }
         self
     }
@@ -500,6 +551,7 @@ impl Stats {
             off_ed: self.off_ed + o.off_ed,
             flat_phys_2x: self.flat_phys_2x + o.flat_phys_2x,
             flat_elem_2x: self.flat_elem_2x + o.flat_elem_2x,
+            cold_dmg_pct: self.cold_dmg_pct + o.cold_dmg_pct,
             fcr: self.fcr + o.fcr,
             fhr: self.fhr + o.fhr,
             frw: self.frw + o.frw,
@@ -547,6 +599,7 @@ impl Stats {
             off_ed: self.off_ed.max(o.off_ed),
             flat_phys_2x: self.flat_phys_2x.max(o.flat_phys_2x),
             flat_elem_2x: self.flat_elem_2x.max(o.flat_elem_2x),
+            cold_dmg_pct: self.cold_dmg_pct.max(o.cold_dmg_pct),
             fcr: self.fcr.max(o.fcr),
             fhr: self.fhr.max(o.fhr),
             frw: self.frw.max(o.frw),
@@ -593,6 +646,7 @@ impl Stats {
             && self.off_ed >= o.off_ed
             && self.flat_phys_2x >= o.flat_phys_2x
             && self.flat_elem_2x >= o.flat_elem_2x
+            && self.cold_dmg_pct >= o.cold_dmg_pct
             && self.fcr >= o.fcr
             && self.fhr >= o.fhr
             && self.frw >= o.frw
@@ -645,6 +699,7 @@ pub struct ItemSpec {
     pub off_ed: i32,
     pub flat_phys_2x: i32,
     pub flat_elem_2x: i32,
+    pub cold_dmg_pct: i32,
     pub fcr: i32,
     pub fhr: i32,
     pub frw: i32,
@@ -860,6 +915,7 @@ impl ItemSpec {
             off_ed: self.off_ed,
             flat_phys_2x: self.flat_phys_2x,
             flat_elem_2x: self.flat_elem_2x,
+            cold_dmg_pct: self.cold_dmg_pct,
             fcr: self.fcr,
             fhr: self.fhr,
             frw: self.frw,
@@ -917,6 +973,7 @@ impl ItemSpec {
             off_ed: s.off_ed,
             flat_phys_2x: s.flat_phys_2x,
             flat_elem_2x: s.flat_elem_2x,
+            cold_dmg_pct: s.cold_dmg_pct,
             fcr: s.fcr,
             fhr: s.fhr,
             frw: s.frw,
@@ -1028,6 +1085,7 @@ impl ItemSpec {
         can_zeal = false,
         splash_fire = false,
         splash_fire_2x = 0,
+        cold_dmg_pct = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1089,6 +1147,7 @@ impl ItemSpec {
         can_zeal: bool,
         splash_fire: bool,
         splash_fire_2x: i32,
+        cold_dmg_pct: i32,
     ) -> Self {
         Self {
             name,
@@ -1105,6 +1164,7 @@ impl ItemSpec {
             off_ed,
             flat_phys_2x,
             flat_elem_2x,
+            cold_dmg_pct,
             fcr,
             fhr,
             frw,
@@ -1321,6 +1381,9 @@ pub struct BuildConstraints {
     pub has_aura: bool,
     pub aura_is_fire: bool,
     pub targets: i32,
+    pub blizz_dmg: Vec<f64>,
+    pub filler_dmg: Vec<f64>,
+    pub filler_is_aoe: bool,
 }
 
 impl Default for BuildConstraints {
@@ -1360,6 +1423,9 @@ impl Default for BuildConstraints {
             has_aura: false,
             aura_is_fire: false,
             targets: 1,
+            blizz_dmg: Vec::new(),
+            filler_dmg: Vec::new(),
+            filler_is_aoe: false,
         }
     }
 }
@@ -1403,6 +1469,9 @@ impl BuildConstraints {
         has_aura = false,
         aura_is_fire = false,
         targets = 1,
+        blizz_dmg = Vec::new(),
+        filler_dmg = Vec::new(),
+        filler_is_aoe = false,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1440,6 +1509,9 @@ impl BuildConstraints {
         has_aura: bool,
         aura_is_fire: bool,
         targets: i32,
+        blizz_dmg: Vec<f64>,
+        filler_dmg: Vec<f64>,
+        filler_is_aoe: bool,
     ) -> Self {
         Self {
             allow_mf,
@@ -1476,6 +1548,9 @@ impl BuildConstraints {
             has_aura,
             aura_is_fire,
             targets,
+            blizz_dmg,
+            filler_dmg,
+            filler_is_aoe,
         }
     }
 }

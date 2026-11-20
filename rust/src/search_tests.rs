@@ -2373,3 +2373,66 @@ fn paladin_explosive_arrow_splash_targets_and_brute_force_parity() {
     let res_cold = optimize_builds_core(&items, &[], &c).unwrap();
     assert_eq!(res_cold[0].items[0].name, "Spirit");
 }
+
+#[test]
+fn sorc_blizzard_caster_dps_cold_pct_fcr_and_brute_force_parity() {
+    use crate::types::mk_test_item;
+    let mut fathom = mk_test_item("Death's Fathom", "weapon", 20, 0, 3, 20, 0);
+    fathom.cold_dmg_pct = 25;
+    let hoto = mk_test_item("Heart of the Oak", "weapon", 40, 0, 3, 35, 0);
+    let mut nightwing = mk_test_item("Nightwing's Veil", "helm", 0, 0, 2, 0, 0);
+    nightwing.cold_dmg_pct = 15;
+    let shako = mk_test_item("Harlequin Crest", "helm", 0, 0, 2, 0, 50);
+    let spirit = mk_test_item("Spirit", "shield", 35, 55, 2, 35, 0);
+    let viper = mk_test_item("Skin of the Vipermagi", "armor", 30, 0, 1, 30, 0);
+    let arach = mk_test_item("Arachnid Mesh", "belt", 20, 0, 1, 0, 0);
+    let trang = mk_test_item("Trang-Oul's Claws", "gloves", 20, 0, 0, 0, 0);
+    let items = vec![fathom, hoto, nightwing, shako, spirit, viper, arach, trang];
+
+    let mut c = BuildConstraints {
+        char_class: CharClass::SORCERESS_ID,
+        offense: "caster".to_string(),
+        mode: "power".to_string(),
+        base_hell_res: 0,
+        min_fcr: 105,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 0,
+        limit: 2,
+        use_bo: false,
+        blizz_dmg: (0..=20).map(|b| 2200.0 + b as f64 * 260.0).collect(),
+        filler_dmg: (0..=20).map(|b| 1400.0 + b as f64 * 160.0).collect(),
+        filler_is_aoe: false,
+        targets: 1,
+        ..Default::default()
+    };
+
+    let opt = optimize_builds_core(&items, &[], &c).unwrap();
+    let bf = brute_force_top_scores(&items, &[], &c, SearchMode::Power);
+    let mut sc = validate_and_score_result(&opt[0], &c, SearchMode::Power);
+    sc.locality = 0;
+    assert_eq!(sc, bf[0]);
+    // Death's Fathom (+25% cold) + Nightwing's (+15% cold) must beat HOTO + Shako at 105% FCR.
+    let names: Vec<&str> = opt[0].items.iter().map(|i| i.name.as_str()).collect();
+    assert!(names.contains(&"Death's Fathom"));
+    assert!(names.contains(&"Nightwing's Veil"));
+    assert!(opt[0].dps > 0.0);
+
+    // AoE filler (Glacial Spike) scales with targets; single-target filler (Ice Blast) does not.
+    let s = Stats {
+        all_skills: 10,
+        fcr: 105,
+        cold_dmg_pct: 40,
+        ..Default::default()
+    };
+    let dps_ib_1 = OffenseProfile::Caster.compute_caster_dps(s, &c);
+    c.targets = 3;
+    let dps_ib_3 = OffenseProfile::Caster.compute_caster_dps(s, &c);
+    c.filler_is_aoe = true;
+    let dps_gs_3 = OffenseProfile::Caster.compute_caster_dps(s, &c);
+    assert!(dps_ib_3 > dps_ib_1);
+    assert!(dps_gs_3 > dps_ib_3);
+}

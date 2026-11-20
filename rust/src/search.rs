@@ -321,7 +321,11 @@ pub(crate) fn score_eval_summary(
             locality: 0,
         },
         SearchMode::Power => BuildScore {
-            primary: eff_primary,
+            primary: if offense.uses_caster_dps(c) {
+                sum.dps.floor() as i32
+            } else {
+                eff_primary
+            },
             secondary: sum.skills,
             tertiary: i32::from(sum.pr >= BASE_MAX_RES),
             tiebreakers: [sum.pr, sum.life_bo, sum.mana_bo, sum.belt_slots, sum.defense, 0, 0],
@@ -405,7 +409,7 @@ fn item_sort_key(
             locality,
         ),
         SearchMode::Power => (
-            s.primary_power_skills(),
+            s.primary_power_skills() * 10 + s.cold_dmg_pct / 5,
             s.total_skills(),
             eff_fcr,
             s.fhr,
@@ -977,9 +981,14 @@ pub fn optimize_builds_core(
             let res_base = res_base_ub(ub_ch, caps);
             let cbf_ub = i32::from(ub_ch.cbf > 0);
             match mode {
-                SearchMode::Power => top
-                    .nth_primary()
-                    .is_some_and(|cutoff| eff_primary_ub < cutoff),
+                SearchMode::Power => {
+                    let power_ub = if offense.uses_caster_dps(c) {
+                        offense.compute_caster_dps(ub_ch, c).floor() as i32
+                    } else {
+                        eff_primary_ub
+                    };
+                    top.nth_primary().is_some_and(|cutoff| power_ub < cutoff)
+                }
                 SearchMode::Mf => top.nth_primary().is_some_and(|cutoff| ub_ch.mf < cutoff),
                 SearchMode::MaxRes => top.nth_top2().is_some_and(|cutoff| {
                     (

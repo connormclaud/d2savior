@@ -243,7 +243,7 @@ pub(crate) fn eval_build_summary(
         (0, life_no_bo, mana_no_bo)
     };
 
-    let (_, blizz_avg, cm_pierce) = if class.has_blizzard_calc() {
+    let (_, blizz_avg_base, cm_pierce) = if class.has_blizzard_calc() {
         blizzard_damage_split(
             skills + gear.blizz_skills,
             c.blizz_base_lvl,
@@ -254,6 +254,7 @@ pub(crate) fn eval_build_summary(
     } else {
         (0.0, 0.0, 0)
     };
+    let blizz_avg = blizz_avg_base * (1.0 + gear.cold_dmg_pct.max(0) as f64 / 100.0);
     let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear, c);
     let offense = OffenseProfile::parse(&c.offense, class).unwrap_or(OffenseProfile::Caster);
     let action_skill_bonus = gear.action_skill_bonus + charm_action_skills;
@@ -268,6 +269,14 @@ pub(crate) fn eval_build_summary(
             ..gear
         };
         offense.compute_dps(hand, combined, c)
+    } else if offense.uses_caster_dps(c) {
+        let combined = Stats {
+            all_skills: gear.all_skills + charm_skills,
+            action_skill_bonus,
+            ..gear
+        };
+        let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
+        (offense.compute_caster_dps(combined, c), bp, frames, false)
     } else {
         let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
         (0.0, bp, frames, offense == OffenseProfile::Zeal && hand.can_zeal)

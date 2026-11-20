@@ -19,6 +19,7 @@ class ItemSpec:
     off_ed: int
     flat_phys_2x: int
     flat_elem_2x: int
+    cold_dmg_pct: int
     fcr: int
     fhr: int
     frw: int
@@ -124,6 +125,7 @@ class ItemSpec:
         can_zeal: bool = False,
         splash_fire: bool = False,
         splash_fire_2x: int = 0,
+        cold_dmg_pct: int = 0,
     ) -> None: ...
     @property
     def skills(self) -> int: ...
@@ -209,6 +211,9 @@ class BuildConstraints:
     has_aura: bool
     aura_is_fire: bool
     targets: int
+    blizz_dmg: list[float]
+    filler_dmg: list[float]
+    filler_is_aoe: bool
 
     def __init__(
         self,
@@ -246,6 +251,9 @@ class BuildConstraints:
         has_aura: bool = False,
         aura_is_fire: bool = False,
         targets: int = 1,
+        blizz_dmg: Sequence[float] = (),
+        filler_dmg: Sequence[float] = (),
+        filler_is_aoe: bool = False,
     ) -> None: ...
 
 class BuildResult:
