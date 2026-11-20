@@ -310,13 +310,13 @@ impl OffenseProfile {
         (Self::ias_bp_for_min_speed(min_speed, wsm), frames)
     }
 
-    /// Return `(hits_per_sec, ias_bp, display_frames, used_zeal)` using exact D2R rollback frames.
+    /// Return `(hits_per_sec, ias_bp, display_frames, last_frames, used_zeal)` using exact D2R rollback frames.
     pub(crate) fn attack_rate_and_frames(
         self,
         hand: HandWeapon,
         ias: i32,
         zeal_hits: i32,
-    ) -> (f64, i32, i32, bool) {
+    ) -> (f64, i32, i32, i32, bool) {
         let clamped_ias = ias.max(0);
         let eias = (120 * clamped_ias) / (120 + clamped_ias);
         let net_eias = (eias - hand.wsm).clamp(-85, 75);
@@ -325,15 +325,17 @@ impl OffenseProfile {
         if self == Self::Zeal && hand.can_zeal && zeal_hits >= 2 {
             let af = hand.wclass.action_frame();
             let f_rollback = (256 * af + speed - 1) / speed;
-            let ms = (256 * af + f_rollback - 1) / f_rollback;
+            let ms_rollback = (256 * af + f_rollback - 1) / f_rollback;
             let fpd = hand.wclass.frames_per_dir();
             let f_last = (256 * fpd + speed - 1) / speed - 1;
+            let ms_last = (256 * fpd + f_last) / (f_last + 1);
             let cycle = (zeal_hits - 1) * f_rollback + f_last;
             let rate = (25.0 * zeal_hits as f64) / (cycle.max(1) as f64);
             (
                 rate,
-                Self::ias_bp_for_min_speed(ms, hand.wsm),
+                Self::ias_bp_for_min_speed(ms_rollback.max(ms_last), hand.wsm),
                 f_rollback,
+                f_last,
                 true,
             )
         } else {
@@ -349,6 +351,7 @@ impl OffenseProfile {
                 rate,
                 Self::ias_bp_for_min_speed(ms, hand.wsm),
                 f_normal,
+                0,
                 false,
             )
         }
@@ -372,7 +375,7 @@ impl OffenseProfile {
         hand: HandWeapon,
         s: Stats,
         c: &BuildConstraints,
-    ) -> (f64, i32, i32, bool) {
+    ) -> (f64, i32, i32, i32, bool) {
         let eff_action = (s.all_skills + s.pal_skills + s.action_skill_bonus).max(0) as usize;
         let eff_aura = (s.all_skills + s.pal_skills + s.aura_skill_bonus).max(0) as usize;
 
@@ -381,7 +384,7 @@ impl OffenseProfile {
         } else {
             c.action_hits[eff_action.min(c.action_hits.len() - 1)].max(1)
         };
-        let (rate, ias_bp, display_frames, used_zeal) =
+        let (rate, ias_bp, display_frames, last_frames, used_zeal) =
             self.attack_rate_and_frames(hand, s.ias, hits);
 
         let action_ed = if used_zeal && !c.action_ed.is_empty() {
@@ -422,7 +425,7 @@ impl OffenseProfile {
 
         let dps = (d_phys + d_aura_hit * aura_hit_mult + d_splash_fire + d_elem_gear) * rate
             + d_aura_pulse * targets;
-        (dps, ias_bp, display_frames, used_zeal)
+        (dps, ias_bp, display_frames, last_frames, used_zeal)
     }
 
     pub(crate) fn score(self, eff_primary: i32, ias_bp: i32, cb: i32) -> i32 {
@@ -1579,6 +1582,7 @@ pub struct BuildResult {
     pub ias: i32,
     pub ias_bp: i32,
     pub ias_frames: i32,
+    pub ias_last_frames: i32,
     pub cb: i32,
     pub cbf: bool,
     pub pdr_pct: i32,

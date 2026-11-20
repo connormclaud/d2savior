@@ -106,6 +106,7 @@ pub(crate) struct EvalSummary {
     pub ias: i32,
     pub ias_bp: i32,
     pub ias_frames: i32,
+    pub ias_last_frames: i32,
     pub cb: i32,
     pub cbf: bool,
     pub pdr_pct: i32,
@@ -156,6 +157,7 @@ impl EvalSummary {
             ias: self.ias,
             ias_bp: self.ias_bp,
             ias_frames: self.ias_frames,
+            ias_last_frames: self.ias_last_frames,
             cb: self.cb,
             cbf: self.cbf,
             pdr_pct: self.pdr_pct,
@@ -259,7 +261,7 @@ pub(crate) fn eval_build_summary(
     let offense = OffenseProfile::parse(&c.offense, class).unwrap_or(OffenseProfile::Caster);
     let action_skill_bonus = gear.action_skill_bonus + charm_action_skills;
     let aura_skill_bonus = gear.aura_skill_bonus + charm_aura_skills;
-    let (dps, ias_bp, ias_frames, used_zeal) = if offense.uses_dps_tables(c) {
+    let (dps, ias_bp, ias_frames, ias_last_frames, used_zeal) = if offense.uses_dps_tables(c) {
         let combined = Stats {
             all_skills: gear.all_skills + charm_skills,
             action_skill_bonus,
@@ -276,10 +278,10 @@ pub(crate) fn eval_build_summary(
             ..gear
         };
         let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
-        (offense.compute_caster_dps(combined, c), bp, frames, false)
+        (offense.compute_caster_dps(combined, c), bp, frames, 0, false)
     } else {
         let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
-        (0.0, bp, frames, offense == OffenseProfile::Zeal && hand.can_zeal)
+        (0.0, bp, frames, 0, offense == OffenseProfile::Zeal && hand.can_zeal)
     };
 
     EvalSummary {
@@ -300,6 +302,7 @@ pub(crate) fn eval_build_summary(
         ias: gear.ias,
         ias_bp,
         ias_frames,
+        ias_last_frames,
         cb: gear.cb,
         cbf: gear.cbf > 0,
         pdr_pct: gear.pdr_pct,

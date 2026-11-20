@@ -1,6 +1,6 @@
 === Paladin Leveling — Holy Fire (lvl 30, Normal) ===
 Option #1: High Breakpoint (86% FHR, 4f) (evaluated 8806 pruned sets):
-  DPS: 2198 (Zeal) | Skills: +5 (Holy Fire lvl 25) | CBF: Yes | IAS: 40% (BP 20%, 6f) | CB: 0% | DR: 0% | LL: 9%
+  DPS: 2198 (Zeal) | Skills: +5 (Holy Fire lvl 25) | CBF: Yes | IAS: 40% (BP 32%, 6/11f) | CB: 0% | DR: 0% | LL: 9%
   FHR: 90% (BP 86%, 4f) | FCR: 54% (BP 48%, 11f) | FRW: 38% | MF: 30%
   Normal Res: F:75%(75) L:75%(86) C:75%(76) P:75%(75)
   Life: 645 | Mana: 182 | Charm slots: 23
@@ -19,7 +19,7 @@ Option #1: High Breakpoint (86% FHR, 4f) (evaluated 8806 pruned sets):
       - keep  : Tangerine Small Charm of Balance, Small Charm of Balance, Russet Small Charm, Ocher Small Charm of Sustenance, Shimmering Large Charm, Shimmering Large Charm, Bronze Small Charm of Balance, Sapphire Grand Charm, Grand Charm of Balance
       - add   : Jade Large Charm of Balance [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Crimson Small Charm of Greed [smite Stash], Small Charm of Inertia [smite Stash]
 Option #2: Lower FHR BP (48%, 5f) — Better Resists & FRW (evaluated 15895 pruned sets):
-  DPS: 2198 (Zeal) | Skills: +5 (Holy Fire lvl 25) | CBF: Yes | IAS: 40% (BP 20%, 6f) | CB: 0% | DR: 0% | LL: 9%
+  DPS: 2198 (Zeal) | Skills: +5 (Holy Fire lvl 25) | CBF: Yes | IAS: 40% (BP 32%, 6/11f) | CB: 0% | DR: 0% | LL: 9%
   FHR: 55% (BP 48%, 5f) | FCR: 44% (BP 30%, 12f) | FRW: 43% | MF: 30%
   Normal Res: F:76%(76) L:75%(83) C:75%(76) P:75%(80)
   Life: 665 | Mana: 182 | Charm slots: 23
@@ -37,8 +37,8 @@ Option #2: Lower FHR BP (48%, 5f) — Better Resists & FRW (evaluated 15895 prun
       - remove: Tangerine Small Charm of Balance, Small Charm of Balance, Ocher Small Charm, Lapis Small Charm, Bronze Small Charm of Balance, Lapis Small Charm, Grand Charm of Balance
       - keep  : Iron Large Charm of Inertia, Russet Small Charm, Ocher Small Charm of Sustenance, Shimmering Large Charm, Shimmering Large Charm, Russet Grand Charm, Sapphire Grand Charm
       - add   : Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Russet Small Charm [smite Stash], Crimson Small Charm of Greed [smite Stash], Jade Small Charm [smite Stash], Small Charm of Inertia [smite Stash]
-Option #3: Lower FHR BP (0%, 9f) — Better Resists & FRW (evaluated 1581 pruned sets):
-  DPS: 2223 (Zeal) | Skills: +3 (Holy Fire lvl 23) | CBF: Yes | IAS: 60% (BP 20%, 6f) | CB: 0% | DR: 0% | LL: 10%
+Option #3: Lower FHR BP (0%, 9f) — Higher IAS & Resists (evaluated 1581 pruned sets):
+  DPS: 2223 (Zeal) | Skills: +3 (Holy Fire lvl 23) | CBF: Yes | IAS: 60% (BP 54%, 6/10f) | CB: 0% | DR: 0% | LL: 10%
   FHR: 0% (BP 0%, 9f) | FCR: 10% (BP 9%, 14f) | FRW: 63% | MF: 30%
   Normal Res: F:76%(76) L:75%(83) C:75%(76) P:75%(80)
   Life: 599 | Mana: 89 | Charm slots: 23

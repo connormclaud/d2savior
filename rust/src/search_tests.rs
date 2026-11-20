@@ -2293,15 +2293,29 @@ fn test_paladin_dps_zeal_vs_bow_fallback_and_brute_force_parity() {
         ias: 20,
         ..Default::default()
     };
-    let (bow_dps, _, _, bow_zeal) = OffenseProfile::Zeal.compute_dps(bow.hand_weapon(), s, &c);
-    let (flail_dps, _, _, flail_zeal) =
+    let (bow_dps, _, _, _, bow_zeal) = OffenseProfile::Zeal.compute_dps(bow.hand_weapon(), s, &c);
+    let (flail_dps, _, _, _, flail_zeal) =
         OffenseProfile::Zeal.compute_dps(fast_1h.hand_weapon(), s, &c);
-    let (thrust_dps, _, _, thrust_zeal) =
+    let (thrust_dps, _, _, _, thrust_zeal) =
         OffenseProfile::Zeal.compute_dps(thrust_1h.hand_weapon(), s, &c);
     assert!(!bow_zeal);
     assert!(flail_zeal && thrust_zeal);
     assert!(flail_dps > thrust_dps, "1hs F_last=15 must out-DPS 1ht F_last=17");
     assert!(flail_dps > bow_dps, "1h Zeal must out-DPS bow Attack fallback");
+
+    // 3. Verify Zeal cycle IAS BP and rollback/last frames (1hs wsm=0 @ 40% IAS -> BP 32%, 6/11f).
+    let sword = ItemSpec {
+        name: "Broad Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wsm: 0,
+        can_zeal: true,
+        ..Default::default()
+    };
+    let (_, bp40, f_roll, f_last, used_zeal) =
+        OffenseProfile::Zeal.attack_rate_and_frames(sword.hand_weapon(), 40, 5);
+    assert!(used_zeal);
+    assert_eq!((bp40, f_roll, f_last), (32, 6, 11));
 }
 
 #[test]

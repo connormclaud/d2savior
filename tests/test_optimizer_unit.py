@@ -212,6 +212,7 @@ class _FakeBuildResult:
     ias: int = 0
     ias_bp: int = 0
     ias_frames: int = 12
+    ias_last_frames: int = 0
     cb: int = 0
     cbf: bool = False
     pdr_pct: int = 0
