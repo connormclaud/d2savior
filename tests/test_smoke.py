@@ -72,6 +72,7 @@ SMITE_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "smite_summary.golden.txt")
 SMITE_OPTIMIZE_LEVELING_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_leveling.golden.txt")
 SMITE_OPTIMIZE_KEEP_GEAR_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_keep_gear.golden.txt")
 SMITE_OPTIMIZE_MAX_RES_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_max_res.golden.txt")
+SMITE_OPTIMIZE_CBF_FRW30_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_cbf_frw30.golden.txt")
 
 STASH_FIND_CASES = [
     ("Charm", STASH_FIND_CHARM_SUMMARY_GOLDEN),
@@ -318,6 +319,43 @@ class TestSmokeAPI:
             report + "\n\n", SMITE_OPTIMIZE_MAX_RES_GOLDEN, "smite_optimize_max_res_api"
         )
 
+    def test_smite_optimize_cbf_frw30(self, game_data_resolver):
+        """Leveling optimize with --cbf and --min-frw 30: every option must satisfy both floors."""
+        pytest.importorskip("d2savior._native")
+        from d2savior.optimizer import ConstraintOverrides
+
+        smite, extras, stashes = self._load_paladin_snapshot(game_data_resolver)
+        items, charms = extract_pool(
+            smite, extra_chars=extras, stashes=stashes, resolver=game_data_resolver
+        )
+        overrides = ConstraintOverrides(require_cbf=True, min_frw=30)
+        title, options, resolved_spec, diff_name = optimize_paladin_leveling(
+            smite,
+            items,
+            charms,
+            extra_chars=extras,
+            stashes=stashes,
+            resolver=game_data_resolver,
+            overrides=overrides,
+        )
+        # Every returned option must satisfy the floors.
+        for _label, res in options:
+            assert res.cbf, "CBF floor violated"
+            assert res.frw >= 30, f"FRW floor violated: {res.frw} < 30"
+        skill_name, base_skill_lvl = paladin_primary_skill_info(smite, resolved_spec)
+        report = format_paladin_leveling_report(
+            title,
+            options,
+            charms,
+            diff_name=diff_name,
+            primary_skill_name=skill_name,
+            primary_skill_base=base_skill_lvl,
+            primary_inv_loc="smite Inv",
+        )
+        assert_matches_golden(
+            report + "\n\n", SMITE_OPTIMIZE_CBF_FRW30_GOLDEN, "smite_optimize_cbf_frw30_api"
+        )
+
 
 class TestSmokeCLI:
     """Smoke tests validating end-to-end command-line interface execution."""
@@ -454,6 +492,11 @@ class TestSmokeCLI:
                 "cli_smite_optimize_keep_gear",
             ),
             (["-b", "max-res"], SMITE_OPTIMIZE_MAX_RES_GOLDEN, "cli_smite_optimize_max_res"),
+            (
+                ["--cbf", "--min-frw", "30"],
+                SMITE_OPTIMIZE_CBF_FRW30_GOLDEN,
+                "cli_smite_optimize_cbf_frw30",
+            ),
         ],
     )
     def test_cli_smite_optimize(self, extra_args, golden_path, case_name):
@@ -474,3 +517,15 @@ class TestSmokeCLI:
             cwd=REPO_ROOT,
         )
         assert_matches_golden(res.stdout, golden_path, case_name)
+
+    def test_cli_list_builds(self):
+        """--list-builds prints all built-in presets without requiring a save file."""
+        res = subprocess.run(
+            [sys.executable, CLI_SCRIPT, "optimize", "--list-builds", "--no-config"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=REPO_ROOT,
+        )
+        for name in ("base", "tz", "mf", "mf-speed", "mf-pure", "max-res", "leveling"):
+            assert name in res.stdout, f"preset '{name}' missing from --list-builds output"

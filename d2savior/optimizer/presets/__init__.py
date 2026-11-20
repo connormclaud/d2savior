@@ -88,6 +88,15 @@ class ConstraintOverrides:
                 tags.append(f"{label}>={val}")
         return tags
 
+    def as_kwargs(self) -> dict[str, Any]:
+        """Return only the non-None fields as a dict suitable for splatting into build_constraints."""
+        result: dict[str, Any] = {}
+        for key in ("mode", *_BOOL_CONSTRAINT_KEYS, *_INT_CONSTRAINT_KEYS):
+            val = getattr(self, key)
+            if val is not None:
+                result[key] = val
+        return result
+
 
 @dataclass(frozen=True, slots=True)
 class ResolvedPreset:

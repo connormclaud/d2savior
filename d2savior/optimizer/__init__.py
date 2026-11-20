@@ -33,6 +33,7 @@ from d2savior.optimizer.paladin import (
     paladin_primary_skill_info,
     select_paladin_max_res_preset,
 )
+from d2savior.optimizer.presets import ConstraintOverrides, list_presets, resolve_build_expr
 from d2savior.optimizer.report import format_build_report, format_paladin_leveling_report
 from d2savior.optimizer.sorc import (
     BUILD_PRESET_ALIASES,
@@ -57,6 +58,7 @@ __all__ = [
     "BuildConstraints",
     "BuildResult",
     "CharmSpec",
+    "ConstraintOverrides",
     "ItemSpec",
     "blizzard_damage",
     "blizzard_damage_with_base",
@@ -67,10 +69,12 @@ __all__ = [
     "extract_pool",
     "format_build_report",
     "format_paladin_leveling_report",
+    "list_presets",
     "optimize_builds",
     "optimize_paladin_leveling",
     "paladin_offense_profile",
     "paladin_primary_skill_info",
+    "resolve_build_expr",
     "select_paladin_max_res_preset",
     "select_sorc_presets",
     "validate_paladin",

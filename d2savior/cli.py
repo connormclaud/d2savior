@@ -40,15 +40,16 @@ lazy from d2savior.core.stash_formatter import (
 )
 lazy from d2savior.core.stats import get_current_difficulty
 lazy from d2savior.optimizer import (
-    BUILD_CHOICES,
     PALADIN_BUILD_CHOICES,
     SORC_ONLY_BUILD_CHOICES,
     SUPPORTED_OPTIMIZER_CLASSES,
     CharmSpec,
+    ConstraintOverrides,
     ItemSpec,
     extract_pool,
     format_build_report,
     format_paladin_leveling_report,
+    list_presets,
     optimize_builds,
     optimize_paladin_leveling,
     paladin_primary_skill_info,
@@ -560,6 +561,7 @@ def _run_sorc_optimize(
     *,
     left_skill: int | None = None,
     right_skill: int | None = None,
+    overrides: ConstraintOverrides | None = None,
 ) -> None:
     filler_name = build_sorc_dps_tables(
         primary, left_skill=left_skill, right_skill=right_skill, targets=args.targets
@@ -576,6 +578,7 @@ def _run_sorc_optimize(
         targets=args.targets,
         left_skill=left_skill,
         right_skill=right_skill,
+        overrides=overrides,
     ):
         results = optimize_builds(items, charms, constraints)
         print(
@@ -602,6 +605,7 @@ def _run_paladin_optimize(
     *,
     left_skill: int | None = None,
     right_skill: int | None = None,
+    overrides: ConstraintOverrides | None = None,
 ) -> None:
     if args.build.lower() == "max-res":
         title, constraints, resolved_spec = select_paladin_max_res_preset(
@@ -615,6 +619,7 @@ def _run_paladin_optimize(
             targets=args.targets,
             left_skill=left_skill,
             right_skill=right_skill,
+            overrides=overrides,
         )
         diff_name = DIFFICULTY_NAMES[get_current_difficulty(primary)]
         skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
@@ -642,6 +647,7 @@ def _run_paladin_optimize(
             targets=args.targets,
             left_skill=left_skill,
             right_skill=right_skill,
+            overrides=overrides,
         )
         skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
         report = format_paladin_leveling_report(
@@ -690,9 +696,16 @@ def cmd_optimize(argv: list[str]) -> int:
     parser.add_argument(
         "-b",
         "--build",
-        choices=BUILD_CHOICES,
         default="all",
-        help="Build preset to optimize (default: all)",
+        help=(
+            "Build preset expression: a preset name, 'a+b' (merge), 'a,b' (multi-run), "
+            "or any name from --list-builds (default: all)"
+        ),
+    )
+    parser.add_argument(
+        "--list-builds",
+        action="store_true",
+        help="List all available built-in and user build presets and exit",
     )
     parser.add_argument(
         "--charm-slots",
@@ -727,9 +740,121 @@ def cmd_optimize(argv: list[str]) -> int:
         default=None,
         help="Override right-click active skill (e.g. blizzard, holy-fire, holy-freeze, holy-shock)",
     )
+    # Constraint override flags
+    parser.add_argument(
+        "--mode",
+        default=None,
+        metavar="MODE",
+        help="Override search mode (power, mf, max-res, leveling, leveling-res)",
+    )
+    parser.add_argument(
+        "--cbf",
+        dest="require_cbf",
+        action="store_true",
+        default=None,
+        help="Require Cannot Be Frozen",
+    )
+    parser.add_argument(
+        "--no-cbf",
+        dest="require_cbf",
+        action="store_false",
+        help="Do not require Cannot Be Frozen",
+    )
+    parser.add_argument(
+        "--mf",
+        dest="allow_mf",
+        action="store_true",
+        default=None,
+        help="Allow Magic Find gear",
+    )
+    parser.add_argument(
+        "--no-mf",
+        dest="allow_mf",
+        action="store_false",
+        help="Disallow Magic Find gear",
+    )
+    parser.add_argument("--min-fcr", type=int, default=None, metavar="N", help="Minimum FCR floor")
+    parser.add_argument("--min-fhr", type=int, default=None, metavar="N", help="Minimum FHR floor")
+    parser.add_argument(
+        "--min-fr", type=int, default=None, metavar="N", help="Minimum fire resist floor"
+    )
+    parser.add_argument(
+        "--min-lr", type=int, default=None, metavar="N", help="Minimum lightning resist floor"
+    )
+    parser.add_argument(
+        "--min-cr", type=int, default=None, metavar="N", help="Minimum cold resist floor"
+    )
+    parser.add_argument(
+        "--min-pr", type=int, default=None, metavar="N", help="Minimum poison resist floor"
+    )
+    parser.add_argument(
+        "--ignore-pr",
+        action="store_true",
+        help="Ignore poison resist floor (shorthand for --min-pr 0)",
+    )
+    parser.add_argument(
+        "--min-frw", type=int, default=None, metavar="N", help="Minimum Faster Run/Walk floor"
+    )
+    parser.add_argument("--min-ias", type=int, default=None, metavar="N", help="Minimum IAS floor")
+    parser.add_argument(
+        "--min-cb", type=int, default=None, metavar="N", help="Minimum Crushing Blow floor"
+    )
+    parser.add_argument(
+        "--min-ll", type=int, default=None, metavar="N", help="Minimum Life Leech floor"
+    )
+    parser.add_argument(
+        "--min-pdr",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Minimum Physical Damage Reduction floor",
+    )
+    parser.add_argument(
+        "--min-mf", type=int, default=None, metavar="N", help="Minimum Magic Find floor"
+    )
+
     args = parser.parse_args(argv)
+
+    # --list-builds: print preset catalog and exit (no character file needed).
+    if args.list_builds:
+        entries = list_presets()
+        if not entries:
+            print("No build presets found.")
+            return 0
+        col_w = max(len(e.name) for e in entries) + 2
+        for e in entries:
+            cls_tag = f"  [{e.char_class}]" if e.char_class else ""
+            src_tag = f"  ({e.source})" if e.source != "built-in" else ""
+            print(f"  {e.name:<{col_w}}{cls_tag}{src_tag}")
+        return 0
+
     if args.targets < 1:
         parser.error("--targets must be >= 1")
+
+    # Build ConstraintOverrides from CLI flags.
+    min_pr = args.min_pr
+    if args.ignore_pr:
+        min_pr = 0
+    overrides = ConstraintOverrides(
+        mode=args.mode,
+        allow_mf=args.allow_mf,
+        require_cbf=args.require_cbf,
+        min_fcr=args.min_fcr,
+        min_fhr=args.min_fhr,
+        min_fr=args.min_fr,
+        min_lr=args.min_lr,
+        min_cr=args.min_cr,
+        min_pr=min_pr,
+        min_frw=args.min_frw,
+        min_ias=args.min_ias,
+        min_cb=args.min_cb,
+        min_ll=args.min_ll,
+        min_pdr=args.min_pdr,
+        min_mf=args.min_mf,
+    )
+    # Only pass overrides if any field is set.
+    active_overrides = overrides if overrides.as_kwargs() else None
+
     try:
         left_skill = resolve_skill_override(args.left_skill) if args.left_skill else None
         right_skill = resolve_skill_override(args.right_skill) if args.right_skill else None
@@ -772,6 +897,7 @@ def cmd_optimize(argv: list[str]) -> int:
                 primary_inv_loc,
                 left_skill=left_skill,
                 right_skill=right_skill,
+                overrides=active_overrides,
             )
         else:
             _run_paladin_optimize(
@@ -785,6 +911,7 @@ def cmd_optimize(argv: list[str]) -> int:
                 primary_inv_loc,
                 left_skill=left_skill,
                 right_skill=right_skill,
+                overrides=active_overrides,
             )
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)

@@ -14,6 +14,7 @@ from d2savior.optimizer.common import (
     validate_sorceress,
 )
 from d2savior.optimizer.native import BuildConstraints, SearchModeStr
+from d2savior.optimizer.presets import ConstraintOverrides, resolve_build_expr
 from d2savior.optimizer.skill_tables import build_sorc_dps_tables
 
 _SKILL_BLIZZARD = 59
@@ -132,13 +133,19 @@ def select_sorc_presets(
     targets: int = 1,
     left_skill: int | None = None,
     right_skill: int | None = None,
+    overrides: ConstraintOverrides | None = None,
 ) -> list[tuple[str, BuildConstraints]]:
     """Select one or more Sorceress build preset profiles by name."""
     validate_sorceress(char_data)
-    keys = BUILD_PRESET_ALIASES.get(build.lower())
-    if keys is None:
+    # Resolve presets via TOML catalog; raises ValueError for unknown names.
+    try:
+        resolved_presets = resolve_build_expr(
+            build, CharClass.SORCERESS, overrides=overrides, char_name=char_data.get_char_name()
+        )
+    except ValueError:
+        # Re-raise with the legacy error message format expected by existing tests.
         valid = ", ".join((*BUILD_PRESET_ALIASES.keys(), "leveling"))
-        raise ValueError(f"Unknown build preset '{build}'; expected one of: {valid}")
+        raise ValueError(f"Unknown build preset '{build}'; expected one of: {valid}") from None
     if bo_base_bonus is None:
         res_obj = resolver if resolver is not None else GameDataResolver.load()
         bo_base_bonus = detect_cta_bo_bonus((char_data, *extra_chars), stashes, res_obj, default=4)
@@ -171,25 +178,17 @@ def select_sorc_presets(
     )
 
     out: list[tuple[str, BuildConstraints]] = []
-    for key in keys:
-        title, mode, allow_mf, min_fcr, min_fhr, min_fr, min_lr, min_cr, min_pr = (
-            _SORC_PRESET_SPECS[key]
-        )
+    for preset in resolved_presets:
+        title = preset.title or preset.name
         if eff_targets > 1:
             title = f"{title} [{eff_targets} targets]"
+        kwargs = preset.constraint_kwargs()
         out.append(
             (
                 title,
                 baseline.build_constraints(
-                    mode=mode,
                     limit=limit,
-                    allow_mf=allow_mf,
-                    min_fcr=min_fcr,
-                    min_fhr=min_fhr,
-                    min_fr=min_fr,
-                    min_lr=min_lr,
-                    min_cr=min_cr,
-                    min_pr=min_pr,
+                    **kwargs,
                 ),
             )
         )

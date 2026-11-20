@@ -1,6 +1,7 @@
 """Paladin leveling presets, spec detection, and breakpoint trade-off search."""
 
 from collections.abc import Sequence
+from typing import Any
 
 from d2savior.core.constants import CLASS_SKILL_BASES, DIFFICULTY_NAMES
 from d2savior.core.d2s_struct import D2SStruct
@@ -25,6 +26,7 @@ from d2savior.optimizer.native import (
     class_breakpoints,
     optimize_builds,
 )
+from d2savior.optimizer.presets import ConstraintOverrides
 from d2savior.optimizer.skill_tables import build_paladin_dps_tables
 
 PALADIN_BUILD_CHOICES: tuple[str, ...] = ("leveling",)
@@ -327,6 +329,7 @@ def select_paladin_max_res_preset(
     targets: int = 1,
     left_skill: int | None = None,
     right_skill: int | None = None,
+    overrides: ConstraintOverrides | None = None,
 ) -> tuple[str, BuildConstraints, str]:
     """Build a Max Resist constraint profile for a Paladin at its current difficulty."""
     baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
@@ -342,12 +345,15 @@ def select_paladin_max_res_preset(
         left_skill=left_skill,
         right_skill=right_skill,
     )
+    offense = paladin_offense_profile(
+        resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
+    )
+    ov_kwargs = overrides.as_kwargs() if overrides is not None else {}
     constraints = baseline.build_constraints(
         mode="max-res",
         limit=limit,
-        offense=paladin_offense_profile(
-            resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
-        ),
+        offense=offense,
+        **ov_kwargs,
     )
     title = f"Paladin Max Resist (lvl {char_level}, {diff_name})"
     return title, constraints, resolved_spec
@@ -481,12 +487,14 @@ def _probe_paladin_opt1(
     *,
     offense: OffenseProfileStr,
     is_caster: bool,
+    extra_kwargs: dict[str, Any] | None = None,
 ) -> BuildResult | None:
+    ek: dict[str, Any] = extra_kwargs or {}
     best_fcr_bp = 0
     if is_caster:
         for fcr_cand in reversed(PALADIN_FCR_BPS):
             c = baseline.build_constraints(
-                mode="leveling-res", limit=1, min_fcr=fcr_cand, offense=offense
+                mode="leveling-res", limit=1, min_fcr=fcr_cand, offense=offense, **ek
             )
             if optimize_builds(items, charms, c):
                 best_fcr_bp = fcr_cand
@@ -499,6 +507,7 @@ def _probe_paladin_opt1(
             min_fcr=best_fcr_bp,
             min_fhr=fhr_cand,
             offense=offense,
+            **ek,
         )
         probe = optimize_builds(items, charms, c)
         if probe:
@@ -516,8 +525,10 @@ def _collect_paladin_alternatives(
     offense: OffenseProfileStr,
     is_caster: bool,
     is_smite: bool,
+    extra_kwargs: dict[str, Any] | None = None,
 ) -> list[tuple[str, BuildResult]]:
     has_aura = baseline.has_aura
+    ek: dict[str, Any] = extra_kwargs or {}
     collected: list[tuple[str, BuildResult]] = [
         (_format_opt1_label(opt1, is_caster=is_caster), opt1)
     ]
@@ -556,6 +567,7 @@ def _collect_paladin_alternatives(
             min_fcr=min_fcr,
             min_fhr=min_fhr,
             offense=offense,
+            **ek,
         )
 
     fhr_below = _step_below_bp(opt1.fhr_bp, PALADIN_FHR_BPS)
@@ -602,6 +614,7 @@ def optimize_paladin_leveling(
     targets: int = 1,
     left_skill: int | None = None,
     right_skill: int | None = None,
+    overrides: ConstraintOverrides | None = None,
 ) -> tuple[str, list[tuple[str, BuildResult]], str, str]:
     """Optimize Paladin leveling gear and inventory charms across breakpoint/resist trade-offs."""
     eff_targets = max(1, targets)
@@ -631,10 +644,37 @@ def optimize_paladin_leveling(
     if limit <= 0:
         return title, [], resolved_spec, diff_name
 
+    # Build extra floor kwargs from overrides (excludes mode/allow_mf — handled by probe itself).
+    extra_kwargs: dict[str, Any] = {}
+    if overrides is not None:
+        for key in (
+            "require_cbf",
+            "min_frw",
+            "min_ias",
+            "min_cb",
+            "min_ll",
+            "min_pdr",
+            "min_mf",
+            "min_fcr",
+            "min_fhr",
+            "min_fr",
+            "min_lr",
+            "min_cr",
+            "min_pr",
+        ):
+            val = getattr(overrides, key)
+            if val is not None:
+                extra_kwargs[key] = val
+
     items_list = list(items)
     charms_list = list(charms)
     opt1 = _probe_paladin_opt1(
-        items_list, charms_list, baseline, offense=offense, is_caster=is_caster
+        items_list,
+        charms_list,
+        baseline,
+        offense=offense,
+        is_caster=is_caster,
+        extra_kwargs=extra_kwargs,
     )
     if opt1 is None:
         return title, [], resolved_spec, diff_name
@@ -655,5 +695,6 @@ def optimize_paladin_leveling(
         offense=offense,
         is_caster=is_caster,
         is_smite=is_smite,
+        extra_kwargs=extra_kwargs,
     )
     return title, collected, resolved_spec, diff_name
