@@ -47,3 +47,12 @@ fn test_char_class_and_offense_profile_parsing_and_scoring() {
     assert_eq!(OffenseProfile::Zeal.score(2, 18, 40), 2 * 20 + (18 * 3) / 2);
     assert_eq!(smite.score(2, 100, 120), 100 * 4 + 80 * 2 + 20);
 }
+
+#[test]
+fn test_empty_hand_weapon_matches_between_search_and_eval() {
+    let empty_wep = ItemSpec::empty("weapon");
+    assert_eq!(empty_wep.hand_weapon(), HandWeapon::empty());
+    assert_eq!(equipped_hand_weapon(&[&empty_wep]), HandWeapon::empty());
+    assert_eq!(equipped_hand_weapon(&[]), HandWeapon::empty());
+    assert_eq!(empty_wep.hand_weapon().str_pct, 100);
+}

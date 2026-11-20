@@ -138,6 +138,19 @@ pub(crate) struct HandWeapon {
     pub(crate) can_zeal: bool,
 }
 
+impl HandWeapon {
+    pub(crate) fn empty() -> Self {
+        Self {
+            wclass: WeaponClass::OneHandSwing,
+            wsm: 0,
+            phys_2x: 0,
+            str_pct: 100,
+            dex_pct: 0,
+            can_zeal: true,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum OffenseProfile {
     Caster,
@@ -666,14 +679,7 @@ pub(crate) fn equipped_hand_weapon(items: &[&ItemSpec]) -> HandWeapon {
             return it.hand_weapon();
         }
     }
-    HandWeapon {
-        wclass: WeaponClass::OneHandSwing,
-        wsm: 0,
-        phys_2x: 0,
-        str_pct: 100,
-        dex_pct: 0,
-        can_zeal: true,
-    }
+    HandWeapon::empty()
 }
 
 pub(crate) fn eff_req(req: i32, self_bonus: i32) -> i32 {
@@ -762,12 +768,15 @@ impl ItemSpec {
     }
 
     pub(crate) fn hand_weapon(&self) -> HandWeapon {
+        if self.name == "(empty)" {
+            return HandWeapon::empty();
+        }
         let wclass = self.weapon_class();
-        let can_zeal = if self.name == "(empty)" {
-            true
-        } else {
-            self.can_zeal || (!wclass.is_ranged() && self.wep_phys_2x == 0 && self.wep_str_pct == 0 && self.wep_dex_pct == 0)
-        };
+        let can_zeal = self.can_zeal
+            || (!wclass.is_ranged()
+                && self.wep_phys_2x == 0
+                && self.wep_str_pct == 0
+                && self.wep_dex_pct == 0);
         HandWeapon {
             wclass,
             wsm: self.wsm,
