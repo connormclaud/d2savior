@@ -709,6 +709,57 @@ def test_paladin_baseline_presets_and_leveling_flow(monkeypatch: pytest.MonkeyPa
     assert len(opts_caster) >= 2
     assert "30% FCR" in opts_caster[0][0]
 
+    # Overrides with min_fhr / min_fcr / allow_mf / mode must not raise TypeError for duplicate kwargs.
+    from d2savior.optimizer.presets import ConstraintOverrides
+
+    seen_probe_constraints: list[_FakeConstraints] = []
+
+    def _fake_opt_floor(_items: object, _charms: object, c: _FakeConstraints) -> list[BuildResult]:
+        seen_probe_constraints.append(c)
+        if c.min_fhr > 48 or c.min_fcr > 30:
+            return []
+        return [opt_high]
+
+    monkeypatch.setattr("d2savior.optimizer.paladin.optimize_builds", _fake_opt_floor)
+    _, opts_ov, _, _ = optimize_paladin_leveling(
+        mule,
+        [],
+        [],
+        limit=3,
+        resolver=resolver,
+        bo_base_bonus=0,
+        overrides=ConstraintOverrides(min_fhr=48, min_fcr=30, allow_mf=False),
+    )
+    assert len(opts_ov) == 1
+    assert all(
+        c.min_fhr >= 48 and c.min_fcr >= 30 and not c.allow_mf for c in seen_probe_constraints
+    )
+
+    # Caster probe with min_fhr / min_fcr floors must enforce both during FCR & FHR probing.
+    seen_probe_constraints.clear()
+    _, opts_caster_ov, _, _ = optimize_paladin_leveling(
+        mule,
+        [],
+        [],
+        spec="hammer",
+        limit=3,
+        resolver=resolver,
+        bo_base_bonus=0,
+        overrides=ConstraintOverrides(min_fhr=27, min_fcr=30, allow_mf=False),
+    )
+    assert len(opts_caster_ov) == 1
+    assert all(c.min_fhr >= 27 and not c.allow_mf for c in seen_probe_constraints)
+
+    # select_paladin_max_res_preset honors mode override without duplicate 'mode' TypeError.
+    _, c_mr_ov, _ = select_paladin_max_res_preset(
+        mule,
+        resolver=resolver,
+        bo_base_bonus=0,
+        overrides=ConstraintOverrides(mode="power", allow_mf=False),
+    )
+    assert cast(_FakeConstraints, c_mr_ov).mode == "power"
+    assert not cast(_FakeConstraints, c_mr_ov).allow_mf
+
 
 def test_report_formatting_sorc_paladin_and_charms() -> None:
     assert _is_inv_loc("inv")

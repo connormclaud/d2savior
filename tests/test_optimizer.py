@@ -1127,6 +1127,25 @@ def test_cli_optimize_paladin_fixtures(capsys: pytest.CaptureFixture[str]) -> No
     out_res = capsys.readouterr().out
     assert "Paladin Max Resist" in out_res
 
+    pal_dir = FIXTURES_DIR / "paladin_snapshot"
+    main(
+        [
+            "optimize",
+            "--no-config",
+            "smite",
+            str(pal_dir),
+            "--min-fhr",
+            "48",
+            "--min-fcr",
+            "30",
+        ]
+    )
+    out_floors = capsys.readouterr().out
+    assert "Paladin Leveling" in out_floors
+    assert "Option #1:" in out_floors
+    assert "FHR: " in out_floors
+    assert "FCR: " in out_floors
+
 
 @requires_native
 def test_paladin_dedup_key_and_keep_equipped_preserves_zero_stat_items() -> None:

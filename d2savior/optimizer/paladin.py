@@ -352,8 +352,9 @@ def select_paladin_max_res_preset(
         resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
     )
     ov_kwargs = overrides.as_kwargs() if overrides is not None else {}
+    mode = ov_kwargs.pop("mode", "max-res")
     constraints = baseline.build_constraints(
-        mode="max-res",
+        mode=mode,
         limit=limit,
         offense=offense,
         **ov_kwargs,
@@ -492,18 +493,34 @@ def _probe_paladin_opt1(
     is_caster: bool,
     extra_kwargs: dict[str, Any] | None = None,
 ) -> BuildResult | None:
-    ek: dict[str, Any] = extra_kwargs or {}
-    best_fcr_bp = 0
+    ek: dict[str, Any] = dict(extra_kwargs or {})
+    floor_fcr = int(ek.pop("min_fcr", 0))
+    floor_fhr = int(ek.pop("min_fhr", 0))
+    ek.pop("mode", None)
+    best_fcr_bp = floor_fcr
     if is_caster:
-        for fcr_cand in reversed(PALADIN_FCR_BPS):
+        found_fcr = False
+        for fcr_cand in sorted(
+            {floor_fcr, *(b for b in PALADIN_FCR_BPS if b >= floor_fcr)}, reverse=True
+        ):
             c = baseline.build_constraints(
-                mode="leveling-res", limit=1, min_fcr=fcr_cand, offense=offense, **ek
+                mode="leveling-res",
+                limit=1,
+                min_fcr=fcr_cand,
+                min_fhr=floor_fhr,
+                offense=offense,
+                **ek,
             )
             if optimize_builds(items, charms, c):
                 best_fcr_bp = fcr_cand
+                found_fcr = True
                 break
+        if not found_fcr:
+            return None
 
-    for fhr_cand in reversed(PALADIN_FHR_BPS):
+    for fhr_cand in sorted(
+        {floor_fhr, *(b for b in PALADIN_FHR_BPS if b >= floor_fhr)}, reverse=True
+    ):
         c = baseline.build_constraints(
             mode="leveling-res",
             limit=1,
@@ -531,7 +548,10 @@ def _collect_paladin_alternatives(
     extra_kwargs: dict[str, Any] | None = None,
 ) -> list[tuple[str, BuildResult]]:
     has_aura = baseline.has_aura
-    ek: dict[str, Any] = extra_kwargs or {}
+    ek: dict[str, Any] = dict(extra_kwargs or {})
+    floor_fcr = int(ek.pop("min_fcr", 0))
+    floor_fhr = int(ek.pop("min_fhr", 0))
+    ek.pop("mode", None)
     collected: list[tuple[str, BuildResult]] = [
         (_format_opt1_label(opt1, is_caster=is_caster), opt1)
     ]
@@ -567,15 +587,21 @@ def _collect_paladin_alternatives(
         return baseline.build_constraints(
             mode=mode,
             limit=res_limit,
-            min_fcr=min_fcr,
-            min_fhr=min_fhr,
+            min_fcr=max(min_fcr, floor_fcr),
+            min_fhr=max(min_fhr, floor_fhr),
             offense=offense,
             **ek,
         )
 
-    fhr_below = _step_below_bp(opt1.fhr_bp, PALADIN_FHR_BPS)
-    fcr_below = _step_below_bp(opt1.fcr_bp, PALADIN_FCR_BPS) if is_caster else None
-    caster_fcr_floor = opt1.fcr_bp if is_caster else 0
+    def _clamped_below(bp: int, table: tuple[int, ...], floor: int) -> int | None:
+        step = _step_below_bp(bp, table)
+        if step is None or step < floor:
+            return floor if floor < bp else None
+        return step
+
+    fhr_below = _clamped_below(opt1.fhr_bp, PALADIN_FHR_BPS, floor_fhr)
+    fcr_below = _clamped_below(opt1.fcr_bp, PALADIN_FCR_BPS, floor_fcr) if is_caster else None
+    caster_fcr_floor = max(opt1.fcr_bp, floor_fcr) if is_caster else floor_fcr
 
     if fhr_below is not None:
         try_add(build_c(mode="leveling-res", min_fcr=caster_fcr_floor, min_fhr=fhr_below))
@@ -584,14 +610,14 @@ def _collect_paladin_alternatives(
     if (
         all(min(r.fr, r.lr, r.cr, r.pr) < 75 for _, r in collected)
         and fhr_below is not None
-        and fhr_below > 0
+        and fhr_below > floor_fhr
     ):
         try_add(build_c(mode="leveling-res"))
 
     try_add(build_c(mode="leveling"))
     try_add(build_c(mode="max-res", min_fhr=fhr_below or 0))
     if fhr_below is not None:
-        fhr_below_2 = _step_below_bp(fhr_below, PALADIN_FHR_BPS)
+        fhr_below_2 = _clamped_below(fhr_below, PALADIN_FHR_BPS, floor_fhr)
         if fhr_below_2 is not None:
             try_add(build_c(mode="leveling-res", min_fhr=fhr_below_2))
 
@@ -647,10 +673,11 @@ def optimize_paladin_leveling(
     if limit <= 0:
         return title, [], resolved_spec, diff_name
 
-    # Build extra floor kwargs from overrides (excludes mode/allow_mf — handled by probe itself).
+    # Build extra floor kwargs from overrides (excludes mode — handled by probe itself).
     extra_kwargs: dict[str, Any] = {}
     if overrides is not None:
         for key in (
+            "allow_mf",
             "require_cbf",
             "min_frw",
             "min_ias",
