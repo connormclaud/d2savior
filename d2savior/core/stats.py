@@ -23,7 +23,7 @@ from d2savior.core.constants import (
     get_skill_tab_index,
 )
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import EquipSlot, StoredIn
+from d2savior.core.enums import CharClass, EquipSlot, StoredIn
 from d2savior.core.item import D2Item
 from d2savior.core.models import HirelingInfo
 from d2savior.core.property import adjust_property_values, get_skill_class_id
@@ -368,28 +368,41 @@ def _apply_advanced_prop(
         acc.fire_skills += params[1]
 
 
-def _apply_paladin_passive_max_res(char_data: D2SStruct, max_res: ResistanceStats) -> None:
-    # Paladin passive skills: Resist Fire (idx 4), Resist Cold (idx 9), Resist Lightning (idx 14)
-    # grant +1% maximum resistance per 2 hard points invested.
+class PaladinPassiveMaxRes(NamedTuple):
+    """Passive Paladin max resist bonuses from Resist Fire/Lightning/Cold hard points."""
+
+    fire: int
+    lightning: int
+    cold: int
+
+
+def compute_paladin_passive_max_res(char_data: D2SStruct) -> PaladinPassiveMaxRes:
+    """Return passive Paladin (+1 max res per 2 hard points) bonuses for (FR, LR, CR).
+
+    Per D2R `skills.txt` (IDs 100, 105, 110: Resist Fire/Cold/Lightning),
+    `passivestat1 = max*resist` with `passivecalc1 = skill('<Aura>'.blvl)/2`
+    scales strictly with hard base points (`.blvl`); `+skills` do not apply.
+    """
     skills = char_data.skills
-    if char_data.char_class != 3 or skills.magic != 0x6669:
-        return
+    if char_data.char_class != CharClass.PALADIN or not skills or skills.magic != 0x6669:
+        return PaladinPassiveMaxRes(0, 0, 0)
     levels = skills.skill_levels
-    for idx, attr in ((4, "fire"), (9, "cold"), (14, "lightning")):
-        if len(levels) > idx:
-            setattr(max_res, attr, getattr(max_res, attr) + levels[idx] // 2)
+    return PaladinPassiveMaxRes(
+        fire=levels[4] // 2 if len(levels) > 4 else 0,
+        lightning=levels[14] // 2 if len(levels) > 14 else 0,
+        cold=levels[9] // 2 if len(levels) > 9 else 0,
+    )
 
 
-def _apply_anya_quest_res(char_data: D2SStruct, res: ResistanceStats) -> None:
-    # Completing "Prison of Ice" (Anya, Act V quest index 2) awards +10 all resistances.
+def compute_anya_resist_bonus(char_data: D2SStruct) -> int:
+    """Return total Anya 'Prison of Ice' (+10 all resistances per completed difficulty) bonus."""
     if not (char_data.quests and char_data.quests.magic == 0x216F6F57):
-        return
+        return 0
+    bonus = 0
     for qd in char_data.quests.qi_data:
         if len(qd.act_5) > 2 and (qd.act_5[2] & 1):
-            res.fire += 10
-            res.cold += 10
-            res.lightning += 10
-            res.poison += 10
+            bonus += 10
+    return bonus
 
 
 def calculate_advanced_stats(
@@ -433,8 +446,16 @@ def calculate_advanced_stats(
         _apply_advanced_prop(acc, prop_id, params[0] if params else val, params, char_class)
 
     acc.mf += (acc.mf_per_level * char_level) // 8
-    _apply_paladin_passive_max_res(char_data, acc.max_res)
-    _apply_anya_quest_res(char_data, acc.res)
+    pal_max = compute_paladin_passive_max_res(char_data)
+    acc.max_res.fire += pal_max.fire
+    acc.max_res.lightning += pal_max.lightning
+    acc.max_res.cold += pal_max.cold
+    anya_bonus = compute_anya_resist_bonus(char_data)
+    if anya_bonus:
+        acc.res.fire += anya_bonus
+        acc.res.cold += anya_bonus
+        acc.res.lightning += anya_bonus
+        acc.res.poison += anya_bonus
 
     return AdvancedStats(
         resistances=acc.res,

@@ -243,3 +243,113 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
         }
     }
 }
+
+#[test]
+fn test_fast_leaf_dps_eval_detailed_fields() {
+    let base_c = BuildConstraints {
+        char_class: 3,
+        char_level: 85,
+        target_def: 1500,
+        target_hp: 12000,
+        targets: 3,
+        action_hits: vec![1, 2, 3, 4, 5],
+        action_ed: vec![0, 50, 100, 150, 200],
+        action_ar_pct: vec![0, 20, 40, 60, 80],
+        aura_hit_dmg: vec![0.0, 40.0, 80.0],
+        aura_pulse_dps: vec![0.0, 15.0, 30.0],
+        ..Default::default()
+    };
+    let bow = HandWeapon {
+        phys_2x: 60,
+        wsm: 0,
+        wclass: WeaponClass::Bow,
+        str_pct: 0,
+        dex_pct: 100,
+        can_zeal: false,
+        splash_fire: true,
+        splash_fire_2x: 90,
+    };
+    let sword = HandWeapon {
+        phys_2x: 80,
+        wsm: -10,
+        wclass: WeaponClass::OneHandSwing,
+        str_pct: 100,
+        dex_pct: 0,
+        can_zeal: true,
+        splash_fire: false,
+        splash_fire_2x: 0,
+    };
+
+    // 1. ITD active on trash: cth_pct is 95 while total_ar still reports actual AR.
+    let itd_stats = Stats {
+        all_skills: 2,
+        itd: 1,
+        str_bonus: 100,
+        dex_bonus: 50,
+        ar: 10,
+        ias: 40,
+        ..Default::default()
+    };
+    let trash_c = BuildConstraints {
+        target_type: "trash".to_string(),
+        ..base_c.clone()
+    };
+    let (_, _, total_ar, cth_pct, ias_bp, display_frames, last_frames, used_zeal) =
+        OffenseProfile::Zeal.compute_dps_detailed(sword, itd_stats, &trash_c);
+    assert!(total_ar > 0);
+    assert_eq!(cth_pct, 95);
+    let (_, exp_ias, exp_disp, exp_last, exp_zeal) =
+        OffenseProfile::Zeal.attack_rate_and_frames(sword, itd_stats.ias, 3);
+    assert_eq!(
+        (ias_bp, display_frames, last_frames, used_zeal),
+        (exp_ias, exp_disp, exp_last, exp_zeal)
+    );
+    assert!(used_zeal);
+
+    // 2. Combined pierce + ow + psn + splash_fire + aura_is_fire: raw_dps > eff_dps.
+    let bow_stats = Stats {
+        all_skills: 1,
+        pal_skills: 1,
+        dex_bonus: 120,
+        ar: 200,
+        ar_pct: 50,
+        ias: 35,
+        ow: 25,
+        psn_dps_2x: 30,
+        pierce: 66,
+        flat_phys_2x: 10,
+        flat_fire_2x: 20,
+        ..Default::default()
+    };
+    let bow_c = BuildConstraints {
+        aura_is_fire: true,
+        target_type: "trash".to_string(),
+        ..base_c.clone()
+    };
+    let fast_bow = OffenseProfile::Melee.fast_leaf_dps(bow, bow_stats, &bow_c);
+    let (eff_dps, raw_dps, bow_ar, bow_cth_pct, _, _, _, bow_zeal) = fast_bow.eval_detailed();
+    assert_eq!(eff_dps, fast_bow.eval_dps(0, 0, 0, 0, 0));
+    assert!(raw_dps > eff_dps);
+    assert!(bow_ar > 0);
+    assert!((5..=95).contains(&bow_cth_pct));
+    assert!(!bow_zeal);
+
+    // 3. Negative base inputs clamp cleanly to non-negative outputs.
+    let neg_weapon = HandWeapon {
+        phys_2x: 0,
+        ..sword
+    };
+    let neg_stats = Stats {
+        ar: -50,
+        flat_phys_2x: -10,
+        flat_fire_2x: -8,
+        flat_elem_2x: -6,
+        psn_dps_2x: -20,
+        ..Default::default()
+    };
+    let (neg_eff, neg_raw, neg_ar, neg_cth, ..) =
+        OffenseProfile::Melee.compute_dps_detailed(neg_weapon, neg_stats, &base_c);
+    assert!(neg_eff >= 0.0 && neg_raw >= 0.0);
+    assert!(neg_ar >= 0);
+    assert!((5..=95).contains(&neg_cth));
+}

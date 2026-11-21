@@ -8,10 +8,14 @@ from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import CharClass
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
-from d2savior.core.stats import get_current_difficulty, get_difficulty_resist_penalty
+from d2savior.core.stats import (
+    compute_anya_resist_bonus,
+    compute_paladin_passive_max_res,
+    get_current_difficulty,
+    get_difficulty_resist_penalty,
+)
 from d2savior.optimizer.common import (
     CharacterBaseline,
-    _compute_anya_bonus,
     active_skill_bindings,
     detect_cta_bo_bonus,
     resolve_fixed_gear,
@@ -228,23 +232,6 @@ def paladin_primary_skill_info(char_data: D2SStruct, spec: str) -> tuple[str | N
     return skill_name, base_lvl
 
 
-def _paladin_passive_max_res(char_data: D2SStruct) -> tuple[int, int, int]:
-    """Return passive Paladin (+1 max res per 2 hard points) bonuses for (FR, LR, CR).
-
-    Per D2R `skills.txt` (IDs 100, 105, 110: Resist Fire/Cold/Lightning),
-    `passivestat1 = max*resist` with `passivecalc1 = skill('<Aura>'.blvl)/2`
-    scales strictly with hard base points (`.blvl`); `+skills` do not apply.
-    """
-    skills = char_data.skills.skill_levels if char_data.skills else ()
-    if len(skills) <= _PAL_RESIST_LIGHT:
-        return 0, 0, 0
-    return (
-        skills[_PAL_RESIST_FIRE] // 2,
-        skills[_PAL_RESIST_LIGHT] // 2,
-        skills[_PAL_RESIST_COLD] // 2,
-    )
-
-
 _VALID_TARGET_TYPES: frozenset[str] = frozenset({"trash", "champion", "boss"})
 
 
@@ -284,8 +271,10 @@ def _build_paladin_baseline(
     char_level = max(1, char_data.player_stats.level or char_data.char_level)
     diff_idx = get_current_difficulty(char_data)
     diff_name = DIFFICULTY_NAMES[diff_idx]
-    base_res = get_difficulty_resist_penalty(char_data, diff_idx) + _compute_anya_bonus(char_data)
-    base_max_fr, base_max_lr, base_max_cr = _paladin_passive_max_res(char_data)
+    base_res = get_difficulty_resist_penalty(char_data, diff_idx) + compute_anya_resist_bonus(
+        char_data
+    )
+    base_max_fr, base_max_lr, base_max_cr = compute_paladin_passive_max_res(char_data)
     if bo_base_bonus is None:
         res_obj = resolver if resolver is not None else GameDataResolver.load()
         bo_base_bonus = detect_cta_bo_bonus(

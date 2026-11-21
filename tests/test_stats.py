@@ -2,18 +2,21 @@ import os
 
 from d2s_parse import parse_file
 from d2savior.core.char_formatter import format_char_info, format_char_summary
-from d2savior.core.d2s_struct import D2SStruct, ItemList
-from d2savior.core.enums import EquipSlot, ItemLocation, StoredIn
+from d2savior.core.d2s_struct import CharSkills, D2SStruct, ItemList, QuestInfo, QuestInfoData
+from d2savior.core.enums import CharClass, EquipSlot, ItemLocation, StoredIn
 from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
 from d2savior.core.property_list import PropertyList
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stats import (
     AdvancedStats,
     MercenaryStats,
+    PaladinPassiveMaxRes,
     ResistanceStats,
     calculate_advanced_stats,
     calculate_mercenary_level,
     calculate_mercenary_stats,
+    compute_anya_resist_bonus,
+    compute_paladin_passive_max_res,
     get_current_difficulty,
     get_difficulty_resist_penalty,
 )
@@ -755,3 +758,69 @@ def test_global_set_bonus_gethit_skill_param_order(game_data_resolver: GameDataR
 
     formatted = format_property(201, gethit[0][2], res)
     assert formatted == "25% Chance to cast level 5 Static Field when struck"
+
+
+def test_compute_paladin_passive_max_res_guards_and_partial_skills():
+    """Verify Paladin class, magic header, and per-index skill_levels guards."""
+    levels_full = [0] * 30
+    levels_full[4] = 11  # Resist Fire -> +5
+    levels_full[9] = 4  # Resist Cold -> +2
+    levels_full[14] = 6  # Resist Lightning -> +3
+
+    def make_skills(magic: int, levels: list[int]) -> CharSkills:
+        sk = CharSkills()
+        sk.magic = magic
+        sk.skill_levels = list(levels)
+        return sk
+
+    non_paladin = D2SStruct()
+    non_paladin.char_class = int(CharClass.SORCERESS)
+    non_paladin.skills = make_skills(0x6669, levels_full)
+    assert compute_paladin_passive_max_res(non_paladin) == PaladinPassiveMaxRes(0, 0, 0)
+
+    bad_magic = D2SStruct()
+    bad_magic.char_class = int(CharClass.PALADIN)
+    bad_magic.skills = make_skills(0, levels_full)
+    assert compute_paladin_passive_max_res(bad_magic) == PaladinPassiveMaxRes(0, 0, 0)
+
+    partial = D2SStruct()
+    partial.char_class = int(CharClass.PALADIN)
+    partial.skills = make_skills(0x6669, levels_full[:10])
+    assert compute_paladin_passive_max_res(partial) == PaladinPassiveMaxRes(
+        fire=5, lightning=0, cold=2
+    )
+
+    full = D2SStruct()
+    full.char_class = int(CharClass.PALADIN)
+    full.skills = make_skills(0x6669, levels_full)
+    res = compute_paladin_passive_max_res(full)
+    assert res == PaladinPassiveMaxRes(fire=5, lightning=3, cold=2)
+    assert res == (5, 3, 2)
+
+
+def test_compute_anya_resist_bonus_edge_cases():
+    """Verify quest magic header, difficulty counts (0..3), and short act_5 handling."""
+    bad_magic = D2SStruct()
+    bad_magic.quests = QuestInfo()
+    bad_magic.quests.magic = 0
+    qd_done = QuestInfoData()
+    qd_done.act_5 = [0, 0, 0x1, 0, 0, 0]
+    bad_magic.quests.qi_data = [qd_done]
+    assert compute_anya_resist_bonus(bad_magic) == 0
+
+    for completed in range(4):
+        qi_data = []
+        for i in range(3):
+            qd = QuestInfoData()
+            qd.act_5 = [0, 0, 0x1 if i < completed else 0x0, 0, 0, 0]
+            qi_data.append(qd)
+        # Short act_5 array should be safely ignored.
+        qd_short = QuestInfoData()
+        qd_short.act_5 = [0, 0]
+        qi_data.append(qd_short)
+
+        char = D2SStruct()
+        char.quests = QuestInfo()
+        char.quests.magic = 0x216F6F57
+        char.quests.qi_data = qi_data
+        assert compute_anya_resist_bonus(char) == completed * 10

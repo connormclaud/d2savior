@@ -14,8 +14,8 @@ from d2savior.core.item_name import LongName
 from d2savior.core.property_list import PropertyList
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash, StashTab
+from d2savior.core.stats import compute_anya_resist_bonus, compute_paladin_passive_max_res
 from d2savior.optimizer.common import (
-    _compute_anya_bonus,
     _item_cta_bo,
     _item_levelreq,
     _long_name_levelreq,
@@ -44,7 +44,6 @@ from d2savior.optimizer.paladin import (
     _describe_lower_fhr_tradeoff,
     _describe_paladin_tradeoff,
     _format_opt1_label,
-    _paladin_passive_max_res,
     _result_dedup_key,
     _step_below_bp,
     optimize_paladin_leveling,
@@ -314,8 +313,8 @@ def test_common_validators_anya_levelreq_and_cta_bo(monkeypatch: pytest.MonkeyPa
     with pytest.raises(ValueError, match="expected Sorceress or Paladin"):
         validate_supported_class(empty_char)
 
-    assert _compute_anya_bonus(empty_char) == 0
-    assert _compute_anya_bonus(sork) >= 0
+    assert compute_anya_resist_bonus(empty_char) == 0
+    assert compute_anya_resist_bonus(sork) >= 0
 
     empty_ln = LongName()
     assert _long_name_levelreq(empty_ln, d2r, is_crafted=False) == 0
@@ -451,9 +450,9 @@ def test_paladin_pure_helpers_and_tradeoff_descriptions() -> None:
     mule.skills.skill_levels[4] = 11  # Resist Fire -> +5
     mule.skills.skill_levels[14] = 6  # Resist Lightning -> +3
     mule.skills.skill_levels[9] = 4  # Resist Cold -> +2
-    assert _paladin_passive_max_res(mule) == (5, 3, 2)
+    assert compute_paladin_passive_max_res(mule) == (5, 3, 2)
     empty_char = D2SStruct()
-    assert _paladin_passive_max_res(empty_char) == (0, 0, 0)
+    assert compute_paladin_passive_max_res(empty_char) == (0, 0, 0)
 
     assert _step_below_bp(0, (0, 7, 15, 27)) is None
     assert _step_below_bp(27, (0, 7, 15, 27)) == 15

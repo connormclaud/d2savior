@@ -7,10 +7,13 @@ from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import CharClass
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
-from d2savior.core.stats import get_current_difficulty, get_difficulty_resist_penalty
+from d2savior.core.stats import (
+    compute_anya_resist_bonus,
+    get_current_difficulty,
+    get_difficulty_resist_penalty,
+)
 from d2savior.optimizer.common import (
     CharacterBaseline,
-    _compute_anya_bonus,
     detect_cta_bo_bonus,
     resolve_fixed_gear,
     validate_sorceress,
@@ -149,7 +152,9 @@ def select_sorc_presets(
         raise ValueError(f"Unknown build preset '{build}'; expected one of: {valid}") from None
     char_level = max(1, char_data.player_stats.level or char_data.char_level)
     diff_idx = get_current_difficulty(char_data)
-    base_res = get_difficulty_resist_penalty(char_data, diff_idx) + _compute_anya_bonus(char_data)
+    base_res = get_difficulty_resist_penalty(char_data, diff_idx) + compute_anya_resist_bonus(
+        char_data
+    )
     if bo_base_bonus is None:
         res_obj = resolver if resolver is not None else GameDataResolver.load()
         bo_base_bonus = detect_cta_bo_bonus(

@@ -110,16 +110,6 @@ def validate_supported_class(char_data: D2SStruct) -> None:
     _validate_char_class(char_data, SUPPORTED_OPTIMIZER_CLASSES, "Sorceress or Paladin")
 
 
-def _compute_anya_bonus(char_data: D2SStruct) -> int:
-    if not (char_data.quests and char_data.quests.magic == 0x216F6F57):
-        return 0
-    bonus = 0
-    for qd in char_data.quests.qi_data:
-        if len(qd.act_5) > 2 and (qd.act_5[2] & 1):
-            bonus += 10
-    return bonus
-
-
 def _long_name_levelreq(
     long_name: LongName, resolver: GameDataResolver, *, is_crafted: bool
 ) -> int:

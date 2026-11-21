@@ -682,6 +682,14 @@ pub(crate) struct FastLeafDps {
     pub(crate) base_aura_pulse_dps: f64,
 }
 
+struct EvalCore {
+    cth: f64,
+    direct_hit: f64,
+    auto_hit_attack: f64,
+    psn_base: f64,
+    eff_dps: f64,
+}
+
 impl FastLeafDps {
     #[inline]
     pub(crate) fn total_ar_for_add_ar(&self, add_ar: i32) -> i32 {
@@ -711,7 +719,7 @@ impl FastLeafDps {
         add_elem_2x: i32,
         add_fire_2x: i32,
         add_psn_2x: i32,
-    ) -> (f64, f64, f64, f64, f64) {
+    ) -> EvalCore {
         let cth = if self.cth_is_const {
             0.95
         } else {
@@ -763,7 +771,13 @@ impl FastLeafDps {
             + self.base_aura_pulse_dps
             + d_ow_dps
             + d_psn_dps;
-        (cth, direct_hit, auto_hit_attack, psn_base, eff_dps)
+        EvalCore {
+            cth,
+            direct_hit,
+            auto_hit_attack,
+            psn_base,
+            eff_dps,
+        }
     }
 
     #[inline]
@@ -775,12 +789,12 @@ impl FastLeafDps {
         add_fire_2x: i32,
         add_psn_2x: i32,
     ) -> f64 {
-        self.eval_core(add_ar, add_phys_2x, add_elem_2x, add_fire_2x, add_psn_2x).4
+        self.eval_core(add_ar, add_phys_2x, add_elem_2x, add_fire_2x, add_psn_2x)
+            .eff_dps
     }
 
     pub(crate) fn eval_detailed(&self) -> (f64, f64, i32, i32, i32, i32, i32, bool) {
-        let (cth, direct_hit, auto_hit_attack, psn_base, eff_dps) =
-            self.eval_core(0, 0, 0, 0, 0);
+        let core = self.eval_core(0, 0, 0, 0, 0);
         let raw_pierce_mult = if self.max_extra_pierce > 0 && self.pierce_p > 0.0 {
             let mut raw_m = 1.0;
             let mut raw_pow = 1.0;
@@ -797,14 +811,14 @@ impl FastLeafDps {
         } else {
             0.0
         };
-        let raw_dps = (direct_hit + auto_hit_attack) * raw_pierce_mult * self.rate
+        let raw_dps = (core.direct_hit + core.auto_hit_attack) * raw_pierce_mult * self.rate
             + self.base_aura_pulse_dps
             + d_ow_dps_raw
-            + psn_base;
+            + core.psn_base;
         let total_ar = self.total_ar_for_add_ar(0);
-        let cth_pct = (cth * 100.0).round() as i32;
+        let cth_pct = (core.cth * 100.0).round() as i32;
         (
-            eff_dps,
+            core.eff_dps,
             raw_dps,
             total_ar,
             cth_pct,
