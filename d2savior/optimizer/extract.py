@@ -75,6 +75,7 @@ _SIMPLE_ITEM_STAT_MAP: frozendict[int, str] = frozendict(
         9: "mana",
         34: "dr_flat",
         35: "mdr",
+        36: "pdr_pct",
         39: "fr",
         40: "max_fr",
         41: "lr",
@@ -99,9 +100,7 @@ _PER_LEVEL_STAT_MAP: frozendict[int, str] = frozendict(
     {216: "life_per_lvl", 217: "mana_per_lvl", 240: "mf"}
 )
 
-_PAL_SIMPLE_STAT_MAP: frozendict[int, str] = frozendict(
-    {93: "ias", 136: "cb", 36: "pdr_pct", 60: "life_leech"}
-)
+_PAL_SIMPLE_STAT_MAP: frozendict[int, str] = frozendict({93: "ias", 136: "cb", 60: "life_leech"})
 
 _USEFUL_ITEM_STATS: tuple[str, ...] = (
     "all_skills",
@@ -468,8 +467,6 @@ def _apply_paladin_prop(
         )
         if isinstance(scaled, int):
             acc.cb += scaled
-    elif pid == 153 and pval > 0:
-        acc.cbf = 1
 
 
 def _compute_weapon_phys_2x(
@@ -565,6 +562,8 @@ def _apply_props_to_acc(
             setattr(acc, attr, getattr(acc, attr) + pval)
         elif pid in _PER_LEVEL_STAT_MAP:
             _apply_per_lvl_prop(acc, pid, pval, resolver, char_level)
+        elif pid == 153 and pval > 0:
+            acc.cbf = 1
         elif include_defense_props and pid == 31:
             acc.defense += pval
         elif include_defense_props and pid == 214:

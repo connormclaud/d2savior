@@ -429,6 +429,53 @@ def test_item_to_spec_keeps_frw_mdr_fire_absorb_and_max_res(
     )
     assert _item_to_spec(boot_or_ring, "test", resolver, 0x63, char_level=99) is None
 
+    # Sorceress items with %PDR (pid 36) and CBF (pid 153) satisfy --cbf and --min-pdr floors.
+    helm_it = next(
+        it
+        for it in mule.item_list.items
+        if (_cls := _classify_slot(it, resolver, char_class=1)) is not None and _cls[0] == "helm"
+    )
+    ring_it = next(
+        it
+        for it in mule.item_list.items
+        if (_cls := _classify_slot(it, resolver, char_class=1)) is not None and _cls[0] == "ring"
+    )
+    monkeypatch.setattr(
+        "d2savior.optimizer.extract.collect_item_properties",
+        lambda it, **_kw: [(36, 10, [10])] if it is helm_it else [(153, 1, [1])],
+    )
+    helm_spec = _item_to_spec(
+        helm_it, "test", resolver, 0x63, char_level=99, char_class=int(CharClass.SORCERESS)
+    )
+    ring_spec = _item_to_spec(
+        ring_it, "test", resolver, 0x63, char_level=99, char_class=int(CharClass.SORCERESS)
+    )
+    assert isinstance(helm_spec, ItemSpec)
+    assert helm_spec.pdr_pct == 10
+    assert isinstance(ring_spec, ItemSpec)
+    assert ring_spec.cbf == 1
+    sorc_res = optimize_builds(
+        [helm_spec, ring_spec],
+        [],
+        BuildConstraints(
+            char_class=int(CharClass.SORCERESS),
+            min_fcr=0,
+            min_fhr=0,
+            min_fr=0,
+            min_lr=0,
+            min_cr=0,
+            min_pr=0,
+            base_hell_res=0,
+            base_str=200,
+            base_dex=200,
+            require_cbf=True,
+            min_pdr=10,
+        ),
+    )
+    assert len(sorc_res) == 1
+    assert sorc_res[0].cbf is True
+    assert sorc_res[0].pdr_pct >= 10
+
 
 @requires_native
 def test_max_resistance_cap_in_evaluate_and_optimize() -> None:

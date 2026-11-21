@@ -935,6 +935,19 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
         sorc_acc.light_skills,
     ) == (4, 3, 1, 1)
 
+    # %PDR (36) and CBF (153) must extract identically for Sorceress as well as Paladin.
+    sorc_def_acc = _PropAcc()
+    _apply_props_to_acc(
+        sorc_def_acc,
+        [(36, 15, [15]), (153, 1, [1])],
+        d2r,
+        char_level=80,
+        char_class=int(CharClass.SORCERESS),
+        pal_spec="leveling",
+    )
+    assert sorc_def_acc.pdr_pct == 15
+    assert sorc_def_acc.cbf == 1
+
     pal_acc = _PropAcc()
     _apply_paladin_prop(pal_acc, 247, 8, [8], d2r, 80, "smite", 97, frozenset({0}))
     assert pal_acc.cb > 0
