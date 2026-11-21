@@ -1465,7 +1465,7 @@ def test_parse_keep_gear_and_resolve_fixed_gear() -> None:
 def test_normalize_keep_gear_argv_before_positionals() -> None:
     import argparse
 
-    from d2savior.cli import _normalize_keep_gear_argv
+    from d2savior.cli_optimize import _normalize_keep_gear_argv
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-b", "--build", default="all")
@@ -1729,7 +1729,7 @@ def test_format_paladin_option_lines_melee_action_labels() -> None:
 
 
 def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
-    from d2savior.cli import cmd_optimize
+    from d2savior.cli_optimize import cmd_optimize
     from d2savior.optimizer.paladin import _build_paladin_baseline
 
     resolver = GameDataResolver.load()
@@ -1798,15 +1798,17 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
 
     captured: list[str] = []
 
-    monkeypatch.setattr("d2savior.cli._resolve_and_save_targets", lambda _args: ["smite.d2s"])
-    monkeypatch.setattr("d2savior.cli.GameDataResolver.load", lambda **_kw: resolver)
     monkeypatch.setattr(
-        "d2savior.cli._load_optimize_pool",
+        "d2savior.cli_optimize._resolve_and_save_targets", lambda _args: ["smite.d2s"]
+    )
+    monkeypatch.setattr("d2savior.cli_optimize.GameDataResolver.load", lambda **_kw: resolver)
+    monkeypatch.setattr(
+        "d2savior.cli_optimize._load_optimize_pool",
         lambda *_a, **_kw: (smite, [], [], None),
     )
-    monkeypatch.setattr("d2savior.cli.extract_pool", lambda *_a, **_kw: ([], []))
+    monkeypatch.setattr("d2savior.cli_optimize.extract_pool", lambda *_a, **_kw: ([], []))
     monkeypatch.setattr(
-        "d2savior.cli.optimize_paladin_leveling",
+        "d2savior.cli_optimize.optimize_paladin_leveling",
         lambda *_a, **kw: (
             captured.append(kw["target_type"]) or "Title",
             [],
