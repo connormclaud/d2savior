@@ -628,6 +628,10 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
         || a.vit < b.vit
         || a.ene < b.ene
         || a.ar < b.ar
+        || a.flat_phys_2x < b.flat_phys_2x
+        || a.flat_fire_2x < b.flat_fire_2x
+        || a.flat_elem_2x < b.flat_elem_2x
+        || a.psn_dps_2x < b.psn_dps_2x
         || a.frw < b.frw
         || a.str_bonus < b.str_bonus
         || a.dex_bonus < b.dex_bonus
@@ -651,6 +655,10 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
         || a.vit > b.vit
         || a.ene > b.ene
         || a.ar > b.ar
+        || a.flat_phys_2x > b.flat_phys_2x
+        || a.flat_fire_2x > b.flat_fire_2x
+        || a.flat_elem_2x > b.flat_elem_2x
+        || a.psn_dps_2x > b.psn_dps_2x
         || a.frw > b.frw
         || a.str_bonus > b.str_bonus
         || a.dex_bonus > b.dex_bonus
@@ -717,11 +725,17 @@ struct StatTotals {
     frw: i32,
     res: [i32; 4],
     skills: i32,
+    all_skills: i32,
+    class_skills: i32,
     general_skills: i32,
     action_skills: i32,
     aura_skills: i32,
     mf: i32,
     ar: i32,
+    flat_phys_2x: i32,
+    flat_fire_2x: i32,
+    flat_elem_2x: i32,
+    psn_dps_2x: i32,
 }
 
 impl StatTotals {
@@ -733,11 +747,17 @@ impl StatTotals {
             frw: c.frw,
             res: [c.fr, c.lr, c.cr, c.pr],
             skills: c.skills_total(),
+            all_skills: c.all_skills,
+            class_skills: c.skills,
             general_skills: c.general_skills(),
             action_skills: c.action_skills,
             aura_skills: c.aura_skills,
             mf: c.mf,
             ar: c.ar,
+            flat_phys_2x: c.flat_phys_2x,
+            flat_fire_2x: c.flat_fire_2x,
+            flat_elem_2x: c.flat_elem_2x,
+            psn_dps_2x: c.psn_dps_2x,
         }
     }
 
@@ -754,11 +774,17 @@ impl StatTotals {
                 self.res[3].max(o.res[3]),
             ],
             skills: self.skills.max(o.skills),
+            all_skills: self.all_skills.max(o.all_skills),
+            class_skills: self.class_skills.max(o.class_skills),
             general_skills: self.general_skills.max(o.general_skills),
             action_skills: self.action_skills.max(o.action_skills),
             aura_skills: self.aura_skills.max(o.aura_skills),
             mf: self.mf.max(o.mf),
             ar: self.ar.max(o.ar),
+            flat_phys_2x: self.flat_phys_2x.max(o.flat_phys_2x),
+            flat_fire_2x: self.flat_fire_2x.max(o.flat_fire_2x),
+            flat_elem_2x: self.flat_elem_2x.max(o.flat_elem_2x),
+            psn_dps_2x: self.psn_dps_2x.max(o.psn_dps_2x),
         }
     }
 
@@ -775,11 +801,17 @@ impl StatTotals {
                 self.res[3].max(0),
             ],
             skills: self.skills.max(0),
+            all_skills: self.all_skills.max(0),
+            class_skills: self.class_skills.max(0),
             general_skills: self.general_skills.max(0),
             action_skills: self.action_skills.max(0),
             aura_skills: self.aura_skills.max(0),
             mf: self.mf.max(0),
             ar: self.ar.max(0),
+            flat_phys_2x: self.flat_phys_2x.max(0),
+            flat_fire_2x: self.flat_fire_2x.max(0),
+            flat_elem_2x: self.flat_elem_2x.max(0),
+            psn_dps_2x: self.psn_dps_2x.max(0),
         }
     }
 
@@ -796,11 +828,17 @@ impl StatTotals {
                 self.res[3] + o.res[3] * k,
             ],
             skills: self.skills + o.skills * k,
+            all_skills: self.all_skills + o.all_skills * k,
+            class_skills: self.class_skills + o.class_skills * k,
             general_skills: self.general_skills + o.general_skills * k,
             action_skills: self.action_skills + o.action_skills * k,
             aura_skills: self.aura_skills + o.aura_skills * k,
             mf: self.mf + o.mf * k,
             ar: self.ar + o.ar * k,
+            flat_phys_2x: self.flat_phys_2x + o.flat_phys_2x * k,
+            flat_fire_2x: self.flat_fire_2x + o.flat_fire_2x * k,
+            flat_elem_2x: self.flat_elem_2x + o.flat_elem_2x * k,
+            psn_dps_2x: self.psn_dps_2x + o.psn_dps_2x * k,
         }
     }
 }
@@ -1061,11 +1099,16 @@ pub(crate) struct CharmSolver<'a> {
     ub_fhr: i32,
     ub_frw: i32,
     ub_res: [i32; 4],
-    ub_skills: i32,
+    ub_all_skills: i32,
+    ub_class_skills: i32,
     ub_action_skills: i32,
     ub_aura_skills: i32,
     ub_mf: i32,
     ub_ar: i32,
+    ub_flat_phys_2x: i32,
+    ub_flat_fire_2x: i32,
+    ub_flat_elem_2x: i32,
+    ub_psn_dps_2x: i32,
     groups: Vec<CharmGroup>,
     pure_axes: [PureAxisDp; 9],
     suf_pos: Vec<StatTotals>,
@@ -1083,6 +1126,22 @@ pub(crate) struct CharmSolver<'a> {
     dps_groups: Vec<CharmGroup>,
     dps_suf_pos: Vec<StatTotals>,
     dps_suf_neg_res: Vec<[i32; 4]>,
+    dps_min_size: Vec<i32>,
+    dps_order_all_skills: Vec<UbGroupEntry>,
+    dps_order_class_skills: Vec<UbGroupEntry>,
+    dps_order_action_skills: Vec<UbGroupEntry>,
+    dps_order_aura_skills: Vec<UbGroupEntry>,
+    dps_order_str: Vec<UbGroupEntry>,
+    dps_order_dex: Vec<UbGroupEntry>,
+    dps_order_ar: Vec<UbGroupEntry>,
+    dps_order_phys: Vec<UbGroupEntry>,
+    dps_order_fire: Vec<UbGroupEntry>,
+    dps_order_elem: Vec<UbGroupEntry>,
+    dps_order_psn: Vec<UbGroupEntry>,
+    dps_order_res: [Vec<UbGroupEntry>; 4],
+    dps_order_fhr: Vec<UbGroupEntry>,
+    dps_order_frw: Vec<UbGroupEntry>,
+    dps_order_mf: Vec<UbGroupEntry>,
     pure_ar_dp: PureAxisDp,
     non_dps_solver: Option<Box<CharmSolver<'a>>>,
 }
@@ -1093,9 +1152,16 @@ impl<'a> CharmSolver<'a> {
     }
 
     pub(crate) fn charm_ub_stats(&self) -> Stats {
+        let class_splits = |skills: i32| match self.class {
+            CharClass::Sorceress => (skills, 0),
+            CharClass::Paladin => (0, skills),
+        };
         let base = if let Some(&first) = self.sunder_opts.first() {
+            let (s_sk, p_sk) = class_splits(first.skills);
             let mut acc = Stats {
-                all_skills: first.general_skills(),
+                all_skills: first.all_skills,
+                sorc_skills: s_sk,
+                pal_skills: p_sk,
                 action_skill_bonus: first.action_skills,
                 aura_skill_bonus: first.aura_skills,
                 fhr: first.fhr,
@@ -1108,11 +1174,18 @@ impl<'a> CharmSolver<'a> {
                 str_bonus: first.str_bonus,
                 dex_bonus: first.dex_bonus,
                 ar: first.ar,
+                flat_phys_2x: first.flat_phys_2x,
+                flat_fire_2x: first.flat_fire_2x,
+                flat_elem_2x: first.flat_elem_2x,
+                psn_dps_2x: first.psn_dps_2x,
                 ..Default::default()
             };
             for &s in &self.sunder_opts[1..] {
+                let (ss_sk, sp_sk) = class_splits(s.skills);
                 acc = acc.max_each(Stats {
-                    all_skills: s.general_skills(),
+                    all_skills: s.all_skills,
+                    sorc_skills: ss_sk,
+                    pal_skills: sp_sk,
                     action_skill_bonus: s.action_skills,
                     aura_skill_bonus: s.aura_skills,
                     fhr: s.fhr,
@@ -1125,6 +1198,10 @@ impl<'a> CharmSolver<'a> {
                     str_bonus: s.str_bonus,
                     dex_bonus: s.dex_bonus,
                     ar: s.ar,
+                    flat_phys_2x: s.flat_phys_2x,
+                    flat_fire_2x: s.flat_fire_2x,
+                    flat_elem_2x: s.flat_elem_2x,
+                    psn_dps_2x: s.psn_dps_2x,
                     ..Default::default()
                 });
             }
@@ -1132,8 +1209,11 @@ impl<'a> CharmSolver<'a> {
         } else {
             Stats::default()
         };
+        let (ub_sorc, ub_pal) = class_splits(self.ub_class_skills);
         Stats {
-            all_skills: base.all_skills + self.ub_skills,
+            all_skills: base.all_skills + self.ub_all_skills,
+            sorc_skills: base.sorc_skills + ub_sorc,
+            pal_skills: base.pal_skills + ub_pal,
             action_skill_bonus: base.action_skill_bonus + self.ub_action_skills,
             aura_skill_bonus: base.aura_skill_bonus + self.ub_aura_skills,
             fhr: base.fhr + self.ub_fhr,
@@ -1146,6 +1226,10 @@ impl<'a> CharmSolver<'a> {
             str_bonus: base.str_bonus + self.ub_str,
             dex_bonus: base.dex_bonus + self.ub_dex,
             ar: base.ar + self.ub_ar,
+            flat_phys_2x: base.flat_phys_2x + self.ub_flat_phys_2x,
+            flat_fire_2x: base.flat_fire_2x + self.ub_flat_fire_2x,
+            flat_elem_2x: base.flat_elem_2x + self.ub_flat_elem_2x,
+            psn_dps_2x: base.psn_dps_2x + self.ub_psn_dps_2x,
             ..Default::default()
         }
     }
@@ -1251,11 +1335,16 @@ impl<'a> CharmSolver<'a> {
             charm_stat_ub(&pool, max_slots, |ch| ch.cr),
             charm_stat_ub(&pool, max_slots, |ch| ch.pr),
         ];
-        let ub_skills = charm_stat_ub(&pool, max_slots, |ch| ch.general_skills());
+        let ub_all_skills = charm_stat_ub(&pool, max_slots, |ch| ch.all_skills);
+        let ub_class_skills = charm_stat_ub(&pool, max_slots, |ch| ch.skills);
         let ub_action_skills = charm_stat_ub(&pool, max_slots, |ch| ch.action_skills);
         let ub_aura_skills = charm_stat_ub(&pool, max_slots, |ch| ch.aura_skills);
         let ub_mf = charm_stat_ub(&pool, max_slots, |ch| ch.mf);
         let ub_ar = charm_stat_ub(&pool, max_slots, |ch| ch.ar);
+        let ub_flat_phys_2x = charm_stat_ub(&pool, max_slots, |ch| ch.flat_phys_2x);
+        let ub_flat_fire_2x = charm_stat_ub(&pool, max_slots, |ch| ch.flat_fire_2x);
+        let ub_flat_elem_2x = charm_stat_ub(&pool, max_slots, |ch| ch.flat_elem_2x);
+        let ub_psn_dps_2x = charm_stat_ub(&pool, max_slots, |ch| ch.psn_dps_2x);
 
         let is_relevant = |ch: &CharmSpec| {
             let helps_feas = ch.str_bonus > 0
@@ -1492,11 +1581,17 @@ impl<'a> CharmSolver<'a> {
                     suf_pos[i + 1].res[3] + gp.res[3],
                 ],
                 skills: suf_pos[i + 1].skills + gp.skills,
+                all_skills: suf_pos[i + 1].all_skills + gp.all_skills,
+                class_skills: suf_pos[i + 1].class_skills + gp.class_skills,
                 general_skills: suf_pos[i + 1].general_skills + gp.general_skills,
                 action_skills: suf_pos[i + 1].action_skills + gp.action_skills,
                 aura_skills: suf_pos[i + 1].aura_skills + gp.aura_skills,
                 mf: suf_pos[i + 1].mf + gp.mf,
                 ar: suf_pos[i + 1].ar + gp.ar,
+                flat_phys_2x: suf_pos[i + 1].flat_phys_2x + gp.flat_phys_2x,
+                flat_fire_2x: suf_pos[i + 1].flat_fire_2x + gp.flat_fire_2x,
+                flat_elem_2x: suf_pos[i + 1].flat_elem_2x + gp.flat_elem_2x,
+                psn_dps_2x: suf_pos[i + 1].psn_dps_2x + gp.psn_dps_2x,
             };
             let gn = groups[i].min_neg_res();
             for r in 0..4 {
@@ -1520,7 +1615,29 @@ impl<'a> CharmSolver<'a> {
         let order_skills = sorted_ub_entries(&groups, &pool, &[], |ch| ch.skills_total());
         let order_mf = sorted_ub_entries(&groups, &pool, &pure_items[8], |ch| ch.mf);
 
-        let (dps_groups, dps_suf_pos, dps_suf_neg_res, pure_ar_dp, non_dps_solver) =
+        let (
+            dps_groups,
+            dps_suf_pos,
+            dps_suf_neg_res,
+            dps_min_size,
+            dps_order_all_skills,
+            dps_order_class_skills,
+            dps_order_action_skills,
+            dps_order_aura_skills,
+            dps_order_str,
+            dps_order_dex,
+            dps_order_ar,
+            dps_order_phys,
+            dps_order_fire,
+            dps_order_elem,
+            dps_order_psn,
+            dps_order_res,
+            dps_order_fhr,
+            dps_order_frw,
+            dps_order_mf,
+            pure_ar_dp,
+            non_dps_solver,
+        ) =
             if build_dps_refiner
                 && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes)
                 && OffenseProfile::parse(&c.offense, class).is_ok_and(|o| o.uses_dps_tables(c))
@@ -1543,9 +1660,20 @@ impl<'a> CharmSolver<'a> {
                         && ch.str_bonus == 0
                         && ch.dex_bonus == 0
                         && ch.skills_total() == 0
+                        && ch.flat_phys_2x == 0
+                        && ch.flat_fire_2x == 0
+                        && ch.flat_elem_2x == 0
+                        && ch.psn_dps_2x == 0
                 };
                 let is_dps_stat = |ch: &CharmSpec| {
-                    ch.ar > 0 || ch.dex_bonus > 0 || ch.str_bonus > 0 || ch.skills_total() > 0
+                    ch.ar > 0
+                        || ch.dex_bonus > 0
+                        || ch.str_bonus > 0
+                        || ch.skills_total() > 0
+                        || ch.flat_phys_2x > 0
+                        || ch.flat_fire_2x > 0
+                        || ch.flat_elem_2x > 0
+                        || ch.psn_dps_2x > 0
                 };
                 let dps_uids: HashSet<i32> = pool
                     .iter()
@@ -1555,7 +1683,7 @@ impl<'a> CharmSolver<'a> {
 
                 let mut pure_ar_items: Vec<(usize, &CharmSpec, i32)> = Vec::new();
                 let mut dps_unique_map: BTreeMap<i32, Vec<usize>> = BTreeMap::new();
-                let mut dps_multi_map: BTreeMap<[i32; 15], Vec<usize>> = BTreeMap::new();
+                let mut dps_multi_map: BTreeMap<[i32; 19], Vec<usize>> = BTreeMap::new();
                 let mut non_dps_pool: Vec<&'a CharmSpec> = Vec::new();
 
                 for (idx, &ch) in pool.iter().enumerate() {
@@ -1583,6 +1711,10 @@ impl<'a> CharmSolver<'a> {
                                 ch.action_skills,
                                 ch.aura_skills,
                                 ch.ar,
+                                ch.flat_phys_2x,
+                                ch.flat_fire_2x,
+                                ch.flat_elem_2x,
+                                ch.psn_dps_2x,
                             ];
                             dps_multi_map.entry(key).or_default().push(idx);
                         }
@@ -1654,7 +1786,14 @@ impl<'a> CharmSolver<'a> {
                         CharmGroup::Unique { options, max_pos, min_size, .. } => {
                             let ch = pool[options[0]];
                             (
-                                ch.skills_total() * 1000 + ch.ar + ch.dex_bonus * 10 + ch.str_bonus * 5,
+                                ch.skills_total() * 1000
+                                    + ch.ar
+                                    + ch.dex_bonus * 10
+                                    + ch.str_bonus * 5
+                                    + ch.flat_phys_2x * 10
+                                    + ch.flat_fire_2x * 5
+                                    + ch.flat_elem_2x * 5
+                                    + ch.psn_dps_2x * 3,
                                 (*min_size).max(1),
                                 options[0],
                                 *max_pos,
@@ -1663,7 +1802,14 @@ impl<'a> CharmSolver<'a> {
                         CharmGroup::Multi { members, size, stats } => {
                             let ch = pool[members[0]];
                             (
-                                ch.skills_total() * 1000 + ch.ar + ch.dex_bonus * 10 + ch.str_bonus * 5,
+                                ch.skills_total() * 1000
+                                    + ch.ar
+                                    + ch.dex_bonus * 10
+                                    + ch.str_bonus * 5
+                                    + ch.flat_phys_2x * 10
+                                    + ch.flat_fire_2x * 5
+                                    + ch.flat_elem_2x * 5
+                                    + ch.psn_dps_2x * 3,
                                 (*size).max(1),
                                 members[0],
                                 *stats,
@@ -1679,6 +1825,7 @@ impl<'a> CharmSolver<'a> {
                 });
                 let mut dps_suf_pos = vec![StatTotals::default(); dps_groups.len() + 1];
                 let mut dps_suf_neg_res = vec![[0i32; 4]; dps_groups.len() + 1];
+                let mut dps_min_size = vec![i32::MAX; dps_groups.len() + 1];
                 for i in (0..dps_groups.len()).rev() {
                     let gp = dps_groups[i].max_pos_total();
                     dps_suf_pos[i] = dps_suf_pos[i + 1].add_scaled(gp, 1);
@@ -1686,7 +1833,42 @@ impl<'a> CharmSolver<'a> {
                     for r in 0..4 {
                         dps_suf_neg_res[i][r] = dps_suf_neg_res[i + 1][r] + gn[r];
                     }
+                    let g_sz = match &dps_groups[i] {
+                        CharmGroup::Unique { min_size, .. } => *min_size,
+                        CharmGroup::Multi { size, .. } => *size,
+                    };
+                    dps_min_size[i] = dps_min_size[i + 1].min(g_sz);
                 }
+                let dps_order_all_skills =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.all_skills);
+                let dps_order_class_skills =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.skills);
+                let dps_order_action_skills =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.action_skills);
+                let dps_order_aura_skills =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.aura_skills);
+                let dps_order_str =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.str_bonus);
+                let dps_order_dex =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.dex_bonus);
+                let dps_order_ar = sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.ar);
+                let dps_order_phys =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.flat_phys_2x);
+                let dps_order_fire =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.flat_fire_2x);
+                let dps_order_elem =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.flat_elem_2x);
+                let dps_order_psn =
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.psn_dps_2x);
+                let dps_order_res = [
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.fr),
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.lr),
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.cr),
+                    sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.pr),
+                ];
+                let dps_order_fhr = sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.fhr);
+                let dps_order_frw = sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.frw);
+                let dps_order_mf = sorted_ub_entries(&dps_groups, &pool, &[], |ch| ch.mf);
                 let non_dps_solver = Box::new(CharmSolver::new_inner(
                     &non_dps_pool,
                     c,
@@ -1697,11 +1879,43 @@ impl<'a> CharmSolver<'a> {
                     dps_groups,
                     dps_suf_pos,
                     dps_suf_neg_res,
+                    dps_min_size,
+                    dps_order_all_skills,
+                    dps_order_class_skills,
+                    dps_order_action_skills,
+                    dps_order_aura_skills,
+                    dps_order_str,
+                    dps_order_dex,
+                    dps_order_ar,
+                    dps_order_phys,
+                    dps_order_fire,
+                    dps_order_elem,
+                    dps_order_psn,
+                    dps_order_res,
+                    dps_order_fhr,
+                    dps_order_frw,
+                    dps_order_mf,
                     pure_ar_dp,
                     Some(non_dps_solver),
                 )
             } else {
                 (
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
                     Vec::new(),
                     Vec::new(),
                     Vec::new(),
@@ -1724,11 +1938,16 @@ impl<'a> CharmSolver<'a> {
             ub_fhr,
             ub_frw,
             ub_res,
-            ub_skills,
+            ub_all_skills,
+            ub_class_skills,
             ub_action_skills,
             ub_aura_skills,
             ub_mf,
             ub_ar,
+            ub_flat_phys_2x,
+            ub_flat_fire_2x,
+            ub_flat_elem_2x,
+            ub_psn_dps_2x,
             groups,
             pure_axes,
             suf_pos,
@@ -1746,6 +1965,22 @@ impl<'a> CharmSolver<'a> {
             dps_groups,
             dps_suf_pos,
             dps_suf_neg_res,
+            dps_min_size,
+            dps_order_all_skills,
+            dps_order_class_skills,
+            dps_order_action_skills,
+            dps_order_aura_skills,
+            dps_order_str,
+            dps_order_dex,
+            dps_order_ar,
+            dps_order_phys,
+            dps_order_fire,
+            dps_order_elem,
+            dps_order_psn,
+            dps_order_res,
+            dps_order_fhr,
+            dps_order_frw,
+            dps_order_mf,
             pure_ar_dp,
             non_dps_solver,
         }
@@ -2598,6 +2833,7 @@ impl<'a> CharmSolver<'a> {
         leaf: Stats,
         reqs: (i32, i32),
         offense: OffenseProfile,
+        cutoff: Option<(i32, i32, i32)>,
         best_charms: &mut Vec<&'a CharmSpec>,
         best_sum: &mut EvalSummary,
         best_score: &mut BuildScore,
@@ -2609,38 +2845,93 @@ impl<'a> CharmSolver<'a> {
         let ub_leaf = leaf.add(self.charm_ub_stats());
         let global_ub_bucket =
             OffenseProfile::dps_bucket(offense.compute_dps(hw, ub_leaf, self.c).0);
+        let caps_t = res_caps(leaf, self.c);
+        let caps = [caps_t.0, caps_t.1, caps_t.2, caps_t.3];
+        let cbf_val = i32::from(leaf.cbf > 0);
+        if let Some(cut) = cutoff {
+            let max_res_base: i32 = [
+                (ub_leaf.fr).min(caps[0]).min(BASE_MAX_RES),
+                (ub_leaf.lr).min(caps[1]).min(BASE_MAX_RES),
+                (ub_leaf.cr).min(caps[2]).min(BASE_MAX_RES),
+                (ub_leaf.pr).min(caps[3]).min(BASE_MAX_RES),
+            ]
+            .iter()
+            .sum();
+            let global_top3 = match self.mode {
+                SearchMode::Leveling => (global_ub_bucket, max_res_base, cbf_val),
+                SearchMode::LevelingRes => (max_res_base, global_ub_bucket, cbf_val),
+                _ => return,
+            };
+            if global_top3 < cut {
+                return;
+            }
+        }
         if self.dps_groups.is_empty()
             && (self.pure_ar_dp.max_gain == 0 || gear_bucket >= global_ub_bucket)
         {
             return;
         }
         let non_dps_solver = self.non_dps_solver.as_deref_mut().expect("checked non_dps_solver");
-        let caps_t = res_caps(leaf, self.c);
-        let caps = [caps_t.0, caps_t.1, caps_t.2, caps_t.3];
-        let nd_ub_res = non_dps_solver.ub_res;
-        let nd_ub_fhr = non_dps_solver.ub_fhr;
-        let nd_ub_frw = non_dps_solver.ub_frw;
-        let nd_ub_mf = non_dps_solver.ub_mf;
+        let slots_len = (self.max_slots.max(0) as usize) + 1;
+        let nd_res_at: Vec<[i32; 4]> = (0..slots_len)
+            .map(|s| {
+                let si = s as i32;
+                [
+                    eval_sorted_ub(&non_dps_solver.order_res[0], 0, si),
+                    eval_sorted_ub(&non_dps_solver.order_res[1], 0, si),
+                    eval_sorted_ub(&non_dps_solver.order_res[2], 0, si),
+                    eval_sorted_ub(&non_dps_solver.order_res[3], 0, si),
+                ]
+            })
+            .collect();
+        let nd_fhr_at: Vec<i32> = (0..slots_len)
+            .map(|s| eval_sorted_ub(&non_dps_solver.order_fhr, 0, s as i32))
+            .collect();
+        let nd_frw_at: Vec<i32> = (0..slots_len)
+            .map(|s| eval_sorted_ub(&non_dps_solver.order_frw, 0, s as i32))
+            .collect();
+        let nd_mf_at: Vec<i32> = (0..slots_len)
+            .map(|s| eval_sorted_ub(&non_dps_solver.order_mf, 0, s as i32))
+            .collect();
 
         struct DpsCtx<'b, 'a> {
             pool: &'b [&'a CharmSpec],
             c: &'a BuildConstraints,
             mode: SearchMode,
+            class: CharClass,
             gear: Stats,
             all_sk_non_wep: i32,
             hw: HandWeapon,
             leaf: Stats,
             reqs: (i32, i32),
             offense: OffenseProfile,
+            cutoff: Option<(i32, i32, i32)>,
+            cbf_val: i32,
             groups: &'b [CharmGroup],
             suf_pos: &'b [StatTotals],
             suf_neg_res: &'b [[i32; 4]],
+            min_size: &'b [i32],
+            order_all_skills: &'b [UbGroupEntry],
+            order_class_skills: &'b [UbGroupEntry],
+            order_action_skills: &'b [UbGroupEntry],
+            order_aura_skills: &'b [UbGroupEntry],
+            order_str: &'b [UbGroupEntry],
+            order_dex: &'b [UbGroupEntry],
+            order_ar: &'b [UbGroupEntry],
+            order_phys: &'b [UbGroupEntry],
+            order_fire: &'b [UbGroupEntry],
+            order_elem: &'b [UbGroupEntry],
+            order_psn: &'b [UbGroupEntry],
+            order_res: &'b [Vec<UbGroupEntry>; 4],
+            order_fhr: &'b [UbGroupEntry],
+            order_frw: &'b [UbGroupEntry],
+            order_mf: &'b [UbGroupEntry],
             pure_ar_dp: &'b PureAxisDp,
             non_dps_solver: &'b mut CharmSolver<'a>,
-            nd_ub_res: [i32; 4],
-            nd_ub_fhr: i32,
-            nd_ub_frw: i32,
-            nd_ub_mf: i32,
+            nd_res_at: &'b [[i32; 4]],
+            nd_fhr_at: &'b [i32],
+            nd_frw_at: &'b [i32],
+            nd_mf_at: &'b [i32],
             caps: [i32; 4],
             cur_indices: Vec<usize>,
             best_charms: &'b mut Vec<&'a CharmSpec>,
@@ -2650,73 +2941,123 @@ impl<'a> CharmSolver<'a> {
 
         fn dfs_dps<'b, 'a>(
             ctx: &mut DpsCtx<'b, 'a>,
-            g_idx: usize,
+            mut g_idx: usize,
             rem_slots: i32,
             cur: StatTotals,
         ) {
+            if g_idx < ctx.groups.len() && rem_slots < ctx.min_size[g_idx] {
+                g_idx = ctx.groups.len();
+            }
             let sp = ctx.suf_pos[g_idx];
             let sn = ctx.suf_neg_res[g_idx];
+            let rs_idx = (rem_slots.max(0) as usize).min(ctx.nd_fhr_at.len() - 1);
+            let ub_rem = |sp_v: i32, order: &[UbGroupEntry]| {
+                if g_idx >= ctx.groups.len() || rem_slots <= 0 {
+                    0
+                } else {
+                    sp_v.min(eval_sorted_ub(order, g_idx, rem_slots))
+                }
+            };
             let leaf = ctx.leaf;
-            if leaf.str_bonus + cur.str_bonus + sp.str_bonus < ctx.reqs.0
-                || leaf.dex_bonus + cur.dex_bonus + sp.dex_bonus < ctx.reqs.1
-                || leaf.fhr + cur.fhr + sp.fhr + ctx.nd_ub_fhr < ctx.c.min_fhr
-                || leaf.frw + cur.frw + sp.frw + ctx.nd_ub_frw < ctx.c.min_frw
-                || leaf.mf + cur.mf + sp.mf + ctx.nd_ub_mf < ctx.c.min_mf
+            let rem_str = ub_rem(sp.str_bonus, ctx.order_str);
+            let rem_dex = ub_rem(sp.dex_bonus, ctx.order_dex);
+            if leaf.str_bonus + cur.str_bonus + rem_str < ctx.reqs.0
+                || leaf.dex_bonus + cur.dex_bonus + rem_dex < ctx.reqs.1
+            {
+                return;
+            }
+            if leaf.fhr + cur.fhr + ctx.nd_fhr_at[rs_idx] < ctx.c.min_fhr
+                && leaf.fhr + cur.fhr + ub_rem(sp.fhr, ctx.order_fhr) + ctx.nd_fhr_at[rs_idx]
+                    < ctx.c.min_fhr
+            {
+                return;
+            }
+            if leaf.frw + cur.frw + ctx.nd_frw_at[rs_idx] < ctx.c.min_frw
+                && leaf.frw + cur.frw + ub_rem(sp.frw, ctx.order_frw) + ctx.nd_frw_at[rs_idx]
+                    < ctx.c.min_frw
+            {
+                return;
+            }
+            if leaf.mf + cur.mf + ctx.nd_mf_at[rs_idx] < ctx.c.min_mf
+                && leaf.mf + cur.mf + ub_rem(sp.mf, ctx.order_mf) + ctx.nd_mf_at[rs_idx]
+                    < ctx.c.min_mf
             {
                 return;
             }
             let leaf_res = [leaf.fr, leaf.lr, leaf.cr, leaf.pr];
             let min_res = [ctx.c.min_fr, ctx.c.min_lr, ctx.c.min_cr, ctx.c.min_pr];
+            let mut ub_res_base = 0i32;
             for r in 0..4 {
-                if leaf_res[r] + cur.res[r] + sp.res[r] + ctx.nd_ub_res[r] < min_res[r] {
-                    return;
+                let cap_r = ctx.caps[r].min(BASE_MAX_RES);
+                let cur_plus_nd = leaf_res[r] + cur.res[r] + ctx.nd_res_at[rs_idx][r];
+                if cur_plus_nd >= cap_r.max(min_res[r]) {
+                    ub_res_base += cur_plus_nd.min(cap_r);
+                } else {
+                    let rem_r = ub_rem(sp.res[r], &ctx.order_res[r]);
+                    let total_r = cur_plus_nd + rem_r;
+                    if total_r < min_res[r] {
+                        return;
+                    }
+                    ub_res_base += total_r.min(cap_r);
                 }
             }
-
-            let ub_res_base: i32 = (0..4)
-                .map(|r| {
-                    (leaf_res[r] + cur.res[r] + sp.res[r] + ctx.nd_ub_res[r])
-                        .min(ctx.caps[r])
-                        .min(BASE_MAX_RES)
-                })
-                .sum();
-            let max_ar = leaf.ar + cur.ar + sp.ar + ctx.pure_ar_dp.gain_at(rem_slots);
+            let rem_ar = ub_rem(sp.ar, ctx.order_ar);
+            let max_ar = leaf.ar + cur.ar + rem_ar + ctx.pure_ar_dp.gain_at(rem_slots);
+            let rem_all_sk = ub_rem(sp.all_skills, ctx.order_all_skills);
+            let rem_cls_sk = ub_rem(sp.class_skills, ctx.order_class_skills);
+            let (cur_sorc_ub, cur_pal_ub) = match ctx.class {
+                CharClass::Sorceress => (cur.class_skills + rem_cls_sk, 0),
+                CharClass::Paladin => (0, cur.class_skills + rem_cls_sk),
+            };
             let ub_dps_stats = Stats {
-                all_skills: leaf.all_skills + cur.general_skills + sp.general_skills,
-                action_skill_bonus: leaf.action_skill_bonus + cur.action_skills + sp.action_skills,
-                aura_skill_bonus: leaf.aura_skill_bonus + cur.aura_skills + sp.aura_skills,
-                str_bonus: leaf.str_bonus + cur.str_bonus + sp.str_bonus,
-                dex_bonus: leaf.dex_bonus + cur.dex_bonus + sp.dex_bonus,
+                all_skills: leaf.all_skills + cur.all_skills + rem_all_sk,
+                sorc_skills: leaf.sorc_skills + cur_sorc_ub,
+                pal_skills: leaf.pal_skills + cur_pal_ub,
+                action_skill_bonus: leaf.action_skill_bonus
+                    + cur.action_skills
+                    + ub_rem(sp.action_skills, ctx.order_action_skills),
+                aura_skill_bonus: leaf.aura_skill_bonus
+                    + cur.aura_skills
+                    + ub_rem(sp.aura_skills, ctx.order_aura_skills),
+                str_bonus: leaf.str_bonus + cur.str_bonus + rem_str,
+                dex_bonus: leaf.dex_bonus + cur.dex_bonus + rem_dex,
                 ar: max_ar,
+                flat_phys_2x: leaf.flat_phys_2x
+                    + cur.flat_phys_2x
+                    + ub_rem(sp.flat_phys_2x, ctx.order_phys),
+                flat_fire_2x: leaf.flat_fire_2x
+                    + cur.flat_fire_2x
+                    + ub_rem(sp.flat_fire_2x, ctx.order_fire),
+                flat_elem_2x: leaf.flat_elem_2x
+                    + cur.flat_elem_2x
+                    + ub_rem(sp.flat_elem_2x, ctx.order_elem),
+                psn_dps_2x: leaf.psn_dps_2x + cur.psn_dps_2x + ub_rem(sp.psn_dps_2x, ctx.order_psn),
                 ..leaf
             };
             let ub_bucket =
                 OffenseProfile::dps_bucket(ctx.offense.compute_dps(ctx.hw, ub_dps_stats, ctx.c).0);
-            match ctx.mode {
-                SearchMode::Leveling => {
-                    if ub_bucket < ctx.best_score.primary
-                        || (ub_bucket == ctx.best_score.primary
-                            && ub_res_base < ctx.best_score.secondary)
-                    {
-                        return;
-                    }
-                }
-                SearchMode::LevelingRes => {
-                    if ub_res_base < ctx.best_score.primary
-                        || (ub_res_base == ctx.best_score.primary
-                            && ub_bucket < ctx.best_score.secondary)
-                    {
-                        return;
-                    }
-                }
+            let ub_top3 = match ctx.mode {
+                SearchMode::Leveling => (ub_bucket, ub_res_base, ctx.cbf_val),
+                SearchMode::LevelingRes => (ub_res_base, ub_bucket, ctx.cbf_val),
                 _ => return,
+            };
+            if ctx.cutoff.is_some_and(|cut| ub_top3 < cut)
+                || (ub_top3.0, ub_top3.1) < (ctx.best_score.primary, ctx.best_score.secondary)
+            {
+                return;
             }
             // Note: negative res from remaining dps_groups can never exceed `sn[r]`, which stays <= 0.
             let _ = sn;
 
             if g_idx == ctx.groups.len() {
+                let (cur_sorc, cur_pal) = match ctx.class {
+                    CharClass::Sorceress => (cur.class_skills, 0),
+                    CharClass::Paladin => (0, cur.class_skills),
+                };
                 let leaf_d = Stats {
-                    all_skills: leaf.all_skills + cur.general_skills,
+                    all_skills: leaf.all_skills + cur.all_skills,
+                    sorc_skills: leaf.sorc_skills + cur_sorc,
+                    pal_skills: leaf.pal_skills + cur_pal,
                     action_skill_bonus: leaf.action_skill_bonus + cur.action_skills,
                     aura_skill_bonus: leaf.aura_skill_bonus + cur.aura_skills,
                     str_bonus: leaf.str_bonus + cur.str_bonus,
@@ -2729,6 +3070,10 @@ impl<'a> CharmSolver<'a> {
                     cr: leaf.cr + cur.res[2],
                     pr: leaf.pr + cur.res[3],
                     ar: leaf.ar + cur.ar,
+                    flat_phys_2x: leaf.flat_phys_2x + cur.flat_phys_2x,
+                    flat_fire_2x: leaf.flat_fire_2x + cur.flat_fire_2x,
+                    flat_elem_2x: leaf.flat_elem_2x + cur.flat_elem_2x,
+                    psn_dps_2x: leaf.psn_dps_2x + cur.psn_dps_2x,
                     ..leaf
                 };
                 let mut prev_tested_bucket: Option<i32> = None;
@@ -2739,6 +3084,34 @@ impl<'a> CharmSolver<'a> {
                     if ar_s > 0 && extra_ar <= ctx.pure_ar_dp.gain_at(ar_s as i32 - 1) {
                         continue;
                     }
+                    let rem_nd = rem_slots - ar_s as i32;
+                    let nd_idx = (rem_nd.max(0) as usize).min(ctx.nd_fhr_at.len() - 1);
+                    if leaf_d.fhr + ctx.nd_fhr_at[nd_idx] < ctx.c.min_fhr
+                        || leaf_d.frw + ctx.nd_frw_at[nd_idx] < ctx.c.min_frw
+                        || leaf_d.mf + ctx.nd_mf_at[nd_idx] < ctx.c.min_mf
+                        || leaf_d.fr + ctx.nd_res_at[nd_idx][0] < ctx.c.min_fr
+                        || leaf_d.lr + ctx.nd_res_at[nd_idx][1] < ctx.c.min_lr
+                        || leaf_d.cr + ctx.nd_res_at[nd_idx][2] < ctx.c.min_cr
+                        || leaf_d.pr + ctx.nd_res_at[nd_idx][3] < ctx.c.min_pr
+                    {
+                        continue;
+                    }
+                    let cand_res_ub: i32 = [
+                        (leaf_d.fr + ctx.nd_res_at[nd_idx][0])
+                            .min(ctx.caps[0])
+                            .min(BASE_MAX_RES),
+                        (leaf_d.lr + ctx.nd_res_at[nd_idx][1])
+                            .min(ctx.caps[1])
+                            .min(BASE_MAX_RES),
+                        (leaf_d.cr + ctx.nd_res_at[nd_idx][2])
+                            .min(ctx.caps[2])
+                            .min(BASE_MAX_RES),
+                        (leaf_d.pr + ctx.nd_res_at[nd_idx][3])
+                            .min(ctx.caps[3])
+                            .min(BASE_MAX_RES),
+                    ]
+                    .iter()
+                    .sum();
                     let cand_ar_stats = Stats {
                         ar: leaf_d.ar + extra_ar,
                         ..leaf_d
@@ -2749,17 +3122,18 @@ impl<'a> CharmSolver<'a> {
                     if prev_tested_bucket == Some(cand_bucket) {
                         continue;
                     }
-                    if ctx.mode == SearchMode::Leveling && cand_bucket < ctx.best_score.primary {
-                        continue;
-                    }
-                    if ctx.mode == SearchMode::LevelingRes
-                        && ub_res_base == ctx.best_score.primary
-                        && cand_bucket < ctx.best_score.secondary
+                    let cand_top3 = match ctx.mode {
+                        SearchMode::Leveling => (cand_bucket, cand_res_ub, ctx.cbf_val),
+                        SearchMode::LevelingRes => (cand_res_ub, cand_bucket, ctx.cbf_val),
+                        _ => continue,
+                    };
+                    if ctx.cutoff.is_some_and(|cut| cand_top3 < cut)
+                        || (cand_top3.0, cand_top3.1)
+                            < (ctx.best_score.primary, ctx.best_score.secondary)
                     {
                         continue;
                     }
                     prev_tested_bucket = Some(cand_bucket);
-                    let rem_nd = rem_slots - ar_s as i32;
                     let Some(mut cand_charms) =
                         ctx.non_dps_solver.solve_with_budget(leaf_d, (0, 0), rem_nd, 0)
                     else {
@@ -2850,21 +3224,40 @@ impl<'a> CharmSolver<'a> {
             pool: &self.pool,
             c: self.c,
             mode: self.mode,
+            class: self.class,
             gear,
             all_sk_non_wep,
             hw,
             leaf,
             reqs,
             offense,
+            cutoff,
+            cbf_val,
             groups: &self.dps_groups,
             suf_pos: &self.dps_suf_pos,
             suf_neg_res: &self.dps_suf_neg_res,
+            min_size: &self.dps_min_size,
+            order_all_skills: &self.dps_order_all_skills,
+            order_class_skills: &self.dps_order_class_skills,
+            order_action_skills: &self.dps_order_action_skills,
+            order_aura_skills: &self.dps_order_aura_skills,
+            order_str: &self.dps_order_str,
+            order_dex: &self.dps_order_dex,
+            order_ar: &self.dps_order_ar,
+            order_phys: &self.dps_order_phys,
+            order_fire: &self.dps_order_fire,
+            order_elem: &self.dps_order_elem,
+            order_psn: &self.dps_order_psn,
+            order_res: &self.dps_order_res,
+            order_fhr: &self.dps_order_fhr,
+            order_frw: &self.dps_order_frw,
+            order_mf: &self.dps_order_mf,
             pure_ar_dp: &self.pure_ar_dp,
             non_dps_solver,
-            nd_ub_res,
-            nd_ub_fhr,
-            nd_ub_frw,
-            nd_ub_mf,
+            nd_res_at: &nd_res_at,
+            nd_fhr_at: &nd_fhr_at,
+            nd_frw_at: &nd_frw_at,
+            nd_mf_at: &nd_mf_at,
             caps,
             cur_indices: Vec::new(),
             best_charms,

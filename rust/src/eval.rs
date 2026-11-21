@@ -114,6 +114,7 @@ pub(crate) struct EvalSummary {
     pub cbf: bool,
     pub pdr_pct: i32,
     pub life_leech: i32,
+    pub ctc_lifetap_pct: i32,
     pub mf: i32,
     pub fr: i32,
     pub fr_raw: i32,
@@ -205,6 +206,7 @@ pub(crate) fn eval_build_summary(
 ) -> EvalSummary {
     let charm_all_skills: i32 = charms.iter().map(|ch| ch.all_skills).sum();
     let charm_skills: i32 = charms.iter().map(|ch| ch.general_skills()).sum();
+    let charm_class_skills = charm_skills - charm_all_skills;
     let charm_action_skills: i32 = charms.iter().map(|ch| ch.action_skills).sum();
     let charm_aura_skills: i32 = charms.iter().map(|ch| ch.aura_skills).sum();
     let charm_str: i32 = charms.iter().map(|ch| ch.str_bonus).sum();
@@ -221,6 +223,10 @@ pub(crate) fn eval_build_summary(
     let charm_vit: i32 = charms.iter().map(|ch| ch.vit).sum();
     let charm_ene: i32 = charms.iter().map(|ch| ch.ene).sum();
     let charm_ar: i32 = charms.iter().map(|ch| ch.ar).sum();
+    let charm_flat_phys_2x: i32 = charms.iter().map(|ch| ch.flat_phys_2x).sum();
+    let charm_flat_fire_2x: i32 = charms.iter().map(|ch| ch.flat_fire_2x).sum();
+    let charm_flat_elem_2x: i32 = charms.iter().map(|ch| ch.flat_elem_2x).sum();
+    let charm_psn_dps_2x: i32 = charms.iter().map(|ch| ch.psn_dps_2x).sum();
 
     let skills = gear.total_skills() + charm_skills;
     let fcr = gear.fcr;
@@ -287,13 +293,23 @@ pub(crate) fn eval_build_summary(
     let offense = OffenseProfile::parse(&c.offense, class).unwrap_or(OffenseProfile::Caster);
     let action_skill_bonus = gear.action_skill_bonus + charm_action_skills;
     let aura_skill_bonus = gear.aura_skill_bonus + charm_aura_skills;
+    let (charm_sorc_skills, charm_pal_skills) = match class {
+        CharClass::Sorceress => (charm_class_skills, 0),
+        CharClass::Paladin => (0, charm_class_skills),
+    };
     let combined_ar_stats = Stats {
-        all_skills: gear.all_skills + charm_skills,
+        all_skills: gear.all_skills + charm_all_skills,
+        sorc_skills: gear.sorc_skills + charm_sorc_skills,
+        pal_skills: gear.pal_skills + charm_pal_skills,
         action_skill_bonus,
         aura_skill_bonus,
         str_bonus: c.base_str + gear.str_bonus + charm_str,
         dex_bonus: c.base_dex + gear.dex_bonus + charm_dex,
         ar: gear.ar + charm_ar,
+        flat_phys_2x: gear.flat_phys_2x + charm_flat_phys_2x,
+        flat_fire_2x: gear.flat_fire_2x + charm_flat_fire_2x,
+        flat_elem_2x: gear.flat_elem_2x + charm_flat_elem_2x,
+        psn_dps_2x: gear.psn_dps_2x + charm_psn_dps_2x,
         ..gear
     };
     let (dps, raw_dps, ar, cth, ias_bp, ias_frames, ias_last_frames, used_zeal) =
@@ -348,6 +364,7 @@ pub(crate) fn eval_build_summary(
         cbf: gear.cbf > 0,
         pdr_pct: gear.pdr_pct.min(HARD_MAX_PDR_PCT),
         life_leech: gear.life_leech,
+        ctc_lifetap_pct: gear.ctc_lifetap_pct,
         mf,
         fr: fr_raw.min(cap_fr),
         fr_raw,

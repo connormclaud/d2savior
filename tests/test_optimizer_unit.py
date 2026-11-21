@@ -119,6 +119,7 @@ class _FakeItemSpec:
     aura_skill_bonus: int = 0
     off_ed: int = 0
     flat_phys_2x: int = 0
+    flat_fire_2x: int = 0
     flat_elem_2x: int = 0
     wep_phys_2x: int = 0
     wep_str_pct: int = 0
@@ -127,6 +128,18 @@ class _FakeItemSpec:
     splash_fire: bool = False
     splash_fire_2x: int = 0
     cold_dmg_pct: int = 0
+    ds: int = 0
+    cs_oskill: int = 0
+    ow: int = 0
+    ed_demon: int = 0
+    ed_undead: int = 0
+    psn_dps_2x: int = 0
+    pierce: int = 0
+    ctc_static_pct: int = 0
+    ctc_venom_dps_2x: int = 0
+    ctc_decrep_pct: int = 0
+    ctc_lifetap_pct: int = 0
+    ctc_orb_dmg_2x: int = 0
     ar: int = 0
     ar_pct: int = 0
     itd: int = 0
@@ -159,6 +172,10 @@ class _FakeCharmSpec:
     vit: int = 0
     ene: int = 0
     ar: int = 0
+    flat_phys_2x: int = 0
+    flat_fire_2x: int = 0
+    flat_elem_2x: int = 0
+    psn_dps_2x: int = 0
 
 
 @dataclass
@@ -213,6 +230,8 @@ class _FakeConstraints:
     aura_target_def_pct: list[int] = field(default_factory=list)
     target_def: int = 180
     target_type: str = "champion"
+    char_level: int = 1
+    target_hp: int = 0
 
 
 @dataclass
@@ -1800,3 +1819,189 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
     assert cmd_optimize(["smite.d2s", "-b", "leveling", "--target-type", "boss"]) == 0
     assert cmd_optimize(["smite.d2s", "-b", "leveling", "--target-type", "trash"]) == 0
     assert captured == ["champion", "boss", "trash"]
+
+
+def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from d2savior.optimizer.extract import _compute_weapon_phys_2x
+
+    resolver = GameDataResolver.load().for_version(0x63)
+
+    # 1. All new melee/ranged combat properties + per-level scaling + CTC procs at char_level=80
+    acc = _PropAcc()
+    props: list[tuple[int, int, list[int]]] = [
+        (141, 20, [20]),  # +20% DS
+        (250, 3 << 2, [3 << 2]),  # +1.5% DS/lvl (op_param=3 -> >>3; 12*80//8 = 120)
+        (97, 1, [9, 1]),  # +1 Critical Strike oskill (Insight)
+        (135, 25, [25]),  # +25% OW
+        (248, 4, [4]),  # per-lvl OW (4*80>>3 = 40)
+        (121, 350, [350]),  # +350% vs Demons (LoH)
+        (122, 100, [100]),  # +100% vs Undead
+        (243, 4, [4]),  # +vs Demons per lvl
+        (244, 4, [4]),  # +vs Undead per lvl
+        (156, 50, [50]),  # +50% Pierce
+        (48, 40, [40]),  # +40 min fire
+        (49, 180, [180]),  # +180 max fire
+        (50, 10, [10]),  # +10 min light
+        (51, 90, [90]),  # +90 max light
+        (57, 128, [128, 0, 0, 0]),  # poison min rate
+        (58, 128, [128, 0, 0, 0]),  # poison max rate
+        (59, 100, [100, 0, 0, 0]),  # duration 4s
+        (198, 0, [15, 278, 5]),  # 5% CtC lvl 15 Venom on striking
+        (198, 0, [1, 87, 33]),  # 33% CtC lvl 1 Decrepify on striking
+        (195, 0, [13, 64, 16]),  # 16% CtC lvl 13 Frozen Orb on attack
+        (198, 0, [5, 82, 5]),  # 5% CtC lvl 5 Life Tap on striking
+        (195, 0, [10, 42, 15]),  # 15% CtC lvl 10 Static Field on attack
+    ]
+    _apply_props_to_acc(
+        acc,
+        props,
+        resolver,
+        80,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="zeal",
+        pal_offense="zeal",
+        is_weapon=False,
+    )
+    assert acc.ds == 20 + ((12 * 80) >> 3)
+    assert acc.cs_oskill == 1
+    assert acc.ow == 25 + ((4 * 80) >> 3)
+    assert acc.ed_demon == 350 + ((4 * 80) >> 3)
+    assert acc.ed_undead == 100 + ((4 * 80) >> 3)
+    assert acc.pierce == 50
+    assert acc.flat_fire_2x == 220
+    assert acc.flat_elem_2x == 100
+    assert acc.psn_dps_2x == 24
+    assert acc.ctc_venom_dps_2x == 1575
+    assert acc.ctc_decrep_pct == 33
+    assert acc.ctc_lifetap_pct == 5
+    assert acc.ctc_static_pct == 15
+    assert acc.ctc_orb_dmg_2x == round(0.16 * 2106)
+
+    # Life Tap CTC also extracts for Smite Paladin
+    smite_acc = _PropAcc()
+    _apply_props_to_acc(
+        smite_acc,
+        [(198, 0, [5, 82, 5]), (141, 15, [15])],
+        resolver,
+        80,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="smite",
+        pal_offense="smite",
+    )
+    assert smite_acc.ctc_lifetap_pct == 5
+    assert smite_acc.ds == 0
+
+    # 2. 2H weapon with native 21/22 + 23/24 + pid 218 + socketed 21/22 jewel
+    twoh_item = D2Item()
+    twoh_item.type_name = b"2hs "
+    twoh_item.item_info = ItemInfo()
+    tp = TypeSpecificInfo()
+    native_plist = PropertyList()
+    monkeypatch.setattr(
+        native_plist,
+        "get_parsed_properties",
+        lambda *_a, **_kw: [(21, 5, [5]), (22, 10, [10]), (23, 12, [12]), (24, 20, [20])],
+    )
+    tp.property_list = native_plist
+    twoh_item.item_info.type_specific_info = tp
+    gem = D2Item()
+    twoh_item.gem_items = [gem]
+    monkeypatch.setattr(
+        resolver,
+        "get_socket_properties",
+        lambda *_a, **_kw: [(21, 8, [8]), (22, 15, [15])],
+    )
+    wep_2h_no_218, _, _, _ = _compute_weapon_phys_2x(
+        twoh_item, [], resolver, 80, slot="weapon2h", code="2hs"
+    )
+    b_2h = resolver.data.get_item("2hs")
+    assert b_2h is not None
+    base_2h_min = b_2h.two_hand_mindam or b_2h.mindam
+    base_2h_max = b_2h.two_hand_maxdam or b_2h.maxdam
+    assert wep_2h_no_218 == (base_2h_min + 12 + 8) + (base_2h_max + 20 + 15)
+
+    # Also verify pid 218 alongside pid 22 without pid 24 does NOT drop pid 22!
+    monkeypatch.setattr(
+        native_plist,
+        "get_parsed_properties",
+        lambda *_a, **_kw: [(22, 10, [10]), (218, 40, [40])],
+    )
+    wep_2h_with_218, _, _, _ = _compute_weapon_phys_2x(
+        twoh_item, [], resolver, 80, slot="weapon2h", code="2hs"
+    )
+    scaled_218 = (40 * 80) >> 3
+    assert wep_2h_with_218 == (base_2h_min + 8) + (base_2h_max + 10 + 15 + scaled_218)
+
+    # 3. Blunt weapon implicit +50% Damage to Undead on Zeal/Melee Paladin
+    _, stash, _, _ = parse_d2i_file(
+        str(FIXTURES_DIR / "paladin_snapshot" / "ModernSharedStashSoftCoreV2.d2i"),
+        resolver=resolver,
+    )
+    assert isinstance(stash, SharedStash)
+    black_flail = next(
+        it
+        for tab in stash.tabs
+        if tab.items is not None
+        for it in tab.items.items
+        if it.code_str.strip().lower() == "fla"
+    )
+    monkeypatch.setattr("d2savior.optimizer.extract.ItemSpec", _FakeItemSpec)
+    flail_spec = _item_to_spec(
+        black_flail,
+        "Stash",
+        resolver,
+        0x63,
+        char_level=80,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="zeal",
+        pal_offense="zeal",
+    )
+    assert isinstance(flail_spec, _FakeItemSpec)
+    assert flail_spec.ed_undead >= 50
+
+    # 4. Set-weapon local %ED adds to flat_phys_2x instead of off_ed
+    set_wep = D2Item()
+    set_wep.type_name = b"9bs "
+    set_wep.item_info = ItemInfo()
+    set_tp = TypeSpecificInfo()
+    set_b2 = PropertyList()
+    monkeypatch.setattr(
+        set_b2,
+        "get_parsed_properties",
+        lambda *_a, **_kw: [(17, 100, [100]), (18, 100, [100])],
+    )
+    set_tp.set_properties = [set_b2]
+    set_wep.item_info.type_specific_info = set_tp
+    set_bonuses = _extract_set_bonuses(
+        set_wep,
+        resolver,
+        0x63,
+        char_level=80,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="zeal",
+        pal_offense="zeal",
+        is_weapon=True,
+        slot="weapon",
+        code="9bs",
+    )
+    b_9bs = resolver.data.get_item("9bs")
+    assert b_9bs is not None
+    assert len(set_bonuses) == 1
+    assert set_bonuses[0][1].off_ed == 0
+    assert set_bonuses[0][1].flat_phys_2x == b_9bs.mindam + b_9bs.maxdam
+
+    # 5. Damage charm extraction
+    monkeypatch.setattr("d2savior.optimizer.extract.CharmSpec", _FakeCharmSpec)
+    c_acc = _PropAcc(ar=20, flat_phys_2x=3, flat_fire_2x=7, flat_elem_2x=11, psn_dps_2x=24)
+    c_spec = c_acc.to_charm_spec(
+        "Fine SC of Venom", 1, "inv", None, char_class=int(CharClass.PALADIN)
+    )
+    assert (
+        c_spec.ar,
+        c_spec.flat_phys_2x,
+        c_spec.flat_fire_2x,
+        c_spec.flat_elem_2x,
+        c_spec.psn_dps_2x,
+    ) == (20, 3, 7, 11, 24)

@@ -31,18 +31,27 @@ from d2savior.optimizer.paladin import (
 )
 from d2savior.optimizer.skill_tables import (
     exploding_arrow_fire_2x,
+    frozen_orb_avg_dmg_2x,
     resolve_paladin_aura_id,
     resolve_sorc_filler_skill,
+    venom_dps_2x,
 )
 
 _CHARM_SIZES: frozendict[str, int] = frozendict({"cm1": 1, "cm2": 2, "cm3": 3, "cs2": 3})
 
+_SKILL_CRITICAL_STRIKE = 9
+_SKILL_STATIC_FIELD = 42
 _SKILL_BLIZZARD = 59
+_SKILL_FROZEN_ORB = 64
 _SKILL_COLD_MASTERY = 65
+_SKILL_LIFE_TAP = 82
+_SKILL_DECREPIFY = 87
 _SKILL_ZEAL = 106
 _SKILL_FANATICISM = 122
 _SKILL_CONVICTION = 123
-_FLAT_ELEM_PIDS: frozenset[int] = frozenset({48, 49, 50, 51, 52, 53, 54, 55})
+_SKILL_VENOM = 278
+_FLAT_FIRE_PIDS: frozenset[int] = frozenset({48, 49})
+_FLAT_ELEM_PIDS: frozenset[int] = frozenset({50, 51, 52, 53, 54, 55})
 _ETH_SAFE_PIDS: frozenset[int] = frozenset({152, 252, 253})
 _ELEMENTAL_AURA_SPECS: frozenset[str] = frozenset({"holy-fire", "holy-freeze", "holy-shock"})
 _MELEE_ACTION_SPECS: frozenset[str] = frozenset({"sacrifice", "charge", "vengeance"})
@@ -143,8 +152,21 @@ _USEFUL_ITEM_STATS: tuple[str, ...] = (
     "aura_skill_bonus",
     "off_ed",
     "flat_phys_2x",
+    "flat_fire_2x",
     "flat_elem_2x",
     "cold_dmg_pct",
+    "ds",
+    "cs_oskill",
+    "ow",
+    "ed_demon",
+    "ed_undead",
+    "psn_dps_2x",
+    "pierce",
+    "ctc_static_pct",
+    "ctc_venom_dps_2x",
+    "ctc_decrep_pct",
+    "ctc_lifetap_pct",
+    "ctc_orb_dmg_2x",
     "ar",
     "ar_pct",
     "itd",
@@ -225,8 +247,21 @@ class _PropAcc:
     aura_skill_bonus: int = 0
     off_ed: int = 0
     flat_phys_2x: int = 0
+    flat_fire_2x: int = 0
     flat_elem_2x: int = 0
     cold_dmg_pct: int = 0
+    ds: int = 0
+    cs_oskill: int = 0
+    ow: int = 0
+    ed_demon: int = 0
+    ed_undead: int = 0
+    psn_dps_2x: int = 0
+    pierce: int = 0
+    ctc_static_pct: int = 0
+    ctc_venom_dps_2x: int = 0
+    ctc_decrep_pct: int = 0
+    ctc_lifetap_pct: int = 0
+    ctc_orb_dmg_2x: int = 0
     ar: int = 0
     ar_pct: int = 0
     itd: int = 0
@@ -354,6 +389,19 @@ class _PropAcc:
             ar_pct=self.ar_pct,
             itd=self.itd,
             target_def_pct=self.target_def_pct,
+            flat_fire_2x=self.flat_fire_2x,
+            ds=self.ds,
+            cs_oskill=self.cs_oskill,
+            ow=self.ow,
+            ed_demon=self.ed_demon,
+            ed_undead=self.ed_undead,
+            psn_dps_2x=self.psn_dps_2x,
+            pierce=self.pierce,
+            ctc_static_pct=self.ctc_static_pct,
+            ctc_venom_dps_2x=self.ctc_venom_dps_2x,
+            ctc_decrep_pct=self.ctc_decrep_pct,
+            ctc_lifetap_pct=self.ctc_lifetap_pct,
+            ctc_orb_dmg_2x=self.ctc_orb_dmg_2x,
         )
 
     def to_charm_spec(
@@ -390,6 +438,10 @@ class _PropAcc:
             vit=self.vit,
             ene=self.ene,
             ar=self.ar,
+            flat_phys_2x=self.flat_phys_2x,
+            flat_fire_2x=self.flat_fire_2x,
+            flat_elem_2x=self.flat_elem_2x,
+            psn_dps_2x=self.psn_dps_2x,
         )
 
 
@@ -487,29 +539,92 @@ def _apply_paladin_skill_prop(
 
 
 _PAL_MELEE_STAT_MAP: frozendict[int, str] = frozendict(
-    {19: "ar", 119: "ar_pct", 116: "target_def_pct"}
+    {
+        19: "ar",
+        119: "ar_pct",
+        116: "target_def_pct",
+        121: "ed_demon",
+        122: "ed_undead",
+        135: "ow",
+        141: "ds",
+        156: "pierce",
+    }
+)
+_PAL_MELEE_PER_LVL_MAP: frozendict[int, str] = frozendict(
+    {224: "ar", 225: "ar_pct", 243: "ed_demon", 244: "ed_undead", 248: "ow", 250: "ds"}
+)
+_PAL_CTC_CHANCE_MAP: frozendict[int, str] = frozendict(
+    {_SKILL_STATIC_FIELD: "ctc_static_pct", _SKILL_DECREPIFY: "ctc_decrep_pct"}
 )
 
 
-def _apply_paladin_ar_prop(
-    acc: _PropAcc, pid: int, pval: int, resolver: GameDataResolver, char_level: int
+def _apply_scaled_stat(
+    acc: _PropAcc,
+    pid: int,
+    pval: int,
+    attr: str,
+    resolver: GameDataResolver,
+    char_level: int,
+) -> None:
+    scaled = adjust_property_values(pid, [pval], resolver.data.get_stat(pid), char_level=char_level)
+    if isinstance(scaled, int):
+        setattr(acc, attr, getattr(acc, attr) + scaled)
+
+
+def _apply_paladin_ctc_prop(acc: _PropAcc, params: list[int], pal_offense: str) -> None:
+    if len(params) < 3:
+        return
+    slvl, sid, chance = params[0], params[1], params[2]
+    if sid == _SKILL_LIFE_TAP:
+        acc.ctc_lifetap_pct += chance
+        return
+    if pal_offense not in ("zeal", "melee"):
+        return
+    if attr := _PAL_CTC_CHANCE_MAP.get(sid):
+        setattr(acc, attr, getattr(acc, attr) + chance)
+    elif sid == _SKILL_VENOM:
+        acc.ctc_venom_dps_2x = max(acc.ctc_venom_dps_2x, venom_dps_2x(slvl))
+    elif sid == _SKILL_FROZEN_ORB:
+        acc.ctc_orb_dmg_2x += round((chance / 100.0) * frozen_orb_avg_dmg_2x(slvl))
+
+
+def _apply_paladin_melee_combat_prop(
+    acc: _PropAcc,
+    pid: int,
+    pval: int,
+    params: list[int],
+    resolver: GameDataResolver,
+    char_level: int,
+    *,
+    is_weapon: bool,
 ) -> None:
     if attr := _PAL_MELEE_STAT_MAP.get(pid):
         setattr(acc, attr, getattr(acc, attr) + pval)
+    elif lvl_attr := _PAL_MELEE_PER_LVL_MAP.get(pid):
+        _apply_scaled_stat(acc, pid, pval, lvl_attr, resolver, char_level)
+    elif pid in _FLAT_FIRE_PIDS:
+        acc.flat_fire_2x += pval
+    elif pid in _FLAT_ELEM_PIDS:
+        acc.flat_elem_2x += pval
+    elif not is_weapon and pid in (17, 25):
+        acc.off_ed += pval
+    elif not is_weapon and pid in (21, 22):
+        acc.flat_phys_2x += pval
+    elif not is_weapon and pid in (218, 219):
+        _apply_scaled_stat(
+            acc, pid, pval, "flat_phys_2x" if pid == 218 else "off_ed", resolver, char_level
+        )
+    elif pid == 97 and len(params) >= 2 and params[0] == _SKILL_CRITICAL_STRIKE:
+        acc.cs_oskill += params[1]
+    elif pid == 57:
+        rate_sum = (params[0] + params[1]) if len(params) >= 2 else (params[0] if params else 0)
+        acc.psn_dps_2x += round(rate_sum * 25.0 / 256.0)
+    elif pid == 58:
+        acc.psn_dps_2x += round(pval * 25.0 / 256.0)
     elif pid == 115 and pval > 0:
         acc.itd = 1
     elif pid in (123, 124) and pval > 0:
         acc.ar += max(1, pval // 3)
-    elif pid in (224, 225):
-        scaled = adjust_property_values(
-            pid, [pval], resolver.data.get_stat(pid), char_level=char_level
-        )
-        if isinstance(scaled, int):
-            setattr(
-                acc,
-                "ar" if pid == 224 else "ar_pct",
-                getattr(acc, "ar" if pid == 224 else "ar_pct") + scaled,
-            )
 
 
 def _apply_paladin_prop(
@@ -533,27 +648,79 @@ def _apply_paladin_prop(
         acc, pid, params, pal_spec, pal_primary_id, pal_tabs, pal_offense, pal_aura_id
     ):
         return
-    elif pid in _FLAT_ELEM_PIDS and pal_offense in ("zeal", "melee"):
-        acc.flat_elem_2x += pval
-    elif pal_offense in ("zeal", "melee") and not is_weapon and pid in (17, 25):
-        acc.off_ed += pval
-    elif pal_offense in ("zeal", "melee") and not is_weapon and pid in (21, 22):
-        acc.flat_phys_2x += pval
-    elif pal_offense in ("zeal", "melee") and not is_weapon and pid in (218, 219):
-        scaled = adjust_property_values(
-            pid, [pval], resolver.data.get_stat(pid), char_level=char_level
-        )
-        if isinstance(scaled, int):
-            attr = "flat_phys_2x" if pid == 218 else "off_ed"
-            setattr(acc, attr, getattr(acc, attr) + scaled)
     elif pid == 247:
-        scaled = adjust_property_values(
-            pid, [pval], resolver.data.get_stat(pid), char_level=char_level
-        )
-        if isinstance(scaled, int):
-            acc.cb += scaled
+        _apply_scaled_stat(acc, pid, pval, "cb", resolver, char_level)
+    elif pid in (195, 198):
+        _apply_paladin_ctc_prop(acc, params, pal_offense)
     elif pal_offense in ("zeal", "melee"):
-        _apply_paladin_ar_prop(acc, pid, pval, resolver, char_level)
+        _apply_paladin_melee_combat_prop(
+            acc, pid, pval, params, resolver, char_level, is_weapon=is_weapon
+        )
+
+
+def _sum_weapon_prop_sources(
+    sources: Sequence[Sequence[tuple[int, int, list[int]]]],
+    resolver: GameDataResolver,
+    char_level: int,
+    *,
+    slot: str,
+) -> tuple[int, int, int, int, int]:
+    """Return `(ed_min, ed_max, add_min, add_max, flat_dmg)` across weapon property sources."""
+    ed_max = 0
+    ed_min = 0
+    add_min = 0
+    add_max = 0
+    flat_dmg = 0
+    for src in sources:
+        src_min_1h = 0
+        src_max_1h = 0
+        src_min_2h = 0
+        src_max_2h = 0
+        for pid, val, params in src:
+            pval = params[0] if params else val
+            if pid == 17:
+                ed_max += pval
+            elif pid == 18:
+                ed_min += pval
+            elif pid == 21:
+                src_min_1h += pval
+            elif pid == 22:
+                src_max_1h += pval
+            elif pid == 23:
+                src_min_2h += pval
+            elif pid == 24:
+                src_max_2h += pval
+            elif pid == 111:
+                flat_dmg += pval
+            elif pid in (218, 219):
+                scaled = adjust_property_values(
+                    pid, [pval], resolver.data.get_stat(pid), char_level=char_level
+                )
+                if isinstance(scaled, int):
+                    if pid == 218:
+                        add_max += scaled
+                    else:
+                        ed_max += scaled
+                        ed_min += scaled
+        add_min += src_min_2h if (slot == "weapon2h" and src_min_2h > 0) else src_min_1h
+        add_max += src_max_2h if (slot == "weapon2h" and src_max_2h > 0) else src_max_1h
+
+    if ed_min == 0 and ed_max > 0:
+        ed_min = ed_max
+    return ed_min, ed_max, add_min, add_max, flat_dmg
+
+
+def _weapon_base_minmax(w_info: object, *, slot: str, is_ethereal: bool) -> tuple[int, int]:
+    if slot == "weapon2h":
+        base_min = getattr(w_info, "two_hand_mindam", 0) or getattr(w_info, "mindam", 0)
+        base_max = getattr(w_info, "two_hand_maxdam", 0) or getattr(w_info, "maxdam", 0)
+    else:
+        base_min = getattr(w_info, "mindam", 0)
+        base_max = getattr(w_info, "maxdam", 0)
+    if is_ethereal:
+        base_min = (base_min * 3) // 2
+        base_max = (base_max * 3) // 2
+    return base_min, base_max
 
 
 def _compute_weapon_phys_2x(
@@ -564,63 +731,31 @@ def _compute_weapon_phys_2x(
     *,
     slot: str,
     code: str,
+    version: int = 0x63,
 ) -> tuple[int, int, int, bool]:
     """Return `(wep_phys_2x, str_pct, dex_pct, can_zeal)` for a weapon item."""
     w_info = resolver.data.get_item(code)
     if w_info is None:
         return 0, 0, 0, False
 
-    if slot == "weapon2h":
-        base_min = w_info.two_hand_mindam or w_info.mindam
-        base_max = w_info.two_hand_maxdam or w_info.maxdam
-    else:
-        base_min = w_info.mindam
-        base_max = w_info.maxdam
-
-    ed_max = 0
-    ed_min = 0
-    add_min_1h = 0
-    add_max_1h = 0
-    add_min_2h = 0
-    add_max_2h = 0
-    flat_dmg = 0
-    for pid, val, params in props:
-        pval = params[0] if params else val
-        if pid == 17:
-            ed_max += pval
-        elif pid == 18:
-            ed_min += pval
-        elif pid == 21:
-            add_min_1h += pval
-        elif pid == 22:
-            add_max_1h += pval
-        elif pid == 23:
-            add_min_2h += pval
-        elif pid == 24:
-            add_max_2h += pval
-        elif pid == 111:
-            flat_dmg += pval
-        elif pid in (218, 219):
-            scaled = adjust_property_values(
-                pid, [pval], resolver.data.get_stat(pid), char_level=char_level
+    tp = item.type_specific_info
+    if tp is not None and item.gem_items:
+        sources: list[Sequence[tuple[int, int, list[int]]]] = []
+        if tp.property_list:
+            sources.append(tp.property_list.get_parsed_properties(version, data=resolver.data))
+        if tp.runeword_property_list:
+            sources.append(
+                tp.runeword_property_list.get_parsed_properties(version, data=resolver.data)
             )
-            if isinstance(scaled, int):
-                if pid == 218:
-                    add_max_1h += scaled
-                    add_max_2h += scaled
-                else:
-                    ed_max += scaled
-                    ed_min += scaled
+        for gem in item.gem_items:
+            sources.append(resolver.get_socket_properties(item, gem))
+    else:
+        sources = [props]
 
-    if ed_min == 0 and ed_max > 0:
-        ed_min = ed_max
-
-    if item.is_ethereal:
-        base_min = (base_min * 3) // 2
-        base_max = (base_max * 3) // 2
-
-    add_min = add_min_2h if (slot == "weapon2h" and add_min_2h > 0) else add_min_1h
-    add_max = add_max_2h if (slot == "weapon2h" and add_max_2h > 0) else add_max_1h
+    ed_min, ed_max, add_min, add_max, flat_dmg = _sum_weapon_prop_sources(
+        sources, resolver, char_level, slot=slot
+    )
+    base_min, base_max = _weapon_base_minmax(w_info, slot=slot, is_ethereal=item.is_ethereal)
     eff_min = (base_min * (100 + ed_min)) // 100 + add_min + flat_dmg
     eff_max = (base_max * (100 + ed_max)) // 100 + add_max + flat_dmg
 
@@ -743,10 +878,14 @@ def _extract_set_bonuses(
     pal_spec: str,
     pal_offense: str = "caster",
     pal_aura_id: int | None = -1,
+    is_weapon: bool = False,
+    slot: str = "",
+    code: str = "",
 ) -> list[tuple[int, ItemSpec]]:
     tp = item.type_specific_info
     if not (tp and tp.set_properties):
         return []
+    w_info = resolver.data.get_item(code) if is_weapon and code else None
     bonuses: list[tuple[int, ItemSpec]] = []
     for req_pieces, set_prop_list in enumerate(tp.set_properties, start=2):
         if set_prop_list is None:
@@ -761,9 +900,26 @@ def _extract_set_bonuses(
             char_class=char_class,
             pal_spec=pal_spec,
             pal_offense=pal_offense,
+            is_weapon=is_weapon,
             include_defense_props=True,
             pal_aura_id=pal_aura_id,
         )
+        if is_weapon and char_class == int(CharClass.PALADIN) and pal_offense in ("zeal", "melee"):
+            b_ed_min, b_ed_max, b_add_min, b_add_max, b_flat = _sum_weapon_prop_sources(
+                [props], resolver, char_level, slot=slot
+            )
+            base_min, base_max = (
+                _weapon_base_minmax(w_info, slot=slot, is_ethereal=item.is_ethereal)
+                if w_info is not None
+                else (0, 0)
+            )
+            b_acc.flat_phys_2x += (
+                (base_min * b_ed_min) // 100
+                + (base_max * b_ed_max) // 100
+                + b_add_min
+                + b_add_max
+                + 2 * b_flat
+            )
         if b_acc.defense != 0 or any(getattr(b_acc, attr) != 0 for attr in _USEFUL_ITEM_STATS):
             bonuses.append((req_pieces, b_acc.to_item_spec(f"{req_pieces}pc", "", "", 0, 0, 0)))
     return bonuses
@@ -836,6 +992,9 @@ def _resolve_item_set_info(
     set_group_ids: dict[str, int] | None,
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] | None = None,
     pal_aura_id: int | None = -1,
+    is_weapon: bool = False,
+    slot: str = "",
+    code: str = "",
 ) -> tuple[int, int, list[tuple[int, ItemSpec]], list[tuple[int, ItemSpec]]]:
     ext = item.ext_info
     if ext is None or ext.set_id is None:
@@ -857,6 +1016,9 @@ def _resolve_item_set_info(
         pal_spec=pal_spec,
         pal_offense=pal_offense,
         pal_aura_id=pal_aura_id,
+        is_weapon=is_weapon,
+        slot=slot,
+        code=code,
     )
     cache_key = (group_key, id(resolver.data))
     if global_set_cache is not None and cache_key in global_set_cache:
@@ -974,10 +1136,22 @@ def _item_to_spec(
         set_group_ids=set_group_ids,
         global_set_cache=global_set_cache,
         pal_aura_id=pal_aura_id,
+        is_weapon=is_weapon,
+        slot=slot,
+        code=code,
     )
 
     keep_slot = skip_useful_check or slot in skip_useful_slots
     item_info = resolver.data.get_item(code)
+    if (
+        is_weapon
+        and item_info is not None
+        and item_info.type
+        and char_class == int(CharClass.PALADIN)
+        and resolved_offense in ("zeal", "melee")
+        and resolver.is_descendant(item_info.type.lower(), "blun")
+    ):
+        acc.ed_undead += 50
     if not keep_slot and item_info is not None and _is_eth_breakable(item, item_info, props):
         if slot in _ARMOR_SLOTS:
             return None
@@ -1002,6 +1176,7 @@ def _item_to_spec(
             char_level,
             slot=slot,
             code=code,
+            version=version,
         )
         exp_lvl = max(
             (params[0] if params else val for pid, val, params in props if pid == 158),

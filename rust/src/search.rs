@@ -1219,7 +1219,7 @@ pub fn optimize_builds_core(
                 || (st.c.require_cbf && ub.cbf <= 0)
                 || ub.ias < st.c.min_ias
                 || ub.cb < st.c.min_cb
-                || ub.life_leech < st.c.min_ll
+                || (ub.life_leech + ub.ctc_lifetap_pct.clamp(0, 100) / 2) < st.c.min_ll
                 || ub.pdr_pct.min(HARD_MAX_PDR_PCT) < st.c.min_pdr
             {
                 return;
@@ -1265,7 +1265,8 @@ pub fn optimize_builds_core(
                         || (st.c.require_cbf && leaf_ub.cbf <= 0)
                         || leaf_ub.ias < st.c.min_ias
                         || leaf_ub.cb < st.c.min_cb
-                        || leaf_ub.life_leech < st.c.min_ll
+                        || (leaf_ub.life_leech + leaf_ub.ctc_lifetap_pct.clamp(0, 100) / 2)
+                            < st.c.min_ll
                         || leaf_ub.pdr_pct.min(HARD_MAX_PDR_PCT) < st.c.min_pdr
                     {
                         continue;
@@ -1353,7 +1354,8 @@ pub fn optimize_builds_core(
                             || (st.c.require_cbf && leaf.cbf <= 0)
                             || leaf.ias < st.c.min_ias
                             || leaf.cb < st.c.min_cb
-                            || leaf.life_leech < st.c.min_ll
+                            || (leaf.life_leech + leaf.ctc_lifetap_pct.clamp(0, 100) / 2)
+                                < st.c.min_ll
                             || leaf.pdr_pct.min(HARD_MAX_PDR_PCT) < st.c.min_pdr
                         {
                             continue;
@@ -1437,7 +1439,7 @@ pub fn optimize_builds_core(
                         || (st.c.require_cbf && !sum.cbf)
                         || sum.ias < st.c.min_ias
                         || sum.cb < st.c.min_cb
-                        || sum.life_leech < st.c.min_ll
+                        || (sum.life_leech + sum.ctc_lifetap_pct.clamp(0, 100) / 2) < st.c.min_ll
                         || sum.pdr_pct < st.c.min_pdr
                         || sum.frw < st.c.min_frw
                         || sum.mf < st.c.min_mf
@@ -1464,6 +1466,7 @@ pub fn optimize_builds_core(
                             leaf,
                             (final_req_str, final_req_dex),
                             st.offense,
+                            st.top_results.nth_top3(),
                             &mut charms_sel,
                             &mut sum,
                             &mut score,

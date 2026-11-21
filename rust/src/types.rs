@@ -502,8 +502,39 @@ impl OffenseProfile {
         let total_dex = s.dex_bonus.max(0);
         let stat_ed = (total_str * hand.str_pct + total_dex * hand.dex_pct) / 100;
 
+        let target_type = TargetType::parse(&c.target_type).unwrap_or_default();
+        let (demon_w, undead_w) = if matches!(target_type, TargetType::Boss) {
+            (1.0, 0.0)
+        } else {
+            (1.0 / 3.0, 1.0 / 3.0)
+        };
+        let eff_ed = (stat_ed + action_ed + s.off_ed).max(0) as f64
+            + s.ed_demon.max(0) as f64 * demon_w
+            + s.ed_undead.max(0) as f64 * undead_w;
+
+        let ds_prob = s.ds.clamp(0, 100) as f64 / 100.0;
+        let cs_prob = if s.cs_oskill > 0 {
+            let slvl = (s.cs_oskill + s.all_skills).max(1);
+            let pct = 5 + (75 * ((110 * slvl) / (slvl + 6))) / 100;
+            pct.clamp(0, 100) as f64 / 100.0
+        } else {
+            0.0
+        };
+        let crit_mult = 1.0 + (1.0 - (1.0 - ds_prob) * (1.0 - cs_prob));
+
+        let (total_ar, cth) = self.compute_ar_and_cth(s, used_zeal, hand.wclass.is_ranged(), c);
+        let hit_rate = rate * cth;
+
+        let p_dec = s.ctc_decrep_pct.clamp(0, 100) as f64 / 100.0;
+        let decrep_uptime = if p_dec > 0.0 {
+            1.0 - (1.0 - p_dec).powf((8.0 * hit_rate).max(1.0))
+        } else {
+            0.0
+        };
+        let decrep_mult = 1.0 + 0.5 * decrep_uptime;
+
         let phys_avg = (hand.phys_2x + s.flat_phys_2x).max(0) as f64 / 2.0;
-        let d_phys = phys_avg * (1.0 + (stat_ed + action_ed + s.off_ed).max(0) as f64 / 100.0);
+        let d_phys = phys_avg * (1.0 + eff_ed / 100.0) * crit_mult * decrep_mult;
 
         let d_aura_hit = if c.aura_hit_dmg.is_empty() {
             0.0
@@ -515,7 +546,8 @@ impl OffenseProfile {
         } else {
             c.aura_pulse_dps[eff_aura.min(c.aura_pulse_dps.len() - 1)]
         };
-        let d_elem_gear = s.flat_elem_2x.max(0) as f64 / 2.0;
+        let d_flat_fire = s.flat_fire_2x.max(0) as f64 / 2.0;
+        let d_elem_other = s.flat_elem_2x.max(0) as f64 / 2.0;
         let targets = c.targets.max(1) as f64;
         let d_splash_fire = if hand.splash_fire {
             (hand.splash_fire_2x.max(0) as f64 / 2.0) * targets
@@ -523,19 +555,112 @@ impl OffenseProfile {
             0.0
         };
 
-        let (total_ar, cth) = self.compute_ar_and_cth(s, used_zeal, hand.wclass.is_ranged(), c);
-        // Exploding Arrow's AoE blast is auto-hit and carries Holy Fire on-hit damage across
-        // all targets even when the physical arrow misses the AR roll. Note `pid 158`
+        let cb_frac = match (target_type, hand.wclass.is_ranged()) {
+            (TargetType::Trash, false) => 0.25,
+            (TargetType::Trash, true) | (_, false) => 0.125,
+            (_, true) => 0.0625,
+        };
+        let d_cb_hit =
+            (s.cb.clamp(0, 100) as f64 / 100.0) * cb_frac * (0.5 * c.target_hp.max(0) as f64);
+
+        let p_ow = s.ow.clamp(0, 100) as f64 / 100.0;
+        let ow_target_mult = if matches!(target_type, TargetType::Trash) {
+            1.0
+        } else {
+            0.5
+        };
+        let clvl_i = c.char_level.max(1);
+        let clvl = clvl_i as f64;
+        let ow_raw_tick = if clvl_i <= 15 {
+            9.0 * clvl + 40.0
+        } else if clvl_i <= 30 {
+            18.0 * clvl - 95.0
+        } else if clvl_i <= 45 {
+            27.0 * clvl - 365.0
+        } else if clvl_i <= 60 {
+            36.0 * clvl - 770.0
+        } else {
+            45.0 * clvl - 1310.0
+        };
+        let ow_base_dps = 25.0 * ow_raw_tick / 256.0 * ow_target_mult;
+        let d_ow_dps = if p_ow > 0.0 {
+            ow_base_dps * (1.0 - (1.0 - p_ow).powf((8.0 * hit_rate).max(1.0)))
+        } else {
+            0.0
+        };
+        let d_ow_dps_raw = if p_ow > 0.0 {
+            ow_base_dps * (1.0 - (1.0 - p_ow).powf((8.0 * rate).max(1.0)))
+        } else {
+            0.0
+        };
+
+        let psn_base = (s.psn_dps_2x.max(0) + s.ctc_venom_dps_2x.max(0)) as f64 / 2.0;
+        let d_psn_dps = if psn_base > 0.0 {
+            psn_base * (1.0 - (1.0 - cth).powf((2.0 * rate).max(1.0)))
+        } else {
+            0.0
+        };
+
+        let d_static_hit = (s.ctc_static_pct.clamp(0, 100) as f64 / 100.0)
+            * 0.25
+            * (0.25 * c.target_hp.max(0) as f64)
+            * targets;
+        let d_orb_hit = (s.ctc_orb_dmg_2x.max(0) as f64 / 2.0) * targets.min(3.0);
+
+        let (pierce_mult, raw_pierce_mult) =
+            if hand.wclass.is_ranged() && c.targets > 1 && s.pierce > 0 {
+                let p = s.pierce.clamp(0, 100) as f64 / 100.0;
+                let max_extra = (c.targets - 1).min(4);
+                let mut eff_m = 1.0;
+                let mut raw_m = 1.0;
+                let mut eff_pow = 1.0;
+                let mut raw_pow = 1.0;
+                for _ in 0..max_extra {
+                    eff_pow *= cth * p;
+                    raw_pow *= p;
+                    eff_m += eff_pow;
+                    raw_m += raw_pow;
+                }
+                (eff_m, raw_m)
+            } else {
+                (1.0, 1.0)
+            };
+
+        // Exploding Arrow's AoE blast is auto-hit and carries flat fire and Holy Fire on-hit damage
+        // across all targets even when the physical arrow misses the AR roll. Note `pid 158`
         // (`item_explosivearrow`) uses weapon `ar_pct` rather than Amazon skill ToHit%, and
         // `d_aura_hit * targets` is counted once per target in `auto_hit_attack` (keeping prior
         // raw_dps parity rather than double-counting direct arrow + splash on the primary target).
-        let (direct_hit, auto_hit_attack) = if hand.splash_fire && c.aura_is_fire {
-            (d_phys + d_elem_gear, d_splash_fire + d_aura_hit * targets)
+        let (direct_hit, auto_hit_attack) = if hand.splash_fire {
+            let (direct_aura, auto_aura) = if c.aura_is_fire {
+                (0.0, d_aura_hit * targets)
+            } else {
+                (d_aura_hit, 0.0)
+            };
+            (
+                d_phys + direct_aura + d_elem_other + d_cb_hit + d_static_hit + d_orb_hit,
+                d_splash_fire + d_flat_fire * targets + auto_aura,
+            )
         } else {
-            (d_phys + d_aura_hit + d_elem_gear, d_splash_fire)
+            (
+                d_phys
+                    + d_aura_hit
+                    + d_flat_fire
+                    + d_elem_other
+                    + d_cb_hit
+                    + d_static_hit
+                    + d_orb_hit,
+                d_splash_fire,
+            )
         };
-        let eff_dps = (direct_hit * cth + auto_hit_attack) * rate + d_aura_pulse * targets;
-        let raw_dps = (direct_hit + auto_hit_attack) * rate + d_aura_pulse * targets;
+        let eff_dps = (direct_hit * cth + auto_hit_attack) * pierce_mult * rate
+            + d_aura_pulse * targets
+            + d_ow_dps
+            + d_psn_dps;
+        let raw_dps = (direct_hit + auto_hit_attack) * raw_pierce_mult * rate
+            + d_aura_pulse * targets
+            + d_ow_dps_raw
+            + psn_base;
         let cth_pct = (cth * 100.0).round() as i32;
         (
             eff_dps,
@@ -594,8 +719,21 @@ pub(crate) struct Stats {
     pub(crate) aura_skill_bonus: i32,
     pub(crate) off_ed: i32,
     pub(crate) flat_phys_2x: i32,
+    pub(crate) flat_fire_2x: i32,
     pub(crate) flat_elem_2x: i32,
     pub(crate) cold_dmg_pct: i32,
+    pub(crate) ds: i32,
+    pub(crate) cs_oskill: i32,
+    pub(crate) ow: i32,
+    pub(crate) ed_demon: i32,
+    pub(crate) ed_undead: i32,
+    pub(crate) psn_dps_2x: i32,
+    pub(crate) pierce: i32,
+    pub(crate) ctc_static_pct: i32,
+    pub(crate) ctc_venom_dps_2x: i32,
+    pub(crate) ctc_decrep_pct: i32,
+    pub(crate) ctc_lifetap_pct: i32,
+    pub(crate) ctc_orb_dmg_2x: i32,
     pub(crate) ar: i32,
     pub(crate) ar_pct: i32,
     pub(crate) itd: i32,
@@ -700,13 +838,39 @@ impl Stats {
         if !(is_leveling && offense.uses_dps_tables(c)) {
             self.off_ed = 0;
             self.flat_phys_2x = 0;
+            self.flat_fire_2x = 0;
             self.flat_elem_2x = 0;
+            self.ds = 0;
+            self.cs_oskill = 0;
+            self.ow = 0;
+            self.ed_demon = 0;
+            self.ed_undead = 0;
+            self.psn_dps_2x = 0;
+            self.pierce = 0;
+            self.ctc_static_pct = 0;
+            self.ctc_venom_dps_2x = 0;
+            self.ctc_decrep_pct = 0;
+            self.ctc_orb_dmg_2x = 0;
             self.ar = 0;
             self.ar_pct = 0;
             self.itd = 0;
             self.target_def_pct = 0;
-        } else if !TargetType::parse(&c.target_type).unwrap_or_default().allows_itd() {
-            self.itd = 0;
+        } else {
+            if !TargetType::parse(&c.target_type).unwrap_or_default().allows_itd() {
+                self.itd = 0;
+            }
+            if c.target_hp <= 0 {
+                self.ctc_static_pct = 0;
+            }
+            if matches!(
+                TargetType::parse(&c.target_type).unwrap_or_default(),
+                TargetType::Boss
+            ) {
+                self.ed_undead = 0;
+            }
+            if c.targets <= 1 {
+                self.pierce = 0;
+            }
         }
         if !(mode == SearchMode::Mf || c.min_mf > 0 || !c.allow_mf) {
             self.mf = 0;
@@ -723,7 +887,11 @@ impl Stats {
         if !((is_leveling && offense != OffenseProfile::Caster) || c.min_ias > 0) {
             self.ias = 0;
         }
-        if !((is_leveling && offense == OffenseProfile::Smite) || c.min_cb > 0) {
+        if !((is_leveling
+            && (offense == OffenseProfile::Smite
+                || (offense.uses_dps_tables(c) && c.target_hp > 0)))
+            || c.min_cb > 0)
+        {
             self.cb = 0;
         }
         if !(is_leveling || c.require_cbf) {
@@ -734,6 +902,7 @@ impl Stats {
         }
         if c.min_ll <= 0 {
             self.life_leech = 0;
+            self.ctc_lifetap_pct = 0;
         }
         self.mdr = 0;
         self.dr_flat = 0;
@@ -753,8 +922,21 @@ impl Stats {
             aura_skill_bonus: self.aura_skill_bonus + o.aura_skill_bonus,
             off_ed: self.off_ed + o.off_ed,
             flat_phys_2x: self.flat_phys_2x + o.flat_phys_2x,
+            flat_fire_2x: self.flat_fire_2x + o.flat_fire_2x,
             flat_elem_2x: self.flat_elem_2x + o.flat_elem_2x,
             cold_dmg_pct: self.cold_dmg_pct + o.cold_dmg_pct,
+            ds: self.ds + o.ds,
+            cs_oskill: self.cs_oskill + o.cs_oskill,
+            ow: self.ow + o.ow,
+            ed_demon: self.ed_demon + o.ed_demon,
+            ed_undead: self.ed_undead + o.ed_undead,
+            psn_dps_2x: self.psn_dps_2x + o.psn_dps_2x,
+            pierce: self.pierce + o.pierce,
+            ctc_static_pct: self.ctc_static_pct + o.ctc_static_pct,
+            ctc_venom_dps_2x: self.ctc_venom_dps_2x.max(o.ctc_venom_dps_2x),
+            ctc_decrep_pct: self.ctc_decrep_pct + o.ctc_decrep_pct,
+            ctc_lifetap_pct: self.ctc_lifetap_pct + o.ctc_lifetap_pct,
+            ctc_orb_dmg_2x: self.ctc_orb_dmg_2x + o.ctc_orb_dmg_2x,
             ar: self.ar + o.ar,
             ar_pct: self.ar_pct + o.ar_pct,
             itd: self.itd + o.itd,
@@ -806,8 +988,21 @@ impl Stats {
             aura_skill_bonus: self.aura_skill_bonus.max(o.aura_skill_bonus),
             off_ed: self.off_ed.max(o.off_ed),
             flat_phys_2x: self.flat_phys_2x.max(o.flat_phys_2x),
+            flat_fire_2x: self.flat_fire_2x.max(o.flat_fire_2x),
             flat_elem_2x: self.flat_elem_2x.max(o.flat_elem_2x),
             cold_dmg_pct: self.cold_dmg_pct.max(o.cold_dmg_pct),
+            ds: self.ds.max(o.ds),
+            cs_oskill: self.cs_oskill.max(o.cs_oskill),
+            ow: self.ow.max(o.ow),
+            ed_demon: self.ed_demon.max(o.ed_demon),
+            ed_undead: self.ed_undead.max(o.ed_undead),
+            psn_dps_2x: self.psn_dps_2x.max(o.psn_dps_2x),
+            pierce: self.pierce.max(o.pierce),
+            ctc_static_pct: self.ctc_static_pct.max(o.ctc_static_pct),
+            ctc_venom_dps_2x: self.ctc_venom_dps_2x.max(o.ctc_venom_dps_2x),
+            ctc_decrep_pct: self.ctc_decrep_pct.max(o.ctc_decrep_pct),
+            ctc_lifetap_pct: self.ctc_lifetap_pct.max(o.ctc_lifetap_pct),
+            ctc_orb_dmg_2x: self.ctc_orb_dmg_2x.max(o.ctc_orb_dmg_2x),
             ar: self.ar.max(o.ar),
             ar_pct: self.ar_pct.max(o.ar_pct),
             itd: self.itd.max(o.itd),
@@ -858,8 +1053,21 @@ impl Stats {
             && self.aura_skill_bonus >= o.aura_skill_bonus
             && self.off_ed >= o.off_ed
             && self.flat_phys_2x >= o.flat_phys_2x
+            && self.flat_fire_2x >= o.flat_fire_2x
             && self.flat_elem_2x >= o.flat_elem_2x
             && self.cold_dmg_pct >= o.cold_dmg_pct
+            && self.ds >= o.ds
+            && self.cs_oskill >= o.cs_oskill
+            && self.ow >= o.ow
+            && self.ed_demon >= o.ed_demon
+            && self.ed_undead >= o.ed_undead
+            && self.psn_dps_2x >= o.psn_dps_2x
+            && self.pierce >= o.pierce
+            && self.ctc_static_pct >= o.ctc_static_pct
+            && self.ctc_venom_dps_2x >= o.ctc_venom_dps_2x
+            && self.ctc_decrep_pct >= o.ctc_decrep_pct
+            && self.ctc_lifetap_pct >= o.ctc_lifetap_pct
+            && self.ctc_orb_dmg_2x >= o.ctc_orb_dmg_2x
             && self.ar >= o.ar
             && self.ar_pct >= o.ar_pct
             && self.itd >= o.itd
@@ -916,8 +1124,21 @@ pub struct ItemSpec {
     pub aura_skill_bonus: i32,
     pub off_ed: i32,
     pub flat_phys_2x: i32,
+    pub flat_fire_2x: i32,
     pub flat_elem_2x: i32,
     pub cold_dmg_pct: i32,
+    pub ds: i32,
+    pub cs_oskill: i32,
+    pub ow: i32,
+    pub ed_demon: i32,
+    pub ed_undead: i32,
+    pub psn_dps_2x: i32,
+    pub pierce: i32,
+    pub ctc_static_pct: i32,
+    pub ctc_venom_dps_2x: i32,
+    pub ctc_decrep_pct: i32,
+    pub ctc_lifetap_pct: i32,
+    pub ctc_orb_dmg_2x: i32,
     pub ar: i32,
     pub ar_pct: i32,
     pub itd: i32,
@@ -1192,8 +1413,21 @@ impl ItemSpec {
             aura_skill_bonus: self.aura_skill_bonus,
             off_ed: self.off_ed,
             flat_phys_2x: self.flat_phys_2x,
+            flat_fire_2x: self.flat_fire_2x,
             flat_elem_2x: self.flat_elem_2x,
             cold_dmg_pct: self.cold_dmg_pct,
+            ds: self.ds,
+            cs_oskill: self.cs_oskill,
+            ow: self.ow,
+            ed_demon: self.ed_demon,
+            ed_undead: self.ed_undead,
+            psn_dps_2x: self.psn_dps_2x,
+            pierce: self.pierce,
+            ctc_static_pct: self.ctc_static_pct,
+            ctc_venom_dps_2x: self.ctc_venom_dps_2x,
+            ctc_decrep_pct: self.ctc_decrep_pct,
+            ctc_lifetap_pct: self.ctc_lifetap_pct,
+            ctc_orb_dmg_2x: self.ctc_orb_dmg_2x,
             ar: self.ar,
             ar_pct: self.ar_pct,
             itd: self.itd,
@@ -1255,8 +1489,21 @@ impl ItemSpec {
             aura_skill_bonus: s.aura_skill_bonus,
             off_ed: s.off_ed,
             flat_phys_2x: s.flat_phys_2x,
+            flat_fire_2x: s.flat_fire_2x,
             flat_elem_2x: s.flat_elem_2x,
             cold_dmg_pct: s.cold_dmg_pct,
+            ds: s.ds,
+            cs_oskill: s.cs_oskill,
+            ow: s.ow,
+            ed_demon: s.ed_demon,
+            ed_undead: s.ed_undead,
+            psn_dps_2x: s.psn_dps_2x,
+            pierce: s.pierce,
+            ctc_static_pct: s.ctc_static_pct,
+            ctc_venom_dps_2x: s.ctc_venom_dps_2x,
+            ctc_decrep_pct: s.ctc_decrep_pct,
+            ctc_lifetap_pct: s.ctc_lifetap_pct,
+            ctc_orb_dmg_2x: s.ctc_orb_dmg_2x,
             ar: s.ar,
             ar_pct: s.ar_pct,
             itd: s.itd,
@@ -1381,6 +1628,19 @@ impl ItemSpec {
         ar_pct = 0,
         itd = 0,
         target_def_pct = 0,
+        flat_fire_2x = 0,
+        ds = 0,
+        cs_oskill = 0,
+        ow = 0,
+        ed_demon = 0,
+        ed_undead = 0,
+        psn_dps_2x = 0,
+        pierce = 0,
+        ctc_static_pct = 0,
+        ctc_venom_dps_2x = 0,
+        ctc_decrep_pct = 0,
+        ctc_lifetap_pct = 0,
+        ctc_orb_dmg_2x = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1449,6 +1709,19 @@ impl ItemSpec {
         ar_pct: i32,
         itd: i32,
         target_def_pct: i32,
+        flat_fire_2x: i32,
+        ds: i32,
+        cs_oskill: i32,
+        ow: i32,
+        ed_demon: i32,
+        ed_undead: i32,
+        psn_dps_2x: i32,
+        pierce: i32,
+        ctc_static_pct: i32,
+        ctc_venom_dps_2x: i32,
+        ctc_decrep_pct: i32,
+        ctc_lifetap_pct: i32,
+        ctc_orb_dmg_2x: i32,
     ) -> Self {
         Self {
             name,
@@ -1464,8 +1737,21 @@ impl ItemSpec {
             aura_skill_bonus,
             off_ed,
             flat_phys_2x,
+            flat_fire_2x,
             flat_elem_2x,
             cold_dmg_pct,
+            ds,
+            cs_oskill,
+            ow,
+            ed_demon,
+            ed_undead,
+            psn_dps_2x,
+            pierce,
+            ctc_static_pct,
+            ctc_venom_dps_2x,
+            ctc_decrep_pct,
+            ctc_lifetap_pct,
+            ctc_orb_dmg_2x,
             ar,
             ar_pct,
             itd,
@@ -1565,6 +1851,10 @@ pub struct CharmSpec {
     pub vit: i32,
     pub ene: i32,
     pub ar: i32,
+    pub flat_phys_2x: i32,
+    pub flat_fire_2x: i32,
+    pub flat_elem_2x: i32,
+    pub psn_dps_2x: i32,
 }
 
 impl CharmSpec {
@@ -1606,6 +1896,10 @@ impl CharmSpec {
         vit = 0,
         ene = 0,
         ar = 0,
+        flat_phys_2x = 0,
+        flat_fire_2x = 0,
+        flat_elem_2x = 0,
+        psn_dps_2x = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1633,6 +1927,10 @@ impl CharmSpec {
         vit: i32,
         ene: i32,
         ar: i32,
+        flat_phys_2x: i32,
+        flat_fire_2x: i32,
+        flat_elem_2x: i32,
+        psn_dps_2x: i32,
     ) -> Self {
         Self {
             name,
@@ -1659,6 +1957,10 @@ impl CharmSpec {
             vit,
             ene,
             ar,
+            flat_phys_2x,
+            flat_fire_2x,
+            flat_elem_2x,
+            psn_dps_2x,
         }
     }
 
@@ -1729,6 +2031,8 @@ pub struct BuildConstraints {
     pub aura_target_def_pct: Vec<i32>,
     pub target_def: i32,
     pub target_type: String,
+    pub char_level: i32,
+    pub target_hp: i32,
 }
 
 impl Default for BuildConstraints {
@@ -1784,6 +2088,8 @@ impl Default for BuildConstraints {
             aura_target_def_pct: Vec::new(),
             target_def: 180,
             target_type: String::from("champion"),
+            char_level: 1,
+            target_hp: 0,
         }
     }
 }
@@ -1843,6 +2149,8 @@ impl BuildConstraints {
         aura_target_def_pct = Vec::new(),
         target_def = 180,
         target_type = String::from("champion"),
+        char_level = 1,
+        target_hp = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1896,6 +2204,8 @@ impl BuildConstraints {
         aura_target_def_pct: Vec<i32>,
         target_def: i32,
         target_type: String,
+        char_level: i32,
+        target_hp: i32,
     ) -> Self {
         Self {
             allow_mf,
@@ -1948,6 +2258,8 @@ impl BuildConstraints {
             aura_target_def_pct,
             target_def,
             target_type,
+            char_level,
+            target_hp,
         }
     }
 }

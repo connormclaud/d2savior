@@ -822,7 +822,7 @@ fn validate_and_score_result(
     assert!(sum.frw >= c.min_frw);
     assert!(sum.ias >= c.min_ias);
     assert!(sum.cb >= c.min_cb);
-    assert!(sum.life_leech >= c.min_ll);
+    assert!(sum.life_leech + sum.ctc_lifetap_pct.clamp(0, 100) / 2 >= c.min_ll);
     assert!(sum.pdr_pct >= c.min_pdr);
     assert!(sum.mf >= c.min_mf);
     assert!(sum.fr >= c.min_fr && sum.lr >= c.min_lr && sum.cr >= c.min_cr && sum.pr >= c.min_pr);
@@ -1028,7 +1028,7 @@ fn brute_force_top_scores(
                             || sum.frw < c.min_frw
                             || sum.ias < c.min_ias
                             || sum.cb < c.min_cb
-                            || sum.life_leech < c.min_ll
+                            || (sum.life_leech + sum.ctc_lifetap_pct.clamp(0, 100) / 2) < c.min_ll
                             || sum.pdr_pct < c.min_pdr
                             || sum.mf < c.min_mf
                             || sum.fr < c.min_fr
@@ -3460,4 +3460,127 @@ fn test_ar_charms_brute_force_parity_all_cases() {
     let opt5 = assert_bf_parity(&[sword], &charms_case5, &c_2slot, SearchMode::Leveling);
     assert_eq!(opt5[0].charms.len(), 1);
     assert_eq!(opt5[0].charms[0].name, "LC of Dexterity");
+}
+
+#[test]
+fn test_damage_charms_and_combat_stats_brute_force_parity() {
+    let mut sword = ItemSpec {
+        name: "Plain Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 40,
+        can_zeal: true,
+        ar: 200,
+        ..Default::default()
+    };
+    sword.cs_oskill = 1;
+
+    let mut lifetap_gloves = mk_item("Dracul's Grasp", "gloves", 0, 0, 0, 0, 0);
+    lifetap_gloves.ow = 25;
+    lifetap_gloves.ctc_lifetap_pct = 10; // provides 5 effective leech for min_ll
+    let plain_gloves = mk_item("Plain Gloves", "gloves", 0, 0, 0, 0, 0);
+
+    let charms = vec![
+        CharmSpec {
+            name: "Sharp GC".into(),
+            size: 3,
+            flat_phys_2x: 20,
+            ar: 76,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Flaming SC".into(),
+            size: 1,
+            flat_fire_2x: 40,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Shocking SC".into(),
+            size: 1,
+            flat_elem_2x: 35,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Pestilent SC".into(),
+            size: 1,
+            psn_dps_2x: 50,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "AllRes SC".into(),
+            size: 1,
+            fr: 5,
+            lr: 5,
+            cr: 5,
+            pr: 5,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Anni".into(),
+            size: 1,
+            all_skills: 1,
+            fr: 10,
+            lr: 10,
+            cr: 10,
+            pr: 10,
+            unique_id: Some(381),
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Paladin Torch".into(),
+            size: 2,
+            skills: 3,
+            fr: 10,
+            lr: 10,
+            cr: 10,
+            pr: 10,
+            unique_id: Some(400),
+            ..Default::default()
+        },
+    ];
+
+    for mode_str in ["leveling", "leveling-res"] {
+        let mode = if mode_str == "leveling" {
+            SearchMode::Leveling
+        } else {
+            SearchMode::LevelingRes
+        };
+        let c = BuildConstraints {
+            char_class: CharClass::PALADIN_ID,
+            offense: "zeal".into(),
+            mode: mode_str.into(),
+            char_level: 60,
+            target_hp: 5000,
+            base_hell_res: 40,
+            base_str: 50,
+            base_dex: 50,
+            target_def: 400,
+            min_fcr: 0,
+            min_fhr: 0,
+            min_fr: 50,
+            min_lr: 50,
+            min_cr: 50,
+            min_pr: 50,
+            min_ll: 5, // satisfied only by Dracul's 10% CTC Life Tap -> 5% effective
+            max_charm_slots: 4,
+            limit: 2,
+            use_bo: false,
+            aura_hit_dmg: vec![0.0, 0.0, 0.0, 0.0, 0.0],
+            aura_pulse_dps: vec![0.0, 0.0, 0.0, 0.0, 0.0],
+            action_ed: vec![0, 0, 0, 0, 0],
+            action_hits: vec![5, 5, 5, 5, 5],
+            action_ar_pct: vec![10, 20, 30, 40, 50],
+            aura_ar_pct: vec![0, 0, 0, 0, 0],
+            has_aura: false,
+            ..Default::default()
+        };
+        let items = vec![sword.clone(), plain_gloves.clone(), lifetap_gloves.clone()];
+        let opt = optimize_builds_core(&items, &charms, &c).unwrap();
+        let bf = brute_force_top_scores(&items, &charms, &c, mode);
+        assert!(!opt.is_empty());
+        assert_eq!(opt[0].items[6].name, "Dracul's Grasp");
+        let mut top_sc = validate_and_score_result(&opt[0], &c, mode);
+        top_sc.locality = 0;
+        assert_eq!(top_sc, bf[0], "mismatch for mode={mode_str}");
+    }
 }

@@ -1903,3 +1903,64 @@ def test_target_type_prevents_overvaluing_itd_on_champion_and_boss() -> None:
             bo_base_bonus=0,
             target_type=bad_target,
         )
+
+
+@requires_native
+def test_optimizer_performance_budgets() -> None:
+    import time
+
+    resolver = GameDataResolver.load()
+
+    # 1. Paladin snapshot leveling optimize (full mules + shared stash with damage/AR charms)
+    pal_dir = FIXTURES_DIR / "paladin_snapshot"
+    _, smite, _ = parse_d2s_file(str(pal_dir / "smite.d2s"), resolver=resolver)
+    assert smite is not None
+    pal_extras = [
+        ch
+        for p in sorted(pal_dir.glob("*.d2s"))
+        if p.name != "smite.d2s"
+        and (ch := parse_d2s_file(str(p), resolver=resolver)[1]) is not None
+    ]
+    _, pal_stash, _, _ = parse_d2i_file(
+        str(pal_dir / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
+    )
+    assert isinstance(pal_stash, SharedStash)
+    pal_items, pal_charms = extract_pool(
+        smite, extra_chars=pal_extras, stashes=[pal_stash], resolver=resolver
+    )
+    t0 = time.perf_counter()
+    _, pal_opts, _, _ = optimize_paladin_leveling(
+        smite,
+        pal_items,
+        pal_charms,
+        extra_chars=pal_extras,
+        stashes=[pal_stash],
+        resolver=resolver,
+    )
+    pal_elapsed = time.perf_counter() - t0
+    assert len(pal_opts) >= 1
+    assert pal_elapsed < 2.0, f"Paladin optimize regression: {pal_elapsed:.3f}s"
+
+    # 2. Sorceress optimize (sork + mule_unique + shared stash)
+    _, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
+    _, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
+    _, sorc_stash, _, _ = parse_d2i_file(
+        str(FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
+    )
+    assert sork is not None
+    assert mule is not None
+    assert isinstance(sorc_stash, SharedStash)
+    sorc_items, sorc_charms = extract_pool(
+        sork, extra_chars=[mule], stashes=[sorc_stash], resolver=resolver
+    )
+    sorc_presets = select_sorc_presets(
+        sork,
+        extra_chars=[mule],
+        stashes=[sorc_stash],
+        resolver=resolver,
+    )
+    t1 = time.perf_counter()
+    sorc_results = [optimize_builds(sorc_items, sorc_charms, c) for _, c in sorc_presets]
+    sorc_elapsed = time.perf_counter() - t1
+    assert any(sorc_results)
+    assert sorc_elapsed < 2.0, f"Sorc optimize regression: {sorc_elapsed:.3f}s"

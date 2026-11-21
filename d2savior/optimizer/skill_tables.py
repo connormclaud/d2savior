@@ -19,6 +19,7 @@ _SKILL_EXPLODING_ARROW = 16
 _SKILL_ICE_BLAST = 45
 _SKILL_GLACIAL_SPIKE = 55
 _SKILL_BLIZZARD = 59
+_SKILL_FROZEN_ORB = 64
 _SKILL_SACRIFICE = 96
 _SKILL_HOLY_FIRE = 102
 _SKILL_ZEAL = 106
@@ -29,6 +30,7 @@ _SKILL_HOLY_FREEZE = 114
 _SKILL_HOLY_SHOCK = 118
 _SKILL_FANATICISM = 122
 _SKILL_CONVICTION = 123
+_SKILL_VENOM = 278
 
 _ELEMENTAL_AURA_SPECS: frozendict[str, int] = frozendict(
     {
@@ -129,6 +131,7 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
         _SKILL_ICE_BLAST,
         _SKILL_GLACIAL_SPIKE,
         _SKILL_BLIZZARD,
+        _SKILL_FROZEN_ORB,
         _SKILL_SACRIFICE,
         _SKILL_HOLY_FIRE,
         _SKILL_ZEAL,
@@ -139,6 +142,7 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
         _SKILL_HOLY_SHOCK,
         _SKILL_FANATICISM,
         _SKILL_CONVICTION,
+        _SKILL_VENOM,
     }
 
     for row in TsvReader(skills_path):
@@ -199,6 +203,34 @@ def exploding_arrow_fire_2x(slvl: int) -> int:
     return round(f_min + f_max)
 
 
+def venom_dps_2x(slvl: int) -> int:
+    """Return 2x average poison DPS of Venom at `slvl` (from skills.txt)."""
+    if slvl <= 0:
+        return 0
+    formulas, _ = _load_skill_formulas()
+    vf = formulas.get(_SKILL_VENOM)
+    if vf is None:
+        return 0
+    scale = 2.0 ** (vf.hit_shift - 8)
+    min_dps = _piecewise_linear(vf.emin, vf.emin_lev, slvl) * scale * 25.0
+    max_dps = _piecewise_linear(vf.emax, vf.emax_lev, slvl) * scale * 25.0
+    return round(min_dps + max_dps)
+
+
+def frozen_orb_avg_dmg_2x(slvl: int) -> int:
+    """Return 2x estimated average cold damage of a Frozen Orb cast at `slvl` (~6 bolt hits)."""
+    if slvl <= 0:
+        return 0
+    formulas, _ = _load_skill_formulas()
+    ff = formulas.get(_SKILL_FROZEN_ORB)
+    if ff is None:
+        return 0
+    scale = 2.0 ** (ff.hit_shift - 8)
+    min_b = _piecewise_linear(ff.emin, ff.emin_lev, slvl) * scale
+    max_b = _piecewise_linear(ff.emax, ff.emax_lev, slvl) * scale
+    return round((min_b + max_b) * 6.0)
+
+
 def _pal_hard_pts(skill_levels: tuple[int, ...] | list[int], skill_id: int) -> int:
     offset = skill_id - _PAL_SKILL_BASE
     return skill_levels[offset] if 0 <= offset < len(skill_levels) else 0
@@ -256,6 +288,7 @@ def build_paladin_dps_tables(
         )
         syn_mult = 1.0 + syn_pct / 100.0
         on_hit_mult = af.params.get(5, 1)
+        pulse_melee_mult = 1.0 + af.params.get(6, 0) / 100.0
         flat_min_one = af.passivecalc1 == "1"
         ticks_per_sec = 25.0 / af.perdelay if af.perdelay > 0 else 0.0
 
@@ -265,7 +298,7 @@ def build_paladin_dps_tables(
             slvl = base_aura + b
             p_min = _piecewise_linear(af.emin, af.emin_lev, slvl) * scale * syn_mult
             p_max = _piecewise_linear(af.emax, af.emax_lev, slvl) * scale * syn_mult
-            aura_pulse.append(((p_min + p_max) / 2.0) * ticks_per_sec)
+            aura_pulse.append(((p_min + p_max) / 2.0) * ticks_per_sec * pulse_melee_mult)
             h_min = 1.0 if flat_min_one else p_min * on_hit_mult
             h_max = p_max * on_hit_mult
             aura_hit.append((h_min + h_max) / 2.0)

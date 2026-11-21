@@ -319,6 +319,9 @@ def _build_paladin_baseline(
         aura_target_def_pct = ()
     base_def = (6, 12, 20)[min(max(diff_idx, 0), 2)]
     target_def = (base_def * 3 // 2 if resolved_target_type == "boss" else base_def) * char_level
+    base_hp = (15, 45, 100)[min(max(diff_idx, 0), 2)] * char_level
+    hp_mult = {"trash": 1, "champion": 3, "boss": 10}[resolved_target_type]
+    target_hp = base_hp * hp_mult
     fixed_all, fixed_slots = resolve_fixed_gear(keep_equipped)
     baseline = CharacterBaseline(
         char_class=int(CharClass.PALADIN),
@@ -347,6 +350,8 @@ def _build_paladin_baseline(
         aura_target_def_pct=aura_target_def_pct,
         target_def=target_def,
         target_type=resolved_target_type,
+        char_level=char_level,
+        target_hp=target_hp,
     )
     return baseline, char_level, diff_name, resolved_spec
 

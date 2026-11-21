@@ -253,6 +253,8 @@ class CharacterBaseline:
     aura_target_def_pct: tuple[int, ...] = ()
     target_def: int = 180
     target_type: TargetTypeStr = "champion"
+    char_level: int = 1
+    target_hp: int = 0
 
     def build_constraints(
         self,
@@ -326,4 +328,6 @@ class CharacterBaseline:
             aura_target_def_pct=list(self.aura_target_def_pct),
             target_def=self.target_def,
             target_type=self.target_type,
+            char_level=self.char_level,
+            target_hp=self.target_hp,
         )

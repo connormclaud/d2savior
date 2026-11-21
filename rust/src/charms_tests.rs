@@ -1338,7 +1338,8 @@ fn test_charm_solver_handles_all_skills_and_vit_ene_tiebreak() {
         ..Default::default()
     };
     let mut solver = CharmSolver::new(&pool, &c, SearchMode::Power);
-    assert_eq!(solver.charm_ub_stats().all_skills, 4);
+    assert_eq!(solver.charm_ub_stats().total_skills(), 4);
+    assert_eq!(solver.charm_ub_stats().all_skills, 1);
 
     let leaf = Stats {
         fr: 45,

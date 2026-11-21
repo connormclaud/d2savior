@@ -427,3 +427,183 @@ fn test_ar_and_chance_to_hit_scaling() {
     assert!((res_exp.dps - expected_exp_eff).abs() < 1e-6);
     assert!((res_exp.raw_dps - expected_exp_raw).abs() < 1e-6);
 }
+
+#[test]
+fn test_ds_cs_oskill_torch_vs_anni_and_ed_demon_undead() {
+    let mut sword = ItemSpec {
+        name: "Insight Broad Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 200, // 100 avg
+        can_zeal: true,
+        itd: 1,
+        ..Default::default()
+    };
+    sword.cs_oskill = 1; // +1 Critical Strike oskill -> 16%
+    sword.ds = 25; // 25% Deadly Strike
+    sword.ed_demon = 300;
+    sword.ed_undead = 150;
+
+    let anni = CharmSpec {
+        name: "Anni".into(),
+        size: 1,
+        all_skills: 1,
+        unique_id: Some(381),
+        ..Default::default()
+    };
+    let torch = CharmSpec {
+        name: "Paladin Torch".into(),
+        size: 2,
+        skills: 3, // +Paladin skills must NOT boost CS oskill
+        unique_id: Some(400),
+        ..Default::default()
+    };
+
+    let c_trash = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        offense: "melee".into(),
+        mode: "leveling".into(),
+        target_type: "trash".into(),
+        base_str: 0,
+        base_dex: 20,
+        action_hits: vec![1],
+        action_ed: vec![0],
+        action_ar_pct: vec![0],
+        aura_ar_pct: vec![0],
+        aura_target_def_pct: vec![0],
+        aura_hit_dmg: vec![0.0],
+        aura_pulse_dps: vec![0.0],
+        use_bo: false,
+        ..Default::default()
+    };
+
+    // Torch alone: cs slvl remains 1 -> 16% CS; combined with 25% DS => 1 - 0.75 * 0.84 = 0.37 (crit_mult = 1.37).
+    // Trash weights: ed_demon/3 + ed_undead/3 = 100 + 50 = 150% => eff_ed = 150% (phys mult = 2.5).
+    let res_torch = eval_build_core(&[&sword], &[&torch], &c_trash, 1);
+    let rate = 25.0 / res_torch.ias_frames as f64;
+    let exp_torch_raw = 100.0 * 2.5 * 1.37 * rate;
+    assert!((res_torch.raw_dps - exp_torch_raw).abs() < 1e-6);
+
+    // Anni (+1 all_skills) DOES boost CS oskill to slvl 2 -> 5 + 75*(220/8)/100 = 25%, combined = 1 - 0.75*0.75 = 0.4375.
+    let res_anni = eval_build_core(&[&sword], &[&anni], &c_trash, 1);
+    let exp_anni_raw = 100.0 * 2.5 * 1.4375 * rate;
+    assert!((res_anni.raw_dps - exp_anni_raw).abs() < 1e-6);
+
+    // Boss target_type: ed_demon 100%, ed_undead 0% => eff_ed = 300% (phys mult = 4.0).
+    let c_boss = BuildConstraints {
+        target_type: "boss".into(),
+        ..c_trash.clone()
+    };
+    let res_boss = eval_build_core(&[&sword], &[&anni], &c_boss, 1);
+    let exp_boss_raw = 100.0 * 4.0 * 1.4375 * rate;
+    assert!((res_boss.raw_dps - exp_boss_raw).abs() < 1e-6);
+}
+
+#[test]
+fn test_cb_ow_poison_venom_ctc_and_exploding_arrow_pierce() {
+    let mut wep = ItemSpec {
+        name: "Test Maul".into(),
+        slot: "weapon2h".into(),
+        wclass: "2hs".into(),
+        wep_phys_2x: 0,
+        can_zeal: true,
+        itd: 1,
+        ..Default::default()
+    };
+    wep.cb = 100;
+    wep.ow = 100;
+    wep.psn_dps_2x = 100; // 50 dps
+    wep.ctc_venom_dps_2x = 400; // 200 dps
+    wep.ctc_static_pct = 50;
+    wep.ctc_orb_dmg_2x = 200; // 100 avg orb
+
+    let mut armor = mk_test_item("Treachery", "armor", 0, 0, 0, 0, 0);
+    armor.ctc_venom_dps_2x = 300; // non-stacking max -> stays 400 from wep
+
+    let c_trash = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        offense: "melee".into(),
+        mode: "leveling".into(),
+        target_type: "trash".into(),
+        char_level: 30,
+        target_hp: 1000,
+        targets: 4,
+        base_dex: 20,
+        action_hits: vec![1],
+        action_ed: vec![0],
+        action_ar_pct: vec![0],
+        aura_ar_pct: vec![0],
+        aura_target_def_pct: vec![0],
+        aura_hit_dmg: vec![0.0],
+        aura_pulse_dps: vec![0.0],
+        use_bo: false,
+        ..Default::default()
+    };
+    let res = eval_build_core(&[&wep, &armor], &[], &c_trash, 1);
+    let rate = 25.0 / res.ias_frames as f64;
+    let cth: f64 = 0.95;
+    // CB: 100% * 0.25 * (0.5 * 1000) = 125/hit; Static: 0.5 * 0.25 * (0.25 * 1000) * 4 = 125/hit; Orb: 100 * 3 = 300/hit.
+    let direct_hit = 125.0 + 125.0 + 300.0;
+    // OW at lvl 30: (18*30 - 95) = 445 -> 25 * 445 / 256 = 43.45703125 DPS (p_ow=1 -> uptime=1).
+    let ow_dps = 25.0 * 445.0 / 256.0;
+    // Poison: (50 + 200) * (1 - 0.05^(2*rate)).
+    let psn_base = 250.0;
+    let psn_dps = psn_base * (1.0 - (1.0 - cth).powf((2.0 * rate).max(1.0)));
+    assert!((res.dps - (direct_hit * cth * rate + ow_dps + psn_dps)).abs() < 1e-6);
+
+    // Champion halves CB (12.5%) and halves OW.
+    let c_champ = BuildConstraints {
+        target_type: "champion".into(),
+        target_def: 0,
+        ..c_trash.clone()
+    };
+    let res_champ = eval_build_core(&[&wep, &armor], &[], &c_champ, 1);
+    let direct_champ = 62.5 + 125.0 + 300.0;
+    assert!(
+        (res_champ.dps - (direct_champ * 0.95 * rate + ow_dps * 0.5 + psn_dps)).abs() < 1e-6
+    );
+
+    // Decrepify multiplier tests:
+    let mut lawbringer = ItemSpec {
+        name: "Lawbringer".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 200,
+        can_zeal: true,
+        itd: 1,
+        ..Default::default()
+    };
+    lawbringer.ctc_decrep_pct = 100; // 1.5x phys
+    let res_dec = eval_build_core(&[&lawbringer], &[], &c_trash, 1);
+    let dec_rate = 25.0 / res_dec.ias_frames as f64;
+    assert!((res_dec.raw_dps - 100.0 * 1.5 * dec_rate).abs() < 1e-6);
+
+    // Exploding Arrow + flat_fire_2x * targets + ranged Pierce capped at 4 extra targets.
+    let mut kuko = ItemSpec {
+        name: "Kuko".into(),
+        slot: "weapon2h".into(),
+        wclass: "bow".into(),
+        wep_phys_2x: 0,
+        splash_fire: true,
+        splash_fire_2x: 20, // 10 avg skill splash
+        itd: 1,
+        ..Default::default()
+    };
+    kuko.flat_fire_2x = 40; // 20 avg gear fire -> * targets
+    kuko.pierce = 100;
+    let c_ea = BuildConstraints {
+        targets: 10, // capped at 1 + 4 = 5 pierce hits
+        ..c_trash
+    };
+    let res_kuko = eval_build_core(&[&kuko], &[], &c_ea, 1);
+    let kuko_rate = 25.0 / res_kuko.ias_frames as f64;
+    let mut pierce_eff = 1.0;
+    let mut p_pow = 1.0;
+    for _ in 0..4 {
+        p_pow *= 0.95;
+        pierce_eff += p_pow;
+    }
+    let auto_hit = (10.0 + 20.0) * 10.0;
+    assert!((res_kuko.dps - auto_hit * pierce_eff * kuko_rate).abs() < 1e-6);
+    assert!((res_kuko.raw_dps - auto_hit * 5.0 * kuko_rate).abs() < 1e-6);
+}

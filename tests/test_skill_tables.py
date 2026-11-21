@@ -8,8 +8,10 @@ from d2savior.optimizer.skill_tables import (
     build_paladin_dps_tables,
     build_sorc_dps_tables,
     exploding_arrow_fire_2x,
+    frozen_orb_avg_dmg_2x,
     resolve_skill_override,
     resolve_sorc_filler_skill,
+    venom_dps_2x,
 )
 
 
@@ -31,8 +33,8 @@ class TestPaladinDpsTables:
         c1 = _make_paladin({6: 1})
         t1 = build_paladin_dps_tables(c1, "holy-fire", "melee", max_bonus=2)
         assert t1.has_aura is True
-        # HitShift=7 (0.5x), EMin=2, EMax=6 => pulse 1..3 (avg 2.0, dps 1.0), on-hit 6x = 6..18 (avg 12.0)
-        assert t1.aura_pulse_dps[0] == pytest.approx(1.0)
+        # HitShift=7 (0.5x), EMin=2, EMax=6 => pulse 1..3 (avg 2.0, 2x melee pulse = 2.0), on-hit 6x = 6..18 (avg 12.0)
+        assert t1.aura_pulse_dps[0] == pytest.approx(2.0)
         assert t1.aura_hit_dmg[0] == pytest.approx(12.0)
         assert t1.action_hits == (1,)
         assert t1.action_ed == (0,)
@@ -42,7 +44,7 @@ class TestPaladinDpsTables:
         t20 = build_paladin_dps_tables(c20, "holy-fire", "zeal", max_bonus=10)
         assert t20.has_aura is True
         # lvl 20 raw: min=2+7+32+24=65, max=6+14+40+28=88 => pulse_avg=76.5*0.5*1.63=62.3475
-        assert t20.aura_pulse_dps[0] == pytest.approx(62.3475 / 2.0)
+        assert t20.aura_pulse_dps[0] == pytest.approx(62.3475)
         assert t20.aura_hit_dmg[0] == pytest.approx(62.3475 * 6.0)
         # lvl 28 (bonus +8): min=65+12+42=119, max=88+14+48=150 => pulse_avg=134.5*0.5*1.63=109.6175
         assert t20.aura_hit_dmg[8] == pytest.approx(109.6175 * 6.0)
@@ -55,9 +57,9 @@ class TestPaladinDpsTables:
         c = _make_paladin({18: 1, 9: 2, 29: 1})
         t = build_paladin_dps_tables(c, "holy-freeze", "melee", max_bonus=1)
         assert t.has_aura is True
-        # EMin=2, EMax=3, HitShift=8 (1.0x), syn=1+0.37=1.37, on-hit=5x
+        # EMin=2, EMax=3, HitShift=8 (1.0x), syn=1+0.37=1.37, 2x melee pulse, on-hit=5x
         pulse_avg = 2.5 * 1.37
-        assert t.aura_pulse_dps[0] == pytest.approx(pulse_avg / 2.0)
+        assert t.aura_pulse_dps[0] == pytest.approx(pulse_avg)
         assert t.aura_hit_dmg[0] == pytest.approx(pulse_avg * 5.0)
 
     def test_holy_shock_flat_min_one_and_6x_max(self):
@@ -65,9 +67,17 @@ class TestPaladinDpsTables:
         c = _make_paladin({22: 1, 14: 1})
         t = build_paladin_dps_tables(c, "holy-shock", "melee", max_bonus=1)
         assert t.has_aura is True
-        # EMin=1, EMax=10, HitShift=8 (1.0x), syn=1.12 => pulse 1.12..11.2, on-hit min=1.0, max=6*11.2=67.2
-        assert t.aura_pulse_dps[0] == pytest.approx((1.12 + 11.2) / 4.0)
+        # EMin=1, EMax=10, HitShift=8 (1.0x), syn=1.12 => 2x melee pulse, on-hit min=1.0, max=6*11.2=67.2
+        assert t.aura_pulse_dps[0] == pytest.approx((1.12 + 11.2) / 2.0)
         assert t.aura_hit_dmg[0] == pytest.approx((1.0 + 67.2) / 2.0)
+
+    def test_ctc_skill_dmg_helpers(self):
+        assert venom_dps_2x(0) == 0
+        # slvl 15 Venom (Treachery): 305-325 poison over 0.4s -> 762.5-812.5 DPS -> 2x = 1575
+        assert venom_dps_2x(15) == 1575
+        assert frozen_orb_avg_dmg_2x(0) == 0
+        # slvl 13 Frozen Orb (Rift/Voice of Reason): EMin=80+7*20+5*24=340 -> *0.5=170, EMax=90+7*21+5*25=362 -> *0.5=181; *6 bolts = 2106
+        assert frozen_orb_avg_dmg_2x(13) == 2106
 
     def test_zero_hard_points_edge_cases(self):
         # 0 hard points in Holy Fire and 0 hard points in Zeal -> all-zero aura, normal Attack

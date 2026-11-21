@@ -34,6 +34,10 @@ def _charm_key(c: CharmSpec) -> tuple[object, ...]:
         getattr(c, "vit", 0),
         getattr(c, "ene", 0),
         getattr(c, "ar", 0),
+        getattr(c, "flat_phys_2x", 0),
+        getattr(c, "flat_fire_2x", 0),
+        getattr(c, "flat_elem_2x", 0),
+        getattr(c, "psn_dps_2x", 0),
         c.unique_id,
         c.cold_sunder,
     )

@@ -19,8 +19,21 @@ class ItemSpec:
     aura_skill_bonus: int
     off_ed: int
     flat_phys_2x: int
+    flat_fire_2x: int
     flat_elem_2x: int
     cold_dmg_pct: int
+    ds: int
+    cs_oskill: int
+    ow: int
+    ed_demon: int
+    ed_undead: int
+    psn_dps_2x: int
+    pierce: int
+    ctc_static_pct: int
+    ctc_venom_dps_2x: int
+    ctc_decrep_pct: int
+    ctc_lifetap_pct: int
+    ctc_orb_dmg_2x: int
     ar: int
     ar_pct: int
     itd: int
@@ -139,6 +152,19 @@ class ItemSpec:
         ar_pct: int = 0,
         itd: int = 0,
         target_def_pct: int = 0,
+        flat_fire_2x: int = 0,
+        ds: int = 0,
+        cs_oskill: int = 0,
+        ow: int = 0,
+        ed_demon: int = 0,
+        ed_undead: int = 0,
+        psn_dps_2x: int = 0,
+        pierce: int = 0,
+        ctc_static_pct: int = 0,
+        ctc_venom_dps_2x: int = 0,
+        ctc_decrep_pct: int = 0,
+        ctc_lifetap_pct: int = 0,
+        ctc_orb_dmg_2x: int = 0,
     ) -> None: ...
     @property
     def skills(self) -> int: ...
@@ -168,6 +194,10 @@ class CharmSpec:
     vit: int
     ene: int
     ar: int
+    flat_phys_2x: int
+    flat_fire_2x: int
+    flat_elem_2x: int
+    psn_dps_2x: int
 
     def __init__(
         self,
@@ -195,6 +225,10 @@ class CharmSpec:
         vit: int = 0,
         ene: int = 0,
         ar: int = 0,
+        flat_phys_2x: int = 0,
+        flat_fire_2x: int = 0,
+        flat_elem_2x: int = 0,
+        psn_dps_2x: int = 0,
     ) -> None: ...
 
 class BuildConstraints:
@@ -248,6 +282,8 @@ class BuildConstraints:
     aura_target_def_pct: list[int]
     target_def: int
     target_type: str
+    char_level: int
+    target_hp: int
 
     def __init__(
         self,
@@ -301,6 +337,8 @@ class BuildConstraints:
         aura_target_def_pct: Sequence[int] = (),
         target_def: int = 180,
         target_type: TargetTypeStr = "champion",
+        char_level: int = 1,
+        target_hp: int = 0,
     ) -> None: ...
 
 class BuildResult:

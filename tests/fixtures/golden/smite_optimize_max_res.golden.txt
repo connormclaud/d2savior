@@ -1,6 +1,6 @@
 === Paladin Max Resist (lvl 30, Normal) ===
 Option #1 (evaluated 34720 pruned sets):
-  DPS: 1147 (Attack) | AR: 375 (68%) | Skills: +1 (Holy Fire lvl 28) | CBF: No | IAS: 0% (BP 0%, 17f) | CB: 0%
+  DPS: 1210 (Attack) | AR: 375 (68%) | Skills: +1 (Holy Fire lvl 28) | CBF: No | IAS: 0% (BP 0%, 17f) | CB: 0%
   FHR: 44% (BP 27%, 6f) | FCR: 30% (BP 30%, 12f) | FRW: 40% | MF: 0%
   Normal Res: F:91%(98) L:80%(89) C:80%(83) P:80%(90)
   Life: 553 | Mana: 93 | Charm slots: 22
@@ -19,7 +19,7 @@ Option #1 (evaluated 34720 pruned sets):
       - keep  : Ocher Small Charm of Sustenance, Shimmering Large Charm, Shimmering Large Charm, Sapphire Grand Charm, Lapis Small Charm
       - add   : Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Jade Grand Charm of Thunder [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Sapphire Large Charm [Stash Tab 5], Large Charm of Dexterity [smite Stash]
 Option #2 (evaluated 34720 pruned sets):
-  DPS: 1147 (Attack) | AR: 375 (68%) | Skills: +1 (Holy Fire lvl 28) | CBF: No | IAS: 0% (BP 0%, 17f) | CB: 0%
+  DPS: 1210 (Attack) | AR: 375 (68%) | Skills: +1 (Holy Fire lvl 28) | CBF: No | IAS: 0% (BP 0%, 17f) | CB: 0%
   FHR: 44% (BP 27%, 6f) | FCR: 20% (BP 18%, 13f) | FRW: 40% | MF: 0%
   Normal Res: F:91%(98) L:80%(89) C:80%(83) P:80%(90)
   Life: 553 | Mana: 93 | Charm slots: 22
@@ -38,7 +38,7 @@ Option #2 (evaluated 34720 pruned sets):
       - keep  : Ocher Small Charm of Sustenance, Shimmering Large Charm, Shimmering Large Charm, Sapphire Grand Charm, Lapis Small Charm
       - add   : Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Jade Grand Charm of Thunder [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Sapphire Large Charm [Stash Tab 5], Large Charm of Dexterity [smite Stash]
 Option #3 (evaluated 34720 pruned sets):
-  DPS: 1147 (Attack) | AR: 423 (70%) | Skills: +1 (Holy Fire lvl 28) | CBF: No | IAS: 0% (BP 0%, 17f) | CB: 0%
+  DPS: 1210 (Attack) | AR: 423 (70%) | Skills: +1 (Holy Fire lvl 28) | CBF: No | IAS: 0% (BP 0%, 17f) | CB: 0%
   FHR: 44% (BP 27%, 6f) | FCR: 40% (BP 30%, 12f) | FRW: 40% | MF: 0%
   Normal Res: F:91%(123) L:80%(89) C:80%(83) P:80%(90)
   Life: 533 | Mana: 93 | Charm slots: 22
