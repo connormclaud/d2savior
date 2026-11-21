@@ -3,6 +3,7 @@ use pyo3::prelude::*;
 
 pub(crate) const BASE_MAX_RES: i32 = 75;
 pub(crate) const HARD_MAX_RES: i32 = 95;
+pub(crate) const HARD_MAX_PDR_PCT: i32 = 50;
 
 pub(crate) const SORCERESS_FCR_BPS: &[i32] = &[0, 9, 20, 37, 63, 105, 200];
 pub(crate) const SORCERESS_FHR_BPS: &[i32] = &[0, 5, 9, 14, 20, 30, 42, 60, 86, 142, 280];

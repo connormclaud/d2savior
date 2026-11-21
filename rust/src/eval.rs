@@ -5,7 +5,8 @@ use pyo3::prelude::*;
 
 use crate::types::{
     compute_effective_gear_stats, equipped_hand_weapon, BuildConstraints, BuildResult, CharClass,
-    CharmSpec, HandWeapon, ItemSpec, OffenseProfile, Stats, BASE_MAX_RES, HARD_MAX_RES,
+    CharmSpec, HandWeapon, ItemSpec, OffenseProfile, Stats, BASE_MAX_RES, HARD_MAX_PDR_PCT,
+    HARD_MAX_RES,
 };
 
 #[cfg(feature = "python")]
@@ -315,7 +316,7 @@ pub(crate) fn eval_build_summary(
         ias_last_frames,
         cb: gear.cb,
         cbf: gear.cbf > 0,
-        pdr_pct: gear.pdr_pct,
+        pdr_pct: gear.pdr_pct.min(HARD_MAX_PDR_PCT),
         life_leech: gear.life_leech,
         mf,
         fr: fr_raw.min(cap_fr),

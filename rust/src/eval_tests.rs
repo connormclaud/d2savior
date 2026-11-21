@@ -164,3 +164,24 @@ fn test_paladin_eval_breakpoints_vit_ene_no_bo_and_passive_max_res() {
         .unwrap_err();
     assert!(err.contains("unsupported char_class 99"));
 }
+
+#[test]
+fn test_pdr_pct_capped_at_50() {
+    let mut helm = mk_test_item("Shako", "helm", 0, 0, 0, 0, 0);
+    helm.pdr_pct = 10;
+    let mut armor = mk_test_item("Shaftstop", "armor", 0, 0, 0, 0, 0);
+    armor.pdr_pct = 30;
+    let mut shield = mk_test_item("Stormshield", "shield", 0, 0, 0, 0, 0);
+    shield.pdr_pct = 35;
+
+    let res_over = eval_build_core(
+        &[&helm, &armor, &shield],
+        &[],
+        &BuildConstraints::default(),
+        1,
+    );
+    assert_eq!(res_over.pdr_pct, 50);
+
+    let res_under = eval_build_core(&[&armor], &[], &BuildConstraints::default(), 1);
+    assert_eq!(res_under.pdr_pct, 30);
+}

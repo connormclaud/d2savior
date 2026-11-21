@@ -11,7 +11,7 @@ use crate::eval::{eval_build_summary, res_caps, EvalSummary};
 use crate::types::{
     compute_effective_gear_stats_and_reqs, eff_req, BuildConstraints, BuildResult, CharClass,
     CharmSpec, HandWeapon, ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, WeaponClass,
-    BASE_MAX_RES,
+    BASE_MAX_RES, HARD_MAX_PDR_PCT,
 };
 
 const SINGLE_SLOTS: [&str; 6] = ["helm", "armor", "amulet", "belt", "gloves", "boots"];
@@ -1219,7 +1219,7 @@ pub fn optimize_builds_core(
                 || ub.ias < st.c.min_ias
                 || ub.cb < st.c.min_cb
                 || ub.life_leech < st.c.min_ll
-                || ub.pdr_pct < st.c.min_pdr
+                || ub.pdr_pct.min(HARD_MAX_PDR_PCT) < st.c.min_pdr
             {
                 return;
             }
@@ -1265,7 +1265,7 @@ pub fn optimize_builds_core(
                         || leaf_ub.ias < st.c.min_ias
                         || leaf_ub.cb < st.c.min_cb
                         || leaf_ub.life_leech < st.c.min_ll
-                        || leaf_ub.pdr_pct < st.c.min_pdr
+                        || leaf_ub.pdr_pct.min(HARD_MAX_PDR_PCT) < st.c.min_pdr
                     {
                         continue;
                     }
@@ -1353,7 +1353,7 @@ pub fn optimize_builds_core(
                             || leaf.ias < st.c.min_ias
                             || leaf.cb < st.c.min_cb
                             || leaf.life_leech < st.c.min_ll
-                            || leaf.pdr_pct < st.c.min_pdr
+                            || leaf.pdr_pct.min(HARD_MAX_PDR_PCT) < st.c.min_pdr
                         {
                             continue;
                         }

@@ -3052,3 +3052,45 @@ fn test_item_sort_key_uses_for_mode_so_higher_locality_duplicate_wins() {
     assert_eq!(belt.loc, "Equipped");
     assert_eq!(ring.loc, "Equipped");
 }
+
+#[test]
+fn test_smite_pdr_cap_at_50_ties_and_breaks_on_frw() {
+    let mut shield = mk_item("Stormshield", "shield", 0, 0, 0, 0, 0);
+    shield.pdr_pct = 35;
+    let mut belt_overcap = mk_item("Overcap Belt", "belt", 0, 0, 0, 0, 0);
+    belt_overcap.pdr_pct = 30;
+    belt_overcap.frw = 0;
+    let mut belt_capped_frw = mk_item("Verdungo + FRW", "belt", 0, 0, 0, 0, 0);
+    belt_capped_frw.pdr_pct = 15;
+    belt_capped_frw.frw = 20;
+
+    let mut c = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        mode: "leveling".to_string(),
+        offense: "smite".to_string(),
+        base_hell_res: 75,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        use_bo: false,
+        limit: 1,
+        ..test_constraints()
+    };
+    let items = vec![shield, belt_overcap, belt_capped_frw];
+    let res = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].pdr_pct, 50);
+    assert_eq!(res[0].frw, 20);
+    assert_eq!(
+        res[0].items.iter().find(|it| it.slot == "belt").unwrap().name,
+        "Verdungo + FRW"
+    );
+
+    // min_pdr > 50 must be infeasible even when raw item sum reaches 65%.
+    c.min_pdr = 55;
+    let infeasible = optimize_builds_core(&items, &[], &c).unwrap();
+    assert!(infeasible.is_empty());
+}
