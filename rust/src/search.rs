@@ -1117,43 +1117,47 @@ pub fn optimize_builds_core(
             c: &BuildConstraints,
             top: &TopResults,
         ) -> bool {
-            let eff_primary_ub = ub_ch.primary_power_skills_for(offense, c.has_aura);
-            let off_ub = if offense.uses_dps_tables(c) {
-                match hand {
-                    Some(hw) => OffenseProfile::dps_bucket(offense.compute_dps(hw, ub_ch, c).0),
-                    None => max_hand_ub_dps,
-                }
-            } else {
-                let ub_ias = match hand {
-                    Some(hw) => offense.attack_speed(hw.wclass, hw.wsm, ub_ch.ias).0,
-                    None => ub_ch.ias,
+            let level_scores = || {
+                let eff_primary_ub = ub_ch.primary_power_skills_for(offense, c.has_aura);
+                let off_ub = if offense.uses_dps_tables(c) {
+                    match hand {
+                        Some(hw) => OffenseProfile::dps_bucket(offense.compute_dps(hw, ub_ch, c).0),
+                        None => max_hand_ub_dps,
+                    }
+                } else {
+                    let ub_ias = match hand {
+                        Some(hw) => offense.attack_speed(hw.wclass, hw.wsm, ub_ch.ias).0,
+                        None => ub_ch.ias,
+                    };
+                    offense.score(eff_primary_ub, ub_ias, ub_ch.cb)
                 };
-                offense.score(eff_primary_ub, ub_ias, ub_ch.cb)
+                let res_base = res_base_ub(ub_ch, caps);
+                let cbf_ub = i32::from(ub_ch.cbf > 0);
+                (off_ub, res_base, cbf_ub)
             };
-            let res_base = res_base_ub(ub_ch, caps);
-            let cbf_ub = i32::from(ub_ch.cbf > 0);
             match mode {
-                SearchMode::Power => {
+                SearchMode::Power => top.nth_primary().is_some_and(|cutoff| {
                     let power_ub = if offense.uses_caster_dps(c) {
                         offense.compute_caster_dps(ub_ch, c).floor() as i32
                     } else {
-                        eff_primary_ub
+                        ub_ch.primary_power_skills_for(offense, c.has_aura)
                     };
-                    top.nth_primary().is_some_and(|cutoff| power_ub < cutoff)
-                }
+                    power_ub < cutoff
+                }),
                 SearchMode::Mf => top.nth_primary().is_some_and(|cutoff| ub_ch.mf < cutoff),
                 SearchMode::MaxRes => top.nth_top2().is_some_and(|cutoff| {
                     (
                         capped_res_sum(ub_ch.fr, ub_ch.lr, ub_ch.cr, ub_ch.pr, caps),
-                        eff_primary_ub,
+                        ub_ch.primary_power_skills_for(offense, c.has_aura),
                     ) < cutoff
                 }),
-                SearchMode::Leveling => top
-                    .nth_top3()
-                    .is_some_and(|cutoff| (off_ub, res_base, cbf_ub) < cutoff),
-                SearchMode::LevelingRes => top
-                    .nth_top3()
-                    .is_some_and(|cutoff| (res_base, off_ub, cbf_ub) < cutoff),
+                SearchMode::Leveling => {
+                    top.nth_top3().is_some_and(|cutoff| level_scores() < cutoff)
+                }
+                SearchMode::LevelingRes => top.nth_top3().is_some_and(|cutoff| {
+                    let (off_ub, res_base, cbf_ub) = level_scores();
+                    (res_base, off_ub, cbf_ub) < cutoff
+                }),
             }
         }
 
@@ -1370,10 +1374,34 @@ pub fn optimize_builds_core(
                             let cur = capped_res_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr, caps_l);
                             (cut - cur).max(0)
                         }),
-                        _ => 0,
+                        SearchMode::Mf => {
+                            st.top_results
+                                .nth_primary()
+                                .map_or(0, |cut| (cut - leaf.mf).max(0))
+                        }
+                        SearchMode::Power => st.top_results.nth_primary().map_or(0, |cut| {
+                            if st.offense.uses_caster_dps(st.c) {
+                                let max_k = (st.ch.all_skills
+                                    + st.ch.action_skill_bonus
+                                    + st.ch.aura_skill_bonus)
+                                    .max(0);
+                                (0..=max_k)
+                                    .find(|&k| {
+                                        let s = Stats {
+                                            all_skills: leaf.all_skills + k,
+                                            ..leaf
+                                        };
+                                        st.offense.compute_caster_dps(s, st.c).floor() as i32 >= cut
+                                    })
+                                    .unwrap_or(max_k + 1)
+                            } else {
+                                let cur = leaf.primary_power_skills_for(st.offense, st.c.has_aura);
+                                (cut - cur).max(0)
+                            }
+                        }),
+                        SearchMode::Leveling => 0,
                     };
                     let Some(charms_sel) = st.charm_solver.solve_with_min_main(
-                        &items_ref,
                         leaf,
                         (final_req_str, final_req_dex),
                         min_main_needed,

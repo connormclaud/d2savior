@@ -659,3 +659,145 @@ fn test_leveling_charm_cache_does_not_collide_across_res_deficits_and_prioritize
     assert_eq!(sel_capped.len(), 1);
     assert_eq!(sel_capped[0].name, "Vita SC");
 }
+
+#[test]
+fn test_sunder_forwards_min_main_needed_and_non_res_cache_tailors_filler() {
+    // 1. Single & multi-sunder paths respect `min_main_needed` and preserve ties cleanly.
+    let single_pool_charms = [
+        CharmSpec {
+            name: "Cold Rupture MF".to_string(),
+            size: 3,
+            cr: -70,
+            mf: 5,
+            unique_id: Some(401),
+            cold_sunder: true,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "MF SC".to_string(),
+            size: 1,
+            mf: 7,
+            ..Default::default()
+        },
+    ];
+    let single_pool: Vec<&CharmSpec> = single_pool_charms.iter().collect();
+    let c_single = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 4,
+        ..Default::default()
+    };
+    let leaf_ok = Stats {
+        fr: 75,
+        lr: 75,
+        cr: 145,
+        pr: 75,
+        ..Default::default()
+    };
+    let mut single_solver = CharmSolver::new(&single_pool, &c_single, SearchMode::Mf);
+    assert!(single_solver
+        .solve_with_min_main(leaf_ok, (0, 0), 13)
+        .is_none());
+    let hit_exact = single_solver
+        .solve_with_min_main(leaf_ok, (0, 0), 12)
+        .expect("5 (sunder) + 7 (SC) = 12 meets min_main_needed=12");
+    assert_eq!(hit_exact.iter().map(|ch| ch.mf).sum::<i32>(), 12);
+
+    // Multi-sunder: tie on main MF (12) still selects the higher-CR sunder (-70 over -80),
+    // while min_main_needed=13 rejects both.
+    let multi_pool_charms = [
+        CharmSpec {
+            name: "Cold Rupture -80".to_string(),
+            size: 3,
+            cr: -80,
+            mf: 5,
+            unique_id: Some(401),
+            cold_sunder: true,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Cold Rupture -70".to_string(),
+            size: 3,
+            cr: -70,
+            mf: 5,
+            unique_id: Some(401),
+            cold_sunder: true,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "MF SC".to_string(),
+            size: 1,
+            mf: 7,
+            ..Default::default()
+        },
+    ];
+    let multi_pool: Vec<&CharmSpec> = multi_pool_charms.iter().collect();
+    let mut multi_solver = CharmSolver::new(&multi_pool, &c_single, SearchMode::Mf);
+    assert!(multi_solver
+        .solve_with_min_main(leaf_ok, (0, 0), 13)
+        .is_none());
+    let multi_hit = multi_solver
+        .solve_with_min_main(leaf_ok, (0, 0), 12)
+        .expect("should allow tied main score when CR tiebreaker wins");
+    assert!(multi_hit.iter().any(|ch| ch.name == "Cold Rupture -70"));
+
+    // 2. Non-res cache key omits `room` (`caps - leaf`) yet filler still adapts to each leaf's caps:
+    //    Leaf A has capped PR (75) -> picks Vita SC (+5 life);
+    //    Leaf B has low PR (65, min_pr=0) -> shares cache core hit yet picks Emerald SC (+11 PR)!
+    let filler_charms = [
+        CharmSpec {
+            name: "Good Luck SC".to_string(),
+            size: 1,
+            mf: 7,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Emerald SC".to_string(),
+            size: 1,
+            pr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Vita SC".to_string(),
+            size: 1,
+            life: 5,
+            ..Default::default()
+        },
+    ];
+    let filler_pool: Vec<&CharmSpec> = filler_charms.iter().collect();
+    let c_filler = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 0,
+        min_fr: 75,
+        min_lr: 75,
+        min_cr: 75,
+        min_pr: 0,
+        max_charm_slots: 2,
+        ..Default::default()
+    };
+    let mut mf_solver = CharmSolver::new(&filler_pool, &c_filler, SearchMode::Mf);
+
+    let leaf_pr_capped = Stats {
+        fr: 75,
+        lr: 75,
+        cr: 75,
+        pr: 75,
+        ..Default::default()
+    };
+    let chosen_a = mf_solver.solve_with_min_main(leaf_pr_capped, (0, 0), 0).unwrap();
+    assert!(chosen_a.iter().any(|ch| ch.name == "Vita SC"));
+
+    let leaf_pr_low = Stats {
+        fr: 75,
+        lr: 75,
+        cr: 75,
+        pr: 65,
+        ..Default::default()
+    };
+    let chosen_b = mf_solver.solve_with_min_main(leaf_pr_low, (0, 0), 0).unwrap();
+    assert!(chosen_b.iter().any(|ch| ch.name == "Emerald SC"));
+}
