@@ -424,58 +424,6 @@ impl OffenseProfile {
         }
     }
 
-    /// Compute total Attack Rating and equal-level Chance to Hit (`0.05..=0.95`).
-    pub(crate) fn compute_ar_and_cth(
-        self,
-        s: Stats,
-        used_zeal: bool,
-        is_ranged: bool,
-        c: &BuildConstraints,
-    ) -> (i32, f64) {
-        let eff_action = (s.all_skills + s.pal_skills + s.action_skill_bonus).max(0) as usize;
-        let eff_aura = (s.all_skills + s.pal_skills + s.aura_skill_bonus).max(0) as usize;
-        let class = CharClass::from_id_or_default(c.char_class);
-        let total_dex = s.dex_bonus.max(0);
-        let base_ar = (class.base_ar_from_dex(total_dex) + s.ar.max(0)).max(0);
-        let act_ar_pct =
-            if (used_zeal || (self == Self::Melee && !is_ranged)) && !c.action_ar_pct.is_empty() {
-                c.action_ar_pct[eff_action.min(c.action_ar_pct.len() - 1)]
-            } else {
-                0
-            };
-        let aura_ar_pct = if !c.aura_ar_pct.is_empty() {
-            c.aura_ar_pct[eff_aura.min(c.aura_ar_pct.len() - 1)]
-        } else {
-            0
-        };
-        let total_ar_pct = (s.ar_pct + act_ar_pct + aura_ar_pct).max(0);
-        let total_ar = ((base_ar as i64) * (100 + total_ar_pct as i64) / 100) as i32;
-        let target_type = TargetType::parse(&c.target_type).unwrap_or_default();
-        let base_dr = c.target_def.max(0);
-        let cth = if s.itd > 0 && target_type.allows_itd() {
-            0.95
-        } else {
-            let conv_red = if c.aura_target_def_pct.is_empty() {
-                0
-            } else {
-                c.aura_target_def_pct[eff_aura.min(c.aura_target_def_pct.len() - 1)]
-            };
-            // In D2R, Conviction's defense reduction and gear -% Target Defense stack multiplicatively,
-            // and gear -% Target Defense is halved against Champions, Uniques, and Bosses.
-            let conv_mult = (100 - conv_red.clamp(0, 100)) as f64 / 100.0;
-            let gear_red = target_type.gear_target_def_reduction(s.target_def_pct);
-            let gear_mult = (100 - gear_red) as f64 / 100.0;
-            let eff_dr = (base_dr as f64) * conv_mult * gear_mult;
-            let denom = total_ar as f64 + eff_dr;
-            if denom <= 0.0 {
-                0.95
-            } else {
-                (total_ar as f64 / denom).clamp(0.05, 0.95)
-            }
-        };
-        (total_ar, cth)
-    }
-
     /// Compute `(eff_dps, raw_dps, total_ar, cth_pct, ias_bp, display_frames, last_frames, used_zeal)`.
     ///
     /// Expects `s.str_bonus` and `s.dex_bonus` to be total character strength/dexterity
@@ -486,197 +434,7 @@ impl OffenseProfile {
         s: Stats,
         c: &BuildConstraints,
     ) -> (f64, f64, i32, i32, i32, i32, i32, bool) {
-        let eff_action = (s.all_skills + s.pal_skills + s.action_skill_bonus).max(0) as usize;
-        let eff_aura = (s.all_skills + s.pal_skills + s.aura_skill_bonus).max(0) as usize;
-
-        let hits = if c.action_hits.is_empty() {
-            1
-        } else {
-            c.action_hits[eff_action.min(c.action_hits.len() - 1)].max(1)
-        };
-        let (rate, ias_bp, display_frames, last_frames, used_zeal) =
-            self.attack_rate_and_frames(hand, s.ias, hits);
-
-        let action_ed = if used_zeal && !c.action_ed.is_empty() {
-            c.action_ed[eff_action.min(c.action_ed.len() - 1)]
-        } else {
-            0
-        };
-
-        let total_str = s.str_bonus.max(0);
-        let total_dex = s.dex_bonus.max(0);
-        let stat_ed = (total_str * hand.str_pct + total_dex * hand.dex_pct) / 100;
-
-        let target_type = TargetType::parse(&c.target_type).unwrap_or_default();
-        let (demon_w, undead_w) = if matches!(target_type, TargetType::Boss) {
-            (1.0, 0.0)
-        } else {
-            (1.0 / 3.0, 1.0 / 3.0)
-        };
-        let eff_ed = (stat_ed + action_ed + s.off_ed).max(0) as f64
-            + s.ed_demon.max(0) as f64 * demon_w
-            + s.ed_undead.max(0) as f64 * undead_w;
-
-        let ds_prob = s.ds.clamp(0, 100) as f64 / 100.0;
-        let cs_prob = if s.cs_oskill > 0 {
-            let slvl = (s.cs_oskill + s.all_skills).max(1);
-            let pct = 5 + (75 * ((110 * slvl) / (slvl + 6))) / 100;
-            pct.clamp(0, 100) as f64 / 100.0
-        } else {
-            0.0
-        };
-        let crit_mult = 1.0 + (1.0 - (1.0 - ds_prob) * (1.0 - cs_prob));
-
-        let (total_ar, cth) = self.compute_ar_and_cth(s, used_zeal, hand.wclass.is_ranged(), c);
-        let hit_rate = rate * cth;
-
-        let p_dec = s.ctc_decrep_pct.clamp(0, 100) as f64 / 100.0;
-        let decrep_uptime = if p_dec > 0.0 {
-            1.0 - (1.0 - p_dec).powf((8.0 * hit_rate).max(1.0))
-        } else {
-            0.0
-        };
-        let decrep_mult = 1.0 + 0.5 * decrep_uptime;
-
-        let phys_avg = (hand.phys_2x + s.flat_phys_2x).max(0) as f64 / 2.0;
-        let d_phys = phys_avg * (1.0 + eff_ed / 100.0) * crit_mult * decrep_mult;
-
-        let d_aura_hit = if c.aura_hit_dmg.is_empty() {
-            0.0
-        } else {
-            c.aura_hit_dmg[eff_aura.min(c.aura_hit_dmg.len() - 1)]
-        };
-        let d_aura_pulse = if c.aura_pulse_dps.is_empty() {
-            0.0
-        } else {
-            c.aura_pulse_dps[eff_aura.min(c.aura_pulse_dps.len() - 1)]
-        };
-        let d_flat_fire = s.flat_fire_2x.max(0) as f64 / 2.0;
-        let d_elem_other = s.flat_elem_2x.max(0) as f64 / 2.0;
-        let targets = c.targets.max(1) as f64;
-        let d_splash_fire = if hand.splash_fire {
-            (hand.splash_fire_2x.max(0) as f64 / 2.0) * targets
-        } else {
-            0.0
-        };
-
-        let cb_frac = match (target_type, hand.wclass.is_ranged()) {
-            (TargetType::Trash, false) => 0.25,
-            (TargetType::Trash, true) | (_, false) => 0.125,
-            (_, true) => 0.0625,
-        };
-        let d_cb_hit =
-            (s.cb.clamp(0, 100) as f64 / 100.0) * cb_frac * (0.5 * c.target_hp.max(0) as f64);
-
-        let p_ow = s.ow.clamp(0, 100) as f64 / 100.0;
-        let ow_target_mult = if matches!(target_type, TargetType::Trash) {
-            1.0
-        } else {
-            0.5
-        };
-        let clvl_i = c.char_level.max(1);
-        let clvl = clvl_i as f64;
-        let ow_raw_tick = if clvl_i <= 15 {
-            9.0 * clvl + 40.0
-        } else if clvl_i <= 30 {
-            18.0 * clvl - 95.0
-        } else if clvl_i <= 45 {
-            27.0 * clvl - 365.0
-        } else if clvl_i <= 60 {
-            36.0 * clvl - 770.0
-        } else {
-            45.0 * clvl - 1310.0
-        };
-        let ow_base_dps = 25.0 * ow_raw_tick / 256.0 * ow_target_mult;
-        let d_ow_dps = if p_ow > 0.0 {
-            ow_base_dps * (1.0 - (1.0 - p_ow).powf((8.0 * hit_rate).max(1.0)))
-        } else {
-            0.0
-        };
-        let d_ow_dps_raw = if p_ow > 0.0 {
-            ow_base_dps * (1.0 - (1.0 - p_ow).powf((8.0 * rate).max(1.0)))
-        } else {
-            0.0
-        };
-
-        let psn_base = (s.psn_dps_2x.max(0) + s.ctc_venom_dps_2x.max(0)) as f64 / 2.0;
-        let d_psn_dps = if psn_base > 0.0 {
-            psn_base * (1.0 - (1.0 - cth).powf((2.0 * rate).max(1.0)))
-        } else {
-            0.0
-        };
-
-        let d_static_hit = (s.ctc_static_pct.clamp(0, 100) as f64 / 100.0)
-            * 0.25
-            * (0.25 * c.target_hp.max(0) as f64)
-            * targets;
-        let d_orb_hit = (s.ctc_orb_dmg_2x.max(0) as f64 / 2.0) * targets.min(3.0);
-
-        let (pierce_mult, raw_pierce_mult) =
-            if hand.wclass.is_ranged() && c.targets > 1 && s.pierce > 0 {
-                let p = s.pierce.clamp(0, 100) as f64 / 100.0;
-                let max_extra = (c.targets - 1).min(4);
-                let mut eff_m = 1.0;
-                let mut raw_m = 1.0;
-                let mut eff_pow = 1.0;
-                let mut raw_pow = 1.0;
-                for _ in 0..max_extra {
-                    eff_pow *= cth * p;
-                    raw_pow *= p;
-                    eff_m += eff_pow;
-                    raw_m += raw_pow;
-                }
-                (eff_m, raw_m)
-            } else {
-                (1.0, 1.0)
-            };
-
-        // Exploding Arrow's AoE blast is auto-hit and carries flat fire and Holy Fire on-hit damage
-        // across all targets even when the physical arrow misses the AR roll. Note `pid 158`
-        // (`item_explosivearrow`) uses weapon `ar_pct` rather than Amazon skill ToHit%, and
-        // `d_aura_hit * targets` is counted once per target in `auto_hit_attack` (keeping prior
-        // raw_dps parity rather than double-counting direct arrow + splash on the primary target).
-        let (direct_hit, auto_hit_attack) = if hand.splash_fire {
-            let (direct_aura, auto_aura) = if c.aura_is_fire {
-                (0.0, d_aura_hit * targets)
-            } else {
-                (d_aura_hit, 0.0)
-            };
-            (
-                d_phys + direct_aura + d_elem_other + d_cb_hit + d_static_hit + d_orb_hit,
-                d_splash_fire + d_flat_fire * targets + auto_aura,
-            )
-        } else {
-            (
-                d_phys
-                    + d_aura_hit
-                    + d_flat_fire
-                    + d_elem_other
-                    + d_cb_hit
-                    + d_static_hit
-                    + d_orb_hit,
-                d_splash_fire,
-            )
-        };
-        let eff_dps = (direct_hit * cth + auto_hit_attack) * pierce_mult * rate
-            + d_aura_pulse * targets
-            + d_ow_dps
-            + d_psn_dps;
-        let raw_dps = (direct_hit + auto_hit_attack) * raw_pierce_mult * rate
-            + d_aura_pulse * targets
-            + d_ow_dps_raw
-            + psn_base;
-        let cth_pct = (cth * 100.0).round() as i32;
-        (
-            eff_dps,
-            raw_dps,
-            total_ar,
-            cth_pct,
-            ias_bp,
-            display_frames,
-            last_frames,
-            used_zeal,
-        )
+        self.fast_leaf_dps(hand, s, c).eval_detailed()
     }
 
     pub(crate) fn compute_dps(
@@ -705,7 +463,8 @@ impl OffenseProfile {
         } else {
             c.action_hits[eff_action.min(c.action_hits.len() - 1)].max(1)
         };
-        let (rate, _, _, _, used_zeal) = self.attack_rate_and_frames(hand, leaf.ias, hits);
+        let (rate, ias_bp, display_frames, last_frames, used_zeal) =
+            self.attack_rate_and_frames(hand, leaf.ias, hits);
         let action_ed = if used_zeal && !c.action_ed.is_empty() {
             c.action_ed[eff_action.min(c.action_ed.len() - 1)]
         } else {
@@ -758,6 +517,8 @@ impl OffenseProfile {
         } else {
             c.aura_target_def_pct[eff_aura.min(c.aura_target_def_pct.len() - 1)]
         };
+        // In D2R, Conviction's defense reduction and gear -% Target Defense stack multiplicatively,
+        // and gear -% Target Defense is halved against Champions, Uniques, and Bosses.
         let conv_mult = (100 - conv_red.clamp(0, 100)) as f64 / 100.0;
         let gear_red = target_type.gear_target_def_reduction(leaf.target_def_pct);
         let gear_mult = (100 - gear_red) as f64 / 100.0;
@@ -823,6 +584,11 @@ impl OffenseProfile {
                 (0.0, 0)
             };
 
+        // Exploding Arrow's AoE blast is auto-hit and carries flat fire and Holy Fire on-hit damage
+        // across all targets even when the physical arrow misses the AR roll. Note `pid 158`
+        // (`item_explosivearrow`) uses weapon `ar_pct` rather than Amazon skill ToHit%, and
+        // `d_aura_hit * targets` is counted once per target in `auto_hit_attack` (keeping prior
+        // raw_dps parity rather than double-counting direct arrow + splash on the primary target).
         let (base_direct_non_phys, base_auto_hit) = if hand.splash_fire {
             let (direct_aura, auto_aura) = if c.aura_is_fire {
                 (0.0, d_aura_hit * targets)
@@ -842,6 +608,10 @@ impl OffenseProfile {
 
         let mut fast = FastLeafDps {
             rate,
+            ias_bp,
+            display_frames,
+            last_frames,
+            used_zeal,
             phys_scale,
             dex_base_ar,
             leaf_ar: leaf.ar,
@@ -884,6 +654,10 @@ impl OffenseProfile {
 
 pub(crate) struct FastLeafDps {
     pub(crate) rate: f64,
+    pub(crate) ias_bp: i32,
+    pub(crate) display_frames: i32,
+    pub(crate) last_frames: i32,
+    pub(crate) used_zeal: bool,
     pub(crate) phys_scale: f64,
     pub(crate) dex_base_ar: i32,
     pub(crate) leaf_ar: i32,
@@ -910,12 +684,17 @@ pub(crate) struct FastLeafDps {
 
 impl FastLeafDps {
     #[inline]
+    pub(crate) fn total_ar_for_add_ar(&self, add_ar: i32) -> i32 {
+        let base_ar = (self.dex_base_ar + (self.leaf_ar + add_ar).max(0)).max(0);
+        ((base_ar as i64) * (100 + self.total_ar_pct as i64) / 100) as i32
+    }
+
+    #[inline]
     pub(crate) fn cth_for_add_ar(&self, add_ar: i32) -> f64 {
         if self.itd_active {
             return 0.95;
         }
-        let base_ar = (self.dex_base_ar + (self.leaf_ar + add_ar).max(0)).max(0);
-        let total_ar = ((base_ar as i64) * (100 + self.total_ar_pct as i64) / 100) as i32;
+        let total_ar = self.total_ar_for_add_ar(add_ar);
         let denom = total_ar as f64 + self.eff_dr;
         if denom <= 0.0 {
             0.95
@@ -924,15 +703,15 @@ impl FastLeafDps {
         }
     }
 
-    #[inline]
-    pub(crate) fn eval_dps(
+    #[inline(always)]
+    fn eval_core(
         &self,
         add_ar: i32,
         add_phys_2x: i32,
         add_elem_2x: i32,
         add_fire_2x: i32,
         add_psn_2x: i32,
-    ) -> f64 {
+    ) -> (f64, f64, f64, f64, f64) {
         let cth = if self.cth_is_const {
             0.95
         } else {
@@ -980,10 +759,60 @@ impl FastLeafDps {
         } else {
             0.0
         };
-        (direct_hit * cth + auto_hit_attack) * pierce_mult * self.rate
+        let eff_dps = (direct_hit * cth + auto_hit_attack) * pierce_mult * self.rate
             + self.base_aura_pulse_dps
             + d_ow_dps
-            + d_psn_dps
+            + d_psn_dps;
+        (cth, direct_hit, auto_hit_attack, psn_base, eff_dps)
+    }
+
+    #[inline]
+    pub(crate) fn eval_dps(
+        &self,
+        add_ar: i32,
+        add_phys_2x: i32,
+        add_elem_2x: i32,
+        add_fire_2x: i32,
+        add_psn_2x: i32,
+    ) -> f64 {
+        self.eval_core(add_ar, add_phys_2x, add_elem_2x, add_fire_2x, add_psn_2x).4
+    }
+
+    pub(crate) fn eval_detailed(&self) -> (f64, f64, i32, i32, i32, i32, i32, bool) {
+        let (cth, direct_hit, auto_hit_attack, psn_base, eff_dps) =
+            self.eval_core(0, 0, 0, 0, 0);
+        let raw_pierce_mult = if self.max_extra_pierce > 0 && self.pierce_p > 0.0 {
+            let mut raw_m = 1.0;
+            let mut raw_pow = 1.0;
+            for _ in 0..self.max_extra_pierce {
+                raw_pow *= self.pierce_p;
+                raw_m += raw_pow;
+            }
+            raw_m
+        } else {
+            1.0
+        };
+        let d_ow_dps_raw = if self.p_ow > 0.0 {
+            self.ow_base_dps * (1.0 - (1.0 - self.p_ow).powf((8.0 * self.rate).max(1.0)))
+        } else {
+            0.0
+        };
+        let raw_dps = (direct_hit + auto_hit_attack) * raw_pierce_mult * self.rate
+            + self.base_aura_pulse_dps
+            + d_ow_dps_raw
+            + psn_base;
+        let total_ar = self.total_ar_for_add_ar(0);
+        let cth_pct = (cth * 100.0).round() as i32;
+        (
+            eff_dps,
+            raw_dps,
+            total_ar,
+            cth_pct,
+            self.ias_bp,
+            self.display_frames,
+            self.last_frames,
+            self.used_zeal,
+        )
     }
 }
 
