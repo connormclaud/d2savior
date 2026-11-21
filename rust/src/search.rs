@@ -1422,14 +1422,14 @@ pub fn optimize_builds_core(
                         }),
                         SearchMode::Leveling => 0,
                     };
-                    let Some(charms_sel) = st.charm_solver.solve_with_min_main(
+                    let Some(mut charms_sel) = st.charm_solver.solve_with_min_main(
                         leaf,
                         (final_req_str, final_req_dex),
                         min_main_needed,
                     ) else {
                         continue;
                     };
-                    let sum = eval_build_summary(gear, all_sk_non_wep, hw, &charms_sel, st.c);
+                    let mut sum = eval_build_summary(gear, all_sk_non_wep, hw, &charms_sel, st.c);
                     if (!st.c.allow_mf && sum.mf > 0)
                         || sum.fcr < st.c.min_fcr
                         || sum.fhr < st.c.min_fhr
@@ -1453,6 +1453,21 @@ pub fn optimize_builds_core(
                     let mut score = score_eval_summary(st.mode, st.offense, &sum, st.c);
                     let items_ref = items_ref_opt.unwrap_or_else(build_items_ref);
                     score.locality = items_ref.iter().map(|it| item_locality_score(&it.loc)).sum();
+                    if st.offense.uses_dps_tables(st.c)
+                        && matches!(st.mode, SearchMode::Leveling | SearchMode::LevelingRes)
+                    {
+                        st.charm_solver.improve_for_dps(
+                            gear,
+                            all_sk_non_wep,
+                            hw,
+                            leaf,
+                            (final_req_str, final_req_dex),
+                            st.offense,
+                            &mut charms_sel,
+                            &mut sum,
+                            &mut score,
+                        );
+                    }
                     if !st.top_results.would_accept(score) {
                         continue;
                     }

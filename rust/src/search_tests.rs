@@ -3239,3 +3239,194 @@ fn test_ar_cth_angelic_itd_target_def_and_brute_force_parity() {
     assert!(opt[0].ar > 400);
     assert!(opt[0].charms.iter().any(|ch| ch.name == "Sharp SC 1"));
 }
+
+#[test]
+fn test_ar_charms_brute_force_parity_all_cases() {
+    let assert_bf_parity = |items: &[ItemSpec], charms: &[CharmSpec], c: &BuildConstraints, mode: SearchMode| {
+        let opt = optimize_builds_core(items, charms, c).unwrap();
+        let bf = brute_force_top_scores(items, charms, c, mode);
+        assert!(!opt.is_empty(), "optimize returned no builds");
+        assert!(!bf.is_empty(), "brute force returned no builds");
+        let mut top_sc = validate_and_score_result(&opt[0], c, mode);
+        top_sc.locality = 0;
+        assert_eq!(top_sc, bf[0]);
+        opt
+    };
+
+    let sword = ItemSpec {
+        name: "Test Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 80,
+        can_zeal: true,
+        ..Default::default()
+    };
+    let c_base = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        offense: "zeal".into(),
+        mode: "leveling".into(),
+        base_hell_res: 75,
+        base_str: 50,
+        base_dex: 20,
+        target_def: 1200,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 3,
+        limit: 3,
+        use_bo: false,
+        aura_hit_dmg: vec![0.0, 0.0],
+        aura_pulse_dps: vec![0.0, 0.0],
+        action_ed: vec![0, 20],
+        action_hits: vec![5, 5],
+        action_ar_pct: vec![10, 20],
+        aura_ar_pct: vec![0, 0],
+        has_aura: false,
+        ..Default::default()
+    };
+
+    // 1. Pure +AR Steel GC (+132 AR) beats Combat GC (+1 action skill) in both Leveling & LevelingRes
+    //    (when res are capped) because doubling AR dominates +20% ED at low CTH.
+    let charms_case1 = vec![
+        CharmSpec {
+            name: "Combat GC".into(),
+            size: 3,
+            action_skills: 1,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Steel GC".into(),
+            size: 3,
+            ar: 132,
+            ..Default::default()
+        },
+    ];
+    let opt1 = assert_bf_parity(std::slice::from_ref(&sword), &charms_case1, &c_base, SearchMode::Leveling);
+    assert_eq!(opt1[0].charms[0].name, "Steel GC");
+    let c_lres = BuildConstraints {
+        mode: "leveling-res".into(),
+        ..c_base.clone()
+    };
+    let opt1_lres = assert_bf_parity(std::slice::from_ref(&sword), &charms_case1, &c_lres, SearchMode::LevelingRes);
+    assert_eq!(opt1_lres[0].charms[0].name, "Steel GC");
+
+    // 2. Uncapped res in SearchMode::Leveling: +AR charm beats +Res charm on primary `dps_bucket`.
+    let c_uncapped = BuildConstraints {
+        base_hell_res: 20,
+        max_charm_slots: 1,
+        ..c_base.clone()
+    };
+    let charms_case2 = vec![
+        CharmSpec {
+            name: "Fine SC".into(),
+            size: 1,
+            ar: 36,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Ruby SC".into(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+    ];
+    let opt2 = assert_bf_parity(std::slice::from_ref(&sword), &charms_case2, &c_uncapped, SearchMode::Leveling);
+    assert_eq!(opt2[0].charms[0].name, "Fine SC");
+
+    // 3. Hybrid +FHR/+AR Steel LC of Balance beats Balance SC + Vita SC when max_charm_slots=2.
+    let c_fhr = BuildConstraints {
+        min_fhr: 5,
+        max_charm_slots: 2,
+        ..c_base.clone()
+    };
+    let charms_case3 = vec![
+        CharmSpec {
+            name: "Balance SC".into(),
+            size: 1,
+            fhr: 5,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Vita SC".into(),
+            size: 1,
+            life: 20,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Steel LC of Balance".into(),
+            size: 2,
+            fhr: 5,
+            ar: 60,
+            ..Default::default()
+        },
+    ];
+    let opt3 = assert_bf_parity(std::slice::from_ref(&sword), &charms_case3, &c_fhr, SearchMode::Leveling);
+    assert_eq!(opt3[0].charms.len(), 1);
+    assert_eq!(opt3[0].charms[0].name, "Steel LC of Balance");
+
+    // 4. ITD=1 and same-dps_bucket +AR: Vita SC (+20 life) beats Fine SC (+18 AR) on life_bo tiebreak.
+    let mut sword_itd = sword.clone();
+    sword_itd.itd = 1;
+    let c_1slot = BuildConstraints {
+        max_charm_slots: 1,
+        ..c_base.clone()
+    };
+    let charms_case4 = vec![
+        CharmSpec {
+            name: "Fine SC 18".into(),
+            size: 1,
+            ar: 18,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Vita SC 20".into(),
+            size: 1,
+            life: 20,
+            ..Default::default()
+        },
+    ];
+    let opt4_itd = assert_bf_parity(&[sword_itd], &charms_case4, &c_1slot, SearchMode::Leveling);
+    assert_eq!(opt4_itd[0].charms[0].name, "Vita SC 20");
+    // Same-bucket test without ITD: at high AR (ar=1000, target_def=100 -> cth ~ 91%), +18 AR (<0.2% DPS)
+    // stays in the same 2% dps_bucket so Vita SC 20 wins.
+    let mut sword_high_ar = sword.clone();
+    sword_high_ar.ar = 1000;
+    let c_high_ar = BuildConstraints {
+        target_def: 100,
+        ..c_1slot.clone()
+    };
+    let opt4_same = assert_bf_parity(&[sword_high_ar], &charms_case4, &c_high_ar, SearchMode::Leveling);
+    assert_eq!(opt4_same[0].charms[0].name, "Vita SC 20");
+
+    // 5. +Dex charm advances dps_bucket via Dex->AR over +Life filler charms.
+    let c_2slot = BuildConstraints {
+        max_charm_slots: 2,
+        ..c_base.clone()
+    };
+    let charms_case5 = vec![
+        CharmSpec {
+            name: "LC of Dexterity".into(),
+            size: 2,
+            dex_bonus: 6,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Vita SC A".into(),
+            size: 1,
+            life: 20,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Vita SC B".into(),
+            size: 1,
+            life: 20,
+            ..Default::default()
+        },
+    ];
+    let opt5 = assert_bf_parity(&[sword], &charms_case5, &c_2slot, SearchMode::Leveling);
+    assert_eq!(opt5[0].charms.len(), 1);
+    assert_eq!(opt5[0].charms[0].name, "LC of Dexterity");
+}
