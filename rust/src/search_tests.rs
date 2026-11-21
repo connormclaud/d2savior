@@ -3094,3 +3094,34 @@ fn test_smite_pdr_cap_at_50_ties_and_breaks_on_frw() {
     let infeasible = optimize_builds_core(&items, &[], &c).unwrap();
     assert!(infeasible.is_empty());
 }
+
+#[test]
+fn test_pct_life_breaks_life_bo_tie_and_is_not_pareto_pruned() {
+    let helm_plain = mk_item("Plain Helm", "helm", 0, 0, 0, 0, 0);
+    let mut helm_jah = mk_item("Jah Helm", "helm", 0, 0, 0, 0, 0);
+    helm_jah.pct_life = 5;
+
+    let c = BuildConstraints {
+        mode: "power".to_string(),
+        base_hell_res: 75,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_life: 1000,
+        use_bo: false,
+        limit: 1,
+        ..test_constraints()
+    };
+    let items = vec![helm_plain, helm_jah];
+    let res = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].life_no_bo, 1050);
+    assert_eq!(res[0].life_bo, 1050);
+    assert_eq!(
+        res[0].items.iter().find(|it| it.slot == "helm").unwrap().name,
+        "Jah Helm"
+    );
+}

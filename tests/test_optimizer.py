@@ -1692,3 +1692,15 @@ def test_torch_and_annihilus_vit_ene_and_bo_all_skills() -> None:
     assert res_with.life_no_bo == res_without.life_no_bo + 70
     assert res_with.life_bo > res_without.life_bo + 70
     assert res_with.mana_bo > res_without.mana_bo + 70
+
+
+@requires_native
+def test_item_pct_life_scales_evaluate_and_optimize() -> None:
+    helm_plain = ItemSpec("Shako", "helm", "test", all_skills=2, life=100, vit=10)
+    helm_jah = ItemSpec("Shako (Jah)", "helm", "test", all_skills=2, life=100, vit=10, pct_life=5)
+
+    res_plain = evaluate_build([helm_plain], [], base_life=500, bo_base_bonus=4, use_bo=True)
+    res_jah = evaluate_build([helm_jah], [], base_life=500, bo_base_bonus=4, use_bo=True)
+    # bo_able_life = 600, vit_life = 20. +5% max life adds 30 to both life_no_bo and life_bo.
+    assert res_jah.life_no_bo == res_plain.life_no_bo + 30
+    assert res_jah.life_bo == res_plain.life_bo + 30

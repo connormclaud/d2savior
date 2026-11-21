@@ -228,13 +228,16 @@ pub(crate) fn eval_build_summary(
     let vit_life = class.life_per_vit(gear.vit + charm_vit);
     let ene_mana = class.mana_per_ene(gear.ene + charm_ene);
 
-    let life_no_bo = c.base_life + gear.life + gear.life_per_lvl + vit_life + charm_life;
     let bo_able_life = c.base_life + gear.life + charm_life;
     let bo_able_mana = c.base_mana + gear.mana + charm_mana;
+    let life_no_bo = (bo_able_life as f64 * (1.0 + gear.pct_life as f64 / 100.0)) as i32
+        + vit_life
+        + gear.life_per_lvl;
     let (bo_lvl, life_bo, mana_bo) = if c.use_bo {
         let bo_lvl = c.bo_base_bonus + all_sk_non_wep + charm_all_skills;
         let bo_pct = 32 + 3 * bo_lvl;
-        let life_bo = (bo_able_life as f64 * (1.0 + bo_pct as f64 / 100.0)) as i32
+        let life_bo = (bo_able_life as f64 * (1.0 + (bo_pct + gear.pct_life) as f64 / 100.0))
+            as i32
             + vit_life
             + gear.life_per_lvl;
         let mana_bo = (bo_able_mana as f64 * (1.0 + (bo_pct + gear.pct_mana) as f64 / 100.0))

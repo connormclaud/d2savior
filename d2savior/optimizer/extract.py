@@ -85,6 +85,7 @@ _SIMPLE_ITEM_STAT_MAP: frozendict[int, str] = frozendict(
         44: "max_cr",
         45: "pr",
         46: "max_pr",
+        76: "pct_life",
         77: "pct_mana",
         80: "mf",
         91: "req_pct",
@@ -98,7 +99,19 @@ _SIMPLE_ITEM_STAT_MAP: frozendict[int, str] = frozendict(
 )
 
 _PER_LEVEL_STAT_MAP: frozendict[int, str] = frozendict(
-    {216: "life_per_lvl", 217: "mana_per_lvl", 240: "mf"}
+    {
+        216: "life_per_lvl",
+        217: "mana_per_lvl",
+        220: "str_bonus",
+        221: "dex_bonus",
+        222: "ene",
+        223: "vit",
+        230: "cr",
+        231: "fr",
+        232: "lr",
+        233: "pr",
+        240: "mf",
+    }
 )
 
 _PAL_SIMPLE_STAT_MAP: frozendict[int, str] = frozendict({93: "ias", 136: "cb", 60: "life_leech"})
@@ -139,6 +152,7 @@ _USEFUL_ITEM_STATS: tuple[str, ...] = (
     "mana_per_lvl",
     "vit",
     "ene",
+    "pct_life",
     "pct_mana",
     "mdr",
     "dr_flat",
@@ -216,6 +230,7 @@ class _PropAcc:
     mana_per_lvl: int = 0
     vit: int = 0
     ene: int = 0
+    pct_life: int = 0
     pct_mana: int = 0
     mdr: int = 0
     dr_flat: int = 0
@@ -310,6 +325,7 @@ class _PropAcc:
             splash_fire_2x=splash_fire_2x,
             cold_dmg_pct=self.cold_dmg_pct,
             global_set_bonuses=list(global_set_bonuses),
+            pct_life=self.pct_life,
         )
 
     def to_charm_spec(
@@ -594,6 +610,22 @@ def _apply_props_to_acc(
             )
 
 
+def _compute_item_defense(
+    item: D2Item,
+    props: Sequence[tuple[int, int, list[int]]],
+    resolver: GameDataResolver,
+    char_level: int,
+) -> int:
+    tp = item.type_specific_info
+    if tp and tp.defence is not None:
+        return calculate_effective_defence(
+            tp.get_defence(), props, char_level=char_level, resolver=resolver
+        )
+    if any(pid == 214 for pid, _, _ in props):
+        return calculate_effective_defence(0, props, char_level=char_level, resolver=resolver)
+    return 0
+
+
 def _extract_prop_acc(
     item: D2Item,
     resolver: GameDataResolver,
@@ -626,9 +658,7 @@ def _extract_prop_acc(
         is_weapon=is_weapon,
         sorc_filler_id=sorc_filler_id,
     )
-    tp = item.type_specific_info
-    if tp and tp.defence is not None:
-        acc.defense = calculate_effective_defence(tp.get_defence(), props)
+    acc.defense = _compute_item_defense(item, props, resolver, char_level)
     return acc
 
 
@@ -851,9 +881,7 @@ def _item_to_spec(
         is_weapon=is_weapon,
         sorc_filler_id=sorc_filler_id,
     )
-    tp = item.type_specific_info
-    if tp and tp.defence is not None:
-        acc.defense = calculate_effective_defence(tp.get_defence(), props)
+    acc.defense = _compute_item_defense(item, props, resolver, char_level)
     set_group, set_item_id, set_bonuses, global_set_bonuses = _resolve_item_set_info(
         item,
         resolver,

@@ -39,6 +39,7 @@ class ItemSpec:
     mana_per_lvl: int
     vit: int
     ene: int
+    pct_life: int
     pct_mana: int
     mdr: int
     dr_flat: int
@@ -128,6 +129,7 @@ class ItemSpec:
         splash_fire_2x: int = 0,
         cold_dmg_pct: int = 0,
         global_set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
+        pct_life: int = 0,
     ) -> None: ...
     @property
     def skills(self) -> int: ...

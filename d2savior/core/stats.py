@@ -26,7 +26,7 @@ from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import EquipSlot, StoredIn
 from d2savior.core.item import D2Item
 from d2savior.core.models import HirelingInfo
-from d2savior.core.property import get_skill_class_id
+from d2savior.core.property import adjust_property_values, get_skill_class_id
 from d2savior.core.resolver import GameDataResolver
 
 type SummaryPropKey = tuple[int, ...]
@@ -602,8 +602,11 @@ class AggregatedSummaryProps(NamedTuple):
 def calculate_effective_defence(
     base_defence: int,
     parsed_props: Sequence[tuple[int, int, list[int]]],
+    *,
+    char_level: int | None = None,
+    resolver: GameDataResolver | None = None,
 ) -> int:
-    """Compute effective armor defense from base defense, stat 16 (%ED), and stat 31 (+Def)."""
+    """Compute effective defense from base defense, %ED (16, 215), and +Def (31, 214)."""
     ed_pct = 0
     flat_def = 0
     for prop_id, value, params in parsed_props:
@@ -612,6 +615,18 @@ def calculate_effective_defence(
             ed_pct += val
         elif prop_id == 31:
             flat_def += val
+        elif prop_id in (214, 215) and char_level is not None and char_level > 0:
+            stat = resolver.data.get_stat(prop_id) if resolver is not None else None
+            scaled = (
+                adjust_property_values(prop_id, [val], stat, char_level=char_level)
+                if stat is not None
+                else (val * char_level) >> 3
+            )
+            if isinstance(scaled, int):
+                if prop_id == 214:
+                    flat_def += scaled
+                else:
+                    ed_pct += scaled
     return (base_defence * max(0, 100 + ed_pct) // 100) + flat_def
 
 

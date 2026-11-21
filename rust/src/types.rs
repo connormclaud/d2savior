@@ -499,6 +499,7 @@ pub(crate) struct Stats {
     pub(crate) mana_per_lvl: i32,
     pub(crate) vit: i32,
     pub(crate) ene: i32,
+    pub(crate) pct_life: i32,
     pub(crate) pct_mana: i32,
     pub(crate) mdr: i32,
     pub(crate) dr_flat: i32,
@@ -647,6 +648,7 @@ impl Stats {
             mana_per_lvl: self.mana_per_lvl + o.mana_per_lvl,
             vit: self.vit + o.vit,
             ene: self.ene + o.ene,
+            pct_life: self.pct_life + o.pct_life,
             pct_mana: self.pct_mana + o.pct_mana,
             mdr: self.mdr + o.mdr,
             dr_flat: self.dr_flat + o.dr_flat,
@@ -695,6 +697,7 @@ impl Stats {
             mana_per_lvl: self.mana_per_lvl.max(o.mana_per_lvl),
             vit: self.vit.max(o.vit),
             ene: self.ene.max(o.ene),
+            pct_life: self.pct_life.max(o.pct_life),
             pct_mana: self.pct_mana.max(o.pct_mana),
             mdr: self.mdr.max(o.mdr),
             dr_flat: self.dr_flat.max(o.dr_flat),
@@ -742,6 +745,7 @@ impl Stats {
             && self.mana_per_lvl >= o.mana_per_lvl
             && self.vit >= o.vit
             && self.ene >= o.ene
+            && self.pct_life >= o.pct_life
             && self.pct_mana >= o.pct_mana
             && self.mdr >= o.mdr
             && self.dr_flat >= o.dr_flat
@@ -791,6 +795,7 @@ pub struct ItemSpec {
     pub mana_per_lvl: i32,
     pub vit: i32,
     pub ene: i32,
+    pub pct_life: i32,
     pub pct_mana: i32,
     pub mdr: i32,
     pub dr_flat: i32,
@@ -1066,6 +1071,7 @@ impl ItemSpec {
             mana_per_lvl: self.mana_per_lvl,
             vit: self.vit,
             ene: self.ene,
+            pct_life: self.pct_life,
             pct_mana: self.pct_mana,
             mdr: self.mdr,
             dr_flat: self.dr_flat,
@@ -1120,6 +1126,7 @@ impl ItemSpec {
             mana_per_lvl: s.mana_per_lvl,
             vit: s.vit,
             ene: s.ene,
+            pct_life: s.pct_life,
             pct_mana: s.pct_mana,
             mdr: s.mdr,
             dr_flat: s.dr_flat,
@@ -1215,6 +1222,7 @@ impl ItemSpec {
         splash_fire_2x = 0,
         cold_dmg_pct = 0,
         global_set_bonuses = Vec::new(),
+        pct_life = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1278,6 +1286,7 @@ impl ItemSpec {
         splash_fire_2x: i32,
         cold_dmg_pct: i32,
         global_set_bonuses: Vec<(i32, ItemSpec)>,
+        pct_life: i32,
     ) -> Self {
         Self {
             name,
@@ -1314,6 +1323,7 @@ impl ItemSpec {
             mana_per_lvl,
             vit,
             ene,
+            pct_life,
             pct_mana,
             mdr,
             dr_flat,

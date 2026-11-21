@@ -241,3 +241,33 @@ fn test_charm_vit_ene_and_all_skills_bo_scaling() {
     assert_eq!(res_pal.life_bo, 500 + 105);
     assert_eq!(res_pal.mana_bo, 300 + 52);
 }
+
+#[test]
+fn test_pct_life_scales_bo_able_life_only() {
+    let mut helm = mk_test_item("Jah Shako", "helm", 0, 0, 0, 0, 0);
+    helm.life = 100;
+    helm.pct_life = 5;
+    helm.vit = 10; // +20 non-BO-able life on Sorc
+    helm.life_per_lvl = 80; // non-BO-able
+
+    let c_bo = BuildConstraints {
+        char_class: 1,
+        base_life: 500,
+        bo_base_bonus: 6, // bo_pct = 32 + 18 = 50%
+        use_bo: true,
+        ..Default::default()
+    };
+    let res_bo = eval_build_core(&[&helm], &[], &c_bo, 1);
+    // bo_able_life = 600. life_no_bo = 600 * 1.05 + 20 + 80 = 730.
+    // life_bo = 600 * 1.55 + 20 + 80 = 1030.
+    assert_eq!(res_bo.life_no_bo, 730);
+    assert_eq!(res_bo.life_bo, 1030);
+
+    let c_no_bo = BuildConstraints {
+        use_bo: false,
+        ..c_bo
+    };
+    let res_no_bo = eval_build_core(&[&helm], &[], &c_no_bo, 1);
+    assert_eq!(res_no_bo.life_no_bo, 730);
+    assert_eq!(res_no_bo.life_bo, 730);
+}

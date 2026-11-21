@@ -83,6 +83,7 @@ class _FakeItemSpec:
     mana: int = 0
     vit: int = 0
     ene: int = 0
+    pct_life: int = 0
     pct_mana: int = 0
     mdr: int = 0
     dr_flat: int = 0
@@ -1448,3 +1449,55 @@ def test_to_charm_spec_preserves_all_skills_vit_and_ene() -> None:
     assert pal_ch.skills == 2
     assert pal_ch.vit == 18
     assert pal_ch.ene == 14
+
+
+def test_extract_per_level_attrs_res_def_and_pct_life() -> None:
+    from d2savior.core.stats import calculate_effective_defence
+    from d2savior.optimizer.extract import _apply_props_to_acc
+
+    resolver = GameDataResolver.load()
+    acc = _PropAcc()
+    # At char_level=80, shift=3 (divide by 8): pval=6 -> 60, pval=4 -> 40, pval=8 -> 80.
+    props: list[tuple[int, int, list[int]]] = [
+        (76, 5, [5]),  # +5% max life
+        (220, 6, [6]),  # +0.75 Str/lvl -> +60 Str
+        (221, 4, [4]),  # +0.5 Dex/lvl -> +40 Dex
+        (222, 4, [4]),  # +0.5 Ene/lvl -> +40 Ene
+        (223, 4, [4]),  # +0.5 Vit/lvl -> +40 Vit
+        (230, 8, [8]),  # +1.0 CR/lvl -> +80 CR
+        (231, 6, [6]),  # +0.75 FR/lvl -> +60 FR
+        (232, 4, [4]),  # +0.5 LR/lvl -> +40 LR
+        (233, 2, [2]),  # +0.25 PR/lvl -> +20 PR
+    ]
+    _apply_props_to_acc(
+        acc,
+        props,
+        resolver,
+        80,
+        char_class=int(CharClass.SORCERESS),
+        pal_spec="leveling",
+    )
+    assert acc.pct_life == 5
+    assert acc.str_bonus == 60
+    assert acc.dex_bonus == 40
+    assert acc.ene == 40
+    assert acc.vit == 40
+    assert acc.cr == 80
+    assert acc.fr == 60
+    assert acc.lr == 40
+    assert acc.pr == 20
+
+    # Defense with stat 16 (+100% ED), stat 215 (+0.5% ED/lvl -> +40% ED at lvl 80),
+    # stat 31 (+50 Def), and stat 214 (+1.25 Def/lvl -> pval=10 -> +100 Def at lvl 80):
+    # base 200 * (100 + 140) // 100 + 150 = 480 + 150 = 630.
+    def_props: list[tuple[int, int, list[int]]] = [
+        (16, 100, [100]),
+        (215, 4, [4]),
+        (31, 50, [50]),
+        (214, 10, [10]),
+    ]
+    eff_def = calculate_effective_defence(200, def_props, char_level=80, resolver=resolver)
+    assert eff_def == 630
+    # Non-armor item with 0 base defense (e.g., Leaf staff with +2 Def/lvl -> pval=16 -> +160 Def).
+    staff_def = calculate_effective_defence(0, [(214, 16, [16])], char_level=80, resolver=resolver)
+    assert staff_def == 160
