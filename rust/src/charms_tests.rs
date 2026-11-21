@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::WeaponClass;
 
 #[test]
 fn test_charm_stat_ub_respects_max_slots_and_rounds_up_partial() {
@@ -1354,4 +1355,292 @@ fn test_charm_solver_handles_all_skills_and_vit_ene_tiebreak() {
     assert_eq!(picked.len(), 2);
     assert!(picked.iter().any(|ch| ch.name == "Torch 20/15"));
     assert!(picked.iter().any(|ch| ch.name == "Annihilus"));
+}
+
+#[test]
+fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
+    // 1. Regression for LevelingRes when `best_score.primary < 0` and `cutoff == None`.
+    let ruby_sc = CharmSpec {
+        name: "Ruby SC".to_string(),
+        size: 1,
+        fr: 5,
+        ..Default::default()
+    };
+    let fiery_sc = CharmSpec {
+        name: "Fiery SC".to_string(),
+        size: 1,
+        flat_fire_2x: 40,
+        ..Default::default()
+    };
+    let c_neg = BuildConstraints {
+        char_class: 3,
+        char_level: 80,
+        base_hell_res: -100,
+        min_fhr: 0,
+        min_fr: -100,
+        min_lr: -100,
+        min_cr: -100,
+        min_pr: -100,
+        max_charm_slots: 1,
+        offense: "melee".to_string(),
+        action_hits: vec![1],
+        target_def: 1000,
+        mode: "leveling-res".to_string(),
+        ..Default::default()
+    };
+    let gear = Stats {
+        dex_bonus: 50,
+        ..Default::default()
+    };
+    let leaf = Stats {
+        fr: -100,
+        lr: -100,
+        cr: -100,
+        pr: -100,
+        ..gear
+    };
+    let hw = HandWeapon {
+        phys_2x: 40,
+        str_pct: 100,
+        ..Default::default()
+    };
+    let pool_neg = vec![&ruby_sc, &fiery_sc];
+    let mut solver_neg = CharmSolver::new(&pool_neg, &c_neg, SearchMode::LevelingRes);
+    let best_charms = solver_neg.solve_with_min_main(leaf, (0, 0), 0).unwrap();
+    let best_sum = eval_build_summary(gear, 0, hw, &best_charms, &c_neg);
+    let best_score =
+        score_eval_summary(SearchMode::LevelingRes, OffenseProfile::Melee, &best_sum, &c_neg);
+    assert!(best_score.primary < 0);
+
+    // Without ruby_sc (only fiery_sc in pool), res_base stays -400 (< 0), so improve_for_dps
+    // must NOT falsely prune on `cutoff.map_or(0, ...)`!
+    let pool_fire_only = vec![&fiery_sc];
+    let mut solver_fire = CharmSolver::new(&pool_fire_only, &c_neg, SearchMode::LevelingRes);
+    let mut best_c2: Vec<&CharmSpec> = Vec::new();
+    let mut best_s2 = eval_build_summary(gear, 0, hw, &best_c2, &c_neg);
+    let mut best_sc2 = score_eval_summary(SearchMode::LevelingRes, OffenseProfile::Melee, &best_s2, &c_neg);
+    solver_fire.improve_for_dps(
+        gear,
+        0,
+        hw,
+        leaf,
+        (0, 0),
+        OffenseProfile::Melee,
+        None,
+        &mut best_c2,
+        &mut best_s2,
+        &mut best_sc2,
+    );
+    assert_eq!(best_c2.len(), 1);
+    assert_eq!(best_c2[0].name, "Fiery SC");
+
+    // 2. PureDpsSolver parity vs brute force across cth_is_const, p_dec==0 + splash_fire,
+    //    p_dec>0, negative base damage, and >64 pure DPS charm overflow.
+    let pure_items = [
+        CharmSpec {
+            name: "Fine SC A".to_string(),
+            size: 1,
+            ar: 20,
+            flat_phys_2x: 6,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Fine SC B".to_string(),
+            size: 1,
+            ar: 10,
+            flat_phys_2x: 6,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Fiery LC".to_string(),
+            size: 2,
+            flat_fire_2x: 24,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Shock GC".to_string(),
+            size: 3,
+            flat_elem_2x: 36,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Venom SC".to_string(),
+            size: 1,
+            psn_dps_2x: 18,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Iron GC".to_string(),
+            size: 3,
+            ar: 120,
+            ..Default::default()
+        },
+    ];
+    let pure_pool: Vec<&CharmSpec> = pure_items.iter().collect();
+    let base_c = BuildConstraints {
+        char_class: 3,
+        char_level: 80,
+        base_hell_res: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 5,
+        targets: 2,
+        target_def: 1500,
+        offense: "melee".to_string(),
+        action_hits: vec![1],
+        mode: "leveling".to_string(),
+        ..Default::default()
+    };
+    let cases = [
+        // (cth_is_const via target_def=0, splash_fire=false, p_dec=0, non_neg_base=true)
+        (
+            BuildConstraints {
+                target_def: 0,
+                ..base_c.clone()
+            },
+            HandWeapon {
+                phys_2x: 30,
+                str_pct: 100,
+                ..Default::default()
+            },
+            Stats {
+                str_bonus: 50,
+                dex_bonus: 50,
+                ..Default::default()
+            },
+        ),
+        // (p_dec == 0.0, splash_fire = true)
+        (
+            base_c.clone(),
+            HandWeapon {
+                phys_2x: 20,
+                wclass: WeaponClass::Bow,
+                dex_pct: 100,
+                splash_fire: true,
+                splash_fire_2x: 50,
+                ..Default::default()
+            },
+            Stats {
+                dex_bonus: 40,
+                ..Default::default()
+            },
+        ),
+        // (p_dec > 0.0)
+        (
+            base_c.clone(),
+            HandWeapon {
+                phys_2x: 40,
+                str_pct: 100,
+                ..Default::default()
+            },
+            Stats {
+                str_bonus: 60,
+                dex_bonus: 30,
+                ctc_decrep_pct: 25,
+                ..Default::default()
+            },
+        ),
+        // (cth_is_const + negative base damage -> !non_neg_base fallback)
+        (
+            BuildConstraints {
+                target_def: 0,
+                ..base_c.clone()
+            },
+            HandWeapon {
+                phys_2x: 0,
+                str_pct: 100,
+                ..Default::default()
+            },
+            Stats {
+                flat_phys_2x: -4,
+                flat_fire_2x: -10,
+                ..Default::default()
+            },
+        ),
+    ];
+
+    for (idx, (c_case, hw_case, leaf_case)) in cases.iter().enumerate() {
+        let solver = CharmSolver::new(&pure_pool, c_case, SearchMode::Leveling);
+        let fast = OffenseProfile::Melee.fast_leaf_dps(*hw_case, *leaf_case, c_case);
+        let dp_res = solver
+            .pure_dps
+            .solve_for_leaf(&fast, c_case.max_charm_slots as usize);
+        let dp_best_dps = dp_res[c_case.max_charm_slots as usize].0;
+
+        let mut bf_best_dps = 0.0_f64;
+        for mask in 0u32..(1u32 << pure_items.len()) {
+            let picks: Vec<&CharmSpec> = (0..pure_items.len())
+                .filter(|&i| (mask & (1 << i)) != 0)
+                .map(|i| &pure_items[i])
+                .collect();
+            let slots: i32 = picks.iter().map(|ch| ch.size).sum();
+            if slots > c_case.max_charm_slots {
+                continue;
+            }
+            let s = Stats {
+                ar: leaf_case.ar + picks.iter().map(|ch| ch.ar).sum::<i32>(),
+                flat_phys_2x: leaf_case.flat_phys_2x
+                    + picks.iter().map(|ch| ch.flat_phys_2x).sum::<i32>(),
+                flat_fire_2x: leaf_case.flat_fire_2x
+                    + picks.iter().map(|ch| ch.flat_fire_2x).sum::<i32>(),
+                flat_elem_2x: leaf_case.flat_elem_2x
+                    + picks.iter().map(|ch| ch.flat_elem_2x).sum::<i32>(),
+                psn_dps_2x: leaf_case.psn_dps_2x
+                    + picks.iter().map(|ch| ch.psn_dps_2x).sum::<i32>(),
+                ..*leaf_case
+            };
+            let dps = OffenseProfile::Melee.compute_dps(*hw_case, s, c_case).0;
+            bf_best_dps = bf_best_dps.max(dps);
+        }
+        assert!(
+            (dp_best_dps - bf_best_dps).abs() <= 1e-9 * bf_best_dps.max(1.0),
+            "PureDpsSolver case {idx} mismatch: dp={dp_best_dps}, bf={bf_best_dps}"
+        );
+    }
+
+    // 3. >64 pure DPS charms overflow into `dps_groups` cleanly without panic or loss.
+    let mut many_pure: Vec<CharmSpec> = (0..65)
+        .map(|i| CharmSpec {
+            name: format!("Weak Pure SC {i}"),
+            size: 1,
+            ar: 5,
+            ..Default::default()
+        })
+        .collect();
+    // 65 different flat_fire values so max_copies=1 doesn't truncate below 65 items.
+    for (i, ch) in many_pure.iter_mut().enumerate() {
+        ch.flat_fire_2x = (i as i32) + 1;
+        ch.psn_dps_2x = 65 - (i as i32);
+    }
+    // Give the lowest-flat_fire item (which overflows into `dps_groups`) huge poison DPS so it must win.
+    many_pure[0].psn_dps_2x = 5000;
+    let many_pool: Vec<&CharmSpec> = many_pure.iter().collect();
+    let mut c_many = base_c;
+    c_many.max_charm_slots = 1;
+    let mut solver_many = CharmSolver::new(&many_pool, &c_many, SearchMode::Leveling);
+    assert_eq!(solver_many.pure_dps.item_indices.len(), 64);
+    assert_eq!(solver_many.dps_groups.len(), 1);
+    let mut best_c3: Vec<&CharmSpec> = Vec::new();
+    let mut best_s3 = eval_build_summary(gear, 0, hw, &best_c3, &c_many);
+    let mut best_sc3 = score_eval_summary(SearchMode::Leveling, OffenseProfile::Melee, &best_s3, &c_many);
+    solver_many.improve_for_dps(
+        gear,
+        0,
+        hw,
+        Stats {
+            dex_bonus: 50,
+            ..Default::default()
+        },
+        (0, 0),
+        OffenseProfile::Melee,
+        None,
+        &mut best_c3,
+        &mut best_s3,
+        &mut best_sc3,
+    );
+    assert_eq!(best_c3.len(), 1);
+    assert_eq!(best_c3[0].psn_dps_2x, 5000);
 }

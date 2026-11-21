@@ -1941,6 +1941,24 @@ def test_optimizer_performance_budgets() -> None:
     assert len(pal_opts) >= 1
     assert pal_elapsed < 2.0, f"Paladin optimize regression: {pal_elapsed:.3f}s"
 
+    # 1b. Paladin snapshot leveling optimize with --targets 2
+    pal_t2_items, pal_t2_charms = extract_pool(
+        smite, extra_chars=pal_extras, stashes=[pal_stash], targets=2, resolver=resolver
+    )
+    t0_t2 = time.perf_counter()
+    _, pal_t2_opts, _, _ = optimize_paladin_leveling(
+        smite,
+        pal_t2_items,
+        pal_t2_charms,
+        extra_chars=pal_extras,
+        stashes=[pal_stash],
+        targets=2,
+        resolver=resolver,
+    )
+    pal_t2_elapsed = time.perf_counter() - t0_t2
+    assert len(pal_t2_opts) >= 1
+    assert pal_t2_elapsed < 2.0, f"Paladin targets=2 optimize regression: {pal_t2_elapsed:.3f}s"
+
     # 2. Sorceress optimize (sork + mule_unique + shared stash)
     _, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
     _, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)

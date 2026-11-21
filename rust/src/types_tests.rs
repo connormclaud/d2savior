@@ -76,3 +76,170 @@ fn test_empty_hand_weapon_matches_between_search_and_eval() {
     assert_eq!(equipped_hand_weapon(&[]), HandWeapon::empty());
     assert_eq!(empty_wep.hand_weapon().str_pct, 100);
 }
+
+#[test]
+fn test_fast_leaf_dps_matches_compute_dps_detailed() {
+    let base_c = BuildConstraints {
+        char_class: 3,
+        char_level: 85,
+        target_def: 1500,
+        target_hp: 12000,
+        targets: 3,
+        offense: "melee".to_string(),
+        action_hits: vec![1, 2, 3, 4, 5],
+        action_ed: vec![0, 50, 100, 150, 200],
+        action_ar_pct: vec![0, 20, 40, 60, 80],
+        aura_hit_dmg: vec![0.0, 40.0, 80.0],
+        aura_pulse_dps: vec![0.0, 15.0, 30.0],
+        aura_ar_pct: vec![0, 10, 20],
+        aura_target_def_pct: vec![0, 25, 50],
+        ..Default::default()
+    };
+    let bow = HandWeapon {
+        phys_2x: 60,
+        wsm: 0,
+        wclass: WeaponClass::Bow,
+        str_pct: 0,
+        dex_pct: 100,
+        can_zeal: false,
+        splash_fire: true,
+        splash_fire_2x: 90,
+    };
+    let sword = HandWeapon {
+        phys_2x: 80,
+        wsm: -10,
+        wclass: WeaponClass::OneHandSwing,
+        str_pct: 100,
+        dex_pct: 0,
+        can_zeal: true,
+        splash_fire: false,
+        splash_fire_2x: 0,
+    };
+    let deltas = [
+        (0, 0, 0, 0, 0),
+        (120, 15, 22, 18, 40),
+        (5000, 40, 0, 10, 0),
+    ];
+
+    let scenarios = [
+        // 1. Bow + splash_fire + aura_is_fire + pierce + decrep + ow + poison/venom + cb + static + orb
+        (
+            OffenseProfile::Melee,
+            bow,
+            Stats {
+                all_skills: 1,
+                pal_skills: 1,
+                dex_bonus: 120,
+                ar: 200,
+                ar_pct: 50,
+                ias: 35,
+                ds: 25,
+                cs_oskill: 3,
+                cb: 30,
+                ow: 25,
+                ctc_decrep_pct: 20,
+                ctc_static_pct: 15,
+                ctc_orb_dmg_2x: 100,
+                ctc_venom_dps_2x: 60,
+                psn_dps_2x: 30,
+                pierce: 66,
+                flat_phys_2x: 10,
+                flat_fire_2x: 20,
+                flat_elem_2x: 14,
+                off_ed: 80,
+                ed_demon: 150,
+                ed_undead: 100,
+                ..Default::default()
+            },
+            BuildConstraints {
+                aura_is_fire: true,
+                target_type: "trash".to_string(),
+                ..base_c.clone()
+            },
+        ),
+        // 2. ITD active on trash
+        (
+            OffenseProfile::Zeal,
+            sword,
+            Stats {
+                itd: 1,
+                str_bonus: 100,
+                dex_bonus: 50,
+                ar: 10,
+                ias: 40,
+                ..Default::default()
+            },
+            BuildConstraints {
+                target_type: "trash".to_string(),
+                ..base_c.clone()
+            },
+        ),
+        // 3. eff_dr == 0
+        (
+            OffenseProfile::Melee,
+            sword,
+            Stats {
+                str_bonus: 80,
+                dex_bonus: 40,
+                ..Default::default()
+            },
+            BuildConstraints {
+                target_def: 0,
+                target_type: "boss".to_string(),
+                ..base_c.clone()
+            },
+        ),
+        // 4. CTH already capped at 0.95 (high AR)
+        (
+            OffenseProfile::Zeal,
+            sword,
+            Stats {
+                str_bonus: 100,
+                dex_bonus: 100,
+                ar: 100_000,
+                ..Default::default()
+            },
+            BuildConstraints {
+                target_type: "champion".to_string(),
+                ..base_c.clone()
+            },
+        ),
+        // 5. Negative base values (verify `.max(0)` clamp parity)
+        (
+            OffenseProfile::Melee,
+            HandWeapon {
+                phys_2x: 0,
+                ..sword
+            },
+            Stats {
+                ar: -50,
+                flat_phys_2x: -10,
+                flat_fire_2x: -8,
+                flat_elem_2x: -6,
+                psn_dps_2x: -20,
+                ..Default::default()
+            },
+            base_c,
+        ),
+    ];
+
+    for (idx, (offense, hand, leaf, c)) in scenarios.iter().enumerate() {
+        let fast = offense.fast_leaf_dps(*hand, *leaf, c);
+        for &(add_ar, add_phys, add_elem, add_fire, add_psn) in &deltas {
+            let s = Stats {
+                ar: leaf.ar + add_ar,
+                flat_phys_2x: leaf.flat_phys_2x + add_phys,
+                flat_elem_2x: leaf.flat_elem_2x + add_elem,
+                flat_fire_2x: leaf.flat_fire_2x + add_fire,
+                psn_dps_2x: leaf.psn_dps_2x + add_psn,
+                ..*leaf
+            };
+            let exact = offense.compute_dps_detailed(*hand, s, c).0;
+            let approx = fast.eval_dps(add_ar, add_phys, add_elem, add_fire, add_psn);
+            assert!(
+                (exact - approx).abs() <= 1e-9 * exact.abs().max(1.0),
+                "scenario {idx} mismatch: exact={exact}, fast={approx}"
+            );
+        }
+    }
+}

@@ -173,13 +173,16 @@ pub(crate) enum TargetType {
 
 impl TargetType {
     pub(crate) fn parse(s: &str) -> Result<Self, String> {
-        match s.to_ascii_lowercase().as_str() {
-            "trash" => Ok(Self::Trash),
-            "champion" => Ok(Self::Champion),
-            "boss" => Ok(Self::Boss),
-            other => Err(format!(
-                "invalid target_type '{other}'; expected 'trash', 'champion', or 'boss'"
-            )),
+        if s.eq_ignore_ascii_case("trash") {
+            Ok(Self::Trash)
+        } else if s.eq_ignore_ascii_case("champion") {
+            Ok(Self::Champion)
+        } else if s.eq_ignore_ascii_case("boss") {
+            Ok(Self::Boss)
+        } else {
+            Err(format!(
+                "invalid target_type '{s}'; expected 'trash', 'champion', or 'boss'"
+            ))
         }
     }
 
@@ -207,16 +210,18 @@ pub(crate) enum OffenseProfile {
 
 impl OffenseProfile {
     pub(crate) fn parse(s: &str, class: CharClass) -> Result<Self, String> {
-        let profile = match s.to_ascii_lowercase().as_str() {
-            "caster" => Self::Caster,
-            "melee" => Self::Melee,
-            "zeal" => Self::Zeal,
-            "smite" => Self::Smite,
-            other => {
-                return Err(format!(
-                    "invalid offense profile '{other}'; expected 'caster', 'melee', 'zeal', or 'smite'"
-                ))
-            }
+        let profile = if s.eq_ignore_ascii_case("caster") {
+            Self::Caster
+        } else if s.eq_ignore_ascii_case("melee") {
+            Self::Melee
+        } else if s.eq_ignore_ascii_case("zeal") {
+            Self::Zeal
+        } else if s.eq_ignore_ascii_case("smite") {
+            Self::Smite
+        } else {
+            return Err(format!(
+                "invalid offense profile '{s}'; expected 'caster', 'melee', 'zeal', or 'smite'"
+            ));
         };
         if class == CharClass::Sorceress && profile != Self::Caster {
             return Err(format!(
@@ -685,6 +690,185 @@ impl OffenseProfile {
         (eff_dps, ias_bp, display_frames, last_frames, used_zeal)
     }
 
+    /// Build a fast precomputed DPS evaluator at fixed `leaf` (only pure AR/flat/psn vary).
+    pub(crate) fn fast_leaf_dps(
+        self,
+        hand: HandWeapon,
+        leaf: Stats,
+        c: &BuildConstraints,
+    ) -> FastLeafDps {
+        let eff_action = (leaf.all_skills + leaf.pal_skills + leaf.action_skill_bonus).max(0) as usize;
+        let eff_aura = (leaf.all_skills + leaf.pal_skills + leaf.aura_skill_bonus).max(0) as usize;
+
+        let hits = if c.action_hits.is_empty() {
+            1
+        } else {
+            c.action_hits[eff_action.min(c.action_hits.len() - 1)].max(1)
+        };
+        let (rate, _, _, _, used_zeal) = self.attack_rate_and_frames(hand, leaf.ias, hits);
+        let action_ed = if used_zeal && !c.action_ed.is_empty() {
+            c.action_ed[eff_action.min(c.action_ed.len() - 1)]
+        } else {
+            0
+        };
+
+        let total_str = leaf.str_bonus.max(0);
+        let total_dex = leaf.dex_bonus.max(0);
+        let stat_ed = (total_str * hand.str_pct + total_dex * hand.dex_pct) / 100;
+
+        let target_type = TargetType::parse(&c.target_type).unwrap_or_default();
+        let (demon_w, undead_w) = if matches!(target_type, TargetType::Boss) {
+            (1.0, 0.0)
+        } else {
+            (1.0 / 3.0, 1.0 / 3.0)
+        };
+        let eff_ed = (stat_ed + action_ed + leaf.off_ed).max(0) as f64
+            + leaf.ed_demon.max(0) as f64 * demon_w
+            + leaf.ed_undead.max(0) as f64 * undead_w;
+
+        let ds_prob = leaf.ds.clamp(0, 100) as f64 / 100.0;
+        let cs_prob = if leaf.cs_oskill > 0 {
+            let slvl = (leaf.cs_oskill + leaf.all_skills).max(1);
+            let pct = 5 + (75 * ((110 * slvl) / (slvl + 6))) / 100;
+            pct.clamp(0, 100) as f64 / 100.0
+        } else {
+            0.0
+        };
+        let crit_mult = 1.0 + (1.0 - (1.0 - ds_prob) * (1.0 - cs_prob));
+        let phys_scale = (1.0 + eff_ed / 100.0) * crit_mult;
+
+        let class = CharClass::from_id_or_default(c.char_class);
+        let dex_base_ar = class.base_ar_from_dex(total_dex);
+        let act_ar_pct = if (used_zeal || (self == Self::Melee && !hand.wclass.is_ranged()))
+            && !c.action_ar_pct.is_empty()
+        {
+            c.action_ar_pct[eff_action.min(c.action_ar_pct.len() - 1)]
+        } else {
+            0
+        };
+        let aura_ar_pct = if !c.aura_ar_pct.is_empty() {
+            c.aura_ar_pct[eff_aura.min(c.aura_ar_pct.len() - 1)]
+        } else {
+            0
+        };
+        let total_ar_pct = (leaf.ar_pct + act_ar_pct + aura_ar_pct).max(0);
+        let itd_active = leaf.itd > 0 && target_type.allows_itd();
+        let conv_red = if c.aura_target_def_pct.is_empty() {
+            0
+        } else {
+            c.aura_target_def_pct[eff_aura.min(c.aura_target_def_pct.len() - 1)]
+        };
+        let conv_mult = (100 - conv_red.clamp(0, 100)) as f64 / 100.0;
+        let gear_red = target_type.gear_target_def_reduction(leaf.target_def_pct);
+        let gear_mult = (100 - gear_red) as f64 / 100.0;
+        let eff_dr = (c.target_def.max(0) as f64) * conv_mult * gear_mult;
+
+        let p_dec = leaf.ctc_decrep_pct.clamp(0, 100) as f64 / 100.0;
+        let d_aura_hit = if c.aura_hit_dmg.is_empty() {
+            0.0
+        } else {
+            c.aura_hit_dmg[eff_aura.min(c.aura_hit_dmg.len() - 1)]
+        };
+        let d_aura_pulse = if c.aura_pulse_dps.is_empty() {
+            0.0
+        } else {
+            c.aura_pulse_dps[eff_aura.min(c.aura_pulse_dps.len() - 1)]
+        };
+        let targets = c.targets.max(1) as f64;
+        let d_splash_fire = if hand.splash_fire {
+            (hand.splash_fire_2x.max(0) as f64 / 2.0) * targets
+        } else {
+            0.0
+        };
+
+        let cb_frac = match (target_type, hand.wclass.is_ranged()) {
+            (TargetType::Trash, false) => 0.25,
+            (TargetType::Trash, true) | (_, false) => 0.125,
+            (_, true) => 0.0625,
+        };
+        let d_cb_hit =
+            (leaf.cb.clamp(0, 100) as f64 / 100.0) * cb_frac * (0.5 * c.target_hp.max(0) as f64);
+
+        let p_ow = leaf.ow.clamp(0, 100) as f64 / 100.0;
+        let ow_target_mult = if matches!(target_type, TargetType::Trash) {
+            1.0
+        } else {
+            0.5
+        };
+        let clvl_i = c.char_level.max(1);
+        let clvl = clvl_i as f64;
+        let ow_raw_tick = if clvl_i <= 15 {
+            9.0 * clvl + 40.0
+        } else if clvl_i <= 30 {
+            18.0 * clvl - 95.0
+        } else if clvl_i <= 45 {
+            27.0 * clvl - 365.0
+        } else if clvl_i <= 60 {
+            36.0 * clvl - 770.0
+        } else {
+            45.0 * clvl - 1310.0
+        };
+        let ow_base_dps = 25.0 * ow_raw_tick / 256.0 * ow_target_mult;
+
+        let d_static_hit = (leaf.ctc_static_pct.clamp(0, 100) as f64 / 100.0)
+            * 0.25
+            * (0.25 * c.target_hp.max(0) as f64)
+            * targets;
+        let d_orb_hit = (leaf.ctc_orb_dmg_2x.max(0) as f64 / 2.0) * targets.min(3.0);
+
+        let (pierce_p, max_extra_pierce) =
+            if hand.wclass.is_ranged() && c.targets > 1 && leaf.pierce > 0 {
+                (leaf.pierce.clamp(0, 100) as f64 / 100.0, (c.targets - 1).min(4))
+            } else {
+                (0.0, 0)
+            };
+
+        let (base_direct_non_phys, base_auto_hit) = if hand.splash_fire {
+            let (direct_aura, auto_aura) = if c.aura_is_fire {
+                (0.0, d_aura_hit * targets)
+            } else {
+                (d_aura_hit, 0.0)
+            };
+            (
+                direct_aura + d_cb_hit + d_static_hit + d_orb_hit,
+                d_splash_fire + auto_aura,
+            )
+        } else {
+            (
+                d_aura_hit + d_cb_hit + d_static_hit + d_orb_hit,
+                d_splash_fire,
+            )
+        };
+
+        let mut fast = FastLeafDps {
+            rate,
+            phys_scale,
+            dex_base_ar,
+            leaf_ar: leaf.ar,
+            total_ar_pct,
+            eff_dr,
+            itd_active,
+            cth_is_const: false,
+            p_dec,
+            p_ow,
+            ow_base_dps,
+            pierce_p,
+            max_extra_pierce,
+            targets,
+            splash_fire: hand.splash_fire,
+            phys_2x_0: hand.phys_2x + leaf.flat_phys_2x,
+            flat_fire_2x_0: leaf.flat_fire_2x,
+            flat_elem_2x_0: leaf.flat_elem_2x,
+            psn_2x_0: leaf.psn_dps_2x,
+            ctc_venom_2x: leaf.ctc_venom_dps_2x.max(0),
+            base_direct_non_phys,
+            base_auto_hit,
+            base_aura_pulse_dps: d_aura_pulse * targets,
+        };
+        fast.cth_is_const = itd_active || eff_dr <= 0.0 || fast.cth_for_add_ar(0) >= 0.95;
+        fast
+    }
+
     pub(crate) fn score(self, eff_primary: i32, ias_bp: i32, cb: i32) -> i32 {
         match self {
             Self::Caster => eff_primary,
@@ -695,6 +879,111 @@ impl OffenseProfile {
 
     pub(crate) fn score_stats(self, s: Stats) -> i32 {
         self.score(s.primary_power_skills(), s.ias, s.cb)
+    }
+}
+
+pub(crate) struct FastLeafDps {
+    pub(crate) rate: f64,
+    pub(crate) phys_scale: f64,
+    pub(crate) dex_base_ar: i32,
+    pub(crate) leaf_ar: i32,
+    pub(crate) total_ar_pct: i32,
+    pub(crate) eff_dr: f64,
+    pub(crate) itd_active: bool,
+    pub(crate) cth_is_const: bool,
+    pub(crate) p_dec: f64,
+    pub(crate) p_ow: f64,
+    pub(crate) ow_base_dps: f64,
+    pub(crate) pierce_p: f64,
+    pub(crate) max_extra_pierce: i32,
+    pub(crate) targets: f64,
+    pub(crate) splash_fire: bool,
+    pub(crate) phys_2x_0: i32,
+    pub(crate) flat_fire_2x_0: i32,
+    pub(crate) flat_elem_2x_0: i32,
+    pub(crate) psn_2x_0: i32,
+    pub(crate) ctc_venom_2x: i32,
+    pub(crate) base_direct_non_phys: f64,
+    pub(crate) base_auto_hit: f64,
+    pub(crate) base_aura_pulse_dps: f64,
+}
+
+impl FastLeafDps {
+    #[inline]
+    pub(crate) fn cth_for_add_ar(&self, add_ar: i32) -> f64 {
+        if self.itd_active {
+            return 0.95;
+        }
+        let base_ar = (self.dex_base_ar + (self.leaf_ar + add_ar).max(0)).max(0);
+        let total_ar = ((base_ar as i64) * (100 + self.total_ar_pct as i64) / 100) as i32;
+        let denom = total_ar as f64 + self.eff_dr;
+        if denom <= 0.0 {
+            0.95
+        } else {
+            (total_ar as f64 / denom).clamp(0.05, 0.95)
+        }
+    }
+
+    #[inline]
+    pub(crate) fn eval_dps(
+        &self,
+        add_ar: i32,
+        add_phys_2x: i32,
+        add_elem_2x: i32,
+        add_fire_2x: i32,
+        add_psn_2x: i32,
+    ) -> f64 {
+        let cth = if self.cth_is_const {
+            0.95
+        } else {
+            self.cth_for_add_ar(add_ar)
+        };
+        let decrep_mult = if self.p_dec > 0.0 {
+            1.0 + 0.5 * (1.0 - (1.0 - self.p_dec).powf((8.0 * self.rate * cth).max(1.0)))
+        } else {
+            1.0
+        };
+        let phys_avg = (self.phys_2x_0 + add_phys_2x).max(0) as f64 / 2.0;
+        let d_phys = phys_avg * self.phys_scale * decrep_mult;
+        let d_flat_fire = (self.flat_fire_2x_0 + add_fire_2x).max(0) as f64 / 2.0;
+        let d_elem_other = (self.flat_elem_2x_0 + add_elem_2x).max(0) as f64 / 2.0;
+        let (direct_hit, auto_hit_attack) = if self.splash_fire {
+            (
+                d_phys + d_elem_other + self.base_direct_non_phys,
+                self.base_auto_hit + d_flat_fire * self.targets,
+            )
+        } else {
+            (
+                d_phys + d_flat_fire + d_elem_other + self.base_direct_non_phys,
+                self.base_auto_hit,
+            )
+        };
+        let pierce_mult = if self.max_extra_pierce > 0 && self.pierce_p > 0.0 {
+            let mut eff_m = 1.0;
+            let mut eff_pow = 1.0;
+            for _ in 0..self.max_extra_pierce {
+                eff_pow *= cth * self.pierce_p;
+                eff_m += eff_pow;
+            }
+            eff_m
+        } else {
+            1.0
+        };
+        let d_ow_dps = if self.p_ow > 0.0 {
+            self.ow_base_dps * (1.0 - (1.0 - self.p_ow).powf((8.0 * self.rate * cth).max(1.0)))
+        } else {
+            0.0
+        };
+        let psn_base = ((self.psn_2x_0 + add_psn_2x).max(0) + self.ctc_venom_2x) as f64 / 2.0;
+        let d_psn_dps = if psn_base > 0.0 {
+            psn_base * (1.0 - (1.0 - cth).powf((2.0 * self.rate).max(1.0)))
+        } else {
+            0.0
+        };
+        (direct_hit * cth + auto_hit_attack) * pierce_mult * self.rate
+            + self.base_aura_pulse_dps
+            + d_ow_dps
+            + d_psn_dps
     }
 }
 
