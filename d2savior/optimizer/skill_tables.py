@@ -204,6 +204,33 @@ def _pal_hard_pts(skill_levels: tuple[int, ...] | list[int], skill_id: int) -> i
     return skill_levels[offset] if 0 <= offset < len(skill_levels) else 0
 
 
+def resolve_paladin_aura_id(
+    char_data: D2SStruct,
+    spec: str,
+    *,
+    right_skill: int | None = None,
+) -> int | None:
+    """Return the active elemental or support aura skill ID modeled for a Paladin `spec`."""
+    skill_levels = char_data.skills.skill_levels if char_data.skills else ()
+    aura_id = _ELEMENTAL_AURA_SPECS.get(spec)
+    if aura_id is not None:
+        return aura_id if _pal_hard_pts(skill_levels, aura_id) > 0 else None
+    if right_skill == -1:
+        return None
+    eff_right = right_skill if right_skill is not None else active_skill_bindings(char_data)[1]
+    if eff_right in (_SKILL_FANATICISM, _SKILL_BLESSED_AIM, _SKILL_CONVICTION) and (
+        _pal_hard_pts(skill_levels, eff_right) > 0
+    ):
+        return eff_right
+    if spec in ("zeal", "sacrifice", "charge", "leveling") and (
+        _pal_hard_pts(skill_levels, _SKILL_FANATICISM) > 0
+    ):
+        return _SKILL_FANATICISM
+    if spec == "vengeance" and _pal_hard_pts(skill_levels, _SKILL_CONVICTION) > 0:
+        return _SKILL_CONVICTION
+    return None
+
+
 def build_paladin_dps_tables(
     char_data: D2SStruct,
     spec: str,
@@ -255,22 +282,11 @@ def build_paladin_dps_tables(
     ba_par8 = formulas[_SKILL_BLESSED_AIM].params.get(8, 5) if _SKILL_BLESSED_AIM in formulas else 5
     passive_ar_pct = ba_pts * ba_par8
 
-    if right_skill == -1 or has_aura:
-        support_aura_id: int | None = None
-    else:
-        eff_right = right_skill if right_skill is not None else active_skill_bindings(char_data)[1]
-        if eff_right in (_SKILL_FANATICISM, _SKILL_BLESSED_AIM, _SKILL_CONVICTION) and (
-            _pal_hard_pts(skill_levels, eff_right) > 0
-        ):
-            support_aura_id = eff_right
-        elif spec in ("zeal", "sacrifice", "charge", "leveling") and (
-            _pal_hard_pts(skill_levels, _SKILL_FANATICISM) > 0
-        ):
-            support_aura_id = _SKILL_FANATICISM
-        elif spec == "vengeance" and _pal_hard_pts(skill_levels, _SKILL_CONVICTION) > 0:
-            support_aura_id = _SKILL_CONVICTION
-        else:
-            support_aura_id = None
+    support_aura_id = (
+        None
+        if (right_skill == -1 or has_aura or spec in _ELEMENTAL_AURA_SPECS)
+        else resolve_paladin_aura_id(char_data, spec, right_skill=right_skill)
+    )
 
     if support_aura_id == _SKILL_FANATICISM and _SKILL_FANATICISM in formulas:
         ff = formulas[_SKILL_FANATICISM]
@@ -283,7 +299,10 @@ def build_paladin_dps_tables(
         bf = formulas[_SKILL_BLESSED_AIM]
         base_ba = _pal_hard_pts(skill_levels, _SKILL_BLESSED_AIM)
         par3, par4 = bf.params.get(3, 75), bf.params.get(4, 15)
-        aura_ar_pct_t = tuple(par3 + (base_ba + b - 1) * par4 for b in range(max_bonus + 1))
+        # In D2R, Blessed Aim's passive (`penetrate`) stacks with its active `blessedaim` state.
+        aura_ar_pct_t = tuple(
+            passive_ar_pct + par3 + (base_ba + b - 1) * par4 for b in range(max_bonus + 1)
+        )
         aura_tdef_t = (0,)
     elif support_aura_id == _SKILL_CONVICTION and _SKILL_CONVICTION in formulas:
         cf = formulas[_SKILL_CONVICTION]

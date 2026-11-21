@@ -1592,3 +1592,60 @@ def test_ar_stats_extracted_only_for_melee_paladin() -> None:
             0,
             0,
         )
+
+
+def test_paladin_melee_and_support_aura_single_skill_extraction() -> None:
+    resolver = GameDataResolver.load()
+    # +2 Sacrifice (96), +2 Charge (107), +2 Vengeance (111), +3 Fanaticism (122),
+    # +3 Blessed Aim (108), +3 Conviction (123).
+    skill_props: list[tuple[int, int, list[int]]] = [
+        (107, 2, [96, 2]),
+        (107, 2, [107, 2]),
+        (107, 2, [111, 2]),
+        (107, 3, [122, 3]),
+        (107, 3, [108, 3]),
+        (107, 3, [123, 3]),
+    ]
+
+    for spec in ("sacrifice", "charge", "vengeance"):
+        acc = _PropAcc()
+        _apply_props_to_acc(
+            acc,
+            skill_props,
+            resolver,
+            30,
+            char_class=int(CharClass.PALADIN),
+            pal_spec=spec,
+            pal_offense="melee",
+        )
+        assert acc.action_skill_bonus == 2
+        assert acc.aura_skill_bonus == 3
+
+    # Explicit pal_aura_id filters pid=107 aura bonuses to only the active support aura.
+    zeal_ba = _PropAcc()
+    _apply_props_to_acc(
+        zeal_ba,
+        skill_props,
+        resolver,
+        30,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="zeal",
+        pal_offense="zeal",
+        pal_aura_id=108,
+    )
+    assert zeal_ba.action_skill_bonus == 0
+    assert zeal_ba.aura_skill_bonus == 3
+
+    # Single-target Fanaticism aura ID does not pick up Blessed Aim or Conviction bonuses.
+    zeal_fanat = _PropAcc()
+    _apply_props_to_acc(
+        zeal_fanat,
+        [(107, 3, [108, 3]), (107, 3, [123, 3])],
+        resolver,
+        30,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="zeal",
+        pal_offense="zeal",
+        pal_aura_id=122,
+    )
+    assert zeal_fanat.aura_skill_bonus == 0

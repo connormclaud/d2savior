@@ -103,11 +103,11 @@ class TestPaladinDpsTables:
         assert t_zeal.aura_ar_pct[:3] == (155, 160, 165)
         assert t_zeal.aura_target_def_pct == (0,)
 
-        # Blessed Aim active (offset=12, lvl 10 => 75 + 9*15 = 210%) overrides passive when selected.
+        # Blessed Aim active (offset=12, lvl 10 => 75 + 9*15 = 210%) stacks with passive (+50%).
         c_ba = _make_paladin({10: 5, 12: 10})
         t_ba = build_paladin_dps_tables(c_ba, "zeal", "zeal", right_skill=108, max_bonus=2)
         assert t_ba.has_aura is False
-        assert t_ba.aura_ar_pct == (210, 225, 240)
+        assert t_ba.aura_ar_pct == (260, 275, 290)
 
         # Vengeance (offset=15, ToHit=20, LevToHit=10) + Conviction (ID=123, offset=27)
         c_conv = _make_paladin({15: 20, 27: 20})

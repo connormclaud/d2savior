@@ -29,16 +29,32 @@ from d2savior.optimizer.paladin import (
     detect_paladin_spec,
     paladin_offense_profile,
 )
-from d2savior.optimizer.skill_tables import exploding_arrow_fire_2x, resolve_sorc_filler_skill
+from d2savior.optimizer.skill_tables import (
+    exploding_arrow_fire_2x,
+    resolve_paladin_aura_id,
+    resolve_sorc_filler_skill,
+)
 
 _CHARM_SIZES: frozendict[str, int] = frozendict({"cm1": 1, "cm2": 2, "cm3": 3, "cs2": 3})
 
 _SKILL_BLIZZARD = 59
 _SKILL_COLD_MASTERY = 65
 _SKILL_ZEAL = 106
+_SKILL_FANATICISM = 122
+_SKILL_CONVICTION = 123
 _FLAT_ELEM_PIDS: frozenset[int] = frozenset({48, 49, 50, 51, 52, 53, 54, 55})
 _ETH_SAFE_PIDS: frozenset[int] = frozenset({152, 252, 253})
 _ELEMENTAL_AURA_SPECS: frozenset[str] = frozenset({"holy-fire", "holy-freeze", "holy-shock"})
+_MELEE_ACTION_SPECS: frozenset[str] = frozenset({"sacrifice", "charge", "vengeance"})
+_SUPPORT_AURA_IDS: frozendict[str, int] = frozendict(
+    {
+        "zeal": _SKILL_FANATICISM,
+        "sacrifice": _SKILL_FANATICISM,
+        "charge": _SKILL_FANATICISM,
+        "leveling": _SKILL_FANATICISM,
+        "vengeance": _SKILL_CONVICTION,
+    }
+)
 
 _CLASS_EXCLUSIVE_TYPES: tuple[tuple[str, int], ...] = (
     ("abow", int(CharClass.AMAZON)),
@@ -422,6 +438,7 @@ def _apply_paladin_skill_prop(
     pal_primary_id: int | None,
     pal_tabs: frozenset[int],
     pal_offense: str,
+    pal_aura_id: int | None = -1,
 ) -> bool:
     pal_id = int(CharClass.PALADIN)
     split_skills = pal_offense in ("zeal", "melee")
@@ -445,13 +462,23 @@ def _apply_paladin_skill_prop(
         return True
     if pid == 107 and len(params) >= 2:
         if split_skills:
-            if params[0] == _SKILL_ZEAL and pal_offense == "zeal":
-                acc.action_skill_bonus += params[1]
-            if (
-                pal_spec in _ELEMENTAL_AURA_SPECS
-                and pal_primary_id is not None
+            eff_aura_id = (
+                (
+                    pal_primary_id
+                    if pal_spec in _ELEMENTAL_AURA_SPECS
+                    else _SUPPORT_AURA_IDS.get(pal_spec)
+                )
+                if pal_aura_id == -1
+                else pal_aura_id
+            )
+            is_action = (params[0] == _SKILL_ZEAL and pal_offense == "zeal") or (
+                pal_offense == "melee"
+                and pal_spec in _MELEE_ACTION_SPECS
                 and params[0] == pal_primary_id
-            ) or (pal_spec not in _ELEMENTAL_AURA_SPECS and params[0] in (108, 122, 123)):
+            )
+            if is_action:
+                acc.action_skill_bonus += params[1]
+            if eff_aura_id is not None and params[0] == eff_aura_id:
                 acc.aura_skill_bonus += params[1]
         elif pal_primary_id is not None and params[0] == pal_primary_id:
             acc.primary_skill += params[1]
@@ -498,11 +525,12 @@ def _apply_paladin_prop(
     *,
     pal_offense: str = "caster",
     is_weapon: bool = False,
+    pal_aura_id: int | None = -1,
 ) -> None:
     if pal_attr := _PAL_SIMPLE_STAT_MAP.get(pid):
         setattr(acc, pal_attr, getattr(acc, pal_attr) + pval)
     elif _apply_paladin_skill_prop(
-        acc, pid, params, pal_spec, pal_primary_id, pal_tabs, pal_offense
+        acc, pid, params, pal_spec, pal_primary_id, pal_tabs, pal_offense, pal_aura_id
     ):
         return
     elif pid in _FLAT_ELEM_PIDS and pal_offense in ("zeal", "melee"):
@@ -613,6 +641,7 @@ def _apply_props_to_acc(
     is_weapon: bool = False,
     include_defense_props: bool = False,
     sorc_filler_id: int | None = None,
+    pal_aura_id: int | None = -1,
 ) -> None:
     pal_primary_id, _, pal_tabs = PALADIN_SPEC_INFO.get(pal_spec, (None, None, frozenset({0, 1})))
     for pid, val, params in props:
@@ -646,6 +675,7 @@ def _apply_props_to_acc(
                 pal_tabs,
                 pal_offense=pal_offense,
                 is_weapon=is_weapon,
+                pal_aura_id=pal_aura_id,
             )
 
 
@@ -676,6 +706,7 @@ def _extract_prop_acc(
     pal_offense: str | None = None,
     is_weapon: bool = False,
     sorc_filler_id: int | None = None,
+    pal_aura_id: int | None = -1,
 ) -> _PropAcc:
     acc = _PropAcc()
     props = list(collect_item_properties(item, resolver=resolver, version=version))
@@ -696,6 +727,7 @@ def _extract_prop_acc(
         pal_offense=resolved_offense,
         is_weapon=is_weapon,
         sorc_filler_id=sorc_filler_id,
+        pal_aura_id=pal_aura_id,
     )
     acc.defense = _compute_item_defense(item, props, resolver, char_level)
     return acc
@@ -710,6 +742,7 @@ def _extract_set_bonuses(
     char_class: int,
     pal_spec: str,
     pal_offense: str = "caster",
+    pal_aura_id: int | None = -1,
 ) -> list[tuple[int, ItemSpec]]:
     tp = item.type_specific_info
     if not (tp and tp.set_properties):
@@ -729,6 +762,7 @@ def _extract_set_bonuses(
             pal_spec=pal_spec,
             pal_offense=pal_offense,
             include_defense_props=True,
+            pal_aura_id=pal_aura_id,
         )
         if b_acc.defense != 0 or any(getattr(b_acc, attr) != 0 for attr in _USEFUL_ITEM_STATS):
             bonuses.append((req_pieces, b_acc.to_item_spec(f"{req_pieces}pc", "", "", 0, 0, 0)))
@@ -743,6 +777,7 @@ def _extract_global_set_bonuses(
     char_class: int,
     pal_spec: str,
     pal_offense: str = "caster",
+    pal_aura_id: int | None = -1,
 ) -> list[tuple[int, ItemSpec]]:
     tiers = resolver.get_set_bonus_tiers(set_name)
     if not tiers:
@@ -759,6 +794,7 @@ def _extract_global_set_bonuses(
             pal_spec=pal_spec,
             pal_offense=pal_offense,
             include_defense_props=True,
+            pal_aura_id=pal_aura_id,
         )
         if b_acc.defense != 0 or any(getattr(b_acc, attr) != 0 for attr in _USEFUL_ITEM_STATS):
             bonuses.append((req_pieces, b_acc.to_item_spec(f"{req_pieces}pc", "", "", 0, 0, 0)))
@@ -799,6 +835,7 @@ def _resolve_item_set_info(
     pal_offense: str = "caster",
     set_group_ids: dict[str, int] | None,
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] | None = None,
+    pal_aura_id: int | None = -1,
 ) -> tuple[int, int, list[tuple[int, ItemSpec]], list[tuple[int, ItemSpec]]]:
     ext = item.ext_info
     if ext is None or ext.set_id is None:
@@ -819,6 +856,7 @@ def _resolve_item_set_info(
         char_class=char_class,
         pal_spec=pal_spec,
         pal_offense=pal_offense,
+        pal_aura_id=pal_aura_id,
     )
     cache_key = (group_key, id(resolver.data))
     if global_set_cache is not None and cache_key in global_set_cache:
@@ -831,6 +869,7 @@ def _resolve_item_set_info(
             char_class=char_class,
             pal_spec=pal_spec,
             pal_offense=pal_offense,
+            pal_aura_id=pal_aura_id,
         )
         if global_set_cache is not None:
             global_set_cache[cache_key] = global_bonuses
@@ -866,6 +905,7 @@ def _item_to_spec(
     exclude_slots: frozenset[str] = frozenset(),
     allow_eth_melee: bool = False,
     sorc_filler_id: int | None = None,
+    pal_aura_id: int | None = -1,
 ) -> ItemSpec | CharmSpec | None:
     if item.location == ItemLocation.SOCKET:
         return None
@@ -888,6 +928,7 @@ def _item_to_spec(
             char_class=char_class,
             pal_spec=pal_spec,
             pal_offense=resolved_offense,
+            pal_aura_id=pal_aura_id,
         )
         name = get_item_display_name(item, resolver=resolver, version=version)
         ext = item.ext_info
@@ -919,6 +960,7 @@ def _item_to_spec(
         pal_offense=resolved_offense,
         is_weapon=is_weapon,
         sorc_filler_id=sorc_filler_id,
+        pal_aura_id=pal_aura_id,
     )
     acc.defense = _compute_item_defense(item, props, resolver, char_level)
     set_group, set_item_id, set_bonuses, global_set_bonuses = _resolve_item_set_info(
@@ -931,6 +973,7 @@ def _item_to_spec(
         pal_offense=resolved_offense,
         set_group_ids=set_group_ids,
         global_set_cache=global_set_cache,
+        pal_aura_id=pal_aura_id,
     )
 
     keep_slot = skip_useful_check or slot in skip_useful_slots
@@ -1032,6 +1075,7 @@ def _extract_char_specs(
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     allow_eth_melee: bool = False,
     sorc_filler_id: int | None = None,
+    pal_aura_id: int | None = -1,
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
     ver = char.version or 0x63
     char_resolver = resolver.for_version(ver)
@@ -1080,6 +1124,7 @@ def _extract_char_specs(
             exclude_slots=exclude_slots,
             allow_eth_melee=allow_eth_melee,
             sorc_filler_id=sorc_filler_id,
+            pal_aura_id=pal_aura_id,
         )
         if isinstance(spec, ItemSpec):
             char_items.append((_char_item_locality_rank(it, swap_slots=char_swap_slots), spec))
@@ -1140,6 +1185,11 @@ def extract_pool(
         if char_class == int(CharClass.SORCERESS)
         else None
     )
+    pal_aura_id = (
+        resolve_paladin_aura_id(primary_char, resolved_pal_spec, right_skill=right_skill)
+        if char_class == int(CharClass.PALADIN)
+        else None
+    )
     items_out: list[ItemSpec] = []
     charms_out: list[CharmSpec] = []
     set_group_ids: dict[str, int] = {}
@@ -1161,6 +1211,7 @@ def extract_pool(
         global_set_cache=global_set_cache,
         allow_eth_melee=allow_eth_melee,
         sorc_filler_id=sorc_filler_id,
+        pal_aura_id=pal_aura_id,
     )
     items_out.extend(ch_items)
     charms_out.extend(ch_charms)
@@ -1189,6 +1240,7 @@ def extract_pool(
                     exclude_slots=kept_slots,
                     allow_eth_melee=allow_eth_melee,
                     sorc_filler_id=sorc_filler_id,
+                    pal_aura_id=pal_aura_id,
                 )
                 if isinstance(spec, ItemSpec):
                     items_out.append(spec)
@@ -1210,6 +1262,7 @@ def extract_pool(
             global_set_cache=global_set_cache,
             allow_eth_melee=allow_eth_melee,
             sorc_filler_id=sorc_filler_id,
+            pal_aura_id=pal_aura_id,
         )
         items_out.extend(ch_items)
         charms_out.extend(ch_charms)
