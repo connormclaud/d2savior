@@ -822,6 +822,74 @@ struct CharmCacheKey {
     room: [i32; 4],
 }
 
+#[derive(Clone, Default)]
+struct PureAxisDp {
+    best_gain: Vec<i32>,
+    best_picks: Vec<Vec<usize>>,
+    max_gain: i32,
+}
+
+impl PureAxisDp {
+    fn build(items: &[(usize, &CharmSpec, i32)], max_slots: i32) -> Self {
+        if items.is_empty() {
+            return Self {
+                best_gain: vec![0],
+                best_picks: vec![Vec::new()],
+                max_gain: 0,
+            };
+        }
+        let cap = max_slots.max(0) as usize;
+        let mut best_gain = vec![0i32; cap + 1];
+        let mut best_tie = vec![(0i32, 0i32, 0i32); cap + 1];
+        let mut best_picks = vec![Vec::new(); cap + 1];
+
+        for &(idx, ch, val) in items {
+            let sz = ch.size as usize;
+            if val <= 0 || sz == 0 || sz > cap {
+                continue;
+            }
+            for s in (sz..=cap).rev() {
+                let cand_gain = best_gain[s - sz] + val;
+                let prev_tie = best_tie[s - sz];
+                let cand_tie = (prev_tie.0 + ch.life, prev_tie.1 + ch.mana, prev_tie.2 + ch.frw);
+                if (cand_gain, cand_tie) > (best_gain[s], best_tie[s]) {
+                    best_gain[s] = cand_gain;
+                    best_tie[s] = cand_tie;
+                    let mut picks = best_picks[s - sz].clone();
+                    picks.push(idx);
+                    best_picks[s] = picks;
+                }
+            }
+        }
+
+        for s in 1..=cap {
+            if (best_gain[s - 1], best_tie[s - 1]) > (best_gain[s], best_tie[s]) {
+                best_gain[s] = best_gain[s - 1];
+                best_tie[s] = best_tie[s - 1];
+                best_picks[s] = best_picks[s - 1].clone();
+            }
+        }
+
+        let max_gain = best_gain[cap];
+        Self {
+            best_gain,
+            best_picks,
+            max_gain,
+        }
+    }
+
+    #[inline]
+    fn min_slots_for(&self, need: i32) -> Option<usize> {
+        if need <= 0 {
+            return Some(0);
+        }
+        if need > self.max_gain {
+            return None;
+        }
+        Some(self.best_gain.partition_point(|&g| g < need))
+    }
+}
+
 #[derive(Clone, Copy)]
 struct UbGroupEntry {
     g_idx: usize,
@@ -833,6 +901,7 @@ struct UbGroupEntry {
 fn sorted_ub_entries(
     groups: &[CharmGroup],
     pool: &[&CharmSpec],
+    pure_axis_items: &[(usize, &CharmSpec, i32)],
     extract: impl Fn(&CharmSpec) -> i32,
 ) -> Vec<UbGroupEntry> {
     let mut out = Vec::new();
@@ -840,6 +909,24 @@ fn sorted_ub_entries(
         if let Some((val, size, count)) = g.ub_entry_with_pool(pool, &extract) {
             out.push(UbGroupEntry {
                 g_idx,
+                val,
+                size,
+                count,
+            });
+        }
+    }
+    if !pure_axis_items.is_empty() {
+        let mut by_val_size: BTreeMap<(i32, i32), i32> = BTreeMap::new();
+        for &(idx, _, _) in pure_axis_items {
+            let ch = pool[idx];
+            let val = extract(ch);
+            if val > 0 {
+                *by_val_size.entry((val, ch.size.max(1))).or_insert(0) += 1;
+            }
+        }
+        for ((val, size), count) in by_val_size {
+            out.push(UbGroupEntry {
+                g_idx: usize::MAX,
                 val,
                 size,
                 count,
@@ -897,6 +984,7 @@ pub(crate) struct CharmSolver<'a> {
     ub_aura_skills: i32,
     ub_mf: i32,
     groups: Vec<CharmGroup>,
+    pure_axes: [PureAxisDp; 9],
     suf_pos: Vec<StatTotals>,
     suf_neg_res: Vec<[i32; 4]>,
     order_str: Vec<UbGroupEntry>,
@@ -1088,6 +1176,55 @@ impl<'a> CharmSolver<'a> {
             helps_feas || helps_main
         };
 
+        let active_frw = c.min_frw > 0;
+        let active_mf = c.min_mf > 0 || mode == SearchMode::Mf;
+        let pure_axis_of = |ch: &CharmSpec| -> Option<(usize, i32)> {
+            if ch.unique_id.is_some()
+                || ch.size <= 0
+                || ch.fr < 0
+                || ch.lr < 0
+                || ch.cr < 0
+                || ch.pr < 0
+            {
+                return None;
+            }
+            let zero_main = match mode {
+                SearchMode::Power | SearchMode::Leveling => ch.skills_total() == 0,
+                SearchMode::Mf => ch.mf == 0 && ch.skills_total() == 0,
+                SearchMode::MaxRes | SearchMode::LevelingRes => {
+                    ch.fr == 0 && ch.lr == 0 && ch.cr == 0 && ch.pr == 0
+                }
+            };
+            if !zero_main {
+                return None;
+            }
+            let stats = [
+                ch.str_bonus,
+                ch.dex_bonus,
+                ch.fhr,
+                ch.fr,
+                ch.lr,
+                ch.cr,
+                ch.pr,
+                if active_frw { ch.frw } else { 0 },
+                if active_mf { ch.mf } else { 0 },
+            ];
+            let mut found = None;
+            for (d, &v) in stats.iter().enumerate() {
+                if v < 0 {
+                    return None;
+                }
+                if v > 0 {
+                    if found.is_some() {
+                        return None;
+                    }
+                    found = Some((d, v));
+                }
+            }
+            found
+        };
+
+        let mut pure_items: [Vec<(usize, &CharmSpec, i32)>; 9] = std::array::from_fn(|_| Vec::new());
         let mut unique_map: BTreeMap<i32, Vec<usize>> = BTreeMap::new();
         type MultiKey = [i32; 13];
         let mut multi_map: BTreeMap<MultiKey, Vec<usize>> = BTreeMap::new();
@@ -1096,13 +1233,15 @@ impl<'a> CharmSolver<'a> {
             if !is_relevant(ch) {
                 continue;
             }
-            if let Some(uid) = ch.unique_id {
+            if let Some((axis, val)) = pure_axis_of(ch) {
+                pure_items[axis].push((idx, ch, val));
+            } else if let Some(uid) = ch.unique_id {
                 unique_map.entry(uid).or_default().push(idx);
             } else {
                 let key = [
                     ch.size,
                     ch.fhr,
-                    if c.min_frw > 0 { ch.frw } else { 0 },
+                    if active_frw { ch.frw } else { 0 },
                     ch.fr,
                     ch.lr,
                     ch.cr,
@@ -1117,6 +1256,8 @@ impl<'a> CharmSolver<'a> {
                 multi_map.entry(key).or_default().push(idx);
             }
         }
+        let pure_axes: [PureAxisDp; 9] =
+            std::array::from_fn(|d| PureAxisDp::build(&pure_items[d], max_slots));
 
         let mut groups: Vec<CharmGroup> = Vec::new();
         for (_, mut opts) in unique_map {
@@ -1239,21 +1380,21 @@ impl<'a> CharmSolver<'a> {
             }
         }
 
-        let order_str = sorted_ub_entries(&groups, &pool, |ch| ch.str_bonus);
-        let order_dex = sorted_ub_entries(&groups, &pool, |ch| ch.dex_bonus);
-        let order_fhr = sorted_ub_entries(&groups, &pool, |ch| ch.fhr);
-        let order_frw = sorted_ub_entries(&groups, &pool, |ch| ch.frw);
+        let order_str = sorted_ub_entries(&groups, &pool, &pure_items[0], |ch| ch.str_bonus);
+        let order_dex = sorted_ub_entries(&groups, &pool, &pure_items[1], |ch| ch.dex_bonus);
+        let order_fhr = sorted_ub_entries(&groups, &pool, &pure_items[2], |ch| ch.fhr);
+        let order_frw = sorted_ub_entries(&groups, &pool, &pure_items[7], |ch| ch.frw);
         let order_res = [
-            sorted_ub_entries(&groups, &pool, |ch| ch.fr),
-            sorted_ub_entries(&groups, &pool, |ch| ch.lr),
-            sorted_ub_entries(&groups, &pool, |ch| ch.cr),
-            sorted_ub_entries(&groups, &pool, |ch| ch.pr),
+            sorted_ub_entries(&groups, &pool, &pure_items[3], |ch| ch.fr),
+            sorted_ub_entries(&groups, &pool, &pure_items[4], |ch| ch.lr),
+            sorted_ub_entries(&groups, &pool, &pure_items[5], |ch| ch.cr),
+            sorted_ub_entries(&groups, &pool, &pure_items[6], |ch| ch.pr),
         ];
-        let order_res_total = sorted_ub_entries(&groups, &pool, |ch| {
+        let order_res_total = sorted_ub_entries(&groups, &pool, &[], |ch| {
             ch.fr.max(0) + ch.lr.max(0) + ch.cr.max(0) + ch.pr.max(0)
         });
-        let order_skills = sorted_ub_entries(&groups, &pool, |ch| ch.skills_total());
-        let order_mf = sorted_ub_entries(&groups, &pool, |ch| ch.mf);
+        let order_skills = sorted_ub_entries(&groups, &pool, &[], |ch| ch.skills_total());
+        let order_mf = sorted_ub_entries(&groups, &pool, &pure_items[8], |ch| ch.mf);
 
         Self {
             pool,
@@ -1273,6 +1414,7 @@ impl<'a> CharmSolver<'a> {
             ub_aura_skills,
             ub_mf,
             groups,
+            pure_axes,
             suf_pos,
             suf_neg_res,
             order_str,
@@ -1436,19 +1578,41 @@ impl<'a> CharmSolver<'a> {
             cur_mf: i32,
         ) {
             let s = ctx.solver;
-            let all_met = delta.iter().all(|&d| d >= 0);
+            let cur_main = match s.mode {
+                SearchMode::Power | SearchMode::Leveling => cur_skills,
+                SearchMode::Mf => cur_mf,
+                SearchMode::MaxRes | SearchMode::LevelingRes => (0..4)
+                    .map(|r| cur_res_added[r].min(ctx.room[r]) - ctx.room[r].min(0))
+                    .sum(),
+            };
 
-            if all_met {
-                let cur_main = match s.mode {
-                    SearchMode::Power | SearchMode::Leveling => cur_skills,
-                    SearchMode::Mf => cur_mf,
-                    SearchMode::MaxRes | SearchMode::LevelingRes => (0..4)
-                        .map(|r| cur_res_added[r].min(ctx.room[r]) - ctx.room[r].min(0))
-                        .sum(),
-                };
-                if ctx.best_main.is_none_or(|b| cur_main > b) {
+            if ctx.best_main.is_none_or(|b| cur_main > b) {
+                let mut axis_slots = [0usize; 9];
+                let mut total_pure_slots = 0usize;
+                let mut feasible = true;
+                for d in 0..9 {
+                    if delta[d] < 0 {
+                        let Some(need_s) = s.pure_axes[d].min_slots_for(-delta[d]) else {
+                            feasible = false;
+                            break;
+                        };
+                        axis_slots[d] = need_s;
+                        total_pure_slots += need_s;
+                        if total_pure_slots as i32 > rem_slots {
+                            feasible = false;
+                            break;
+                        }
+                    }
+                }
+                if feasible {
                     ctx.best_main = Some(cur_main);
-                    ctx.best_indices = Some(ctx.cur_indices.clone());
+                    let mut next_indices = ctx.cur_indices.clone();
+                    for (d, &need_s) in axis_slots.iter().enumerate() {
+                        if need_s > 0 {
+                            next_indices.extend_from_slice(&s.pure_axes[d].best_picks[need_s]);
+                        }
+                    }
+                    ctx.best_indices = Some(next_indices);
                 }
             }
 
@@ -1456,19 +1620,38 @@ impl<'a> CharmSolver<'a> {
                 return;
             }
 
-            // O(1) suffix feasibility check.
+            // O(1) suffix feasibility and joint multi-axis pure-slot checks.
             let sp = s.suf_pos[g_idx];
-            if delta[0] + sp.str_bonus < 0
-                || delta[1] + sp.dex_bonus < 0
-                || delta[2] + sp.fhr < 0
-                || delta[3] + sp.res[0] < 0
-                || delta[4] + sp.res[1] < 0
-                || delta[5] + sp.res[2] < 0
-                || delta[6] + sp.res[3] < 0
-                || delta[7] + sp.frw < 0
-                || delta[8] + sp.mf < 0
-            {
-                return;
+            let suf_vals = [
+                sp.str_bonus,
+                sp.dex_bonus,
+                sp.fhr,
+                sp.res[0],
+                sp.res[1],
+                sp.res[2],
+                sp.res[3],
+                sp.frw,
+                sp.mf,
+            ];
+            for d in 0..9 {
+                if delta[d] + suf_vals[d] + s.pure_axes[d].max_gain < 0 {
+                    return;
+                }
+            }
+            let mut must_pure_slots = 0usize;
+            for d in 0..9 {
+                if delta[d] < 0 {
+                    let must_pure = -delta[d] - suf_vals[d];
+                    if must_pure > 0 {
+                        let Some(need_s) = s.pure_axes[d].min_slots_for(must_pure) else {
+                            return;
+                        };
+                        must_pure_slots += need_s;
+                        if must_pure_slots as i32 > rem_slots {
+                            return;
+                        }
+                    }
+                }
             }
 
             // Objective upper-bound pruning once an incumbent or floor exists.
@@ -1479,9 +1662,7 @@ impl<'a> CharmSolver<'a> {
                     }
                     SearchMode::Mf => cur_mf + eval_sorted_ub(&s.order_mf, g_idx, rem_slots) > best,
                     SearchMode::MaxRes | SearchMode::LevelingRes => {
-                        let cur_gain: i32 = (0..4)
-                            .map(|r| cur_res_added[r].min(ctx.room[r]) - ctx.room[r].min(0))
-                            .sum();
+                        let cur_gain = cur_main;
                         let min_needed = best - cur_gain + 1;
                         if min_needed <= 0 {
                             true
@@ -1911,8 +2092,10 @@ impl<'a> CharmSolver<'a> {
         };
 
         let ub_main = match self.mode {
-            SearchMode::Power | SearchMode::Leveling => self.ub_skills,
-            SearchMode::Mf => self.ub_mf,
+            SearchMode::Power | SearchMode::Leveling => {
+                eval_sorted_ub(&self.order_skills, 0, slot_budget)
+            }
+            SearchMode::Mf => eval_sorted_ub(&self.order_mf, 0, slot_budget),
             SearchMode::MaxRes | SearchMode::LevelingRes => {
                 (0..4).map(|r| room[r].max(0).min(self.ub_res[r])).sum()
             }

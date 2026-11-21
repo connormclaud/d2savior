@@ -801,3 +801,440 @@ fn test_sunder_forwards_min_main_needed_and_non_res_cache_tailors_filler() {
     let chosen_b = mf_solver.solve_with_min_main(leaf_pr_low, (0, 0), 0).unwrap();
     assert!(chosen_b.iter().any(|ch| ch.name == "Emerald SC"));
 }
+
+#[test]
+fn test_pure_axis_dp_completes_multi_stat_deficits_and_prunes_joint_slot_exhaustion() {
+    let charms = [
+        CharmSpec {
+            name: "Ruby SC plain".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Ruby SC of Vita".to_string(),
+            size: 1,
+            fr: 11,
+            life: 20,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Amber SC".to_string(),
+            size: 1,
+            lr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Sapphire SC".to_string(),
+            size: 1,
+            cr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Balance SC".to_string(),
+            size: 1,
+            fhr: 5,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Strength SC".to_string(),
+            size: 1,
+            str_bonus: 2,
+            ..Default::default()
+        },
+    ];
+    let pool: Vec<&CharmSpec> = charms.iter().collect();
+    let leaf = Stats {
+        fr: 64,
+        lr: 64,
+        cr: 64,
+        pr: 75,
+        fhr: 0,
+        str_bonus: 98,
+        ..Default::default()
+    };
+
+    // Exact 5 slots: all pure charms move into 1D DP (`groups` is empty), solver completes
+    // all 5 deficits and picks the +20 life Ruby SC via DP tie-breaking.
+    let c_fit = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 5,
+        min_fr: 75,
+        min_lr: 75,
+        min_cr: 75,
+        min_pr: 0,
+        max_charm_slots: 5,
+        ..Default::default()
+    };
+    let mut solver_fit = CharmSolver::new(&pool, &c_fit, SearchMode::Power);
+    assert!(solver_fit.groups.is_empty());
+    let chosen = solver_fit.solve_with_min_main(leaf, (100, 0), 0).unwrap();
+    assert_eq!(chosen.len(), 5);
+    assert!(chosen.iter().any(|ch| ch.name == "Ruby SC of Vita"));
+
+    // 4 slots: each single-axis deficit fits in <=1 slot on its own, but jointly requires 5 > 4.
+    let mut c_tight = c_fit.clone();
+    c_tight.max_charm_slots = 4;
+    let mut solver_tight = CharmSolver::new(&pool, &c_tight, SearchMode::Power);
+    assert!(solver_tight.groups.is_empty());
+    assert!(solver_tight.solve_with_min_main(leaf, (100, 0), 0).is_none());
+}
+
+#[test]
+fn test_mixed_hybrid_and_pure_charms_requires_hybrid_to_fit_slots() {
+    let charms = [
+        CharmSpec {
+            name: "Cold Skiller GC".to_string(),
+            size: 3,
+            skills: 1,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Ruby SC".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Ruby SC 2".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Amber SC".to_string(),
+            size: 1,
+            lr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Balance SC".to_string(),
+            size: 1,
+            fhr: 5,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Hybrid FR/LR SC".to_string(),
+            size: 1,
+            fr: 11,
+            lr: 11,
+            ..Default::default()
+        },
+    ];
+    let pool: Vec<&CharmSpec> = charms.iter().collect();
+
+    // Case 1: Feasibility requires the hybrid charm + pure DP charms within 3 slots
+    // (pure alone would need 2 + 1 + 1 = 4 slots).
+    let c_tight = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 5,
+        min_fr: 75,
+        min_lr: 75,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 3,
+        ..Default::default()
+    };
+    let leaf_tight = Stats {
+        fr: 53,
+        lr: 64,
+        ..Default::default()
+    };
+    let mut solver_tight = CharmSolver::new(&pool, &c_tight, SearchMode::Power);
+    let chosen_tight = solver_tight.solve_with_min_main(leaf_tight, (0, 0), 0).unwrap();
+    assert!(chosen_tight.iter().any(|ch| ch.name == "Hybrid FR/LR SC"));
+    assert!(chosen_tight.iter().any(|ch| ch.name == "Balance SC"));
+    assert_eq!(chosen_tight.iter().map(|ch| ch.size).sum::<i32>(), 3);
+
+    // Case 2: Objective maximization with 5 slots picks Cold Skiller GC (3 slots) +
+    // Hybrid FR/LR SC (1 slot) + pure Balance SC (1 slot) -> 1 skill.
+    let mut c_skill = c_tight.clone();
+    c_skill.max_charm_slots = 5;
+    let leaf_skill = Stats {
+        fr: 64,
+        lr: 64,
+        ..Default::default()
+    };
+    let mut solver_skill = CharmSolver::new(&pool, &c_skill, SearchMode::Power);
+    let chosen_skill = solver_skill.solve_with_min_main(leaf_skill, (0, 0), 0).unwrap();
+    assert_eq!(chosen_skill.iter().map(|ch| ch.skills_total()).sum::<i32>(), 1);
+    assert!(chosen_skill.iter().any(|ch| ch.name == "Cold Skiller GC"));
+    assert!(chosen_skill.iter().any(|ch| ch.name == "Hybrid FR/LR SC"));
+    assert!(chosen_skill.iter().any(|ch| ch.name == "Balance SC"));
+}
+
+#[test]
+fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axes() {
+    // Part A: Multi-sunder (`slot_budget < self.max_slots`) with pure res SCs.
+    let sunder_charms = [
+        CharmSpec {
+            name: "Cold Rupture -75 (2x1)".to_string(),
+            size: 2,
+            cr: -75,
+            mf: 5,
+            unique_id: Some(401),
+            cold_sunder: true,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Cold Rupture -70 (3x1)".to_string(),
+            size: 3,
+            cr: -70,
+            mf: 6,
+            unique_id: Some(401),
+            cold_sunder: true,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Sapphire SC +20 life".to_string(),
+            size: 1,
+            cr: 11,
+            life: 20,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Sapphire SC +15 life".to_string(),
+            size: 1,
+            cr: 11,
+            life: 15,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Sapphire SC +10 life".to_string(),
+            size: 1,
+            cr: 11,
+            life: 10,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Sapphire SC +5 life".to_string(),
+            size: 1,
+            cr: 11,
+            life: 5,
+            ..Default::default()
+        },
+    ];
+    let sunder_pool: Vec<&CharmSpec> = sunder_charms.iter().collect();
+    let c_sunder = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 0,
+        min_fr: 75,
+        min_lr: 75,
+        min_cr: 75,
+        min_pr: 0,
+        max_charm_slots: 6,
+        ..Default::default()
+    };
+    let mut sunder_solver = CharmSolver::new(&sunder_pool, &c_sunder, SearchMode::Mf);
+    assert_eq!(sunder_solver.max_slots, 4);
+
+    // Leaf CR=110: -70 (3x1, budget=3) needs 35 CR (impossible in 3 slots);
+    // -75 (2x1, budget=4) needs 40 CR and completes with 4 SCs!
+    let leaf_need_4 = Stats {
+        fr: 75,
+        lr: 75,
+        cr: 110,
+        ..Default::default()
+    };
+    let chosen_4 = sunder_solver.solve_with_min_main(leaf_need_4, (0, 0), 0).unwrap();
+    assert!(chosen_4.iter().any(|ch| ch.name == "Cold Rupture -75 (2x1)"));
+    assert_eq!(chosen_4.iter().map(|ch| ch.size).sum::<i32>(), 6);
+
+    // Leaf CR=115: -70 (3x1, budget=3) needs 30 CR -> fits in 3 slots with top 3 life SCs.
+    let leaf_need_3 = Stats {
+        fr: 75,
+        lr: 75,
+        cr: 115,
+        ..Default::default()
+    };
+    let chosen_3 = sunder_solver.solve_with_min_main(leaf_need_3, (0, 0), 0).unwrap();
+    assert!(chosen_3.iter().any(|ch| ch.name == "Cold Rupture -70 (3x1)"));
+    assert_eq!(
+        chosen_3.iter().filter(|ch| !ch.cold_sunder).map(|ch| ch.life).sum::<i32>(),
+        45
+    );
+
+    // Part B: MaxRes & LevelingRes must keep res charms in DFS (out of `pure_axes[3..7]`),
+    // while moving pure non-res feasibility charms into DP.
+    let res_charms = [
+        CharmSpec {
+            name: "Ruby SC".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Sapphire SC".to_string(),
+            size: 1,
+            cr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Strength SC".to_string(),
+            size: 1,
+            str_bonus: 2,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Balance SC".to_string(),
+            size: 1,
+            fhr: 5,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "FRW SC".to_string(),
+            size: 1,
+            frw: 3,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "MF SC".to_string(),
+            size: 1,
+            mf: 7,
+            ..Default::default()
+        },
+    ];
+    let res_pool: Vec<&CharmSpec> = res_charms.iter().collect();
+    let c_res = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 5,
+        min_frw: 3,
+        min_mf: 7,
+        min_fr: 50,
+        min_lr: 50,
+        min_cr: 50,
+        min_pr: 0,
+        max_charm_slots: 5,
+        ..Default::default()
+    };
+    for mode in [SearchMode::MaxRes, SearchMode::LevelingRes] {
+        let mut solver = CharmSolver::new(&res_pool, &c_res, mode);
+        assert_eq!(solver.pure_axes[0].max_gain, 2);
+        assert_eq!(solver.pure_axes[2].max_gain, 5);
+        assert_eq!(solver.pure_axes[3].max_gain, 0);
+        assert_eq!(solver.pure_axes[5].max_gain, 0);
+        assert_eq!(solver.pure_axes[7].max_gain, 3);
+        assert_eq!(solver.pure_axes[8].max_gain, 7);
+        let leaf = Stats {
+            fr: 50,
+            lr: 50,
+            cr: 50,
+            ..Default::default()
+        };
+        let chosen = solver.solve_with_min_main(leaf, (2, 0), 0).unwrap();
+        assert!(chosen.iter().any(|ch| ch.name == "Strength SC"));
+        assert!(chosen.iter().any(|ch| ch.name == "Balance SC"));
+        assert!(chosen.iter().any(|ch| ch.name == "FRW SC"));
+        assert!(chosen.iter().any(|ch| ch.name == "MF SC"));
+        assert!(chosen.iter().any(|ch| ch.name == "Ruby SC" || ch.name == "Sapphire SC"));
+    }
+
+    // Part C: Active axis classification for FR/MF SC in Power (min_mf=0 vs min_mf>0) and Mf.
+    let fr_mf_charm = [CharmSpec {
+        name: "11 FR / 7 MF SC".to_string(),
+        size: 1,
+        fr: 11,
+        mf: 7,
+        ..Default::default()
+    }];
+    let fr_mf_pool: Vec<&CharmSpec> = fr_mf_charm.iter().collect();
+    let c_pow_no_mf = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 0,
+        min_mf: 0,
+        min_fr: 75,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        allow_mf: true,
+        max_charm_slots: 2,
+        ..Default::default()
+    };
+    let s_pure_fr = CharmSolver::new(&fr_mf_pool, &c_pow_no_mf, SearchMode::Power);
+    assert!(s_pure_fr.groups.is_empty());
+    assert_eq!(s_pure_fr.pure_axes[3].max_gain, 11);
+
+    let mut c_pow_min_mf = c_pow_no_mf.clone();
+    c_pow_min_mf.min_mf = 7;
+    let s_multi_pow = CharmSolver::new(&fr_mf_pool, &c_pow_min_mf, SearchMode::Power);
+    assert_eq!(s_multi_pow.groups.len(), 1);
+    assert_eq!(s_multi_pow.pure_axes[3].max_gain, 0);
+
+    let s_multi_mf = CharmSolver::new(&fr_mf_pool, &c_pow_no_mf, SearchMode::Mf);
+    assert_eq!(s_multi_mf.groups.len(), 1);
+    assert_eq!(s_multi_mf.pure_axes[3].max_gain, 0);
+}
+
+#[test]
+fn test_ub_main_counts_action_and_aura_skills_total() {
+    for (name, action_skills, aura_skills) in [
+        ("Paladin Combat GC", 1, 0),
+        ("Offensive Aura GC", 0, 1),
+    ] {
+        let charms = [
+            CharmSpec {
+                name: "Ruby SC".to_string(),
+                size: 1,
+                fr: 11,
+                ..Default::default()
+            },
+            CharmSpec {
+                name: "Amber SC".to_string(),
+                size: 1,
+                lr: 11,
+                ..Default::default()
+            },
+            CharmSpec {
+                name: name.to_string(),
+                size: 3,
+                fr: 11,
+                lr: 11,
+                action_skills,
+                aura_skills,
+                ..Default::default()
+            },
+        ];
+        let pool: Vec<&CharmSpec> = charms.iter().collect();
+        let c = BuildConstraints {
+            base_hell_res: 0,
+            min_fhr: 0,
+            min_fr: 75,
+            min_lr: 75,
+            min_cr: 0,
+            min_pr: 0,
+            max_charm_slots: 3,
+            ..Default::default()
+        };
+        let leaf = Stats {
+            fr: 64,
+            lr: 64,
+            ..Default::default()
+        };
+        let mut solver = CharmSolver::new(&pool, &c, SearchMode::Power);
+
+        // 1. Greedy takes Ruby + Amber (2 slots, g_main=0); ub_main must still see skills_total=1
+        //    so solve_exact runs instead of short-circuiting on 0 >= 0.
+        let picked_unconstrained = solver.solve_with_min_main(leaf, (0, 0), 0).unwrap();
+        assert_eq!(
+            picked_unconstrained
+                .iter()
+                .map(|ch| ch.skills_total())
+                .sum::<i32>(),
+            1
+        );
+        assert!(picked_unconstrained.iter().any(|ch| ch.name == name));
+
+        // 2. With min_main_needed=1, ub_main must not falsely prune or poison failed_floor.
+        let mut fresh_solver = CharmSolver::new(&pool, &c, SearchMode::Power);
+        assert!(fresh_solver.solve_with_min_main(leaf, (0, 0), 2).is_none());
+        let picked_min1 = fresh_solver.solve_with_min_main(leaf, (0, 0), 1).unwrap();
+        assert_eq!(
+            picked_min1
+                .iter()
+                .map(|ch| ch.skills_total())
+                .sum::<i32>(),
+            1
+        );
+        assert!(picked_min1.iter().any(|ch| ch.name == name));
+    }
+}
