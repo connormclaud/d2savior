@@ -349,4 +349,37 @@ fn test_ar_and_chance_to_hit_scaling() {
     assert_eq!(res_itd.ar, 85 * 150 / 100); // 127
     assert_eq!(res_itd.cth, 95);
     assert!((res_itd.dps - expected_dps_eth_conv).abs() < 1e-6);
+
+    // Exploding Arrow + Holy Fire: AoE splash_fire and aura_hit_dmg * targets are auto-hit,
+    // while direct arrow physical damage scales with CTH.
+    let bow = ItemSpec {
+        name: "Test Bow".into(),
+        slot: "weapon2h".into(),
+        wclass: "bow".into(),
+        wep_phys_2x: 40, // 20 avg direct arrow
+        splash_fire: true,
+        splash_fire_2x: 80, // 40 avg skill splash
+        ..Default::default()
+    };
+    let mut c_exp = BuildConstraints {
+        offense: "melee".into(),
+        aura_is_fire: true,
+        targets: 3,
+        action_hits: vec![1],
+        action_ed: vec![0],
+        action_ar_pct: vec![0],
+        aura_hit_dmg: vec![50.0], // 50 avg Holy Fire on-hit * 3 targets = 150 auto-hit
+        aura_pulse_dps: vec![10.0],
+        ..c_base.clone()
+    };
+    c_exp.aura_ar_pct = vec![0];
+    c_exp.aura_target_def_pct = vec![0];
+    let res_exp = eval_build_core(&[&bow], &[], &c_exp, 1);
+    // base_ar = 85 vs target_def = 300 => cth = 85 / 385
+    let bow_rate = 25.0 / res_exp.ias_frames as f64;
+    let exp_cth = 85.0 / 385.0;
+    let expected_exp_eff = (20.0 * exp_cth + (40.0 + 50.0) * 3.0) * bow_rate + 10.0 * 3.0;
+    let expected_exp_raw = (20.0 + (40.0 + 50.0) * 3.0) * bow_rate + 10.0 * 3.0;
+    assert!((res_exp.dps - expected_exp_eff).abs() < 1e-6);
+    assert!((res_exp.raw_dps - expected_exp_raw).abs() < 1e-6);
 }

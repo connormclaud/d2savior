@@ -294,7 +294,7 @@ pub(crate) fn eval_build_summary(
         ar: gear.ar + charm_ar,
         ..gear
     };
-    let (dps, raw_dps, cth, ias_bp, ias_frames, ias_last_frames, used_zeal) =
+    let (dps, raw_dps, ar, cth, ias_bp, ias_frames, ias_last_frames, used_zeal) =
         if offense.uses_dps_tables(c) {
             offense.compute_dps_detailed(hand, combined_ar_stats, c)
         } else if offense.uses_caster_dps(c) {
@@ -302,6 +302,7 @@ pub(crate) fn eval_build_summary(
             (
                 offense.compute_caster_dps(combined_ar_stats, c),
                 0.0,
+                0,
                 0,
                 bp,
                 frames,
@@ -314,13 +315,13 @@ pub(crate) fn eval_build_summary(
                 0.0,
                 0.0,
                 0,
+                0,
                 bp,
                 frames,
                 0,
                 offense == OffenseProfile::Zeal && hand.can_zeal,
             )
         };
-    let (ar, _) = offense.compute_ar_and_cth(combined_ar_stats, used_zeal, c);
 
     EvalSummary {
         skills,

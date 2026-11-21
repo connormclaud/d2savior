@@ -2410,7 +2410,12 @@ fn paladin_explosive_arrow_splash_targets_and_brute_force_parity() {
         ..Default::default()
     };
 
-    // Single target: 1H + shield (+3 skills) beats Raven Claw.
+    // Low AR (base_dex=50 => 57% melee CTH): auto-hit Exploding Arrow + Holy Fire beats Spirit even at 1 target.
+    let res1_low_ar = optimize_builds_core(&items, &[], &c).unwrap();
+    assert_eq!(res1_low_ar[0].items[0].name, "Raven Claw");
+
+    // High AR (base_dex=500 => ~93% melee CTH): 1H + shield (+3 skills) beats Raven Claw on single target.
+    c.base_dex = 500;
     let res1 = optimize_builds_core(&items, &[], &c).unwrap();
     assert_eq!(res1[0].items[0].name, "Spirit");
 

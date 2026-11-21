@@ -430,7 +430,7 @@ impl OffenseProfile {
         (total_ar, cth)
     }
 
-    /// Compute effective/raw single-target DPS, rounded CTH%, IAS info, and `used_zeal`.
+    /// Compute `(eff_dps, raw_dps, total_ar, cth_pct, ias_bp, display_frames, last_frames, used_zeal)`.
     ///
     /// Expects `s.str_bonus` and `s.dex_bonus` to be total character strength/dexterity
     /// (`c.base_str + gear + charms`), matching `ub_ch` in `search.rs`.
@@ -439,7 +439,7 @@ impl OffenseProfile {
         hand: HandWeapon,
         s: Stats,
         c: &BuildConstraints,
-    ) -> (f64, f64, i32, i32, i32, i32, bool) {
+    ) -> (f64, f64, i32, i32, i32, i32, i32, bool) {
         let eff_action = (s.all_skills + s.pal_skills + s.action_skill_bonus).max(0) as usize;
         let eff_aura = (s.all_skills + s.pal_skills + s.aura_skill_bonus).max(0) as usize;
 
@@ -476,25 +476,27 @@ impl OffenseProfile {
         };
         let d_elem_gear = s.flat_elem_2x.max(0) as f64 / 2.0;
         let targets = c.targets.max(1) as f64;
-        let aura_hit_mult = if hand.splash_fire && c.aura_is_fire {
-            targets
-        } else {
-            1.0
-        };
         let d_splash_fire = if hand.splash_fire {
             (hand.splash_fire_2x.max(0) as f64 / 2.0) * targets
         } else {
             0.0
         };
 
-        let (_, cth) = self.compute_ar_and_cth(s, used_zeal, c);
-        let direct_hit = d_phys + d_aura_hit * aura_hit_mult + d_elem_gear;
-        let eff_dps = (direct_hit * cth + d_splash_fire) * rate + d_aura_pulse * targets;
-        let raw_dps = (direct_hit + d_splash_fire) * rate + d_aura_pulse * targets;
+        let (total_ar, cth) = self.compute_ar_and_cth(s, used_zeal, c);
+        // Exploding Arrow's AoE blast is auto-hit and carries Holy Fire on-hit damage across
+        // all targets even when the physical arrow misses the AR roll.
+        let (direct_hit, auto_hit_attack) = if hand.splash_fire && c.aura_is_fire {
+            (d_phys + d_elem_gear, d_splash_fire + d_aura_hit * targets)
+        } else {
+            (d_phys + d_aura_hit + d_elem_gear, d_splash_fire)
+        };
+        let eff_dps = (direct_hit * cth + auto_hit_attack) * rate + d_aura_pulse * targets;
+        let raw_dps = (direct_hit + auto_hit_attack) * rate + d_aura_pulse * targets;
         let cth_pct = (cth * 100.0).round() as i32;
         (
             eff_dps,
             raw_dps,
+            total_ar,
             cth_pct,
             ias_bp,
             display_frames,
@@ -509,7 +511,7 @@ impl OffenseProfile {
         s: Stats,
         c: &BuildConstraints,
     ) -> (f64, i32, i32, i32, bool) {
-        let (eff_dps, _, _, ias_bp, display_frames, last_frames, used_zeal) =
+        let (eff_dps, _, _, _, ias_bp, display_frames, last_frames, used_zeal) =
             self.compute_dps_detailed(hand, s, c);
         (eff_dps, ias_bp, display_frames, last_frames, used_zeal)
     }
