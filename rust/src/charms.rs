@@ -390,7 +390,9 @@ fn greedy_fill_remaining(
                 + charm_eff_mana(c, class) as f64 * 0.4
                 + (caps[3] - state.cur_res[3]).max(0).min(c.pr) as f64 * 1.2;
             if matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) {
-                s += c.frw as f64 * 1.5 + c.ar as f64 * 0.25;
+                // c.ar is only extracted for melee/zeal Paladins and directly affects DPS via CTH,
+                // so weight it competitively alongside filler life/FRW in leveling modes.
+                s += c.frw as f64 * 1.5 + c.ar as f64;
             }
             if state.cur_res[0] < caps[0] {
                 s += (caps[0] - state.cur_res[0]).min(c.fr) as f64 * 2.0;
@@ -867,7 +869,12 @@ struct PureAxisDp {
 }
 
 impl PureAxisDp {
-    fn build(items: &[(usize, &CharmSpec, i32)], max_slots: i32, class: CharClass) -> Self {
+    fn build(
+        items: &[(usize, &CharmSpec, i32)],
+        max_slots: i32,
+        class: CharClass,
+        is_leveling: bool,
+    ) -> Self {
         if items.is_empty() {
             return Self {
                 best_gain: vec![0],
@@ -877,7 +884,7 @@ impl PureAxisDp {
         }
         let cap = max_slots.max(0) as usize;
         let mut best_gain = vec![0i32; cap + 1];
-        let mut best_tie = vec![(0i32, 0i32, 0i32, 0i32, 0i32, 0i32); cap + 1];
+        let mut best_tie = vec![(0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32); cap + 1];
         let mut best_picks = vec![Vec::new(); cap + 1];
 
         for &(idx, ch, val) in items {
@@ -891,10 +898,11 @@ impl PureAxisDp {
                 let cand_tie = (
                     prev_tie.0 + ch.skills_total(),
                     prev_tie.1 + ch.all_skills,
-                    prev_tie.2 + charm_eff_life(ch, class),
-                    prev_tie.3 + charm_eff_mana(ch, class),
-                    prev_tie.4 + ch.frw,
-                    prev_tie.5 + ch.ar,
+                    if is_leveling { prev_tie.2 + ch.ar } else { 0 },
+                    prev_tie.3 + charm_eff_life(ch, class),
+                    prev_tie.4 + charm_eff_mana(ch, class),
+                    prev_tie.5 + ch.frw,
+                    prev_tie.6 + ch.ar,
                 );
                 if (cand_gain, cand_tie) > (best_gain[s], best_tie[s]) {
                     best_gain[s] = cand_gain;
@@ -1307,8 +1315,9 @@ impl<'a> CharmSolver<'a> {
                 multi_map.entry(key).or_default().push(idx);
             }
         }
+        let is_leveling = matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes);
         let pure_axes: [PureAxisDp; 9] =
-            std::array::from_fn(|d| PureAxisDp::build(&pure_items[d], max_slots, class));
+            std::array::from_fn(|d| PureAxisDp::build(&pure_items[d], max_slots, class, is_leveling));
 
         let mut groups: Vec<CharmGroup> = Vec::new();
         for (_, mut opts) in unique_map {
@@ -1351,26 +1360,18 @@ impl<'a> CharmSolver<'a> {
             });
         }
         for (_, mut members) in multi_map {
-            members.sort_by(|&a, &b| {
-                let ca = pool[a];
-                let cb = pool[b];
+            let member_tie = |ch: &CharmSpec| {
                 (
-                    charm_eff_life(cb, class),
-                    cb.life,
-                    charm_eff_mana(cb, class),
-                    cb.mana,
-                    cb.frw,
-                    cb.ar,
+                    if is_leveling { ch.ar } else { 0 },
+                    charm_eff_life(ch, class),
+                    ch.life,
+                    charm_eff_mana(ch, class),
+                    ch.mana,
+                    ch.frw,
+                    ch.ar,
                 )
-                    .cmp(&(
-                        charm_eff_life(ca, class),
-                        ca.life,
-                        charm_eff_mana(ca, class),
-                        ca.mana,
-                        ca.frw,
-                        ca.ar,
-                    ))
-            });
+            };
+            members.sort_by(|&a, &b| member_tie(pool[b]).cmp(&member_tie(pool[a])));
             let rep = pool[members[0]];
             let size = rep.size.max(1);
             let max_copies = (max_slots / size).max(0) as usize;
