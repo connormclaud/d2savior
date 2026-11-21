@@ -1378,3 +1378,103 @@ def test_extract_pool_locality_order() -> None:
     charm_tiers = [tier(ch.loc) for ch in charms]
     assert item_tiers == sorted(item_tiers)
     assert charm_tiers == sorted(charm_tiers)
+
+
+@requires_native
+def test_keep_gear_groups_and_combinations(capsys: pytest.CaptureFixture[str]) -> None:
+    resolver = GameDataResolver.load()
+    pal_dir = FIXTURES_DIR / "paladin_snapshot"
+    ok_p, smite, _ = parse_d2s_file(str(pal_dir / "smite.d2s"), resolver=resolver)
+    ok_m, mule, _ = parse_d2s_file(str(pal_dir / "mule_sets.d2s"), resolver=resolver)
+    ok_st, stash, _, _ = parse_d2i_file(
+        str(pal_dir / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
+    )
+    assert ok_p
+    assert smite is not None
+    assert ok_m
+    assert mule is not None
+    assert ok_st
+    assert isinstance(stash, SharedStash)
+
+    all_items, all_charms = extract_pool(
+        smite, extra_chars=[mule], stashes=[stash], resolver=resolver
+    )
+    kept_all_items, kept_all_charms = extract_pool(
+        smite, extra_chars=[mule], stashes=[stash], resolver=resolver, keep_equipped="all"
+    )
+    kept_bool_items, kept_bool_charms = extract_pool(
+        smite, extra_chars=[mule], stashes=[stash], resolver=resolver, keep_equipped=True
+    )
+    assert [(i.name, i.slot, i.loc) for i in kept_all_items] == [
+        (i.name, i.slot, i.loc) for i in kept_bool_items
+    ]
+    assert len(kept_all_charms) == len(kept_bool_charms) == len(all_charms)
+
+    # weapon+jewelry keeps only primary active weapon/shield/amulet/ring, while still allowing
+    # stash/mule armor slots (helm/armor/belt/gloves/boots).
+    wj_items, _ = extract_pool(
+        smite,
+        extra_chars=[mule],
+        stashes=[stash],
+        resolver=resolver,
+        keep_equipped="weapon+jewelry",
+    )
+    wj_kept_slots = {"weapon", "weapon2h", "shield", "amulet", "ring"}
+    wj_free_slots = {"helm", "armor", "belt", "gloves", "boots"}
+    kept_all_by_slot = {(i.name, i.slot, i.loc) for i in kept_all_items}
+    assert {(i.name, i.slot, i.loc) for i in wj_items if i.slot in wj_kept_slots} == {
+        x for x in kept_all_by_slot if x[1] in wj_kept_slots
+    }
+    assert any(it.slot in wj_free_slots and it.loc != "smite Equipped" for it in wj_items)
+    assert len(kept_all_items) < len(wj_items) < len(all_items)
+
+    # armor keeps only primary active helm/armor/belt/gloves/boots, while still allowing
+    # stash/mule weapons, shields, and jewelry.
+    arm_items, _ = extract_pool(
+        smite, extra_chars=[mule], stashes=[stash], resolver=resolver, keep_equipped="armor"
+    )
+    assert {(i.name, i.slot, i.loc) for i in arm_items if i.slot in wj_free_slots} == {
+        x for x in kept_all_by_slot if x[1] in wj_free_slots
+    }
+    assert any(it.slot in wj_kept_slots and it.loc != "smite Equipped" for it in arm_items)
+
+    # End-to-end CLI tests for --keep-gear groups & combinations + invalid value error.
+    for expr in ("weapon", "jewelry", "armor", "weapon+jewelry", "all"):
+        main(
+            [
+                "optimize",
+                "--no-config",
+                "smite",
+                str(pal_dir),
+                "-b",
+                "leveling",
+                "--keep-gear",
+                expr,
+            ]
+        )
+        out = capsys.readouterr().out
+        assert "Paladin Leveling" in out
+        assert "Option #1:" in out
+
+    # Bare --keep-gear before positional character name or save path should not consume the target.
+    main(["optimize", "--no-config", "smite", "--keep-gear", str(pal_dir), "-b", "leveling"])
+    out_before_path = capsys.readouterr().out
+    assert "Paladin Leveling" in out_before_path
+    assert "Option #1:" in out_before_path
+
+    main(["optimize", "--no-config", "--keep-gear", str(pal_dir / "smite.d2s"), "-b", "leveling"])
+    out_before_d2s = capsys.readouterr().out
+    assert "Paladin Leveling" in out_before_d2s
+    assert "Option #1:" in out_before_d2s
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["optimize", "--no-config", "smite", str(pal_dir), "--keep-gear", "invalid"])
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "Invalid --keep-gear group" in err
+
+    with pytest.raises(SystemExit) as exc_info2:
+        main(["optimize", "--no-config", "--keep-gear=invalid", "smite", str(pal_dir)])
+    assert exc_info2.value.code == 2
+    err2 = capsys.readouterr().err
+    assert "Invalid --keep-gear group" in err2

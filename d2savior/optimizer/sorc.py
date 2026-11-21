@@ -11,6 +11,7 @@ from d2savior.optimizer.common import (
     CharacterBaseline,
     _compute_anya_bonus,
     detect_cta_bo_bonus,
+    resolve_fixed_gear,
     validate_sorceress,
 )
 from d2savior.optimizer.native import BuildConstraints, SearchModeStr
@@ -129,7 +130,7 @@ def select_sorc_presets(
     stashes: Sequence[SharedStash] = (),
     resolver: GameDataResolver | None = None,
     bo_base_bonus: int | None = None,
-    keep_equipped: bool = False,
+    keep_equipped: bool | str | None = False,
     targets: int = 1,
     left_skill: int | None = None,
     right_skill: int | None = None,
@@ -158,6 +159,7 @@ def select_sorc_presets(
         right_skill=right_skill,
         targets=eff_targets,
     )
+    fixed_all, fixed_slots = resolve_fixed_gear(keep_equipped)
     baseline = CharacterBaseline(
         char_class=int(CharClass.SORCERESS),
         base_life=char_data.player_stats.max_life,
@@ -167,7 +169,8 @@ def select_sorc_presets(
         base_dex=char_data.player_stats.dexterity,
         max_charm_slots=max_charm_slots,
         bo_base_bonus=bo_base_bonus,
-        fixed_gear=keep_equipped,
+        fixed_gear=fixed_all,
+        fixed_slots=fixed_slots,
         blizz_base_lvl=blizz_base_lvl,
         blizz_syn_pts=blizz_syn_pts,
         cm_base_lvl=cm_base_lvl,

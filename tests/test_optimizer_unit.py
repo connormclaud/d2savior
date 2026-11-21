@@ -180,6 +180,7 @@ class _FakeConstraints:
     base_max_pr: int = 0
     use_bo: bool = True
     fixed_gear: bool = False
+    fixed_slots: list[str] = field(default_factory=list)
     offense: str = "caster"
     aura_hit_dmg: list[float] = field(default_factory=list)
     aura_pulse_dps: list[float] = field(default_factory=list)
@@ -1044,6 +1045,21 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     assert isinstance(kept_opt, _FakeItemSpec)
     assert kept_opt.name.endswith(" (eth)")
 
+    # Breakable eth weapon is still kept when its slot is in skip_useful_slots (--keep-gear / weapon)
+    kept_slot = _item_to_spec(
+        eth_wep,
+        "loc",
+        d2r,
+        0x69,
+        30,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="holy-fire",
+        pal_offense="zeal",
+        skip_useful_slots=frozenset({"weapon", "weapon2h", "shield"}),
+    )
+    assert isinstance(kept_slot, _FakeItemSpec)
+    assert kept_slot.name.endswith(" (eth)")
+
     monkeypatch.setattr(
         "d2savior.optimizer.extract.collect_item_properties",
         lambda *a, **kw: [(17, 200, [200]), (152, 1, [1])],
@@ -1080,3 +1096,90 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     pal.left_skill_1 = 106
     pal.right_skill_1 = 102
     assert paladin_offense_profile("holy-fire", pal) == "zeal"
+
+
+def test_parse_keep_gear_and_resolve_fixed_gear() -> None:
+    from d2savior.optimizer.common import (
+        ALL_GEAR_SLOTS,
+        KEEP_GEAR_GROUPS,
+        parse_keep_gear,
+        resolve_fixed_gear,
+    )
+
+    assert parse_keep_gear(None) == frozenset()
+    assert parse_keep_gear(False) == frozenset()
+    assert parse_keep_gear(True) == ALL_GEAR_SLOTS
+    assert parse_keep_gear("all") == ALL_GEAR_SLOTS
+    assert parse_keep_gear("ALL") == ALL_GEAR_SLOTS
+    assert parse_keep_gear("weapon") == frozenset({"weapon", "weapon2h", "shield"})
+    assert parse_keep_gear("jewelry") == frozenset({"amulet", "ring"})
+    assert parse_keep_gear("armor") == frozenset({"helm", "armor", "belt", "gloves", "boots"})
+    assert parse_keep_gear("weapon+jewelry") == (
+        KEEP_GEAR_GROUPS["weapon"] | KEEP_GEAR_GROUPS["jewelry"]
+    )
+    assert parse_keep_gear(" Weapon + Armor ") == (
+        KEEP_GEAR_GROUPS["weapon"] | KEEP_GEAR_GROUPS["armor"]
+    )
+    assert parse_keep_gear("weapon+jewelry+armor") == ALL_GEAR_SLOTS
+    assert parse_keep_gear("all+weapon") == ALL_GEAR_SLOTS
+
+    assert resolve_fixed_gear(False) == (False, ())
+    assert resolve_fixed_gear(True) == (True, ())
+    assert resolve_fixed_gear("all") == (True, ())
+    assert resolve_fixed_gear("weapon+jewelry+armor") == (True, ())
+    assert resolve_fixed_gear("jewelry") == (False, ("amulet", "ring"))
+    assert resolve_fixed_gear("weapon+jewelry") == (
+        False,
+        ("amulet", "ring", "shield", "weapon", "weapon2h"),
+    )
+
+    for bad in ("", "   ", "weapon+", "+armor", "bogus", "weapon+bogus", "shield"):
+        with pytest.raises(ValueError, match=r"(Empty|Invalid) --keep-gear"):
+            parse_keep_gear(bad)
+
+
+def test_normalize_keep_gear_argv_before_positionals() -> None:
+    import argparse
+
+    from d2savior.cli import _normalize_keep_gear_argv
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-b", "--build", default="all")
+    parser.add_argument("--char", default=None)
+    parser.add_argument("--keep-gear", nargs="?", const="all", default=None)
+    parser.add_argument("file_path", nargs="*")
+
+    # Bare --keep-gear before sole character name preserves the character name as positional
+    assert _normalize_keep_gear_argv(["--keep-gear", "smite"], parser) == [
+        "--keep-gear=all",
+        "smite",
+    ]
+    assert _normalize_keep_gear_argv(["-b", "leveling", "--keep-gear", "smite"], parser) == [
+        "-b",
+        "leveling",
+        "--keep-gear=all",
+        "smite",
+    ]
+    # Valid group expression is bound to --keep-gear
+    assert _normalize_keep_gear_argv(["--keep-gear", "weapon+jewelry", "smite"], parser) == [
+        "--keep-gear=weapon+jewelry",
+        "smite",
+    ]
+    # .d2s/.d2i path stays positional even when another positional is present
+    assert _normalize_keep_gear_argv(["smite", "--keep-gear", "foo.d2s"], parser) == [
+        "smite",
+        "--keep-gear=all",
+        "foo.d2s",
+    ]
+    # Invalid group with --char or another positional already present stays attached so argparse errors
+    assert _normalize_keep_gear_argv(["--char", "smite", "--keep-gear", "invalid"], parser) == [
+        "--char",
+        "smite",
+        "--keep-gear",
+        "invalid",
+    ]
+    assert _normalize_keep_gear_argv(["--keep-gear", "weapon+bogus", "smite"], parser) == [
+        "--keep-gear",
+        "weapon+bogus",
+        "smite",
+    ]

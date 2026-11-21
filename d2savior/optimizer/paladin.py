@@ -13,6 +13,7 @@ from d2savior.optimizer.common import (
     CharacterBaseline,
     _compute_anya_bonus,
     detect_cta_bo_bonus,
+    resolve_fixed_gear,
     validate_paladin,
 )
 from d2savior.optimizer.native import (
@@ -249,7 +250,7 @@ def _build_paladin_baseline(
     stashes: Sequence[SharedStash],
     resolver: GameDataResolver | None,
     bo_base_bonus: int | None,
-    keep_equipped: bool,
+    keep_equipped: bool | str | None,
     targets: int = 1,
     left_skill: int | None = None,
     right_skill: int | None = None,
@@ -291,6 +292,7 @@ def _build_paladin_baseline(
         action_hits = ()
         has_aura = False
         aura_is_fire = False
+    fixed_all, fixed_slots = resolve_fixed_gear(keep_equipped)
     baseline = CharacterBaseline(
         char_class=int(CharClass.PALADIN),
         base_life=char_data.player_stats.max_life,
@@ -301,7 +303,8 @@ def _build_paladin_baseline(
         max_charm_slots=max_charm_slots,
         bo_base_bonus=bo_base_bonus,
         use_bo=bo_base_bonus > 0,
-        fixed_gear=keep_equipped,
+        fixed_gear=fixed_all,
+        fixed_slots=fixed_slots,
         base_max_fr=base_max_fr,
         base_max_lr=base_max_lr,
         base_max_cr=base_max_cr,
@@ -325,7 +328,7 @@ def select_paladin_max_res_preset(
     resolver: GameDataResolver | None = None,
     bo_base_bonus: int | None = None,
     spec: str | None = None,
-    keep_equipped: bool = False,
+    keep_equipped: bool | str | None = False,
     targets: int = 1,
     left_skill: int | None = None,
     right_skill: int | None = None,
@@ -610,7 +613,7 @@ def optimize_paladin_leveling(
     stashes: Sequence[SharedStash] = (),
     resolver: GameDataResolver | None = None,
     bo_base_bonus: int | None = None,
-    keep_equipped: bool = False,
+    keep_equipped: bool | str | None = False,
     targets: int = 1,
     left_skill: int | None = None,
     right_skill: int | None = None,

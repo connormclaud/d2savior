@@ -53,6 +53,7 @@ lazy from d2savior.optimizer import (
     optimize_builds,
     optimize_paladin_leveling,
     paladin_primary_skill_info,
+    parse_keep_gear,
     select_paladin_max_res_preset,
     select_sorc_presets,
     validate_supported_class,
@@ -663,6 +664,70 @@ def _run_paladin_optimize(
     print()
 
 
+def _is_valid_keep_gear_expr(token: str) -> bool:
+    try:
+        parse_keep_gear(token)
+        return True
+    except ValueError:
+        return False
+
+
+def _has_other_optimize_target(argv: list[str], value_opts: set[str]) -> bool:
+    i = 0
+    while i < len(argv):
+        tok = argv[i]
+        if tok == "--":
+            return i + 1 < len(argv)
+        if tok == "--char" or tok.startswith("--char="):
+            return True
+        if tok == "--keep-gear":
+            i += 2 if (i + 1 < len(argv) and not argv[i + 1].startswith("-")) else 1
+            continue
+        if tok in value_opts:
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        return True
+    return False
+
+
+def _normalize_keep_gear_argv(argv: list[str], parser: argparse.ArgumentParser) -> list[str]:
+    """Prevent bare ``--keep-gear`` from greedily consuming a following positional target."""
+    if "--keep-gear" not in argv:
+        return argv
+    value_opts = {
+        opt
+        for action in parser._actions
+        if action.option_strings and action.nargs not in (0, "?")
+        for opt in action.option_strings
+    }
+    has_other_target = _has_other_optimize_target(argv, value_opts)
+
+    out: list[str] = []
+    i = 0
+    while i < len(argv):
+        tok = argv[i]
+        if tok == "--":
+            out.extend(argv[i:])
+            break
+        if tok == "--keep-gear" and i + 1 < len(argv) and not argv[i + 1].startswith("-"):
+            nxt = argv[i + 1]
+            if _is_valid_keep_gear_expr(nxt):
+                out.append(f"--keep-gear={nxt}")
+                i += 2
+                continue
+            is_path = Path(nxt).exists() or nxt.lower().endswith((".d2s", ".d2i"))
+            if is_path or ("+" not in nxt and not has_other_target):
+                out.append("--keep-gear=all")
+                i += 1
+                continue
+        out.append(tok)
+        i += 1
+    return out
+
+
 def _split_optimize_targets(
     raw_targets: list[str], explicit_char: str | None
 ) -> tuple[str | None, list[str]]:
@@ -721,8 +786,15 @@ def cmd_optimize(argv: list[str]) -> int:
     )
     parser.add_argument(
         "--keep-gear",
-        action="store_true",
-        help="Keep currently equipped active gear and optimize inventory charms only",
+        nargs="?",
+        const="all",
+        default=None,
+        metavar="GROUPS",
+        help=(
+            "Keep currently equipped active gear slots: all (default), weapon (weapon+shield), "
+            "jewelry (amulet+rings), armor (helm/armor/belt/gloves/boots), or '+' combinations "
+            "(e.g. weapon+jewelry)"
+        ),
     )
     parser.add_argument(
         "--targets",
@@ -813,7 +885,7 @@ def cmd_optimize(argv: list[str]) -> int:
         "--min-mf", type=int, default=None, metavar="N", help="Minimum Magic Find floor"
     )
 
-    args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(_normalize_keep_gear_argv(argv, parser))
 
     # --list-builds: print preset catalog and exit (no character file needed).
     if args.list_builds:
@@ -830,6 +902,11 @@ def cmd_optimize(argv: list[str]) -> int:
 
     if args.targets < 1:
         parser.error("--targets must be >= 1")
+
+    try:
+        parse_keep_gear(args.keep_gear)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     # Build ConstraintOverrides from CLI flags.
     min_pr = args.min_pr

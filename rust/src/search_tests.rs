@@ -828,8 +828,14 @@ fn brute_force_top_scores(
     let class = CharClass::from_id(c.char_class).unwrap();
     let offense = OffenseProfile::parse(&c.offense, class).unwrap();
     let require_shield = offense.requires_shield();
-    let require_melee = offense.requires_melee() && !c.fixed_gear;
-    let norm = normalize_set_items(items, c.allow_mf, require_shield, require_melee, c.fixed_gear);
+    let require_melee = offense.requires_melee() && !c.is_hands_fixed();
+    let norm = normalize_set_items(
+        items,
+        c.allow_mf,
+        require_shield,
+        require_melee,
+        |slot| c.is_slot_fixed(slot),
+    );
     let items = norm.as_slice();
     let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;
     let empty_shield = ItemSpec::empty("shield");
@@ -1947,7 +1953,7 @@ fn test_set_bonus_2pc_unlocks_ias_and_ignores_duplicate_rings() {
     anon_bonus.ias = 20;
     anon_a.set_bonuses = vec![(2, anon_bonus.clone())];
     anon_b.set_bonuses = vec![(2, anon_bonus)];
-    let norm = normalize_set_items(&[anon_a, anon_b, anon_shield], true, false, false, false);
+    let norm = normalize_set_items(&[anon_a, anon_b, anon_shield], true, false, false, |_| false);
     assert_eq!(norm.len(), 3);
     assert_eq!(norm[0].set_item_id, -1);
     assert_eq!(norm[1].set_item_id, -2);
@@ -2735,4 +2741,80 @@ fn test_global_set_bonuses_applied_once_and_respect_constraints() {
     .unwrap();
     assert_eq!(res_global_only.len(), 1);
     assert_eq!(res_global_only[0].life_leech, 10);
+}
+
+#[test]
+fn test_partial_fixed_slots_keeps_only_selected_slots() {
+    let bow = mk_item("Raven Claw", "weapon2h", 0, 0, 0, 0, 0);
+    let helm_plain = mk_item("Plain Cap", "helm", 0, 0, 0, 0, 0);
+    let helm_good = mk_item("Shako", "helm", 0, 0, 2, 0, 0);
+    let ring_plain = mk_item("Plain Ring", "ring", 0, 0, 0, 0, 0);
+    let ring_good = mk_item("SoJ", "ring", 0, 0, 1, 0, 0);
+
+    // 1. Fixed weapon/hands: keeps non-melee Raven Claw even under zeal offense,
+    //    while still optimizing helm and rings.
+    let c_wep = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        mode: "leveling".to_string(),
+        offense: "zeal".to_string(),
+        fixed_slots: vec![
+            "weapon".to_string(),
+            "weapon2h".to_string(),
+            "shield".to_string(),
+        ],
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        use_bo: false,
+        limit: 1,
+        ..Default::default()
+    };
+    let res_wep = optimize_builds_core(
+        &[
+            bow.clone(),
+            helm_plain.clone(),
+            helm_good.clone(),
+            ring_plain.clone(),
+            ring_good.clone(),
+        ],
+        &[],
+        &c_wep,
+    )
+    .unwrap();
+    assert_eq!(res_wep.len(), 1);
+    let names_wep: Vec<&str> = res_wep[0].items.iter().map(|i| i.name.as_str()).collect();
+    assert!(names_wep.contains(&"Raven Claw"));
+    assert!(names_wep.contains(&"Shako"));
+    assert!(names_wep.contains(&"SoJ"));
+
+    // 2. Fixed jewelry (amulet + ring): keeps the single plain ring + empty second ring
+    //    (cannot drop plain ring for empty), while optimizing helm.
+    let mut ring_plain_req = ring_plain;
+    ring_plain_req.req_str = 10;
+    let c_jew = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        mode: "leveling".to_string(),
+        offense: "caster".to_string(),
+        fixed_slots: vec!["amulet".to_string(), "ring".to_string()],
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        base_str: 20,
+        use_bo: false,
+        limit: 1,
+        ..Default::default()
+    };
+    let res_jew = optimize_builds_core(&[helm_plain, helm_good, ring_plain_req], &[], &c_jew).unwrap();
+    assert_eq!(res_jew.len(), 1);
+    let names_jew: Vec<&str> = res_jew[0].items.iter().map(|i| i.name.as_str()).collect();
+    assert!(names_jew.contains(&"Plain Ring"));
+    assert!(names_jew.contains(&"Shako"));
 }

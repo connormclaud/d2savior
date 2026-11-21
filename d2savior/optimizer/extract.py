@@ -15,7 +15,13 @@ from d2savior.core.stats import (
     collect_item_properties,
     resolve_set_group_key,
 )
-from d2savior.optimizer.common import _SWAP_SLOTS, _item_cta_bo, _item_levelreq
+from d2savior.optimizer.common import (
+    _SWAP_SLOTS,
+    ALL_GEAR_SLOTS,
+    _item_cta_bo,
+    _item_levelreq,
+    parse_keep_gear,
+)
 from d2savior.optimizer.native import CharmSpec, ItemSpec
 from d2savior.optimizer.paladin import (
     PALADIN_SPEC_INFO,
@@ -779,6 +785,8 @@ def _item_to_spec(
     set_group_ids: dict[str, int] | None = None,
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] | None = None,
     skip_useful_check: bool = False,
+    skip_useful_slots: frozenset[str] = frozenset(),
+    exclude_slots: frozenset[str] = frozenset(),
     allow_eth_melee: bool = False,
     sorc_filler_id: int | None = None,
 ) -> ItemSpec | CharmSpec | None:
@@ -819,6 +827,8 @@ def _item_to_spec(
     if classified is None:
         return None
     slot, base_req_str, base_req_dex = classified
+    if slot in exclude_slots:
+        return None
     is_weapon = slot in ("weapon", "weapon2h")
     props = list(collect_item_properties(item, resolver=resolver, version=version))
     acc = _PropAcc()
@@ -848,6 +858,7 @@ def _item_to_spec(
         global_set_cache=global_set_cache,
     )
 
+    keep_slot = skip_useful_check or slot in skip_useful_slots
     belt_slots = resolver.get_belt_rows(code) * 4 if slot == "belt" else 0
     wsm = 0
     wclass = ""
@@ -859,7 +870,7 @@ def _item_to_spec(
     splash_fire_2x = 0
     if is_weapon and (w_info := resolver.data.get_item(code)) is not None:
         if (
-            not skip_useful_check
+            not keep_slot
             and not allow_eth_melee
             and char_class == int(CharClass.PALADIN)
             and resolved_offense in ("zeal", "melee")
@@ -891,7 +902,7 @@ def _item_to_spec(
         and wep_phys_2x > 0
         and char_class == int(CharClass.PALADIN)
     )
-    if not skip_useful_check and set_group == 0 and not has_useful_stat and not has_weapon_dps:
+    if not keep_slot and set_group == 0 and not has_useful_stat and not has_weapon_dps:
         return None
 
     display_name = get_item_display_name(item, resolver=resolver, version=version)
@@ -934,7 +945,7 @@ def _extract_char_specs(
     char: D2SStruct,
     *,
     is_primary: bool,
-    keep_equipped: bool,
+    kept_slots: frozenset[str],
     primary_inactive_slots: tuple[EquipSlot, EquipSlot],
     char_level: int,
     char_class: int,
@@ -948,6 +959,7 @@ def _extract_char_specs(
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
     ver = char.version or 0x63
     char_resolver = resolver.for_version(ver)
+    keep_all = kept_slots == ALL_GEAR_SLOTS
     has_swap_cta = any(
         it.location == ItemLocation.EQUIPPED
         and it.position in _SWAP_SLOTS
@@ -965,14 +977,15 @@ def _extract_char_specs(
             and it.location == ItemLocation.EQUIPPED
             and it.position not in primary_inactive_slots
         )
-        if keep_equipped:
+        if keep_all:
             if not (is_active_primary_eq or is_charm):
                 continue
         elif has_swap_cta and it.location == ItemLocation.EQUIPPED and it.position in _SWAP_SLOTS:
             continue
 
         loc = _format_item_location(char_name, it)
-        use_active_eq = keep_equipped and is_active_primary_eq
+        exclude_slots = frozenset() if is_active_primary_eq else kept_slots
+        skip_useful_slots = kept_slots if is_active_primary_eq else frozenset()
         spec = _item_to_spec(
             it,
             loc,
@@ -984,7 +997,8 @@ def _extract_char_specs(
             pal_offense=pal_offense,
             set_group_ids=set_group_ids,
             global_set_cache=global_set_cache,
-            skip_useful_check=use_active_eq,
+            skip_useful_slots=skip_useful_slots,
+            exclude_slots=exclude_slots,
             allow_eth_melee=allow_eth_melee,
             sorc_filler_id=sorc_filler_id,
         )
@@ -1010,7 +1024,7 @@ def extract_pool(
     resolver: GameDataResolver | None = None,
     *,
     pal_spec: str | None = None,
-    keep_equipped: bool = False,
+    keep_equipped: bool | str | None = False,
     allow_eth_melee: bool = False,
     left_skill: int | None = None,
     right_skill: int | None = None,
@@ -1020,6 +1034,8 @@ def extract_pool(
     if resolver is None:
         resolver = GameDataResolver.load()
 
+    kept_slots = parse_keep_gear(keep_equipped)
+    keep_all = kept_slots == ALL_GEAR_SLOTS
     char_level = max(1, primary_char.player_stats.level or primary_char.char_level)
     char_class = primary_char.char_class
     resolved_pal_spec = (
@@ -1059,7 +1075,7 @@ def extract_pool(
     ch_items, ch_charms = _extract_char_specs(
         primary_char,
         is_primary=True,
-        keep_equipped=keep_equipped,
+        kept_slots=kept_slots,
         primary_inactive_slots=primary_inactive_slots,
         char_level=char_level,
         char_class=char_class,
@@ -1082,7 +1098,7 @@ def extract_pool(
             char_resolver = resolver.for_version(ver)
             loc = f"Stash Tab {idx}"
             for it in tab.items.items:
-                if keep_equipped and it.code_str.strip().lower() not in _CHARM_SIZES:
+                if keep_all and it.code_str.strip().lower() not in _CHARM_SIZES:
                     continue
                 spec = _item_to_spec(
                     it,
@@ -1095,6 +1111,7 @@ def extract_pool(
                     pal_offense=resolved_pal_offense,
                     set_group_ids=set_group_ids,
                     global_set_cache=global_set_cache,
+                    exclude_slots=kept_slots,
                     allow_eth_melee=allow_eth_melee,
                     sorc_filler_id=sorc_filler_id,
                 )
@@ -1107,7 +1124,7 @@ def extract_pool(
         ch_items, ch_charms = _extract_char_specs(
             char,
             is_primary=False,
-            keep_equipped=keep_equipped,
+            kept_slots=kept_slots,
             primary_inactive_slots=primary_inactive_slots,
             char_level=char_level,
             char_class=char_class,

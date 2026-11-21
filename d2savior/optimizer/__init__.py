@@ -1,8 +1,10 @@
 """Python-to-Rust PyO3 build optimizer bridge for D2R Sorceress and Paladin saves."""
 
 from d2savior.optimizer.common import (
+    KEEP_GEAR_GROUPS,
     SUPPORTED_OPTIMIZER_CLASSES,
     detect_cta_bo_bonus,
+    parse_keep_gear,
     validate_paladin,
     validate_sorceress,
     validate_supported_class,
@@ -47,6 +49,7 @@ __all__ = [
     "BUILD_CHOICES",
     "BUILD_PRESET_ALIASES",
     "HAS_NATIVE",
+    "KEEP_GEAR_GROUPS",
     "PALADIN_BUILD_CHOICES",
     "PALADIN_FCR_BPS",
     "PALADIN_FCR_FRAMES",
@@ -74,6 +77,7 @@ __all__ = [
     "optimize_paladin_leveling",
     "paladin_offense_profile",
     "paladin_primary_skill_info",
+    "parse_keep_gear",
     "resolve_build_expr",
     "select_paladin_max_res_preset",
     "select_sorc_presets",

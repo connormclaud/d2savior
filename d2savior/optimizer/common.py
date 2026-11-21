@@ -14,6 +14,58 @@ from d2savior.optimizer.native import BuildConstraints, OffenseProfileStr, Searc
 
 SUPPORTED_OPTIMIZER_CLASSES: tuple[CharClass, ...] = (CharClass.SORCERESS, CharClass.PALADIN)
 
+KEEP_GEAR_GROUPS: frozendict[str, frozenset[str]] = frozendict(
+    {
+        "weapon": frozenset({"weapon", "weapon2h", "shield"}),
+        "jewelry": frozenset({"amulet", "ring"}),
+        "armor": frozenset({"helm", "armor", "belt", "gloves", "boots"}),
+    }
+)
+ALL_GEAR_SLOTS: frozenset[str] = frozenset().union(*KEEP_GEAR_GROUPS.values())
+
+
+def parse_keep_gear(value: bool | str | None) -> frozenset[str]:
+    """Parse a --keep-gear specification into the set of kept optimizer slot names.
+
+    Accepts:
+      - ``None`` / ``False``: no slots kept.
+      - ``True`` / ``"all"``: all active gear slots kept.
+      - ``"weapon"``, ``"jewelry"``, ``"armor"``, or ``'+'`` combinations
+        (e.g. ``"weapon+jewelry"``).
+    """
+    if value is None or value is False:
+        return frozenset()
+    if value is True:
+        return ALL_GEAR_SLOTS
+    raw = value.strip().lower()
+    if not raw:
+        valid = ", ".join(("all", *KEEP_GEAR_GROUPS))
+        raise ValueError(
+            f"Empty --keep-gear value; expected one or more of: {valid} (join with '+')"
+        )
+    slots: set[str] = set()
+    for part in raw.split("+"):
+        token = part.strip()
+        if token == "all":
+            slots.update(ALL_GEAR_SLOTS)
+        elif token in KEEP_GEAR_GROUPS:
+            slots.update(KEEP_GEAR_GROUPS[token])
+        else:
+            valid = ", ".join(("all", *KEEP_GEAR_GROUPS))
+            raise ValueError(
+                f"Invalid --keep-gear group '{token}'; expected one or more of: {valid} (join with '+')"
+            )
+    return frozenset(slots)
+
+
+def resolve_fixed_gear(value: bool | str | None) -> tuple[bool, tuple[str, ...]]:
+    """Return ``(fixed_all, fixed_slots)`` for ``CharacterBaseline`` / ``BuildConstraints``."""
+    kept = parse_keep_gear(value)
+    if kept == ALL_GEAR_SLOTS:
+        return True, ()
+    return False, tuple(sorted(kept))
+
+
 _SWAP_SLOTS: tuple[EquipSlot, EquipSlot] = (EquipSlot.WEAPON_II, EquipSlot.SHIELD_II)
 _SKILL_BATTLE_ORDERS = 149
 
@@ -159,6 +211,7 @@ class CharacterBaseline:
     bo_base_bonus: int
     use_bo: bool = True
     fixed_gear: bool = False
+    fixed_slots: tuple[str, ...] = ()
     blizz_base_lvl: int = 20
     blizz_syn_pts: int = 54
     cm_base_lvl: int = 20
@@ -225,6 +278,7 @@ class CharacterBaseline:
             base_max_pr=self.base_max_pr,
             use_bo=self.use_bo,
             fixed_gear=self.fixed_gear,
+            fixed_slots=list(self.fixed_slots),
             offense=offense,
             aura_hit_dmg=list(self.aura_hit_dmg),
             aura_pulse_dps=list(self.aura_pulse_dps),

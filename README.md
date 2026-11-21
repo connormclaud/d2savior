@@ -130,6 +130,9 @@ d2savior optimize smite -b leveling
 # Keep currently equipped active gear and optimize inventory charms only
 d2savior optimize smite --keep-gear
 
+# Keep only specific equipped gear groups (all, weapon, jewelry, armor, or '+' combinations)
+d2savior optimize smite --keep-gear weapon+jewelry
+
 # Customize charm inventory budget and number of options shown
 d2savior optimize sork -b mf --charm-slots 23 --limit 5
 

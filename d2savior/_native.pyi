@@ -205,6 +205,7 @@ class BuildConstraints:
     base_max_pr: int
     use_bo: bool
     fixed_gear: bool
+    fixed_slots: list[str]
     offense: OffenseProfileStr
     aura_hit_dmg: list[float]
     aura_pulse_dps: list[float]
@@ -270,6 +271,7 @@ class BuildConstraints:
         min_ll: int = 0,
         min_pdr: int = 0,
         min_mf: int = 0,
+        fixed_slots: Sequence[str] = (),
     ) -> None: ...
 
 class BuildResult:

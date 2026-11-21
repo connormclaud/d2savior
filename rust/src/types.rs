@@ -1446,6 +1446,7 @@ pub struct BuildConstraints {
     pub base_max_pr: i32,
     pub use_bo: bool,
     pub fixed_gear: bool,
+    pub fixed_slots: Vec<String>,
     pub offense: String,
     pub aura_hit_dmg: Vec<f64>,
     pub aura_pulse_dps: Vec<f64>,
@@ -1495,6 +1496,7 @@ impl Default for BuildConstraints {
             base_max_pr: 0,
             use_bo: true,
             fixed_gear: false,
+            fixed_slots: Vec::new(),
             offense: String::from("caster"),
             aura_hit_dmg: Vec::new(),
             aura_pulse_dps: Vec::new(),
@@ -1566,6 +1568,7 @@ impl BuildConstraints {
         min_ll = 0,
         min_pdr = 0,
         min_mf = 0,
+        fixed_slots = Vec::new(),
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1613,6 +1616,7 @@ impl BuildConstraints {
         min_ll: i32,
         min_pdr: i32,
         min_mf: i32,
+        fixed_slots: Vec<String>,
     ) -> Self {
         Self {
             allow_mf,
@@ -1641,6 +1645,7 @@ impl BuildConstraints {
             base_max_pr,
             use_bo,
             fixed_gear,
+            fixed_slots,
             offense,
             aura_hit_dmg,
             aura_pulse_dps,
@@ -1660,6 +1665,20 @@ impl BuildConstraints {
             min_pdr,
             min_mf,
         }
+    }
+}
+
+impl BuildConstraints {
+    pub fn is_slot_fixed(&self, slot: &str) -> bool {
+        self.fixed_gear || self.fixed_slots.iter().any(|s| s == slot)
+    }
+
+    pub fn is_hands_fixed(&self) -> bool {
+        self.fixed_gear
+            || self
+                .fixed_slots
+                .iter()
+                .any(|s| matches!(s.as_str(), "weapon" | "weapon2h" | "shield"))
     }
 }
 

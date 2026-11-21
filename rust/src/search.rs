@@ -589,7 +589,8 @@ fn build_hands(
     c: &BuildConstraints,
 ) -> Vec<ItemPair> {
     let require_shield = offense.requires_shield();
-    let require_melee = offense.requires_melee() && !c.fixed_gear;
+    let hands_fixed = c.is_hands_fixed();
+    let require_melee = offense.requires_melee() && !hands_fixed;
     let mut weapons_1h: Vec<ItemSpec> = items
         .iter()
         .filter(|i| {
@@ -616,7 +617,7 @@ fn build_hands(
             .collect()
     };
 
-    if c.fixed_gear {
+    if hands_fixed {
         if weapons_1h.is_empty() && !shields.is_empty() {
             weapons_1h.push(ItemSpec::empty("weapon"));
         }
@@ -722,7 +723,7 @@ fn build_hands(
         hands.push(ItemPair::single_2h(w2h));
     }
 
-    if c.fixed_gear {
+    if hands_fixed {
         if !require_shield && hands.is_empty() {
             hands.push(ItemPair::from_pair(
                 &ItemSpec::empty("weapon"),
@@ -767,7 +768,7 @@ pub(crate) fn normalize_set_items(
     allow_mf: bool,
     require_shield: bool,
     require_melee: bool,
-    fixed_gear: bool,
+    is_slot_fixed: impl Fn(&str) -> bool,
 ) -> Vec<ItemSpec> {
     let excluded = |it: &ItemSpec| {
         (!allow_mf && it.mf != 0)
@@ -831,7 +832,11 @@ pub(crate) fn normalize_set_items(
                     .retain(|(req, b)| *req >= 2 && *req <= max_pcs && b.stats() != Stats::default());
             }
         }
-        if !fixed_gear && was_set && cloned.set_group == 0 && cloned.stats() == Stats::default() {
+        if !is_slot_fixed(&cloned.slot)
+            && was_set
+            && cloned.set_group == 0
+            && cloned.stats() == Stats::default()
+        {
             continue;
         }
         out.push(cloned);
@@ -864,8 +869,8 @@ pub fn optimize_builds_core(
         items,
         c.allow_mf,
         offense.requires_shield(),
-        offense.requires_melee() && !c.fixed_gear,
-        c.fixed_gear,
+        offense.requires_melee() && !c.is_hands_fixed(),
+        |slot| c.is_slot_fixed(slot),
     );
 
     let hands = build_hands(&norm_items, &valid_item, mode, offense, c);
@@ -877,7 +882,7 @@ pub fn optimize_builds_core(
             .filter(|i| i.slot == slot && valid_item(i))
             .cloned()
             .collect();
-        let need_empty = if c.fixed_gear {
+        let need_empty = if c.is_slot_fixed(slot) {
             slot_items.is_empty()
         } else {
             empty_dominators(&slot_items, c.base_str, c.base_dex, offense, c.min_fcr) == 0
@@ -903,7 +908,7 @@ pub fn optimize_builds_core(
         .filter(|i| i.slot == "ring" && valid_item(i))
         .cloned()
         .collect();
-    let empty_rings_needed = if c.fixed_gear {
+    let empty_rings_needed = if c.is_slot_fixed("ring") {
         2usize.saturating_sub(rngs.len())
     } else {
         2usize.saturating_sub(empty_dominators(
