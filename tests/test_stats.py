@@ -742,3 +742,16 @@ def test_effective_skills_and_speed_bonuses(game_data_resolver: GameDataResolver
     sunder.item_info.type_specific_info = tp_s
     char.item_list.items = [sunder]
     assert calculate_advanced_stats(char, resolver=game_data_resolver).mf == 15
+
+
+def test_global_set_bonus_gethit_skill_param_order(game_data_resolver: GameDataResolver):
+    """Cow King's Leathers full-set gethit-skill emits [level, skill_id, chance] matching formatter."""
+    from d2savior.core.property import format_property
+
+    res = game_data_resolver.for_version(0x69)
+    bonuses = res.get_active_set_bonuses("Cow King's Leathers", 3)
+    gethit = [b for b in bonuses if b[0] == 201]
+    assert gethit == [(201, 5, [5, 42, 25])]
+
+    formatted = format_property(201, gethit[0][2], res)
+    assert formatted == "25% Chance to cast level 5 Static Field when struck"

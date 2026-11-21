@@ -322,7 +322,7 @@ class GameDataResolver:
             skill_id = self._parse_skill_param(mod.param)
             stat_info = self.data.get_stat_by_name(prop.stat1)
             return (
-                [(stat_info.stat_id, mod.max_val, [skill_id, mod.max_val, min_val])]
+                [(stat_info.stat_id, mod.max_val, [mod.max_val, skill_id, min_val])]
                 if skill_id is not None and stat_info
                 else []
             )
