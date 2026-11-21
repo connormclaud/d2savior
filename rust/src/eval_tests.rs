@@ -333,14 +333,15 @@ fn test_ar_and_chance_to_hit_scaling() {
     assert!((res_plain.dps - expected_dps_plain).abs() < 1e-6);
     assert!((res_plain.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
 
-    // -50% Target Defense (weapon) + -50% (Conviction at +1 aura): total 100% reduction -> eff_dr = 0 -> CTH clamped to 0.95.
+    // -50% Target Defense (weapon) * -50% (Conviction at +1 aura): multiplicative reduction =>
+    // eff_dr = 300 * 0.5 * 0.5 = 75 -> CTH = 579 / (579 + 75) = 579 / 654 (~89%).
     let mut ring_sk = ring_ar.clone();
     ring_sk.aura_skill_bonus = 1;
     let res_eth_conv = eval_build_core(&[&wep_eth, &ring_sk], &[&charm_ar], &c_base, 1);
     // +1 aura gives aura_ar_pct=60% => total_ar_pct = 20 + 10 + 60 = 90 => 305 * 190 / 100 = 579.
     assert_eq!(res_eth_conv.ar, 579);
-    assert_eq!(res_eth_conv.cth, 95);
-    let expected_dps_eth_conv = 100.0 * 0.95 * zeal_rate;
+    assert_eq!(res_eth_conv.cth, 89);
+    let expected_dps_eth_conv = 100.0 * (579.0 / (579.0 + 75.0)) * zeal_rate;
     assert!((res_eth_conv.dps - expected_dps_eth_conv).abs() < 1e-6);
     assert!((res_eth_conv.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
 
@@ -348,7 +349,16 @@ fn test_ar_and_chance_to_hit_scaling() {
     let res_itd = eval_build_core(&[&wep_itd], &[], &c_base, 1);
     assert_eq!(res_itd.ar, 85 * 150 / 100); // 127
     assert_eq!(res_itd.cth, 95);
-    assert!((res_itd.dps - expected_dps_eth_conv).abs() < 1e-6);
+    let expected_dps_itd = 100.0 * 0.95 * zeal_rate;
+    assert!((res_itd.dps - expected_dps_itd).abs() < 1e-6);
+
+    // Explicit target_def=0 honors 0 enemy defense (clamped to 95% CTH) instead of defaulting to 180.
+    let c_zero_dr = BuildConstraints {
+        target_def: 0,
+        ..c_base.clone()
+    };
+    let res_zero_dr = eval_build_core(&[&sword], &[], &c_zero_dr, 1);
+    assert_eq!(res_zero_dr.cth, 95);
 
     // Exploding Arrow + Holy Fire: AoE splash_fire and aura_hit_dmg * targets are auto-hit,
     // while direct arrow physical damage scales with CTH.
@@ -367,7 +377,7 @@ fn test_ar_and_chance_to_hit_scaling() {
         targets: 3,
         action_hits: vec![1],
         action_ed: vec![0],
-        action_ar_pct: vec![0],
+        action_ar_pct: vec![10], // melee action AR% must be ignored on ranged weapons
         aura_hit_dmg: vec![50.0], // 50 avg Holy Fire on-hit * 3 targets = 150 auto-hit
         aura_pulse_dps: vec![10.0],
         ..c_base.clone()
@@ -375,6 +385,7 @@ fn test_ar_and_chance_to_hit_scaling() {
     c_exp.aura_ar_pct = vec![0];
     c_exp.aura_target_def_pct = vec![0];
     let res_exp = eval_build_core(&[&bow], &[], &c_exp, 1);
+    assert_eq!(res_exp.ar, 85); // base_ar=85 without melee action_ar_pct +10%
     // base_ar = 85 vs target_def = 300 => cth = 85 / 385
     let bow_rate = 25.0 / res_exp.ias_frames as f64;
     let exp_cth = 85.0 / 385.0;

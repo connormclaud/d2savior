@@ -390,6 +390,7 @@ impl OffenseProfile {
         self,
         s: Stats,
         used_zeal: bool,
+        is_ranged: bool,
         c: &BuildConstraints,
     ) -> (i32, f64) {
         let eff_action = (s.all_skills + s.pal_skills + s.action_skill_bonus).max(0) as usize;
@@ -397,11 +398,12 @@ impl OffenseProfile {
         let class = CharClass::from_id_or_default(c.char_class);
         let total_dex = s.dex_bonus.max(0);
         let base_ar = (class.base_ar_from_dex(total_dex) + s.ar.max(0)).max(0);
-        let act_ar_pct = if (used_zeal || self == Self::Melee) && !c.action_ar_pct.is_empty() {
-            c.action_ar_pct[eff_action.min(c.action_ar_pct.len() - 1)]
-        } else {
-            0
-        };
+        let act_ar_pct =
+            if (used_zeal || (self == Self::Melee && !is_ranged)) && !c.action_ar_pct.is_empty() {
+                c.action_ar_pct[eff_action.min(c.action_ar_pct.len() - 1)]
+            } else {
+                0
+            };
         let aura_ar_pct = if !c.aura_ar_pct.is_empty() {
             c.aura_ar_pct[eff_aura.min(c.aura_ar_pct.len() - 1)]
         } else {
@@ -409,7 +411,7 @@ impl OffenseProfile {
         };
         let total_ar_pct = (s.ar_pct + act_ar_pct + aura_ar_pct).max(0);
         let total_ar = ((base_ar as i64) * (100 + total_ar_pct as i64) / 100) as i32;
-        let base_dr = if c.target_def > 0 { c.target_def } else { 180 };
+        let base_dr = c.target_def.max(0);
         let cth = if s.itd > 0 {
             0.95
         } else {
@@ -418,8 +420,10 @@ impl OffenseProfile {
             } else {
                 c.aura_target_def_pct[eff_aura.min(c.aura_target_def_pct.len() - 1)]
             };
-            let def_red_pct = (s.target_def_pct.max(0) + conv_red.max(0)).clamp(0, 100);
-            let eff_dr = (base_dr as f64) * (100 - def_red_pct) as f64 / 100.0;
+            // In D2R, Conviction's defense reduction and gear -% Target Defense stack multiplicatively.
+            let conv_mult = (100 - conv_red.clamp(0, 100)) as f64 / 100.0;
+            let gear_mult = (100 - s.target_def_pct.clamp(0, 100)) as f64 / 100.0;
+            let eff_dr = (base_dr as f64) * conv_mult * gear_mult;
             let denom = total_ar as f64 + eff_dr;
             if denom <= 0.0 {
                 0.95
@@ -482,9 +486,12 @@ impl OffenseProfile {
             0.0
         };
 
-        let (total_ar, cth) = self.compute_ar_and_cth(s, used_zeal, c);
+        let (total_ar, cth) = self.compute_ar_and_cth(s, used_zeal, hand.wclass.is_ranged(), c);
         // Exploding Arrow's AoE blast is auto-hit and carries Holy Fire on-hit damage across
-        // all targets even when the physical arrow misses the AR roll.
+        // all targets even when the physical arrow misses the AR roll. Note `pid 158`
+        // (`item_explosivearrow`) uses weapon `ar_pct` rather than Amazon skill ToHit%, and
+        // `d_aura_hit * targets` is counted once per target in `auto_hit_attack` (keeping prior
+        // raw_dps parity rather than double-counting direct arrow + splash on the primary target).
         let (direct_hit, auto_hit_attack) = if hand.splash_fire && c.aura_is_fire {
             (d_phys + d_elem_gear, d_splash_fire + d_aura_hit * targets)
         } else {
