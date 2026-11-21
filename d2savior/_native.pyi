@@ -415,6 +415,7 @@ def evaluate_build(
     base_max_lr: int = 0,
     base_max_cr: int = 0,
     base_max_pr: int = 0,
+    constraints: BuildConstraints | None = None,
 ) -> BuildResult: ...
 def optimize_builds(
     items: list[ItemSpec],

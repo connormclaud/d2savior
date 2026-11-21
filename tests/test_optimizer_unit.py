@@ -632,6 +632,33 @@ def test_paladin_pure_helpers_and_tradeoff_descriptions() -> None:
         )
         == "Balanced Alternative"
     )
+    opt_raw_low = _as_result(
+        _FakeBuildResult(
+            fhr_bp=48, fcr_bp=48, dps=800.0, raw_dps=1200.0, fr=50, lr=50, cr=50, pr=50
+        )
+    )
+    opt_cth_win = _as_result(
+        _FakeBuildResult(
+            fhr_bp=48, fcr_bp=48, dps=950.0, raw_dps=1100.0, fr=50, lr=50, cr=50, pr=50
+        )
+    )
+    assert (
+        _describe_paladin_tradeoff(opt_raw_low, opt_cth_win, is_caster=False, is_smite=False)
+        == "Higher Effective DPS"
+    )
+    assert (
+        _describe_lower_fhr_tradeoff(
+            opt_raw_low,
+            _as_result(
+                _FakeBuildResult(
+                    fhr_bp=27, fcr_bp=48, dps=950.0, raw_dps=1100.0, fr=50, lr=50, cr=50, pr=50
+                )
+            ),
+            sk_diff=0,
+            res_diff=0,
+        )
+        == "Lower FHR BP (27%, 6f) — Higher Effective DPS"
+    )
 
 
 def test_paladin_baseline_presets_and_leveling_flow(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1649,3 +1676,33 @@ def test_paladin_melee_and_support_aura_single_skill_extraction() -> None:
         pal_aura_id=122,
     )
     assert zeal_fanat.aura_skill_bonus == 0
+
+
+def test_format_paladin_option_lines_melee_action_labels() -> None:
+    from d2savior.optimizer.report import _format_paladin_option_lines
+
+    for skill_name in ("Sacrifice", "Charge", "Vengeance"):
+        res = _as_result(
+            _FakeBuildResult(
+                dps=850.0,
+                raw_dps=1000.0,
+                ar=1200,
+                cth=85,
+                used_zeal=False,
+                ias=20,
+                ias_bp=20,
+                ias_frames=11,
+                action_skill_bonus=2,
+            )
+        )
+        lines = _format_paladin_option_lines(
+            "Option #1",
+            res,
+            (),
+            diff_name="Nightmare",
+            primary_skill_name=skill_name,
+            primary_skill_base=20,
+            primary_inv_loc=None,
+            has_aura=False,
+        )
+        assert f"DPS: 1000 ({skill_name}) | AR: 1200 (85%)" in lines[1]

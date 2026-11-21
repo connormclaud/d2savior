@@ -463,6 +463,19 @@ def _result_dedup_key(
     )
 
 
+def _dps_gain_label(opt1: BuildResult, res: BuildResult) -> str | None:
+    """Return DPS tradeoff label using effective `res.dps`, clarifying AR/CTH-only gains."""
+    dps1 = getattr(opt1, "dps", 0.0)
+    dps2 = getattr(res, "dps", 0.0)
+    if not (dps1 > 0.0 and dps2 > dps1 * 1.02):
+        return None
+    raw1 = getattr(opt1, "raw_dps", 0.0)
+    raw2 = getattr(res, "raw_dps", 0.0)
+    if raw1 > 0.0 and raw2 > 0.0 and raw2 <= raw1 * 1.005:
+        return "Higher Effective DPS"
+    return "Higher DPS"
+
+
 def _describe_lower_fhr_tradeoff(
     opt1: BuildResult,
     res: BuildResult,
@@ -470,19 +483,16 @@ def _describe_lower_fhr_tradeoff(
     sk_diff: int,
     res_diff: int,
 ) -> str:
-    # Tradeoff labels ("Higher DPS") compare CTH-adjusted effective DPS (`res.dps`) used by
-    # ranking/dedup, whereas report lines intentionally display sheet `raw_dps` + `AR (CTH%)`.
+    # Tradeoff labels compare CTH-adjusted effective DPS (`res.dps`) used by ranking/dedup,
+    # whereas report lines display sheet `raw_dps` + `AR (CTH%)`.
     frames = PALADIN_FHR_FRAMES.get(res.fhr_bp, 9)
     prefix = f"Lower FHR BP ({res.fhr_bp}%, {frames}f)"
-    # Compare effective DPS (`res.dps`), matching ranking/dedup (see `_describe_lower_fhr_tradeoff`).
-    dps1 = getattr(opt1, "dps", 0.0)
-    dps2 = getattr(res, "dps", 0.0)
-    gained_dps = dps2 > dps1 * 1.02 if dps1 > 0.0 else False
+    dps_label = _dps_gain_label(opt1, res)
     gained_ias = res.ias_bp > opt1.ias_bp
-    if gained_dps and res_diff > 0:
-        return f"{prefix} — Higher DPS & Resists"
-    if gained_dps:
-        return f"{prefix} — Higher DPS"
+    if dps_label and res_diff > 0:
+        return f"{prefix} — {dps_label} & Resists"
+    if dps_label:
+        return f"{prefix} — {dps_label}"
     if sk_diff > 0 and res_diff > 0:
         return f"{prefix} — Higher Skills & Resists"
     if gained_ias and sk_diff > 0:
@@ -518,9 +528,7 @@ def _describe_paladin_tradeoff(
     sk_diff = _eff_paladin_skills(res, has_aura=has_aura) - _eff_paladin_skills(
         opt1, has_aura=has_aura
     )
-    # Compare effective DPS (`res.dps`), matching ranking/dedup (see `_describe_lower_fhr_tradeoff`).
-    dps1 = getattr(opt1, "dps", 0.0)
-    dps2 = getattr(res, "dps", 0.0)
+    # Compare effective DPS (`res.dps`), matching ranking/dedup (see `_dps_gain_label`).
     if res.fhr_bp < opt1.fhr_bp:
         return _describe_lower_fhr_tradeoff(opt1, res, sk_diff=sk_diff, res_diff=res_diff)
     if is_caster and res.fcr_bp < opt1.fcr_bp:
@@ -534,8 +542,8 @@ def _describe_paladin_tradeoff(
         return "Max Resist Cap"
     if is_smite and res.cb > opt1.cb:
         return "Max Smite Offense (CB/IAS)"
-    if dps1 > 0.0 and dps2 > dps1 * 1.02:
-        return "Higher DPS"
+    if dps_label := _dps_gain_label(opt1, res):
+        return dps_label
     if res.ias_bp > opt1.ias_bp:
         return "Higher IAS"
     if sk_diff > 0:

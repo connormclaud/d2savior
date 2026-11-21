@@ -446,6 +446,7 @@ pub fn evaluate_build_core(
     base_max_lr = 0,
     base_max_cr = 0,
     base_max_pr = 0,
+    constraints = None,
 ))]
 #[allow(clippy::too_many_arguments)]
 pub fn evaluate_build(
@@ -464,7 +465,14 @@ pub fn evaluate_build(
     base_max_lr: i32,
     base_max_cr: i32,
     base_max_pr: i32,
+    constraints: Option<BuildConstraints>,
 ) -> PyResult<BuildResult> {
+    if let Some(c) = constraints.as_ref() {
+        CharClass::from_id(c.char_class).map_err(PyValueError::new_err)?;
+        let item_refs: Vec<&ItemSpec> = items.iter().collect();
+        let charm_refs: Vec<&CharmSpec> = charms.iter().collect();
+        return Ok(eval_build_core(&item_refs, &charm_refs, c, 1));
+    }
     evaluate_build_core(
         &items,
         &charms,

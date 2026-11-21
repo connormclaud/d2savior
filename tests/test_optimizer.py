@@ -1761,3 +1761,84 @@ def test_angelic_set_and_itd_win_with_ar_cth_model() -> None:
     assert res[0].ar == (85 * 110) // 100
     assert 0 < res[0].cth < 95
     assert res[0].raw_dps > res[0].dps
+
+
+@requires_native
+def test_evaluate_build_with_constraints_and_melee_action_end_to_end() -> None:
+    resolver = GameDataResolver.load()
+    ok_p, char_data, _ = parse_d2s_file(
+        str(FIXTURES_DIR / "paladin_snapshot" / "smite.d2s"), resolver=resolver
+    )
+    assert ok_p
+    assert char_data is not None
+    assert char_data.skills is not None
+
+    # 1. evaluate_build(items, charms, constraints=c) evaluates melee/zeal AR/CTH/DPS directly.
+    sword = ItemSpec(
+        "Broad Sword", "weapon", "test", wclass="1hs", wep_phys_2x=60, can_zeal=True, ar=100
+    )
+    charm = CharmSpec("Sharp SC", 1, "Inv", ar=40)
+    c_zeal = BuildConstraints(
+        char_class=int(CharClass.PALADIN),
+        offense="zeal",
+        mode="leveling",
+        base_str=50,
+        base_dex=20,
+        base_hell_res=75,
+        target_def=300,
+        action_hits=[5],
+        action_ed=[100],
+        action_ar_pct=[50],
+        aura_ar_pct=[50],
+        aura_hit_dmg=[0.0],
+        aura_pulse_dps=[0.0],
+        use_bo=False,
+    )
+    ev = evaluate_build([sword], [charm], constraints=c_zeal)
+    # base_ar = 85 + 100 + 40 = 225; total_ar_pct = +100% => AR = 450; cth = 450/750 = 60%
+    assert ev.ar == 450
+    assert ev.cth == 60
+    assert ev.raw_dps > ev.dps > 0.0
+
+    # 2. End-to-end optimize_paladin_leveling + report for Vengeance+Conviction and Charge/Sacrifice+Blessed Aim
+    items = [ItemSpec("War Sword", "weapon", "Inv", wclass="1hs", wep_phys_2x=80, can_zeal=True)]
+
+    char_data.skills.skill_levels = [0] * 30
+    char_data.skills.skill_levels[15] = 20  # Vengeance (ID 111)
+    char_data.skills.skill_levels[27] = 20  # Conviction (ID 123)
+    title_v, opts_v, _spec_v, diff_v = optimize_paladin_leveling(
+        char_data, items, [], spec="vengeance", right_skill=123, resolver=resolver, bo_base_bonus=0
+    )
+    assert len(opts_v) >= 1
+    assert opts_v[0][1].ar > 0
+    assert opts_v[0][1].cth > 0
+    report_v = format_paladin_leveling_report(
+        title_v, opts_v, diff_name=diff_v, primary_skill_name="Vengeance", primary_skill_base=20
+    )
+    assert "(Vengeance) | AR:" in report_v
+
+    for spec_name, offset in (("charge", 11), ("sacrifice", 0)):
+        char_data.skills.skill_levels = [0] * 30
+        char_data.skills.skill_levels[offset] = 20
+        char_data.skills.skill_levels[12] = 10  # Blessed Aim (ID 108)
+        title_m, opts_m, _spec_m, diff_m = optimize_paladin_leveling(
+            char_data,
+            items,
+            [],
+            spec=spec_name,
+            right_skill=108,
+            resolver=resolver,
+            bo_base_bonus=0,
+        )
+        assert len(opts_m) >= 1
+        assert opts_m[0][1].ar > 0
+        assert opts_m[0][1].cth > 0
+        skill_label = spec_name.title()
+        report_m = format_paladin_leveling_report(
+            title_m,
+            opts_m,
+            diff_name=diff_m,
+            primary_skill_name=skill_label,
+            primary_skill_base=20,
+        )
+        assert f"({skill_label}) | AR:" in report_m
