@@ -940,7 +940,14 @@ impl ItemSpec {
     pub(crate) fn max_possible_set_bonus_stats(&self) -> Stats {
         self.set_bonuses
             .iter()
-            .chain(self.global_set_bonuses.iter())
+            .fold(Stats::default(), |acc, (_, b)| {
+                acc.add(b.stats().max_each(Stats::default()))
+            })
+    }
+
+    pub(crate) fn max_possible_global_set_bonus_stats(&self) -> Stats {
+        self.global_set_bonuses
+            .iter()
             .fold(Stats::default(), |acc, (_, b)| {
                 acc.add(b.stats().max_each(Stats::default()))
             })

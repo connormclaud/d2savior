@@ -715,6 +715,7 @@ def _resolve_item_set_info(
     pal_spec: str,
     pal_offense: str = "caster",
     set_group_ids: dict[str, int] | None,
+    global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] | None = None,
 ) -> tuple[int, int, list[tuple[int, ItemSpec]], list[tuple[int, ItemSpec]]]:
     ext = item.ext_info
     if ext is None or ext.set_id is None:
@@ -736,14 +737,20 @@ def _resolve_item_set_info(
         pal_spec=pal_spec,
         pal_offense=pal_offense,
     )
-    global_bonuses = _extract_global_set_bonuses(
-        group_key,
-        resolver,
-        char_level,
-        char_class=char_class,
-        pal_spec=pal_spec,
-        pal_offense=pal_offense,
-    )
+    cache_key = (group_key, id(resolver.data))
+    if global_set_cache is not None and cache_key in global_set_cache:
+        global_bonuses = global_set_cache[cache_key]
+    else:
+        global_bonuses = _extract_global_set_bonuses(
+            group_key,
+            resolver,
+            char_level,
+            char_class=char_class,
+            pal_spec=pal_spec,
+            pal_offense=pal_offense,
+        )
+        if global_set_cache is not None:
+            global_set_cache[cache_key] = global_bonuses
     return group_id, ext.set_id + 1, bonuses, global_bonuses
 
 
@@ -770,6 +777,7 @@ def _item_to_spec(
     pal_spec: str = "leveling",
     pal_offense: str | None = None,
     set_group_ids: dict[str, int] | None = None,
+    global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] | None = None,
     skip_useful_check: bool = False,
     allow_eth_melee: bool = False,
     sorc_filler_id: int | None = None,
@@ -837,6 +845,7 @@ def _item_to_spec(
         pal_spec=pal_spec,
         pal_offense=resolved_offense,
         set_group_ids=set_group_ids,
+        global_set_cache=global_set_cache,
     )
 
     belt_slots = resolver.get_belt_rows(code) * 4 if slot == "belt" else 0
@@ -933,6 +942,7 @@ def _extract_char_specs(
     pal_offense: str,
     resolver: GameDataResolver,
     set_group_ids: dict[str, int],
+    global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     allow_eth_melee: bool = False,
     sorc_filler_id: int | None = None,
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
@@ -973,6 +983,7 @@ def _extract_char_specs(
             pal_spec=pal_spec,
             pal_offense=pal_offense,
             set_group_ids=set_group_ids,
+            global_set_cache=global_set_cache,
             skip_useful_check=use_active_eq,
             allow_eth_melee=allow_eth_melee,
             sorc_filler_id=sorc_filler_id,
@@ -1037,6 +1048,7 @@ def extract_pool(
     items_out: list[ItemSpec] = []
     charms_out: list[CharmSpec] = []
     set_group_ids: dict[str, int] = {}
+    global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] = {}
 
     primary_inactive_slots = (
         (EquipSlot.WEAPON_II, EquipSlot.SHIELD_II)
@@ -1055,6 +1067,7 @@ def extract_pool(
         pal_offense=resolved_pal_offense,
         resolver=resolver,
         set_group_ids=set_group_ids,
+        global_set_cache=global_set_cache,
         allow_eth_melee=allow_eth_melee,
         sorc_filler_id=sorc_filler_id,
     )
@@ -1081,6 +1094,7 @@ def extract_pool(
                     pal_spec=resolved_pal_spec,
                     pal_offense=resolved_pal_offense,
                     set_group_ids=set_group_ids,
+                    global_set_cache=global_set_cache,
                     allow_eth_melee=allow_eth_melee,
                     sorc_filler_id=sorc_filler_id,
                 )
@@ -1101,6 +1115,7 @@ def extract_pool(
             pal_offense=resolved_pal_offense,
             resolver=resolver,
             set_group_ids=set_group_ids,
+            global_set_cache=global_set_cache,
             allow_eth_melee=allow_eth_melee,
             sorc_filler_id=sorc_filler_id,
         )

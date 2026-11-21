@@ -955,6 +955,132 @@ pub fn optimize_builds_core(
         .fold(Stats::default(), |acc, h| acc.max_each(h.max_stats));
     suf[0] = suf[1].add(hands_max);
 
+    struct GlobalSetBounds {
+        bonuses: Vec<Stats>,
+        overflow_ub: Stats,
+        hand_masks: Vec<(u64, u64)>,
+        group_masks: Vec<Vec<u64>>,
+        ring_pair_masks: Vec<(u64, u64)>,
+        suf_one: Vec<u64>,
+        suf_two: Vec<u64>,
+    }
+
+    impl GlobalSetBounds {
+        fn build(hands: &[ItemPair], groups: &[Vec<ItemSpec>], ring_pairs: &[ItemPair]) -> Self {
+            let mut group_to_idx: HashMap<i32, usize> = HashMap::new();
+            let mut bonuses: Vec<Stats> = Vec::new();
+            let mut overflow_groups: HashMap<i32, Stats> = HashMap::new();
+
+            let mut register = |it: &ItemSpec| {
+                if it.set_group == 0 || it.global_set_bonuses.is_empty() {
+                    return;
+                }
+                let max_b = it.max_possible_global_set_bonus_stats();
+                if max_b == Stats::default() {
+                    return;
+                }
+                if let Some(&idx) = group_to_idx.get(&it.set_group) {
+                    bonuses[idx] = bonuses[idx].max_each(max_b);
+                } else if let Some(prev) = overflow_groups.get_mut(&it.set_group) {
+                    *prev = prev.max_each(max_b);
+                } else if bonuses.len() < 64 {
+                    let idx = bonuses.len();
+                    group_to_idx.insert(it.set_group, idx);
+                    bonuses.push(max_b);
+                } else {
+                    overflow_groups.insert(it.set_group, max_b);
+                }
+            };
+
+            for h in hands {
+                register(&h.first);
+                register(&h.second);
+            }
+            for grp in groups {
+                for it in grp {
+                    register(it);
+                }
+            }
+            for rp in ring_pairs {
+                register(&rp.first);
+                register(&rp.second);
+            }
+
+            let overflow_ub = overflow_groups
+                .into_values()
+                .fold(Stats::default(), |acc, s| acc.add(s));
+
+            let bit_of = |it: &ItemSpec| -> u64 {
+                if it.set_group == 0 {
+                    0
+                } else {
+                    group_to_idx
+                        .get(&it.set_group)
+                        .map_or(0, |&idx| 1u64 << idx)
+                }
+            };
+            let pair_mask = |p: &ItemPair| -> (u64, u64) {
+                let b1 = bit_of(&p.first);
+                let b2 = bit_of(&p.second);
+                (b1 | b2, b1 & b2)
+            };
+
+            let hand_masks: Vec<(u64, u64)> = hands.iter().map(&pair_mask).collect();
+            let group_masks: Vec<Vec<u64>> = groups
+                .iter()
+                .map(|grp| grp.iter().map(&bit_of).collect())
+                .collect();
+            let ring_pair_masks: Vec<(u64, u64)> = ring_pairs.iter().map(&pair_mask).collect();
+
+            let n = 1 + groups.len() + 1;
+            let mut slot_one = vec![0u64; n];
+            let mut slot_two = vec![0u64; n];
+            for &(m1, m2) in &hand_masks {
+                slot_one[0] |= m1;
+                slot_two[0] |= m2;
+            }
+            for (k, gm) in group_masks.iter().enumerate() {
+                for &m in gm {
+                    slot_one[k + 1] |= m;
+                }
+            }
+            for &(m1, m2) in &ring_pair_masks {
+                slot_one[n - 1] |= m1;
+                slot_two[n - 1] |= m2;
+            }
+
+            let mut suf_one = vec![0u64; n + 1];
+            let mut suf_two = vec![0u64; n + 1];
+            for i in (0..n).rev() {
+                suf_two[i] = suf_two[i + 1] | slot_two[i] | (suf_one[i + 1] & slot_one[i]);
+                suf_one[i] = suf_one[i + 1] | slot_one[i];
+            }
+
+            Self {
+                bonuses,
+                overflow_ub,
+                hand_masks,
+                group_masks,
+                ring_pair_masks,
+                suf_one,
+                suf_two,
+            }
+        }
+
+        #[inline]
+        fn ub_for_mask(&self, mut mask: u64) -> Stats {
+            let mut acc = self.overflow_ub;
+            while mask != 0 {
+                let b = mask.trailing_zeros() as usize;
+                acc = acc.add(self.bonuses[b]);
+                mask &= mask - 1;
+            }
+            acc
+        }
+    }
+
+    let global_sets = GlobalSetBounds::build(&hands, &groups, &ring_pairs);
+
     const RELAXED_MIN_CR: i32 = -1_000_000;
 
     struct SearchPool<'a> {
@@ -962,6 +1088,7 @@ pub fn optimize_builds_core(
         groups: &'a [Vec<ItemSpec>],
         ring_pairs: &'a [ItemPair],
         suf: &'a [Stats],
+        global_sets: &'a GlobalSetBounds,
         raw_pool: &'a [&'a CharmSpec],
     }
 
@@ -1032,6 +1159,7 @@ pub fn optimize_builds_core(
             groups: &'a [Vec<ItemSpec>],
             ring_pairs: &'a [ItemPair],
             suf: &'a [Stats],
+            global_sets: &'a GlobalSetBounds,
             ch: Stats,
             charm_solver: CharmSolver<'a>,
             c: &'a BuildConstraints,
@@ -1043,8 +1171,19 @@ pub fn optimize_builds_core(
             top_results: TopResults,
         }
 
-        fn dfs(st: &mut State<'_>, idx: usize, acc: Stats, reqs: (i32, i32)) {
-            let ub = acc.add(st.suf[idx]);
+        fn dfs(
+            st: &mut State<'_>,
+            idx: usize,
+            acc: Stats,
+            reqs: (i32, i32),
+            g_one: u64,
+            g_two: u64,
+        ) {
+            let possible_g =
+                g_two | (g_one & st.global_sets.suf_one[idx]) | st.global_sets.suf_two[idx];
+            let ub = acc
+                .add(st.suf[idx])
+                .add(st.global_sets.ub_for_mask(possible_g));
             if ub.fcr < st.c.min_fcr
                 || (st.c.require_cbf && ub.cbf <= 0)
                 || ub.ias < st.c.min_ias
@@ -1093,8 +1232,12 @@ pub fn optimize_builds_core(
             if idx == st.groups.len() + 1 {
                 let hand = &st.hands[st.chosen_hand];
                 let hw = hand.first.hand_weapon();
-                for rp in st.ring_pairs {
-                    let leaf_ub = acc.add(rp.max_stats);
+                for (rp_idx, rp) in st.ring_pairs.iter().enumerate() {
+                    let (rp_one, rp_two) = st.global_sets.ring_pair_masks[rp_idx];
+                    let leaf_possible_g = g_two | rp_two | (g_one & rp_one);
+                    let leaf_ub = acc
+                        .add(rp.max_stats)
+                        .add(st.global_sets.ub_for_mask(leaf_possible_g));
                     if leaf_ub.fcr < st.c.min_fcr
                         || (st.c.require_cbf && leaf_ub.cbf <= 0)
                         || leaf_ub.ias < st.c.min_ias
@@ -1268,12 +1411,15 @@ pub fn optimize_builds_core(
                 for pos in 0..st.hand_order.len() {
                     let i = st.hand_order[pos];
                     let h = &st.hands[i];
+                    let (h_one, h_two) = st.global_sets.hand_masks[i];
                     st.chosen_hand = i;
                     dfs(
                         st,
                         1,
                         acc.add(h.max_stats),
                         merge_reqs(reqs, h.reqs),
+                        h_one,
+                        h_two,
                     );
                 }
                 return;
@@ -1282,12 +1428,15 @@ pub fn optimize_builds_core(
             let g = idx - 1;
             for i in 0..st.groups[g].len() {
                 let it = &st.groups[g][i];
+                let bit = st.global_sets.group_masks[g][i];
                 st.chosen_slots.push(i);
                 dfs(
                     st,
                     idx + 1,
                     acc.add(it.max_total_stats()),
                     merge_reqs(reqs, item_eff_reqs(it)),
+                    g_one | bit,
+                    g_two | (g_one & bit),
                 );
                 st.chosen_slots.pop();
             }
@@ -1309,8 +1458,15 @@ pub fn optimize_builds_core(
             let hand_ubs: Vec<i32> = pool
                 .hands
                 .iter()
-                .map(|h| {
-                    let ub_h = tail_ub.add(h.max_stats);
+                .enumerate()
+                .map(|(h_idx, h)| {
+                    let (h_one, h_two) = pool.global_sets.hand_masks[h_idx];
+                    let possible_h = h_two
+                        | (h_one & pool.global_sets.suf_one[1])
+                        | pool.global_sets.suf_two[1];
+                    let ub_h = tail_ub
+                        .add(h.max_stats)
+                        .add(pool.global_sets.ub_for_mask(possible_h));
                     OffenseProfile::dps_bucket(
                         offense.compute_dps(h.first.hand_weapon(), ub_h, c).0,
                     )
@@ -1331,6 +1487,7 @@ pub fn optimize_builds_core(
             groups: pool.groups,
             ring_pairs: pool.ring_pairs,
             suf: pool.suf,
+            global_sets: pool.global_sets,
             ch,
             charm_solver,
             c,
@@ -1342,7 +1499,7 @@ pub fn optimize_builds_core(
             top_results: TopResults::new(c.limit),
         };
 
-        dfs(&mut state, 0, init_acc, (0, 0));
+        dfs(&mut state, 0, init_acc, (0, 0), 0, 0);
 
         let total_evals = state.evals;
         (state.top_results.finish(total_evals), has_cold_sunder)
@@ -1360,6 +1517,7 @@ pub fn optimize_builds_core(
         groups: &groups,
         ring_pairs: &ring_pairs,
         suf: &suf,
+        global_sets: &global_sets,
         raw_pool: &raw_pool,
     };
     let (results, has_cold_sunder) = run_search_pass(&pool, c, mode, offense);
