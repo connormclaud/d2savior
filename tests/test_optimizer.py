@@ -738,6 +738,17 @@ def test_detect_cta_bo_bonus_and_excludes_swap_cta(monkeypatch: pytest.MonkeyPat
     items, _ = extract_pool(sork, resolver=resolver)
     assert not any("Swap" in it.loc for it in items)
 
+    # When weapon_set == 1, WEAPON_I/SHIELD_I are the swap set and WEAPON_II is active Equipped.
+    sork.weapon_set = 1
+    cta_item.position = EquipSlot.WEAPON_I
+    swap_shield.position = EquipSlot.SHIELD_I
+    active_w2 = sork.item_list.items[2]
+    active_w2.location = ItemLocation.EQUIPPED
+    active_w2.position = EquipSlot.WEAPON_II
+    items_w2, _ = extract_pool(sork, resolver=resolver)
+    assert not any("Swap" in it.loc for it in items_w2)
+    assert any(it.loc == "sork Equipped" and it.slot in ("weapon", "weapon2h") for it in items_w2)
+
 
 @requires_native
 def test_belt_slots_and_defense_prefer_upped_goldwrap() -> None:

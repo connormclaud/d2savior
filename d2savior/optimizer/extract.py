@@ -20,6 +20,7 @@ from d2savior.optimizer.common import (
     ALL_GEAR_SLOTS,
     _item_cta_bo,
     _item_levelreq,
+    inactive_weapon_slots,
     parse_keep_gear,
 )
 from d2savior.optimizer.native import CharmSpec, ItemSpec
@@ -692,9 +693,13 @@ def _extract_global_set_bonuses(
     return bonuses
 
 
-def _format_item_location(char_name: str, item: D2Item) -> str:
+def _format_item_location(
+    char_name: str,
+    item: D2Item,
+    swap_slots: tuple[EquipSlot, EquipSlot] = _SWAP_SLOTS,
+) -> str:
     if item.location == ItemLocation.EQUIPPED:
-        if item.position in _SWAP_SLOTS:
+        if item.position in swap_slots:
             return f"{char_name} Swap"
         return f"{char_name} Equipped"
     if item.stored_in == StoredIn.STASH:
@@ -931,9 +936,12 @@ def _item_to_spec(
     )
 
 
-def _char_item_locality_rank(item: D2Item) -> int:
+def _char_item_locality_rank(
+    item: D2Item,
+    swap_slots: tuple[EquipSlot, EquipSlot] = _SWAP_SLOTS,
+) -> int:
     if item.location == ItemLocation.EQUIPPED:
-        return 1 if item.position in _SWAP_SLOTS else 0
+        return 1 if item.position in swap_slots else 0
     if item.stored_in == StoredIn.INVENTORY:
         return 2
     if item.stored_in == StoredIn.STASH:
@@ -960,9 +968,10 @@ def _extract_char_specs(
     ver = char.version or 0x63
     char_resolver = resolver.for_version(ver)
     keep_all = kept_slots == ALL_GEAR_SLOTS
+    char_swap_slots = inactive_weapon_slots(char)
     has_swap_cta = any(
         it.location == ItemLocation.EQUIPPED
-        and it.position in _SWAP_SLOTS
+        and it.position in char_swap_slots
         and _item_cta_bo(it, char_resolver, ver) is not None
         for it in char.item_list.items
     )
@@ -980,10 +989,12 @@ def _extract_char_specs(
         if keep_all:
             if not (is_active_primary_eq or is_charm):
                 continue
-        elif has_swap_cta and it.location == ItemLocation.EQUIPPED and it.position in _SWAP_SLOTS:
+        elif (
+            has_swap_cta and it.location == ItemLocation.EQUIPPED and it.position in char_swap_slots
+        ):
             continue
 
-        loc = _format_item_location(char_name, it)
+        loc = _format_item_location(char_name, it, swap_slots=char_swap_slots)
         exclude_slots = frozenset() if is_active_primary_eq else kept_slots
         skip_useful_slots = kept_slots if is_active_primary_eq else frozenset()
         spec = _item_to_spec(
@@ -1003,7 +1014,7 @@ def _extract_char_specs(
             sorc_filler_id=sorc_filler_id,
         )
         if isinstance(spec, ItemSpec):
-            char_items.append((_char_item_locality_rank(it), spec))
+            char_items.append((_char_item_locality_rank(it, swap_slots=char_swap_slots), spec))
         elif isinstance(spec, CharmSpec):
             sort_key = (
                 (0, getattr(it, "column", 0), getattr(it, "row", 0))
@@ -1066,11 +1077,7 @@ def extract_pool(
     set_group_ids: dict[str, int] = {}
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] = {}
 
-    primary_inactive_slots = (
-        (EquipSlot.WEAPON_II, EquipSlot.SHIELD_II)
-        if primary_char.weapon_set == 0
-        else (EquipSlot.WEAPON_I, EquipSlot.SHIELD_I)
-    )
+    primary_inactive_slots = inactive_weapon_slots(primary_char)
 
     ch_items, ch_charms = _extract_char_specs(
         primary_char,

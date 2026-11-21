@@ -12,6 +12,7 @@ from d2savior.core.stats import get_current_difficulty, get_difficulty_resist_pe
 from d2savior.optimizer.common import (
     CharacterBaseline,
     _compute_anya_bonus,
+    active_skill_bindings,
     detect_cta_bo_bonus,
     resolve_fixed_gear,
     validate_paladin,
@@ -113,8 +114,9 @@ def paladin_offense_profile(
     if spec in ("holy-fire", "holy-freeze", "holy-shock", "leveling") and char_data is not None:
         skills = char_data.skills.skill_levels if char_data.skills else ()
         has_zeal = len(skills) > _PAL_ZEAL and skills[_PAL_ZEAL] > 0
-        eff_left = left_skill if left_skill is not None else char_data.left_skill_1
-        eff_right = right_skill if right_skill is not None else char_data.right_skill_1
+        active_left, active_right = active_skill_bindings(char_data)
+        eff_left = left_skill if left_skill is not None else active_left
+        eff_right = right_skill if right_skill is not None else active_right
         has_bindings = (
             left_skill is not None or right_skill is not None or eff_left != 0 or eff_right != 0
         )
@@ -137,8 +139,9 @@ def detect_paladin_spec(
     skills = char_data.skills.skill_levels if char_data.skills else ()
     if len(skills) < 30:
         return "leveling"
+    active_left, active_right = active_skill_bindings(char_data)
     if right_skill == -1:
-        eff_left = left_skill if left_skill is not None else char_data.left_skill_1
+        eff_left = left_skill if left_skill is not None else active_left
         return "zeal" if eff_left == _SKILL_ID_ZEAL else "leveling"
     if right_skill is not None and right_skill > 0:
         for spec_name in ("holy-fire", "holy-freeze", "holy-shock"):
@@ -191,8 +194,8 @@ def detect_paladin_spec(
         ),
         (skills[_PAL_SACRIFICE], skills[_PAL_SACRIFICE] + skills[_PAL_FANATICISM], "sacrifice"),
     ]
-    eff_left = left_skill if left_skill is not None else char_data.left_skill_1
-    eff_right = right_skill if right_skill is not None else char_data.right_skill_1
+    eff_left = left_skill if left_skill is not None else active_left
+    eff_right = right_skill if right_skill is not None else active_right
     active_bindings = {eff_left, eff_right}
     best_pts, _, _, best_spec = max(
         (

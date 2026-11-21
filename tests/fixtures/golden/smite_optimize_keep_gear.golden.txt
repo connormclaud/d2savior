@@ -4,7 +4,7 @@ Option #1: High Breakpoint (27% FHR, 6f) (evaluated 1 pruned sets):
   FHR: 30% (BP 27%, 6f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
   Normal Res: F:71%(71) L:49%(49) C:62%(62) P:69%(69)
   Life: 694 | Mana: 88 | Charm slots: 26
-    - weapon2h: Raven Claw (Long Bow) (smite Swap)
+    - weapon2h: Raven Claw (Long Bow) (smite Equipped)
     - shield  : (empty)
     - helm    : Peasant Crown (War Hat) (smite Equipped)
     - armor   : The Spirit Shroud (Ghost Armor) (smite Equipped)
@@ -23,7 +23,7 @@ Option #2: Lower FHR BP (15%, 7f) — Better Resists (evaluated 1 pruned sets):
   FHR: 18% (BP 15%, 7f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
   Normal Res: F:71%(71) L:49%(49) C:75%(76) P:75%(77)
   Life: 694 | Mana: 88 | Charm slots: 26
-    - weapon2h: Raven Claw (Long Bow) (smite Swap)
+    - weapon2h: Raven Claw (Long Bow) (smite Equipped)
     - shield  : (empty)
     - helm    : Peasant Crown (War Hat) (smite Equipped)
     - armor   : The Spirit Shroud (Ghost Armor) (smite Equipped)
@@ -42,7 +42,7 @@ Option #3: Lower FHR BP (0%, 9f) — Better Resists (evaluated 1 pruned sets):
   FHR: 5% (BP 0%, 9f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
   Normal Res: F:76%(77) L:55%(55) C:75%(76) P:74%(74)
   Life: 694 | Mana: 88 | Charm slots: 26
-    - weapon2h: Raven Claw (Long Bow) (smite Swap)
+    - weapon2h: Raven Claw (Long Bow) (smite Equipped)
     - shield  : (empty)
     - helm    : Peasant Crown (War Hat) (smite Equipped)
     - armor   : The Spirit Shroud (Ghost Armor) (smite Equipped)

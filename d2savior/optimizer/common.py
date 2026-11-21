@@ -70,6 +70,20 @@ _SWAP_SLOTS: tuple[EquipSlot, EquipSlot] = (EquipSlot.WEAPON_II, EquipSlot.SHIEL
 _SKILL_BATTLE_ORDERS = 149
 
 
+def active_skill_bindings(char_data: D2SStruct) -> tuple[int, int]:
+    """Return `(left_skill, right_skill)` for the character's currently active weapon set."""
+    if char_data.weapon_set == 0:
+        return char_data.left_skill_1, char_data.right_skill_1
+    return char_data.left_skill_2, char_data.right_skill_2
+
+
+def inactive_weapon_slots(char_data: D2SStruct) -> tuple[EquipSlot, EquipSlot]:
+    """Return the inactive (swap) weapon/shield EquipSlots for the character's active weapon set."""
+    if char_data.weapon_set == 0:
+        return (EquipSlot.WEAPON_II, EquipSlot.SHIELD_II)
+    return (EquipSlot.WEAPON_I, EquipSlot.SHIELD_I)
+
+
 def _validate_char_class(char_data: D2SStruct, allowed: tuple[CharClass, ...], label: str) -> None:
     if char_data.char_class not in allowed:
         actual = CharClass(char_data.char_class).display_name

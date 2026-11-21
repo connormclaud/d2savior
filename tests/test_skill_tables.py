@@ -133,6 +133,13 @@ class TestSorcDpsTablesAndOverrides:
         assert t_none.filler_dmg == ()
         assert t_none.filler_skill_name is None
 
+        # Weapon Set II reads left_skill_2 / right_skill_2.
+        c_w2 = _make_sorc({3: 14, 9: 20, 19: 20, 23: 20}, left=45, right=59)
+        c_w2.left_skill_2 = 55  # Glacial Spike
+        c_w2.right_skill_2 = 59
+        c_w2.weapon_set = 1
+        assert resolve_sorc_filler_skill(c_w2, targets=1) == 55
+
     def test_resolve_skill_override(self):
         assert resolve_skill_override("none") == -1
         assert resolve_skill_override("attack") == 0

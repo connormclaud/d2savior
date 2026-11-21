@@ -881,6 +881,14 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
     assert _format_item_location("hero", it) == "hero Swap"
     assert _char_item_locality_rank(it) == 1
 
+    # When Weapon Set II is active, Weapon I / Shield I are swap slots and Weapon II / Shield II are equipped.
+    w2_swap = (EquipSlot.WEAPON_I, EquipSlot.SHIELD_I)
+    assert _format_item_location("hero", it, swap_slots=w2_swap) == "hero Equipped"
+    assert _char_item_locality_rank(it, swap_slots=w2_swap) == 0
+    it.position = EquipSlot.WEAPON_I.value
+    assert _format_item_location("hero", it, swap_slots=w2_swap) == "hero Swap"
+    assert _char_item_locality_rank(it, swap_slots=w2_swap) == 1
+
     it.location = ItemLocation.STORED.value
     it.stored_in = StoredIn.INVENTORY.value
     assert _format_item_location("hero", it) == "hero Inv"
@@ -1147,6 +1155,19 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     pal.left_skill_1 = 106
     pal.right_skill_1 = 102
     assert paladin_offense_profile("holy-fire", pal) == "zeal"
+
+    # Weapon Set II reads left_skill_2 / right_skill_2 instead of *_1.
+    pal.weapon_set = 1
+    pal.left_skill_2 = 0
+    pal.right_skill_2 = 102
+    assert paladin_offense_profile("holy-fire", pal) == "melee"
+
+    from d2savior.optimizer.paladin import detect_paladin_spec
+
+    pal.skills.skill_levels[18] = 20  # Tie Holy Freeze (20) with Holy Fire (20)
+    assert detect_paladin_spec(pal) == "holy-fire"
+    pal.right_skill_2 = 114  # Active swap binding selects Holy Freeze
+    assert detect_paladin_spec(pal) == "holy-freeze"
 
 
 def test_parse_keep_gear_and_resolve_fixed_gear() -> None:

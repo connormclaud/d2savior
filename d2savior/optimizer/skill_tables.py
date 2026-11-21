@@ -9,6 +9,7 @@ from d2savior.core.constants import CLASS_SKILL_BASES
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import CharClass
 from d2savior.core.loader import TsvReader
+from d2savior.optimizer.common import active_skill_bindings
 
 DEFAULT_MAX_SKILL_BONUS = 40
 
@@ -303,8 +304,9 @@ def resolve_sorc_filler_skill(
     ib_pts = _sorc_hard_pts(skill_levels, _SKILL_ICE_BLAST)
     gs_pts = _sorc_hard_pts(skill_levels, _SKILL_GLACIAL_SPIKE)
 
-    eff_left = left_skill if left_skill is not None else char_data.left_skill_1
-    eff_right = right_skill if right_skill is not None else char_data.right_skill_1
+    active_left, active_right = active_skill_bindings(char_data)
+    eff_left = left_skill if left_skill is not None else active_left
+    eff_right = right_skill if right_skill is not None else active_right
     for sid, explicit in ((eff_left, left_skill is not None), (eff_right, right_skill is not None)):
         if sid in _SORC_FILLER_NAMES and (explicit or _sorc_hard_pts(skill_levels, sid) > 0):
             return sid
