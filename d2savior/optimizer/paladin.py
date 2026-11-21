@@ -470,8 +470,11 @@ def _describe_lower_fhr_tradeoff(
     sk_diff: int,
     res_diff: int,
 ) -> str:
+    # Tradeoff labels ("Higher DPS") compare CTH-adjusted effective DPS (`res.dps`) used by
+    # ranking/dedup, whereas report lines intentionally display sheet `raw_dps` + `AR (CTH%)`.
     frames = PALADIN_FHR_FRAMES.get(res.fhr_bp, 9)
     prefix = f"Lower FHR BP ({res.fhr_bp}%, {frames}f)"
+    # Compare effective DPS (`res.dps`), matching ranking/dedup (see `_describe_lower_fhr_tradeoff`).
     dps1 = getattr(opt1, "dps", 0.0)
     dps2 = getattr(res, "dps", 0.0)
     gained_dps = dps2 > dps1 * 1.02 if dps1 > 0.0 else False
@@ -515,6 +518,7 @@ def _describe_paladin_tradeoff(
     sk_diff = _eff_paladin_skills(res, has_aura=has_aura) - _eff_paladin_skills(
         opt1, has_aura=has_aura
     )
+    # Compare effective DPS (`res.dps`), matching ranking/dedup (see `_describe_lower_fhr_tradeoff`).
     dps1 = getattr(opt1, "dps", 0.0)
     dps2 = getattr(res, "dps", 0.0)
     if res.fhr_bp < opt1.fhr_bp:

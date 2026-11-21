@@ -116,6 +116,8 @@ def _format_paladin_option_lines(
         skill_str = f"Skills: +{res.skills}"
     dps_val = getattr(res, "dps", 0.0)
     if dps_val > 0.0:
+        # Intentionally display unadjusted sheet `raw_dps` alongside AR/CTH while ranking and
+        # tradeoff comparisons use CTH-adjusted `res.dps`.
         shown_dps = getattr(res, "raw_dps", 0.0) or dps_val
         atk_label = "Zeal" if getattr(res, "used_zeal", False) else "Attack"
         cth_val = getattr(res, "cth", 0)
