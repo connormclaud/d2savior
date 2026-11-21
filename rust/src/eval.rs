@@ -246,11 +246,21 @@ pub(crate) fn eval_build_summary(
     };
 
     let (_, blizz_avg_base, cm_pierce) = if class.has_blizzard_calc() {
+        let blizz_eff = if c.blizz_base_lvl > 0 || gear.blizz_skills > 0 {
+            skills + gear.blizz_skills
+        } else {
+            0
+        };
+        let cm_eff = if c.cm_base_lvl > 0 || gear.cm_skills > 0 {
+            skills + gear.cm_skills
+        } else {
+            0
+        };
         blizzard_damage_split(
-            skills + gear.blizz_skills,
+            blizz_eff,
             c.blizz_base_lvl,
             c.blizz_syn_pts,
-            skills + gear.cm_skills,
+            cm_eff,
             c.cm_base_lvl,
         )
     } else {

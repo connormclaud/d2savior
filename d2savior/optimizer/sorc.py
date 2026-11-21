@@ -7,6 +7,7 @@ from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import CharClass
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
+from d2savior.core.stats import get_current_difficulty, get_difficulty_resist_penalty
 from d2savior.optimizer.common import (
     CharacterBaseline,
     _compute_anya_bonus,
@@ -109,7 +110,7 @@ _SORC_PRESET_SPECS: frozendict[
 
 
 def _extract_blizz_base_skills(char_data: D2SStruct) -> tuple[int, int, int]:
-    """Return (blizz_base_lvl, blizz_syn_pts, cm_base_lvl) or (20, 54, 20) fallback."""
+    """Return (blizz_base_lvl, blizz_syn_pts, cm_base_lvl), or (0, 0, 0) if Blizzard == 0."""
     skills = char_data.skills.skill_levels if char_data.skills else ()
     sorc_base = CLASS_SKILL_BASES[int(CharClass.SORCERESS)]
     if len(skills) >= 30:
@@ -118,7 +119,7 @@ def _extract_blizz_base_skills(char_data: D2SStruct) -> tuple[int, int, int]:
             syn_pts = sum(skills[sid - sorc_base] for sid in _BLIZZ_SYNERGY_SKILLS)
             cm_base = skills[_SKILL_COLD_MASTERY - sorc_base]
             return blizz_base, syn_pts, cm_base
-    return 20, 54, 20
+    return 0, 0, 0
 
 
 def select_sorc_presets(
@@ -147,9 +148,14 @@ def select_sorc_presets(
         # Re-raise with the legacy error message format expected by existing tests.
         valid = ", ".join((*BUILD_PRESET_ALIASES.keys(), "leveling"))
         raise ValueError(f"Unknown build preset '{build}'; expected one of: {valid}") from None
+    char_level = max(1, char_data.player_stats.level or char_data.char_level)
+    diff_idx = get_current_difficulty(char_data)
+    base_res = get_difficulty_resist_penalty(char_data, diff_idx) + _compute_anya_bonus(char_data)
     if bo_base_bonus is None:
         res_obj = resolver if resolver is not None else GameDataResolver.load()
-        bo_base_bonus = detect_cta_bo_bonus((char_data, *extra_chars), stashes, res_obj, default=4)
+        bo_base_bonus = detect_cta_bo_bonus(
+            (char_data, *extra_chars), stashes, res_obj, max_level=char_level, default=0
+        )
 
     eff_targets = max(1, targets)
     blizz_base_lvl, blizz_syn_pts, cm_base_lvl = _extract_blizz_base_skills(char_data)
@@ -164,11 +170,12 @@ def select_sorc_presets(
         char_class=int(CharClass.SORCERESS),
         base_life=char_data.player_stats.max_life,
         base_mana=char_data.player_stats.max_mana,
-        base_hell_res=-100 + _compute_anya_bonus(char_data),
+        base_hell_res=base_res,
         base_str=char_data.player_stats.strength,
         base_dex=char_data.player_stats.dexterity,
         max_charm_slots=max_charm_slots,
         bo_base_bonus=bo_base_bonus,
+        use_bo=bo_base_bonus > 0,
         fixed_gear=fixed_all,
         fixed_slots=fixed_slots,
         blizz_base_lvl=blizz_base_lvl,

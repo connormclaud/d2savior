@@ -364,9 +364,9 @@ def test_sorc_presets_and_blizz_base_skills(monkeypatch: pytest.MonkeyPatch) -> 
     assert _extract_blizz_base_skills(sork) == (20, 35, 20)
     assert sork.skills is not None
     sork.skills.skill_levels[23] = 0
-    assert _extract_blizz_base_skills(sork) == (20, 54, 20)
+    assert _extract_blizz_base_skills(sork) == (0, 0, 0)
     sork.skills.skill_levels = []
-    assert _extract_blizz_base_skills(sork) == (20, 54, 20)
+    assert _extract_blizz_base_skills(sork) == (0, 0, 0)
 
     with pytest.raises(ValueError, match="expected Sorceress"):
         select_sorc_presets(mule)
@@ -376,9 +376,15 @@ def test_sorc_presets_and_blizz_base_skills(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr("d2savior.optimizer.common.BuildConstraints", _FakeConstraints)
     all_presets = select_sorc_presets(sork, build="all", max_charm_slots=20, limit=2)
     assert len(all_presets) == 5
+    c_sork = cast(_FakeConstraints, all_presets[0][1])
+    assert c_sork.base_hell_res == -20  # Nightmare (-40) + Normal/NM Anya (+20)
+    assert c_sork.bo_base_bonus == 0
+    assert c_sork.use_bo is False
+
     mf_presets = select_sorc_presets(sork, build="mf", resolver=resolver, bo_base_bonus=6)
     assert len(mf_presets) == 2
     assert cast(_FakeConstraints, mf_presets[0][1]).bo_base_bonus == 6
+    assert cast(_FakeConstraints, mf_presets[0][1]).use_bo is True
     assert cast(_FakeConstraints, mf_presets[0][1]).mode == "mf"
     tz_presets = select_sorc_presets(sork, build="tz", resolver=resolver, bo_base_bonus=4)
     assert len(tz_presets) == 1
@@ -816,6 +822,25 @@ def test_report_formatting_sorc_paladin_and_charms() -> None:
     assert "Blizz Avg: 3500" in sorc_report
     assert "- weapon  : Spirit (sork Equipped)" in sorc_report
     assert "- ring    : X" in sorc_report
+
+    sorc_noblizz_nobo = _as_result(
+        _FakeBuildResult(
+            skills=2,
+            blizz_avg=0.0,
+            cm_pierce=0,
+            bo_lvl=0,
+            life_no_bo=400,
+            life_bo=400,
+            mana_bo=150,
+            charm_slots=0,
+        )
+    )
+    noblizz_report = format_build_report("Normal Sorc", [sorc_noblizz_nobo], diff_name="Normal")
+    assert "Blizz Avg" not in noblizz_report
+    assert "CM:" not in noblizz_report
+    assert "Normal Res:" in noblizz_report
+    assert "BO lvl" not in noblizz_report
+    assert "Life: 400 | Mana: 150" in noblizz_report
 
     # Paladin reports: with primary skill + BO + DR/LL, and without primary skill + BO=0
     pal_res_bo = _as_result(

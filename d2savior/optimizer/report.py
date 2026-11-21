@@ -187,20 +187,28 @@ def format_build_report(
             dps_prefix = f"DPS: {dps_val:.0f} ({dps_label}) | "
         else:
             dps_prefix = ""
-        lines.append(
-            f"  {dps_prefix}Skills: +{res.skills} | Blizz Avg: {res.blizz_avg:.0f} | CM: {res.cm_pierce}%"
+        blizz_suffix = (
+            f" | Blizz Avg: {res.blizz_avg:.0f} | CM: {res.cm_pierce}%"
+            if (res.blizz_avg > 0.0 or res.cm_pierce != 0)
+            else ""
         )
+        lines.append(f"  {dps_prefix}Skills: +{res.skills}{blizz_suffix}")
         fcr_f = SORCERESS_FCR_FRAMES.get(res.fcr_bp, 13)
         fhr_f = SORCERESS_FHR_FRAMES.get(res.fhr_bp, 15)
         lines.append(
             f"  FCR: {res.fcr}% (BP {res.fcr_bp}%, {fcr_f}f) | FHR: {res.fhr}% (BP {res.fhr_bp}%, {fhr_f}f) | FRW: {res.frw}% | MF: {res.mf}%"
         )
         lines.append(
-            f"  Hell Res: F:{res.fr}%({res.fr_raw}) L:{res.lr}%({res.lr_raw}) C:{res.cr}%({res.cr_raw}) P:{res.pr}%({res.pr_raw})"
+            f"  {diff_name} Res: F:{res.fr}%({res.fr_raw}) L:{res.lr}%({res.lr_raw}) C:{res.cr}%({res.cr_raw}) P:{res.pr}%({res.pr_raw})"
         )
-        lines.append(
-            f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"
-        )
+        if res.bo_lvl > 0:
+            lines.append(
+                f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"
+            )
+        else:
+            lines.append(
+                f"  Life: {res.life_no_bo} | Mana: {res.mana_bo} | Charm slots: {res.charm_slots}"
+            )
         for it in res.items:
             loc_str = f" ({it.loc})" if it.loc else ""
             lines.append(f"    - {it.slot:8s}: {it.name}{loc_str}")

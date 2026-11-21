@@ -189,11 +189,13 @@ class TestSmokeAPI:
             sork, extra_chars=[mule], stashes=[stash], resolver=game_data_resolver
         )
         filler_name = build_sorc_dps_tables(sork).filler_skill_name
+        diff_name = DIFFICULTY_NAMES[get_current_difficulty(sork)]
         sections = [
             format_build_report(
                 title,
                 optimize_builds(items, charms, constraints),
                 charms,
+                diff_name=diff_name,
                 filler_skill_name=filler_name,
             )
             for title, constraints in select_sorc_presets(

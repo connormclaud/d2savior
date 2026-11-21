@@ -79,6 +79,29 @@ fn test_blizzard_damage_with_custom_base_skills() {
 
     // Unallocated (0, 0, 0) with 0 +skills gives 0 damage and 0% pierce
     assert_eq!(blizzard_damage_with_base(0, 0, 0, 0), (0.0, 0.0, 0));
+
+    // Non-Blizzard Sorc (0, 0, 0) with +3 All Skills gear still evaluates to 0 Blizzard / CM
+    let mut c_noblizz = BuildConstraints {
+        blizz_base_lvl: 0,
+        blizz_syn_pts: 0,
+        cm_base_lvl: 0,
+        use_bo: false,
+        bo_base_bonus: 0,
+        ..Default::default()
+    };
+    let circlet = mk_test_item("Circlet", "helm", 20, 0, 3, 0, 0);
+    let res_noblizz = eval_build_core(&[&circlet], &[], &c_noblizz, 1);
+    assert_eq!(res_noblizz.skills, 3);
+    assert_eq!(res_noblizz.blizz_avg, 0.0);
+    assert_eq!(res_noblizz.cm_pierce, 0);
+
+    // Staffmod +2 Blizzard on orb still produces Blizzard damage even with 0 hard points
+    let mut orb = mk_test_item("Staffmod Orb", "weapon", 20, 0, 0, 0, 0);
+    orb.blizz_skills = 2;
+    c_noblizz.base_hell_res = 0;
+    let res_staff = eval_build_core(&[&circlet, &orb], &[], &c_noblizz, 1);
+    assert!(res_staff.blizz_avg > 0.0);
+    assert_eq!(res_staff.cm_pierce, 0);
 }
 
 #[test]

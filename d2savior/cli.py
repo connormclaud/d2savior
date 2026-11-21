@@ -21,6 +21,7 @@ lazy from d2savior.core.char_formatter import (
     format_char_summary,
     format_timestamp,
 )
+lazy from d2savior.core.constants import DIFFICULTY_NAMES
 lazy from d2savior.core.d2s_struct import D2SStruct
 lazy from d2savior.core.enums import CharClass
 lazy from d2savior.core.ibitstream import IBitStream
@@ -37,6 +38,7 @@ lazy from d2savior.core.stash_formatter import (
     format_stash_info,
     format_stash_summary,
 )
+lazy from d2savior.core.stats import get_current_difficulty
 lazy from d2savior.optimizer import (
     PALADIN_BUILD_CHOICES,
     SORC_ONLY_BUILD_CHOICES,
@@ -566,6 +568,7 @@ def _run_sorc_optimize(
     filler_name = build_sorc_dps_tables(
         primary, left_skill=left_skill, right_skill=right_skill, targets=args.targets
     ).filler_skill_name
+    diff_name = DIFFICULTY_NAMES[get_current_difficulty(primary)]
     for title, constraints in select_sorc_presets(
         primary,
         build=args.build,
@@ -586,6 +589,7 @@ def _run_sorc_optimize(
                 title,
                 results,
                 charms,
+                diff_name=diff_name,
                 primary_inv_loc=primary_inv_loc,
                 filler_skill_name=filler_name,
             )

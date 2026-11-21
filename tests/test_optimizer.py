@@ -665,7 +665,7 @@ def test_bo_scales_flat_life_mana_not_per_lvl_or_vit_ene() -> None:
 
 
 @requires_native
-def test_blizzard_base_skills_from_save_and_fallback() -> None:
+def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     resolver = GameDataResolver.load()
     ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
     assert ok_s
@@ -681,15 +681,44 @@ def test_blizzard_base_skills_from_save_and_fallback() -> None:
     assert syn_custom < syn_default
     assert cm_custom == -(20 + 5 * (25 - 1))
 
-    # Fallback to (20, 54, 20) when Blizzard has 0 allocated hard points
+    # sork.d2s is Nightmare (diff=1 -> -40) with Normal+NM Anya (+20) => -20, and no CTA
+    assert c.base_hell_res == -20
+    assert c.bo_base_bonus == 0
+    assert c.use_bo is False
+
+    # Fallback to (0, 0, 0) when Blizzard has 0 allocated hard points
     assert sork.skills is not None
     sork.skills.skill_levels[23] = 0
     fallback_c = select_sorc_presets(sork, build="tz")[0][1]
     assert (fallback_c.blizz_base_lvl, fallback_c.blizz_syn_pts, fallback_c.cm_base_lvl) == (
-        20,
-        54,
-        20,
+        0,
+        0,
+        0,
     )
+
+    # Low-level Normal Sorc (Sorc.d2s, lvl 17, 0 Blizzard): Normal res penalty (0) & max_level filters high CTA
+    ok_n, norm_sorc, _ = parse_d2s_file(str(FIXTURES_DIR / "Sorc.d2s"), resolver=resolver)
+    assert ok_n
+    assert norm_sorc is not None
+    norm_c = select_sorc_presets(norm_sorc, build="tz", resolver=resolver)[0][1]
+    assert norm_c.base_hell_res == 0
+    assert (norm_c.blizz_base_lvl, norm_c.blizz_syn_pts, norm_c.cm_base_lvl) == (0, 0, 0)
+    assert norm_c.bo_base_bonus == 0
+    assert norm_c.use_bo is False
+
+    # High-level CTA (lvlreq 57) is ignored for lvl 17 Sorc because max_level=char_level
+    high_cta = norm_sorc.item_list.items[0]
+    cta_ptr = id(high_cta)
+    monkeypatch.setattr(
+        "d2savior.optimizer.common._item_levelreq", lambda it, _res: 57 if id(it) == cta_ptr else 1
+    )
+    monkeypatch.setattr(
+        "d2savior.optimizer.common.collect_item_properties",
+        lambda it, **_kw: [(127, 1, [1]), (97, 0, [149, 6])] if id(it) == cta_ptr else [],
+    )
+    norm_cta_c = select_sorc_presets(norm_sorc, build="tz", resolver=resolver)[0][1]
+    assert norm_cta_c.bo_base_bonus == 0
+    assert norm_cta_c.use_bo is False
 
 
 @requires_native
