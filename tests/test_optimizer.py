@@ -316,7 +316,7 @@ def test_cli_optimize_missing_native_extension_prints_clean_error(
     empty_report = format_build_report("Empty", [])
     assert "No loadout found matching all constraints." in empty_report
 
-    monkeypatch.setattr("d2savior.optimizer.extract.ItemSpec", _missing_native)
+    monkeypatch.setattr("d2savior.optimizer.extract_props.ItemSpec", _missing_native)
     monkeypatch.setattr("d2savior.optimizer.common.BuildConstraints", _missing_native)
     with pytest.raises(SystemExit) as exc:
         main(["optimize", "--no-config", "sork", str(FIXTURES_DIR)])

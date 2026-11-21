@@ -25,18 +25,20 @@ from d2savior.optimizer.common import (
     validate_supported_class,
 )
 from d2savior.optimizer.extract import (
-    _apply_paladin_prop,
-    _apply_props_to_acc,
-    _apply_sorc_prop,
     _char_item_locality_rank,
     _classify_slot,
     _effective_req,
     _extract_set_bonuses,
     _format_item_location,
     _item_to_spec,
-    _PropAcc,
     _resolve_item_set_info,
     extract_pool,
+)
+from d2savior.optimizer.extract_props import (
+    _apply_paladin_prop,
+    _apply_props_to_acc,
+    _apply_sorc_prop,
+    _PropAcc,
 )
 from d2savior.optimizer.native import BuildResult, CharmSpec
 from d2savior.optimizer.paladin import (
@@ -1081,6 +1083,8 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
     # Mock native ItemSpec & CharmSpec to test _item_to_spec, set bonuses, and extract_pool
     monkeypatch.setattr("d2savior.optimizer.extract.ItemSpec", _FakeItemSpec)
     monkeypatch.setattr("d2savior.optimizer.extract.CharmSpec", _FakeCharmSpec)
+    monkeypatch.setattr("d2savior.optimizer.extract_props.ItemSpec", _FakeItemSpec)
+    monkeypatch.setattr("d2savior.optimizer.extract_props.CharmSpec", _FakeCharmSpec)
 
     sock_it = D2Item()
     sock_it.location = ItemLocation.SOCKET.value
@@ -1196,7 +1200,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     assert phys_grief == phys_no_flat + 800
 
     # 3. Breakable eth melee weapon filtered by default; indestructible/allow_eth_melee kept + tagged (eth).
-    monkeypatch.setattr("d2savior.optimizer.extract.ItemSpec", _FakeItemSpec)
+    monkeypatch.setattr("d2savior.optimizer.extract_props.ItemSpec", _FakeItemSpec)
     eth_wep = D2Item()
     eth_wep.type_name = b"mau "
     eth_wep.is_ethereal = True
@@ -1510,7 +1514,7 @@ def test_normalize_keep_gear_argv_before_positionals() -> None:
 
 
 def test_to_charm_spec_preserves_all_skills_vit_and_ene(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("d2savior.optimizer.extract.CharmSpec", _FakeCharmSpec)
+    monkeypatch.setattr("d2savior.optimizer.extract_props.CharmSpec", _FakeCharmSpec)
     acc = _PropAcc(
         all_skills=1,
         sorc_skills=3,
@@ -1539,7 +1543,7 @@ def test_to_charm_spec_preserves_all_skills_vit_and_ene(monkeypatch: pytest.Monk
 
 def test_extract_per_level_attrs_res_def_and_pct_life() -> None:
     from d2savior.core.stats import calculate_effective_defence
-    from d2savior.optimizer.extract import _apply_props_to_acc
+    from d2savior.optimizer.extract_props import _apply_props_to_acc
 
     resolver = GameDataResolver.load()
     acc = _PropAcc()
@@ -1948,7 +1952,7 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
         for it in tab.items.items
         if it.code_str.strip().lower() == "fla"
     )
-    monkeypatch.setattr("d2savior.optimizer.extract.ItemSpec", _FakeItemSpec)
+    monkeypatch.setattr("d2savior.optimizer.extract_props.ItemSpec", _FakeItemSpec)
     flail_spec = _item_to_spec(
         black_flail,
         "Stash",
@@ -1994,7 +1998,7 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
     assert set_bonuses[0][1].flat_phys_2x == b_9bs.mindam + b_9bs.maxdam
 
     # 5. Damage charm extraction
-    monkeypatch.setattr("d2savior.optimizer.extract.CharmSpec", _FakeCharmSpec)
+    monkeypatch.setattr("d2savior.optimizer.extract_props.CharmSpec", _FakeCharmSpec)
     c_acc = _PropAcc(ar=20, flat_phys_2x=3, flat_fire_2x=7, flat_elem_2x=11, psn_dps_2x=24)
     c_spec = c_acc.to_charm_spec(
         "Fine SC of Venom", 1, "inv", None, char_class=int(CharClass.PALADIN)
