@@ -151,12 +151,69 @@ def test_set_properties_activated(game_data_resolver: GameDataResolver):
     item2.item_info.type_specific_info = tp2
     char.item_list.items.append(item2)
 
-    # With 2 pieces equipped, both 2-piece set bonuses activate!
+    # With 2 pieces equipped, both 2-piece item bonuses AND Civerb's 2pc global +25% Fire Res activate!
     stats2 = calculate_advanced_stats(char, resolver=game_data_resolver)
-    assert stats2.resistances.fire == 10
+    assert stats2.resistances.fire == 35
     assert stats2.resistances.cold == 20
     assert stats2.fhr == 15
     assert stats2.fcr == 10
+
+
+def test_global_set_bonuses_tal_rasha_partial_and_full(
+    game_data_resolver: GameDataResolver,
+) -> None:
+    """Set-wide partial and full bonuses from sets.txt apply once per set."""
+    char = D2SStruct()
+    char.version = 0x69
+    char.char_class = 1  # Sorceress
+    char.weapon_set = 0
+    char.item_list = ItemList()
+
+    # Tal Rasha's Wrappings pieces (set_id row indices 76..80 in setitems.txt)
+    pieces = [
+        (EquipSlot.WEAPON_I.value, b"oba ", 78),  # Tal Rasha's Lidless Eye
+        (EquipSlot.HELMET.value, b"xsk ", 80),  # Tal Rasha's Horadric Crest
+        (EquipSlot.ARMOR.value, b"uth ", 79),  # Tal Rasha's Guardianship
+        (EquipSlot.BELT.value, b"zmb ", 76),  # Tal Rasha's Fine-Spun Cloth
+        (EquipSlot.AMULET.value, b"amu ", 77),  # Tal Rasha's Adjudication
+    ]
+
+    def add_piece(pos: int, code: bytes, set_id: int) -> None:
+        it = D2Item()
+        it.location = ItemLocation.EQUIPPED.value
+        it.position = pos
+        it.type_name = code
+        it.item_info = ItemInfo()
+        it.item_info.ext_info = ExtItemInfo()
+        it.item_info.ext_info.set_id = set_id
+        it.item_info.type_specific_info = TypeSpecificInfo()
+        char.item_list.items.append(it)
+
+    # 3 pieces: +65% MF global bonus (once)
+    for pos, code, sid in pieces[:3]:
+        add_piece(pos, code, sid)
+    s3 = calculate_advanced_stats(char, resolver=game_data_resolver)
+    assert s3.mf == 65
+    assert s3.fhr == 0
+    assert s3.class_skills == 0
+
+    # 4 pieces: +65% MF and +25% FHR
+    add_piece(*pieces[3])
+    s4 = calculate_advanced_stats(char, resolver=game_data_resolver)
+    assert s4.mf == 65
+    assert s4.fhr == 25
+    assert s4.class_skills == 0
+
+    # 5 pieces (full set): +65% MF, +25% FHR, +50 all res, +3 Sorceress skills
+    add_piece(*pieces[4])
+    s5 = calculate_advanced_stats(char, resolver=game_data_resolver)
+    assert s5.mf == 65
+    assert s5.fhr == 25
+    assert s5.class_skills == 3
+    assert s5.resistances.fire == 50
+    assert s5.resistances.cold == 50
+    assert s5.resistances.lightning == 50
+    assert s5.resistances.poison == 50
 
 
 def test_parent_set_grouping_sigons_and_duplicate_angelic_rings(

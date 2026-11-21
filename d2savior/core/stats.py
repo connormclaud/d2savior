@@ -294,6 +294,10 @@ def _iter_item_properties(
             item, resolver=resolver, version=version, set_counts=set_counts
         )
 
+    for set_name, count in set_counts.items():
+        if count >= 2:
+            yield from resolver.get_active_set_bonuses(set_name, count)
+
 
 def _iter_item_stats(
     items: Sequence[D2Item],

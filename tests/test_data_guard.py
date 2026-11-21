@@ -45,6 +45,9 @@ class TestDataGuard:
             loader.load_set_items(bogus_path)
 
         with pytest.raises(FileNotFoundError):
+            loader.load_sets(bogus_path)
+
+        with pytest.raises(FileNotFoundError):
             loader.load_gems(bogus_path)
 
         with pytest.raises(FileNotFoundError):
@@ -84,6 +87,7 @@ class TestDataGuard:
             assert len(vd.hirelings) > 0, f"version {version:#x} hirelings is empty"
             assert len(vd.monsters) > 0, f"version {version:#x} monsters is empty"
             assert len(vd.set_items) > 0, f"version {version:#x} set_items is empty"
+            assert len(vd.sets) > 0, f"version {version:#x} sets is empty"
             assert len(vd.skills) > 0, f"version {version:#x} skills is empty"
             assert len(vd.prop_meta) > 0, f"version {version:#x} prop_meta is empty"
             assert vd.item_manager is not None
@@ -122,6 +126,7 @@ class TestDataGuard:
             "d2r/property.txt",
             "d2r/runes.txt",
             "d2r/setitems.txt",
+            "d2r/sets.txt",
             "d2r/skills.txt",
             "d2r/uniqueitems.txt",
             # Localized files
@@ -205,6 +210,7 @@ class TestDataGuard:
             )
             zf.writestr("d2r/monstats.txt", "Id\t*hcIdx\tNameStr\n")
             zf.writestr("d2r/setitems.txt", "index\t*ID\n")
+            zf.writestr("d2r/sets.txt", "index\tname\n")
             zf.writestr("d2r/local/item-names.json", "[]")
             zf.writestr("d2r/local/item-runes.json", "[]")
 

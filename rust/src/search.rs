@@ -799,6 +799,7 @@ pub(crate) fn normalize_set_items(
             && it
                 .set_bonuses
                 .iter()
+                .chain(it.global_set_bonuses.iter())
                 .any(|(req, b)| *req >= 2 && *req <= max_pcs && b.stats() != Stats::default())
         {
             active_groups.insert(it.set_group);
@@ -814,6 +815,7 @@ pub(crate) fn normalize_set_items(
                 cloned.set_group = 0;
                 cloned.set_item_id = 0;
                 cloned.set_bonuses.clear();
+                cloned.global_set_bonuses.clear();
             } else {
                 if cloned.set_item_id == 0 {
                     cloned.set_item_id = -(idx as i32 + 1);
@@ -823,6 +825,9 @@ pub(crate) fn normalize_set_items(
                     .map_or(0, |s| s.len() as i32);
                 cloned
                     .set_bonuses
+                    .retain(|(req, b)| *req >= 2 && *req <= max_pcs && b.stats() != Stats::default());
+                cloned
+                    .global_set_bonuses
                     .retain(|(req, b)| *req >= 2 && *req <= max_pcs && b.stats() != Stats::default());
             }
         }

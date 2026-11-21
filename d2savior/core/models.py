@@ -280,6 +280,22 @@ class SetItemInfo:
 
 
 @dataclass(slots=True)
+class SetBonusMod:
+    code: str = ""
+    param: str = ""
+    min_val: int = 0
+    max_val: int = 0
+
+
+@dataclass(slots=True)
+class SetInfo:
+    name: str = ""
+    piece_count: int = 0
+    partial_bonuses: dict[int, list[SetBonusMod]] = field(default_factory=dict)
+    full_bonuses: list[SetBonusMod] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class RuneWordInfo:
     name: str = ""
     runeword_id: int = 0
@@ -418,9 +434,11 @@ class VersionData:
     set_items: dict[int, SetItemInfo] = field(default_factory=dict)
     runewords: dict[int, RuneWordInfo] = field(default_factory=dict)
     gems: dict[str, GemInfo] = field(default_factory=dict)
+    sets: dict[str, SetInfo] = field(default_factory=dict)
     hirelings: dict[int, HirelingInfo] = field(default_factory=dict)
     monsters: dict[int, str] = field(default_factory=dict)
     skills: dict[int, str] = field(default_factory=dict)
+    skills_by_name: dict[str, int] = field(default_factory=dict)
     aura_skill_ids: set[int] = field(default_factory=set)
     fire_skill_ids: set[int] = field(default_factory=set)
     type_ancestors: dict[str, set[str]] = field(default_factory=dict)
@@ -479,6 +497,14 @@ class VersionData:
 
     def get_set_item(self, set_id: int) -> SetItemInfo | None:
         return self.set_items.get(set_id)
+
+    def get_set(self, set_name: str) -> SetInfo | None:
+        return self.sets.get(set_name)
+
+    def get_skill_id_by_name(self, name: str) -> int | None:
+        if not name:
+            return None
+        return self.skills_by_name.get(name.strip().lower())
 
     def get_runeword(self, runeword_id: int) -> RuneWordInfo | None:
         return self.runewords.get(runeword_id)

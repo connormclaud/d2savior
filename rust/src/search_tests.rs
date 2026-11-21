@@ -2629,3 +2629,110 @@ fn test_hard_constraint_floors_and_brute_force_parity() {
     };
     assert!(optimize_builds_core(&items, &charms, &c3).unwrap().is_empty());
 }
+
+#[test]
+fn test_global_set_bonuses_applied_once_and_respect_constraints() {
+    // Sigon's Complete Steel global bonuses: 2pc = +10% LL, 3pc = +100 Def (applied ONCE per set, not per piece).
+    let mut g2_ll = ItemSpec::empty("bonus");
+    g2_ll.life_leech = 10;
+    let mut g3_def = ItemSpec::empty("bonus");
+    g3_def.defense = 100;
+    let global_bonuses = vec![(2, g2_ll), (3, g3_def)];
+
+    // Sigon's Guard (shield): no item-level set_bonuses, only global_set_bonuses.
+    let mut sigon_guard = mk_item("Sigon's Guard", "shield", 1, 0, 0, 0, 0);
+    sigon_guard.set_group = 1;
+    sigon_guard.set_item_id = 41;
+    sigon_guard.global_set_bonuses = global_bonuses.clone();
+
+    // Sigon's Gage (gloves): 2pc item-level +30% IAS + global bonuses.
+    let mut sigon_gage = mk_item("Sigon's Gage", "gloves", 0, 0, 0, 0, 0);
+    sigon_gage.set_group = 1;
+    sigon_gage.set_item_id = 36;
+    let mut gage_2pc = ItemSpec::empty("2pc");
+    gage_2pc.ias = 30;
+    sigon_gage.set_bonuses = vec![(2, gage_2pc)];
+    sigon_gage.global_set_bonuses = global_bonuses.clone();
+
+    // Sigon's Wrap (belt): no item-level set_bonuses, only global bonuses.
+    let mut sigon_wrap = mk_item("Sigon's Wrap", "belt", 0, 0, 0, 0, 0);
+    sigon_wrap.set_group = 1;
+    sigon_wrap.set_item_id = 40;
+    sigon_wrap.global_set_bonuses = global_bonuses;
+
+    let mut bloodletter = mk_item("Bloodletter", "weapon", 0, 0, 0, 0, 0);
+    bloodletter.life_leech = 8;
+
+    let alt_shield = mk_item("Rhyme", "shield", 0, 0, 0, 0, 0);
+    let alt_gloves = mk_item("Magefist", "gloves", 0, 20, 0, 0, 0);
+    let alt_belt = mk_item("Plain Belt", "belt", 0, 0, 0, 0, 0);
+
+    // 1. 2pc Sigon's (Guard + Gage) + Bloodletter (8% LL) => 18% LL (NOT 28%!).
+    let c_2pc = BuildConstraints {
+        char_class: 3,
+        mode: "leveling".to_string(),
+        offense: "melee".to_string(),
+        use_bo: false,
+        base_hell_res: 0,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        min_ll: 18,
+        limit: 3,
+        ..Default::default()
+    };
+    let items_2pc = vec![
+        bloodletter.clone(),
+        sigon_guard.clone(),
+        alt_shield.clone(),
+        sigon_gage.clone(),
+        alt_gloves.clone(),
+        alt_belt.clone(),
+    ];
+    let res_2pc = optimize_builds_core(&items_2pc, &[], &c_2pc).unwrap();
+    assert!(!res_2pc.is_empty());
+    assert_eq!(res_2pc[0].life_leech, 18);
+    assert_eq!(res_2pc[0].ias, 30);
+
+    // Brute-force parity check with min_ll satisfied via global set bonus.
+    let bf_2pc = brute_force_top_scores(&items_2pc, &[], &c_2pc, SearchMode::Leveling);
+    assert_eq!(res_2pc.len(), bf_2pc.len());
+    for (r, exp) in res_2pc.iter().zip(bf_2pc.iter()) {
+        let mut sc = validate_and_score_result(r, &c_2pc, SearchMode::Leveling);
+        sc.locality = 0;
+        assert_eq!(sc, *exp);
+    }
+
+    // 2. 3pc Sigon's (Guard + Gage + Wrap) still grants +10% LL ONCE (18% total), plus +100 Def ONCE.
+    let items_3pc = vec![
+        bloodletter,
+        sigon_guard.clone(),
+        sigon_gage.clone(),
+        sigon_wrap.clone(),
+    ];
+    let c_fixed = BuildConstraints {
+        fixed_gear: true,
+        min_ll: 0,
+        ..c_2pc.clone()
+    };
+    let res_3pc = optimize_builds_core(&items_3pc, &[], &c_fixed).unwrap();
+    assert_eq!(res_3pc.len(), 1);
+    assert_eq!(res_3pc[0].life_leech, 18);
+
+    // 3. Set with ONLY global bonuses (Guard + Wrap, neither has item-level set_bonuses) stays active.
+    let items_global_only = vec![sigon_guard, sigon_wrap];
+    let res_global_only = optimize_builds_core(
+        &items_global_only,
+        &[],
+        &BuildConstraints {
+            min_ll: 10,
+            ..c_2pc
+        },
+    )
+    .unwrap();
+    assert_eq!(res_global_only.len(), 1);
+    assert_eq!(res_global_only[0].life_leech, 10);
+}

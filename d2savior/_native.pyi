@@ -56,6 +56,7 @@ class ItemSpec:
     set_group: int
     set_item_id: int
     set_bonuses: list[tuple[int, ItemSpec]]
+    global_set_bonuses: list[tuple[int, ItemSpec]]
     wsm: int
     wclass: str
     wep_phys_2x: int
@@ -126,6 +127,7 @@ class ItemSpec:
         splash_fire: bool = False,
         splash_fire_2x: int = 0,
         cold_dmg_pct: int = 0,
+        global_set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
     ) -> None: ...
     @property
     def skills(self) -> int: ...

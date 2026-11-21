@@ -232,6 +232,7 @@ class _PropAcc:
         set_group: int = 0,
         set_item_id: int = 0,
         set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
+        global_set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
         wsm: int = 0,
         wclass: str = "",
         wep_phys_2x: int = 0,
@@ -301,6 +302,7 @@ class _PropAcc:
             splash_fire=splash_fire,
             splash_fire_2x=splash_fire_2x,
             cold_dmg_pct=self.cold_dmg_pct,
+            global_set_bonuses=list(global_set_bonuses),
         )
 
     def to_charm_spec(
@@ -654,6 +656,36 @@ def _extract_set_bonuses(
     return bonuses
 
 
+def _extract_global_set_bonuses(
+    set_name: str,
+    resolver: GameDataResolver,
+    char_level: int,
+    *,
+    char_class: int,
+    pal_spec: str,
+    pal_offense: str = "caster",
+) -> list[tuple[int, ItemSpec]]:
+    tiers = resolver.get_set_bonus_tiers(set_name)
+    if not tiers:
+        return []
+    bonuses: list[tuple[int, ItemSpec]] = []
+    for req_pieces, props in tiers:
+        b_acc = _PropAcc()
+        _apply_props_to_acc(
+            b_acc,
+            props,
+            resolver,
+            char_level,
+            char_class=char_class,
+            pal_spec=pal_spec,
+            pal_offense=pal_offense,
+            include_defense_props=True,
+        )
+        if b_acc.defense != 0 or any(getattr(b_acc, attr) != 0 for attr in _USEFUL_ITEM_STATS):
+            bonuses.append((req_pieces, b_acc.to_item_spec(f"{req_pieces}pc", "", "", 0, 0, 0)))
+    return bonuses
+
+
 def _format_item_location(char_name: str, item: D2Item) -> str:
     if item.location == ItemLocation.EQUIPPED:
         if item.position in _SWAP_SLOTS:
@@ -683,13 +715,13 @@ def _resolve_item_set_info(
     pal_spec: str,
     pal_offense: str = "caster",
     set_group_ids: dict[str, int] | None,
-) -> tuple[int, int, list[tuple[int, ItemSpec]]]:
+) -> tuple[int, int, list[tuple[int, ItemSpec]], list[tuple[int, ItemSpec]]]:
     ext = item.ext_info
     if ext is None or ext.set_id is None:
-        return 0, 0, []
+        return 0, 0, [], []
     group_key = resolve_set_group_key(item, resolver)
     if group_key is None:
-        return 0, 0, []
+        return 0, 0, [], []
     ids = set_group_ids if set_group_ids is not None else {}
     group_id = ids.get(group_key)
     if group_id is None:
@@ -704,7 +736,15 @@ def _resolve_item_set_info(
         pal_spec=pal_spec,
         pal_offense=pal_offense,
     )
-    return group_id, ext.set_id + 1, bonuses
+    global_bonuses = _extract_global_set_bonuses(
+        group_key,
+        resolver,
+        char_level,
+        char_class=char_class,
+        pal_spec=pal_spec,
+        pal_offense=pal_offense,
+    )
+    return group_id, ext.set_id + 1, bonuses, global_bonuses
 
 
 def _is_eth_weapon_breakable(
@@ -788,7 +828,7 @@ def _item_to_spec(
     tp = item.type_specific_info
     if tp and tp.defence is not None:
         acc.defense = calculate_effective_defence(tp.get_defence(), props)
-    set_group, set_item_id, set_bonuses = _resolve_item_set_info(
+    set_group, set_item_id, set_bonuses, global_set_bonuses = _resolve_item_set_info(
         item,
         resolver,
         version,
@@ -859,6 +899,7 @@ def _item_to_spec(
         set_group=set_group,
         set_item_id=set_item_id,
         set_bonuses=set_bonuses,
+        global_set_bonuses=global_set_bonuses,
         wsm=wsm,
         wclass=wclass,
         wep_phys_2x=wep_phys_2x,

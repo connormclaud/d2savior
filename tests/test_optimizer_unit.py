@@ -111,6 +111,7 @@ class _FakeItemSpec:
     set_group: int = 0
     set_item_id: int = 0
     set_bonuses: list[tuple[int, object]] = field(default_factory=list)
+    global_set_bonuses: list[tuple[int, object]] = field(default_factory=list)
     wsm: int = 0
     wclass: str = ""
     action_skill_bonus: int = 0
@@ -915,7 +916,7 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
     )
     assert len(bonuses) == 1
     assert bonuses[0][0] == 2
-    gid, sid, resolved_bonuses = _resolve_item_set_info(
+    gid, sid, resolved_bonuses, resolved_global_bonuses = _resolve_item_set_info(
         set_it,
         d2r,
         0x63,
@@ -927,6 +928,15 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
     assert gid == 1
     assert sid == 36
     assert len(resolved_bonuses) == 1
+    # Sigon's Complete Steel global bonuses: 2pc (+10% LL), 3pc (+100 Def), 6pc (full set)
+    global_by_req = dict(resolved_global_bonuses)
+    assert 2 in global_by_req
+    assert global_by_req[2].life_leech == 10
+    assert 3 in global_by_req
+    assert global_by_req[3].defense == 100
+    assert 6 in global_by_req
+    assert global_by_req[6].fr == 12
+    assert global_by_req[6].mana == 20
 
     # End-to-end extract_pool across real fixtures with mocked specs
     sork, _ = _load_char("sork.d2s")

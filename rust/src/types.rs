@@ -754,6 +754,7 @@ pub struct ItemSpec {
     pub set_group: i32,
     pub set_item_id: i32,
     pub set_bonuses: Vec<(i32, ItemSpec)>,
+    pub global_set_bonuses: Vec<(i32, ItemSpec)>,
     pub wsm: i32,
     pub wclass: String,
     pub wep_phys_2x: i32,
@@ -801,7 +802,9 @@ pub(crate) fn compute_effective_gear_stats_and_reqs(items: &[&ItemSpec]) -> (Sta
     }
 
     let mut counts: Vec<(i32, i32)> = Vec::new();
+    let mut non_wep_counts: Vec<(i32, i32)> = Vec::new();
     let mut seen: Vec<(i32, i32)> = Vec::with_capacity(items.len());
+    let mut non_wep_seen: Vec<(i32, i32)> = Vec::with_capacity(items.len());
     for (idx, &it) in items.iter().enumerate() {
         if it.set_group == 0 {
             continue;
@@ -817,6 +820,14 @@ pub(crate) fn compute_effective_gear_stats_and_reqs(items: &[&ItemSpec]) -> (Sta
                 entry.1 += 1;
             } else {
                 counts.push((it.set_group, 1));
+            }
+        }
+        if !it.is_weapon_or_shield() && !non_wep_seen.contains(&(it.set_group, eid)) {
+            non_wep_seen.push((it.set_group, eid));
+            if let Some(entry) = non_wep_counts.iter_mut().find(|(g, _)| *g == it.set_group) {
+                entry.1 += 1;
+            } else {
+                non_wep_counts.push((it.set_group, 1));
             }
         }
     }
@@ -842,6 +853,24 @@ pub(crate) fn compute_effective_gear_stats_and_reqs(items: &[&ItemSpec]) -> (Sta
         }
         req_str = req_str.max(eff_req(it.req_str, it.str_bonus + bonus.str_bonus));
         req_dex = req_dex.max(eff_req(it.req_dex, it.dex_bonus + bonus.dex_bonus));
+    }
+    for (group, cnt) in &counts {
+        if *cnt < 2 {
+            continue;
+        }
+        if let Some(&rep) = items
+            .iter()
+            .find(|it| it.set_group == *group && !it.global_set_bonuses.is_empty())
+        {
+            gear = gear.add(rep.active_global_set_bonus_stats(*cnt));
+            let nw_cnt = non_wep_counts
+                .iter()
+                .find(|(g, _)| g == group)
+                .map_or(0, |(_, c)| *c);
+            if nw_cnt >= 2 {
+                all_sk_non_wep += rep.active_global_set_bonus_stats(nw_cnt).all_skills;
+            }
+        }
     }
     (gear, all_sk_non_wep, (req_str, req_dex))
 }
@@ -901,9 +930,17 @@ impl ItemSpec {
             .fold(Stats::default(), |acc, (_, b)| acc.add(b.stats()))
     }
 
+    pub(crate) fn active_global_set_bonus_stats(&self, piece_count: i32) -> Stats {
+        self.global_set_bonuses
+            .iter()
+            .filter(|(req, _)| piece_count >= *req)
+            .fold(Stats::default(), |acc, (_, b)| acc.add(b.stats()))
+    }
+
     pub(crate) fn max_possible_set_bonus_stats(&self) -> Stats {
         self.set_bonuses
             .iter()
+            .chain(self.global_set_bonuses.iter())
             .fold(Stats::default(), |acc, (_, b)| {
                 acc.add(b.stats().max_each(Stats::default()))
             })
@@ -914,10 +951,17 @@ impl ItemSpec {
     }
 
     pub(crate) fn set_bonus_sig(&self) -> SetBonusSig {
-        self.set_bonuses
+        let mut sig: SetBonusSig = self
+            .set_bonuses
             .iter()
             .map(|(req, b)| (*req, b.stats()))
-            .collect()
+            .collect();
+        sig.extend(
+            self.global_set_bonuses
+                .iter()
+                .map(|(req, b)| (-*req, b.stats())),
+        );
+        sig
     }
 
     pub(crate) fn stats(&self) -> Stats {
@@ -1028,6 +1072,7 @@ impl ItemSpec {
             set_group: 0,
             set_item_id: 0,
             set_bonuses: Vec::new(),
+            global_set_bonuses: Vec::new(),
             wsm: 0,
             wclass: String::new(),
             wep_phys_2x: 0,
@@ -1104,6 +1149,7 @@ impl ItemSpec {
         splash_fire = false,
         splash_fire_2x = 0,
         cold_dmg_pct = 0,
+        global_set_bonuses = Vec::new(),
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1166,6 +1212,7 @@ impl ItemSpec {
         splash_fire: bool,
         splash_fire_2x: i32,
         cold_dmg_pct: i32,
+        global_set_bonuses: Vec<(i32, ItemSpec)>,
     ) -> Self {
         Self {
             name,
@@ -1219,6 +1266,7 @@ impl ItemSpec {
             set_group,
             set_item_id,
             set_bonuses,
+            global_set_bonuses,
             wsm,
             wclass,
             wep_phys_2x,

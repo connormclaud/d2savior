@@ -1,6 +1,6 @@
 """TSV/JSON table loaders and version overlay management for Diablo II game data."""
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 lazy import importlib.resources
 lazy import json
 lazy from importlib.resources.abc import Traversable
@@ -23,6 +23,8 @@ lazy from d2savior.core.models import (
     PropertyMetaData,
     PropertyMetaDataItem,
     RuneWordInfo,
+    SetBonusMod,
+    SetInfo,
     SetItemInfo,
     StatInfo,
     UniqueItemInfo,
@@ -498,6 +500,59 @@ class D2DataLoader:
 
         return set_items
 
+    def load_sets(
+        self,
+        filepath: str | Traversable,
+        piece_counts: Mapping[str, int] | None = None,
+    ) -> dict[str, SetInfo]:
+        """Load set-wide partial and full bonuses from sets.txt."""
+        sets: dict[str, SetInfo] = {}
+        counts = piece_counts or {}
+
+        for row in TsvReader(filepath):
+            index = row.get("index")
+            if not index or index == "Expansion":
+                continue
+
+            partial_bonuses: dict[int, list[SetBonusMod]] = {}
+            for req_pieces in (2, 3, 4, 5):
+                mods: list[SetBonusMod] = []
+                for suffix in ("a", "b"):
+                    code = row.get(f"PCode{req_pieces}{suffix}")
+                    if code:
+                        mods.append(
+                            SetBonusMod(
+                                code=code,
+                                param=row.get(f"PParam{req_pieces}{suffix}"),
+                                min_val=row.get_int(f"PMin{req_pieces}{suffix}"),
+                                max_val=row.get_int(f"PMax{req_pieces}{suffix}"),
+                            )
+                        )
+                if mods:
+                    partial_bonuses[req_pieces] = mods
+
+            full_bonuses: list[SetBonusMod] = []
+            for i in range(1, 9):
+                code = row.get(f"FCode{i}")
+                if code:
+                    full_bonuses.append(
+                        SetBonusMod(
+                            code=code,
+                            param=row.get(f"FParam{i}"),
+                            min_val=row.get_int(f"FMin{i}"),
+                            max_val=row.get_int(f"FMax{i}"),
+                        )
+                    )
+
+            sets[index] = SetInfo(
+                name=index,
+                piece_count=counts.get(index, 0),
+                partial_bonuses=partial_bonuses,
+                full_bonuses=full_bonuses,
+            )
+
+        return sets
+
     def _load_skills_with_metadata(
         self, filepath: str | Traversable
     ) -> tuple[dict[int, str], set[int], set[int]]:
@@ -786,6 +841,16 @@ class D2DataLoader:
         setnames_path = self._resolve_path("local/item-names.json", dirs)
         version_data.set_items = self.load_set_items(setitems_txt_path, setnames_path)
 
+        # Load sets.txt (set-wide partial and full set bonuses)
+        set_piece_counts: dict[str, int] = {}
+        seen_set_infos: set[int] = set()
+        for info in version_data.set_items.values():
+            if id(info) not in seen_set_infos and info.set_name:
+                seen_set_infos.add(id(info))
+                set_piece_counts[info.set_name] = set_piece_counts.get(info.set_name, 0) + 1
+        sets_txt_path = self._resolve_path("sets.txt", dirs)
+        version_data.sets = self.load_sets(sets_txt_path, set_piece_counts)
+
         # Load runewords: parse runes.txt table, resolve translations from item-runes.json
         runes_txt_path = self._resolve_path("runes.txt", dirs)
         runewords_path = self._resolve_path("local/item-runes.json", dirs)
@@ -808,6 +873,9 @@ class D2DataLoader:
         version_data.skills, version_data.aura_skill_ids, version_data.fire_skill_ids = (
             self._load_skills_with_metadata(skills_path)
         )
+        version_data.skills_by_name = {
+            name.strip().lower(): sid for sid, name in version_data.skills.items() if name
+        }
 
         # Load itemdata.txt
         itemdata_path = self._resolve_path("itemdata.txt", dirs)

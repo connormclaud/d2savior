@@ -19,6 +19,8 @@ lazy from d2savior.core.models import (
     PropertyInfo,
     PropertyMetaDataItem,
     RuneWordInfo,
+    SetBonusMod,
+    SetInfo,
     SetItemInfo,
     StatInfo,
     UniqueItemInfo,
@@ -126,6 +128,9 @@ class GameDataResolver:
 
     def get_set_item(self, set_id: int) -> SetItemInfo | None:
         return self.data.get_set_item(set_id)
+
+    def get_set(self, set_name: str) -> SetInfo | None:
+        return self.data.get_set(set_name)
 
     def get_magic_prefix(self, prefix_id: int) -> MagicAffixInfo | None:
         return self.data.get_magic_prefix(prefix_id)
@@ -282,6 +287,123 @@ class GameDataResolver:
         if stat_info := self.data.get_stat_by_name(code):
             return [(stat_info.stat_id, min_val, [min_val])]
         return []
+
+    def _parse_skill_param(self, param: str) -> int | None:
+        raw = param.strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return self.data.get_skill_id_by_name(raw)
+
+    def _resolve_prop_set_mod(
+        self, prop: PropertyInfo, mod: SetBonusMod, param_int: int
+    ) -> list[tuple[int, int, list[int]]]:
+        min_val = mod.min_val
+        if prop.func1 == 24:
+            return []
+        if prop.func1 == 21 and prop.stat1:
+            stat_info = self.data.get_stat_by_name(prop.stat1)
+            return [(stat_info.stat_id, min_val, [prop.val1, min_val])] if stat_info else []
+        if prop.func1 == 22 and prop.stat1:
+            skill_id = self._parse_skill_param(mod.param)
+            stat_info = self.data.get_stat_by_name(prop.stat1)
+            return (
+                [(stat_info.stat_id, min_val, [skill_id, min_val])]
+                if skill_id is not None and stat_info
+                else []
+            )
+        if prop.func1 == 17 and prop.stat1:
+            val = param_int if param_int else min_val
+            stat_info = self.data.get_stat_by_name(prop.stat1)
+            return [(stat_info.stat_id, val, [val])] if stat_info else []
+        if prop.func1 == 11 and prop.stat1:
+            skill_id = self._parse_skill_param(mod.param)
+            stat_info = self.data.get_stat_by_name(prop.stat1)
+            return (
+                [(stat_info.stat_id, mod.max_val, [skill_id, mod.max_val, min_val])]
+                if skill_id is not None and stat_info
+                else []
+            )
+
+        params = [param_int, min_val] if param_int else [min_val]
+        return [
+            (stat_info.stat_id, min_val, params)
+            for stat_name in (prop.stat1, prop.stat2, prop.stat3, prop.stat4, prop.stat5)
+            if stat_name and (stat_info := self.data.get_stat_by_name(stat_name))
+        ]
+
+    def _set_mod_to_properties(self, mod: SetBonusMod) -> list[tuple[int, int, list[int]]]:
+        code = mod.code
+        min_val = mod.min_val
+        try:
+            param_int = int(mod.param.strip()) if mod.param.strip() else 0
+        except ValueError:
+            param_int = 0
+
+        if code in ("dmg-fire", "dmg-ltng", "dmg-cold", "dmg-pois"):
+            ranged = self._resolve_ranged_gem_mod(
+                GemMod(code=code, param=param_int, min_val=min_val, max_val=mod.max_val),
+                include_len=code in ("dmg-cold", "dmg-pois"),
+            )
+            if ranged:
+                return ranged
+
+        fixed_mods: dict[str, list[tuple[int, int, list[int]]]] = {
+            "dmg%": [(17, min_val, [min_val]), (18, min_val, [min_val])],
+            "dmg-min": [(21, min_val, [min_val])],
+            "dmg-max": [(22, min_val, [min_val])],
+            "indestruct": [(152, 1, [1])],
+        }
+        if fixed := fixed_mods.get(code):
+            return fixed
+
+        if prop := self.data.get_property_by_code(code):
+            res = self._resolve_prop_set_mod(prop, mod, param_int)
+            if res or prop.func1 in (11, 17, 21, 22, 24):
+                return res
+
+        if stat_info := self.data.get_stat_by_name(code):
+            return [(stat_info.stat_id, min_val, [min_val])]
+        return []
+
+    def get_set_bonus_tiers(
+        self, set_name: str
+    ) -> list[tuple[int, list[tuple[int, int, list[int]]]]]:
+        """Return (req_pieces, parsed_props) for all set-wide partial and full bonuses."""
+        set_info = self.get_set(set_name)
+        if set_info is None:
+            return []
+
+        tiers: dict[int, list[tuple[int, int, list[int]]]] = {}
+        for req_pieces, mods in set_info.partial_bonuses.items():
+            props: list[tuple[int, int, list[int]]] = []
+            for mod in mods:
+                props.extend(self._set_mod_to_properties(mod))
+            if props:
+                tiers.setdefault(req_pieces, []).extend(props)
+
+        if set_info.full_bonuses and set_info.piece_count >= 2:
+            full_props: list[tuple[int, int, list[int]]] = []
+            for mod in set_info.full_bonuses:
+                full_props.extend(self._set_mod_to_properties(mod))
+            if full_props:
+                tiers.setdefault(set_info.piece_count, []).extend(full_props)
+
+        return sorted(tiers.items())
+
+    def get_active_set_bonuses(
+        self, set_name: str, piece_count: int
+    ) -> list[tuple[int, int, list[int]]]:
+        """Return parsed properties for active set-wide partial/full bonuses at `piece_count`."""
+        if piece_count < 2:
+            return []
+        result: list[tuple[int, int, list[int]]] = []
+        for req_pieces, props in self.get_set_bonus_tiers(set_name):
+            if piece_count >= req_pieces:
+                result.extend(props)
+        return result
 
     def get_localized_skill_tab_name(self, tab: int, class_id: int) -> str:
         if self.loc:
