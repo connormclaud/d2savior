@@ -368,6 +368,8 @@ def test_sorc_presets_and_blizz_base_skills(monkeypatch: pytest.MonkeyPatch) -> 
     assert _extract_blizz_base_skills(sork) == (20, 35, 20)
     assert sork.skills is not None
     sork.skills.skill_levels[23] = 0
+    assert _extract_blizz_base_skills(sork) == (0, 35, 20)
+    sork.skills.skill_levels = [0] * 30
     assert _extract_blizz_base_skills(sork) == (0, 0, 0)
     sork.skills.skill_levels = []
     assert _extract_blizz_base_skills(sork) == (0, 0, 0)

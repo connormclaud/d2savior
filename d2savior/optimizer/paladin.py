@@ -338,31 +338,28 @@ def select_paladin_max_res_preset(
     overrides: ConstraintOverrides | None = None,
 ) -> tuple[str, BuildConstraints, str]:
     """Build a Max Resist constraint profile for a Paladin at its current difficulty."""
-    baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
+    preset = ResolvedPreset(
+        name="max-res",
+        title=None,
+        char_class="paladin",
+        strategy=None,
+        mode="max-res",
+    ).apply_overrides(overrides)
+    title, constraints, resolved_spec, _ = build_paladin_preset_constraints(
         char_data,
-        spec=spec,
+        preset,
         max_charm_slots=max_charm_slots,
+        limit=limit,
         extra_chars=extra_chars,
         stashes=stashes,
         resolver=resolver,
         bo_base_bonus=bo_base_bonus,
+        spec=spec,
         keep_equipped=keep_equipped,
         targets=targets,
         left_skill=left_skill,
         right_skill=right_skill,
     )
-    offense = paladin_offense_profile(
-        resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
-    )
-    ov_kwargs = overrides.as_kwargs() if overrides is not None else {}
-    mode = ov_kwargs.pop("mode", "max-res")
-    constraints = baseline.build_constraints(
-        mode=mode,
-        limit=limit,
-        offense=offense,
-        **ov_kwargs,
-    )
-    title = f"Paladin Max Resist (lvl {char_level}, {diff_name})"
     return title, constraints, resolved_spec
 
 

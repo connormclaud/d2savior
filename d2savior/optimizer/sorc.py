@@ -110,15 +110,14 @@ _SORC_PRESET_SPECS: frozendict[
 
 
 def _extract_blizz_base_skills(char_data: D2SStruct) -> tuple[int, int, int]:
-    """Return (blizz_base_lvl, blizz_syn_pts, cm_base_lvl), or (0, 0, 0) if Blizzard == 0."""
+    """Return (blizz_base_lvl, blizz_syn_pts, cm_base_lvl) from character skill points."""
     skills = char_data.skills.skill_levels if char_data.skills else ()
     sorc_base = CLASS_SKILL_BASES[int(CharClass.SORCERESS)]
     if len(skills) >= 30:
         blizz_base = skills[_SKILL_BLIZZARD - sorc_base]
-        if blizz_base > 0:
-            syn_pts = sum(skills[sid - sorc_base] for sid in _BLIZZ_SYNERGY_SKILLS)
-            cm_base = skills[_SKILL_COLD_MASTERY - sorc_base]
-            return blizz_base, syn_pts, cm_base
+        syn_pts = sum(skills[sid - sorc_base] for sid in _BLIZZ_SYNERGY_SKILLS)
+        cm_base = skills[_SKILL_COLD_MASTERY - sorc_base]
+        return blizz_base, syn_pts, cm_base
     return 0, 0, 0
 
 

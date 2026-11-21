@@ -686,14 +686,14 @@ def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyP
     assert c.bo_base_bonus == 0
     assert c.use_bo is False
 
-    # Fallback to (0, 0, 0) when Blizzard has 0 allocated hard points
+    # When Blizzard has 0 hard points, hard synergy & Cold Mastery points are preserved for staffmod +Blizzard orbs
     assert sork.skills is not None
     sork.skills.skill_levels[23] = 0
     fallback_c = select_sorc_presets(sork, build="tz")[0][1]
     assert (fallback_c.blizz_base_lvl, fallback_c.blizz_syn_pts, fallback_c.cm_base_lvl) == (
         0,
-        0,
-        0,
+        35,
+        20,
     )
 
     # Low-level Normal Sorc (Sorc.d2s, lvl 17, 0 Blizzard): Normal res penalty (0) & max_level filters high CTA
