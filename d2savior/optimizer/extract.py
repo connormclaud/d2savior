@@ -64,6 +64,7 @@ _SLOT_ANCESTORS: tuple[tuple[str, str], ...] = (
     ("circ", "helm"),
     ("shld", "shield"),
 )
+_ARMOR_SLOTS: frozenset[str] = frozenset({"helm", "armor", "shield", "belt", "gloves", "boots"})
 
 _SIMPLE_ITEM_STAT_MAP: frozendict[int, str] = frozendict(
     {
@@ -764,14 +765,14 @@ def _resolve_item_set_info(
     return group_id, ext.set_id + 1, bonuses, global_bonuses
 
 
-def _is_eth_weapon_breakable(
+def _is_eth_breakable(
     item: D2Item,
-    w_info: object,
+    item_info: object,
     props: Sequence[tuple[int, int, list[int]]],
 ) -> bool:
     if not item.is_ethereal:
         return False
-    if getattr(w_info, "nodurability", False):
+    if getattr(item_info, "nodurability", False):
         return False
     return not any(pid in _ETH_SAFE_PIDS for pid, _, _ in props)
 
@@ -863,6 +864,12 @@ def _item_to_spec(
     )
 
     keep_slot = skip_useful_check or slot in skip_useful_slots
+    item_info = resolver.data.get_item(code)
+    if not keep_slot and item_info is not None and _is_eth_breakable(item, item_info, props):
+        if slot in _ARMOR_SLOTS:
+            return None
+        if is_weapon and not allow_eth_melee and resolved_offense in ("zeal", "melee", "smite"):
+            return None
     belt_slots = resolver.get_belt_rows(code) * 4 if slot == "belt" else 0
     wsm = 0
     wclass = ""
@@ -872,17 +879,9 @@ def _item_to_spec(
     can_zeal = False
     splash_fire = False
     splash_fire_2x = 0
-    if is_weapon and (w_info := resolver.data.get_item(code)) is not None:
-        if (
-            not keep_slot
-            and not allow_eth_melee
-            and char_class == int(CharClass.PALADIN)
-            and resolved_offense in ("zeal", "melee")
-            and _is_eth_weapon_breakable(item, w_info, props)
-        ):
-            return None
-        wsm = w_info.speed
-        wclass = w_info.two_handed_wclass or w_info.wclass
+    if is_weapon and item_info is not None:
+        wsm = item_info.speed
+        wclass = item_info.two_handed_wclass or item_info.wclass
         wep_phys_2x, wep_str_pct, wep_dex_pct, can_zeal = _compute_weapon_phys_2x(
             item,
             props,
@@ -910,7 +909,7 @@ def _item_to_spec(
         return None
 
     display_name = get_item_display_name(item, resolver=resolver, version=version)
-    if is_weapon and item.is_ethereal and not display_name.endswith(" (eth)"):
+    if item.is_ethereal and not display_name.endswith(" (eth)"):
         display_name = f"{display_name} (eth)"
 
     return acc.to_item_spec(

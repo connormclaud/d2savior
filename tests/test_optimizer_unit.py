@@ -1174,6 +1174,131 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     assert isinstance(indes_opt, _FakeItemSpec)
     assert indes_opt.name.endswith(" (eth)")
 
+    # Breakable eth Smite weapon is also excluded; eth Phase Blade (nodurability=True) is kept.
+    monkeypatch.setattr(
+        "d2savior.optimizer.extract.collect_item_properties",
+        lambda *a, **kw: [(17, 200, [200]), (105, 20, [20])],
+    )
+    assert (
+        _item_to_spec(
+            eth_wep,
+            "loc",
+            d2r,
+            0x69,
+            90,
+            char_class=int(CharClass.PALADIN),
+            pal_spec="smite",
+            pal_offense="smite",
+        )
+        is None
+    )
+    eth_pb = D2Item()
+    eth_pb.type_name = b"7cr "
+    eth_pb.is_ethereal = True
+    pb_spec = _item_to_spec(
+        eth_pb,
+        "loc",
+        d2r,
+        0x69,
+        90,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="smite",
+        pal_offense="smite",
+    )
+    assert isinstance(pb_spec, _FakeItemSpec)
+    assert pb_spec.name.endswith(" (eth)")
+
+    # Breakable eth caster weapon is still kept for Sorceress and Hammerdin.
+    assert isinstance(
+        _item_to_spec(
+            eth_wep,
+            "loc",
+            d2r,
+            0x69,
+            90,
+            char_class=int(CharClass.SORCERESS),
+        ),
+        _FakeItemSpec,
+    )
+    assert isinstance(
+        _item_to_spec(
+            eth_wep,
+            "loc",
+            d2r,
+            0x69,
+            90,
+            char_class=int(CharClass.PALADIN),
+            pal_spec="hammer",
+            pal_offense="caster",
+        ),
+        _FakeItemSpec,
+    )
+
+    # Breakable eth armor/helm/shield/belt/gloves/boots excluded for Sorc and Paladin;
+    # kept with (eth) tag when in skip_useful_slots (--keep-gear) or indestructible/self-repair.
+    monkeypatch.setattr(
+        "d2savior.optimizer.extract.collect_item_properties",
+        lambda *a, **kw: [(39, 25, [25])],
+    )
+    for code_bytes, slot_name in (
+        (b"qui ", "armor"),
+        (b"cap ", "helm"),
+        (b"lrg ", "shield"),
+        (b"vbl ", "belt"),
+        (b"lgl ", "gloves"),
+        (b"lbt ", "boots"),
+    ):
+        eth_arm = D2Item()
+        eth_arm.type_name = code_bytes
+        eth_arm.is_ethereal = True
+        for cls_id, p_spec, p_off in (
+            (int(CharClass.SORCERESS), "leveling", None),
+            (int(CharClass.PALADIN), "smite", "smite"),
+        ):
+            assert (
+                _item_to_spec(
+                    eth_arm,
+                    "loc",
+                    d2r,
+                    0x69,
+                    90,
+                    char_class=cls_id,
+                    pal_spec=p_spec,
+                    pal_offense=p_off,
+                )
+                is None
+            )
+        kept_arm = _item_to_spec(
+            eth_arm,
+            "loc",
+            d2r,
+            0x69,
+            90,
+            char_class=int(CharClass.SORCERESS),
+            skip_useful_slots=frozenset({slot_name}),
+        )
+        assert isinstance(kept_arm, _FakeItemSpec)
+        assert kept_arm.name.endswith(" (eth)")
+
+    monkeypatch.setattr(
+        "d2savior.optimizer.extract.collect_item_properties",
+        lambda *a, **kw: [(39, 25, [25]), (252, 5, [5])],  # Repairs durability
+    )
+    eth_rep = D2Item()
+    eth_rep.type_name = b"lrg "
+    eth_rep.is_ethereal = True
+    rep_spec = _item_to_spec(eth_rep, "loc", d2r, 0x69, 90, char_class=int(CharClass.PALADIN))
+    assert isinstance(rep_spec, _FakeItemSpec)
+    assert rep_spec.name.endswith(" (eth)")
+
+    monkeypatch.setattr(
+        "d2savior.optimizer.extract.collect_item_properties",
+        lambda *a, **kw: [(39, 25, [25]), (152, 1, [1])],  # Indestructible
+    )
+    ind_spec = _item_to_spec(eth_rep, "loc", d2r, 0x69, 90, char_class=int(CharClass.SORCERESS))
+    assert isinstance(ind_spec, _FakeItemSpec)
+    assert ind_spec.name.endswith(" (eth)")
+
     # 4. Active save skill bindings lock offense profile (Attack + Holy Fire -> melee, Zeal + Holy Fire -> zeal).
     from d2savior.core.d2s_struct import CharSkills
 
