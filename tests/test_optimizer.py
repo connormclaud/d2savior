@@ -1622,3 +1622,73 @@ def test_keep_gear_groups_and_combinations(capsys: pytest.CaptureFixture[str]) -
     assert exc_info2.value.code == 2
     err2 = capsys.readouterr().err
     assert "Invalid --keep-gear group" in err2
+
+
+@requires_native
+def test_torch_and_annihilus_vit_ene_and_bo_all_skills() -> None:
+    items = [
+        ItemSpec("Spirit Sword", "weapon", "test", all_skills=2, fcr=35, fhr=55),
+        ItemSpec("Spirit Shield", "shield", "test", all_skills=2, fcr=35, fhr=55),
+        ItemSpec("Tiara", "helm", "test", sorc_skills=2),
+        ItemSpec("Smoke", "armor", "test", fhr=20, fr=180, lr=180, cr=180, pr=180),
+        ItemSpec("Grim Noose", "amulet", "test", sorc_skills=1, fcr=20),
+        ItemSpec("Belt", "belt", "test", fcr=20),
+        ItemSpec("Trang-Oul's", "gloves", "test", fcr=20),
+        ItemSpec("Aldur's", "boots", "test", frw=40),
+        ItemSpec("Ring A", "ring", "test", fcr=10),
+        ItemSpec("Ring B", "ring", "test", fcr=10),
+    ]
+    torch = CharmSpec(
+        "Hellfire Torch",
+        2,
+        "test",
+        skills=3,
+        str_bonus=15,
+        dex_bonus=15,
+        vit=20,
+        ene=20,
+        fr=15,
+        lr=15,
+        cr=15,
+        pr=15,
+        unique_id=400,
+    )
+    anni = CharmSpec(
+        "Annihilus",
+        1,
+        "test",
+        all_skills=1,
+        str_bonus=15,
+        dex_bonus=15,
+        vit=15,
+        ene=15,
+        fr=15,
+        lr=15,
+        cr=15,
+        pr=15,
+        unique_id=381,
+    )
+    c_bo = BuildConstraints(
+        mode="power",
+        min_fcr=105,
+        min_fhr=60,
+        min_fr=75,
+        min_lr=75,
+        min_cr=75,
+        min_pr=75,
+        max_charm_slots=3,
+        base_life=500,
+        base_mana=300,
+        bo_base_bonus=4,
+        use_bo=True,
+    )
+    res_with = optimize_builds(items, [torch, anni], c_bo)[0]
+    res_without = optimize_builds(items, [], c_bo)[0]
+
+    assert res_with.skills == res_without.skills + 4
+    # Only Annihilus (+1 all_skills) boosts Battle Orders; Torch (+3 class skills) does not.
+    assert res_with.bo_lvl == res_without.bo_lvl + 1
+    # Sorceress gets +2 life/vit and +2 mana/ene from Torch (20) + Anni (15) = +70 non-BO life & mana.
+    assert res_with.life_no_bo == res_without.life_no_bo + 70
+    assert res_with.life_bo > res_without.life_bo + 70
+    assert res_with.mana_bo > res_without.mana_bo + 70

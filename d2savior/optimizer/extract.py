@@ -337,11 +337,14 @@ class _PropAcc:
             light_skills=self.light_skills,
             str_bonus=self.str_bonus,
             dex_bonus=self.dex_bonus,
-            skills=self.all_skills + cls_skills,
+            skills=cls_skills,
             unique_id=unique_id,
             cold_sunder=bool(self.cold_sunder) and char_class == int(CharClass.SORCERESS),
             action_skills=self.action_skill_bonus,
             aura_skills=self.aura_skill_bonus,
+            all_skills=self.all_skills,
+            vit=self.vit,
+            ene=self.ene,
         )
 
 

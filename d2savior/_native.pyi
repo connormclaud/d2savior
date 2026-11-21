@@ -153,6 +153,9 @@ class CharmSpec:
     aura_skills: int
     unique_id: int | None
     cold_sunder: bool
+    all_skills: int
+    vit: int
+    ene: int
 
     def __init__(
         self,
@@ -176,6 +179,9 @@ class CharmSpec:
         cold_sunder: bool = False,
         action_skills: int = 0,
         aura_skills: int = 0,
+        all_skills: int = 0,
+        vit: int = 0,
+        ene: int = 0,
     ) -> None: ...
 
 class BuildConstraints:

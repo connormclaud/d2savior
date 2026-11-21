@@ -150,6 +150,9 @@ class _FakeCharmSpec:
     aura_skills: int = 0
     unique_id: int | None = None
     cold_sunder: bool = False
+    all_skills: int = 0
+    vit: int = 0
+    ene: int = 0
 
 
 @dataclass
@@ -1418,3 +1421,30 @@ def test_normalize_keep_gear_argv_before_positionals() -> None:
         "weapon+bogus",
         "smite",
     ]
+
+
+def test_to_charm_spec_preserves_all_skills_vit_and_ene() -> None:
+    acc = _PropAcc(
+        all_skills=1,
+        sorc_skills=3,
+        pal_skills=2,
+        str_bonus=15,
+        dex_bonus=15,
+        vit=18,
+        ene=14,
+        fr=12,
+        lr=12,
+        cr=12,
+        pr=12,
+    )
+    sorc_ch = acc.to_charm_spec("Torch+Anni", 3, "sork Inv", 400, int(CharClass.SORCERESS))
+    assert sorc_ch.all_skills == 1
+    assert sorc_ch.skills == 3
+    assert sorc_ch.vit == 18
+    assert sorc_ch.ene == 14
+
+    pal_ch = acc.to_charm_spec("Torch+Anni", 3, "smite Inv", 400, int(CharClass.PALADIN))
+    assert pal_ch.all_skills == 1
+    assert pal_ch.skills == 2
+    assert pal_ch.vit == 18
+    assert pal_ch.ene == 14

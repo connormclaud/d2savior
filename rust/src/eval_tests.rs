@@ -185,3 +185,59 @@ fn test_pdr_pct_capped_at_50() {
     let res_under = eval_build_core(&[&armor], &[], &BuildConstraints::default(), 1);
     assert_eq!(res_under.pdr_pct, 30);
 }
+
+#[test]
+fn test_charm_vit_ene_and_all_skills_bo_scaling() {
+    let torch = CharmSpec {
+        name: "Hellfire Torch".to_string(),
+        size: 2,
+        skills: 3,
+        vit: 20,
+        ene: 20,
+        unique_id: Some(400),
+        ..Default::default()
+    };
+    let anni = CharmSpec {
+        name: "Annihilus".to_string(),
+        size: 1,
+        all_skills: 1,
+        vit: 15,
+        ene: 15,
+        unique_id: Some(381),
+        ..Default::default()
+    };
+
+    // Sorceress (2 life/vit, 2 mana/ene), BO base 4 + 1 (Anni all_skills; Torch skills excluded) => bo_lvl = 5 (47% BO).
+    // vit_life = (20 + 15) * 2 = 70 (not BO-scaled).
+    // ene_mana = (20 + 15) * 2 = 70 (not BO-scaled).
+    let sorc_c = BuildConstraints {
+        char_class: 1,
+        base_life: 500,
+        base_mana: 300,
+        bo_base_bonus: 4,
+        use_bo: true,
+        ..Default::default()
+    };
+    let res_sorc = eval_build_core(&[], &[&torch, &anni], &sorc_c, 1);
+    assert_eq!(res_sorc.skills, 4);
+    assert_eq!(res_sorc.bo_lvl, 5);
+    assert_eq!(res_sorc.life_no_bo, 500 + 70);
+    assert_eq!(res_sorc.life_bo, (500.0 * 1.47) as i32 + 70);
+    assert_eq!(res_sorc.mana_bo, (300.0 * 1.47) as i32 + 70);
+
+    // Paladin (3 life/vit, 1.5 mana/ene), no BO.
+    // vit_life = 35 * 3 = 105; ene_mana = 35 * 3 / 2 = 52.
+    let pal_c = BuildConstraints {
+        char_class: 3,
+        base_life: 500,
+        base_mana: 300,
+        use_bo: false,
+        ..Default::default()
+    };
+    let res_pal = eval_build_core(&[], &[&torch, &anni], &pal_c, 1);
+    assert_eq!(res_pal.skills, 4);
+    assert_eq!(res_pal.bo_lvl, 0);
+    assert_eq!(res_pal.life_no_bo, 500 + 105);
+    assert_eq!(res_pal.life_bo, 500 + 105);
+    assert_eq!(res_pal.mana_bo, 300 + 52);
+}

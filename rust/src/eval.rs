@@ -195,7 +195,8 @@ pub(crate) fn eval_build_summary(
     charms: &[&CharmSpec],
     c: &BuildConstraints,
 ) -> EvalSummary {
-    let charm_skills: i32 = charms.iter().map(|ch| ch.skills).sum();
+    let charm_all_skills: i32 = charms.iter().map(|ch| ch.all_skills).sum();
+    let charm_skills: i32 = charms.iter().map(|ch| ch.general_skills()).sum();
     let charm_action_skills: i32 = charms.iter().map(|ch| ch.action_skills).sum();
     let charm_aura_skills: i32 = charms.iter().map(|ch| ch.aura_skills).sum();
     let charm_str: i32 = charms.iter().map(|ch| ch.str_bonus).sum();
@@ -209,6 +210,8 @@ pub(crate) fn eval_build_summary(
     let charm_pr: i32 = charms.iter().map(|ch| ch.pr).sum();
     let charm_life: i32 = charms.iter().map(|ch| ch.life).sum();
     let charm_mana: i32 = charms.iter().map(|ch| ch.mana).sum();
+    let charm_vit: i32 = charms.iter().map(|ch| ch.vit).sum();
+    let charm_ene: i32 = charms.iter().map(|ch| ch.ene).sum();
 
     let skills = gear.total_skills() + charm_skills;
     let fcr = gear.fcr;
@@ -222,14 +225,14 @@ pub(crate) fn eval_build_summary(
     let pr_raw = c.base_hell_res + gear.pr + charm_pr;
 
     let class = CharClass::from_id_or_default(c.char_class);
-    let vit_life = class.life_per_vit(gear.vit);
-    let ene_mana = class.mana_per_ene(gear.ene);
+    let vit_life = class.life_per_vit(gear.vit + charm_vit);
+    let ene_mana = class.mana_per_ene(gear.ene + charm_ene);
 
     let life_no_bo = c.base_life + gear.life + gear.life_per_lvl + vit_life + charm_life;
     let bo_able_life = c.base_life + gear.life + charm_life;
     let bo_able_mana = c.base_mana + gear.mana + charm_mana;
     let (bo_lvl, life_bo, mana_bo) = if c.use_bo {
-        let bo_lvl = c.bo_base_bonus + all_sk_non_wep;
+        let bo_lvl = c.bo_base_bonus + all_sk_non_wep + charm_all_skills;
         let bo_pct = 32 + 3 * bo_lvl;
         let life_bo = (bo_able_life as f64 * (1.0 + bo_pct as f64 / 100.0)) as i32
             + vit_life

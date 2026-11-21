@@ -108,12 +108,21 @@ impl<'a, 'b> CharmState<'a, 'b> {
     }
 }
 
+fn charm_eff_life(ch: &CharmSpec, class: CharClass) -> i32 {
+    ch.life + class.life_per_vit(ch.vit)
+}
+
+fn charm_eff_mana(ch: &CharmSpec, class: CharClass) -> i32 {
+    ch.mana + class.mana_per_ene(ch.ene)
+}
+
 fn greedy_res_loop(
     state: &mut CharmState<'_, '_>,
     targets: [i32; 4],
     weights: [f64; 4],
     mf_weight: f64,
     skill_weight: f64,
+    class: CharClass,
 ) {
     loop {
         let deficits = [
@@ -137,7 +146,8 @@ fn greedy_res_loop(
                 + (deficits[3].min(c.pr) as f64) * weights[3];
             if gain > 0.0 {
                 let tie_bonus = c.mf as f64 * mf_weight + c.skills_total() as f64 * skill_weight;
-                let score = (gain + tie_bonus + c.life as f64 * 0.02) / c.size.max(1) as f64;
+                let score = (gain + tie_bonus + charm_eff_life(c, class) as f64 * 0.02)
+                    / c.size.max(1) as f64;
                 if score > best_score {
                     best_score = score;
                     best_idx = Some(idx);
@@ -284,6 +294,7 @@ fn greedy_fill_remaining(
     caps: [i32; 4],
     res_targets: [i32; 4],
     mode: SearchMode,
+    class: CharClass,
     include_stats_tail: bool,
 ) {
     let pool = state.pool;
@@ -313,12 +324,20 @@ fn greedy_fill_remaining(
         let eff =
             (cb.skills_total() * ca.size.max(1)).cmp(&(ca.skills_total() * cb.size.max(1)));
         eff.then_with(|| {
-            (cb.skills_total(), cb.life, cb.fr + cb.lr + cb.cr, cb.mana).cmp(&(
-                ca.skills_total(),
-                ca.life,
-                ca.fr + ca.lr + ca.cr,
-                ca.mana,
-            ))
+            (
+                cb.skills_total(),
+                cb.all_skills,
+                charm_eff_life(cb, class),
+                cb.fr + cb.lr + cb.cr,
+                charm_eff_mana(cb, class),
+            )
+                .cmp(&(
+                    ca.skills_total(),
+                    ca.all_skills,
+                    charm_eff_life(ca, class),
+                    ca.fr + ca.lr + ca.cr,
+                    charm_eff_mana(ca, class),
+                ))
         })
     });
 
@@ -352,6 +371,7 @@ fn greedy_fill_remaining(
             [1.0, 1.0, 1.0, 1.0],
             0.0,
             0.2,
+            class,
         );
     }
 
@@ -366,8 +386,8 @@ fn greedy_fill_remaining(
             {
                 continue;
             }
-            let mut s = c.life as f64
-                + c.mana as f64 * 0.4
+            let mut s = charm_eff_life(c, class) as f64
+                + charm_eff_mana(c, class) as f64 * 0.4
                 + (caps[3] - state.cur_res[3]).max(0).min(c.pr) as f64 * 1.2;
             if matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) {
                 s += c.frw as f64 * 1.5;
@@ -460,12 +480,13 @@ fn greedy_charms_pass_indices(
         SearchMode::Mf => (0.05, 0.02),
         _ => (0.0, 0.2),
     };
+    let class = CharClass::from_id_or_default(c.char_class);
     let res_targets = [c.min_fr, c.min_lr, c.min_cr, c.min_pr];
     if fhr_first {
         greedy_fhr_loop(&mut state, c.min_fhr);
-        greedy_res_loop(&mut state, res_targets, [1.5, 1.5, 1.2, 1.0], mf_w, sk_w);
+        greedy_res_loop(&mut state, res_targets, [1.5, 1.5, 1.2, 1.0], mf_w, sk_w, class);
     } else {
-        greedy_res_loop(&mut state, res_targets, [1.5, 1.5, 1.2, 1.0], mf_w, sk_w);
+        greedy_res_loop(&mut state, res_targets, [1.5, 1.5, 1.2, 1.0], mf_w, sk_w, class);
         greedy_fhr_loop(&mut state, c.min_fhr);
     }
     if c.min_frw > 0 {
@@ -482,10 +503,18 @@ fn greedy_charms_pass_indices(
             [1.0, 1.0, 1.0, 1.0],
             0.0,
             0.2,
+            class,
         );
     }
 
-    greedy_fill_remaining(&mut state, caps, res_targets, mode, include_stats_tail);
+    greedy_fill_remaining(
+        &mut state,
+        caps,
+        res_targets,
+        mode,
+        class,
+        include_stats_tail,
+    );
 
     if state.cur_fhr < c.min_fhr
         || state.cur_frw < c.min_frw
@@ -590,10 +619,13 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
         || a.mf < b.mf
         || a.life < b.life
         || a.mana < b.mana
+        || a.vit < b.vit
+        || a.ene < b.ene
         || a.frw < b.frw
         || a.str_bonus < b.str_bonus
         || a.dex_bonus < b.dex_bonus
-        || a.skills < b.skills
+        || a.general_skills() < b.general_skills()
+        || a.all_skills < b.all_skills
         || a.action_skills < b.action_skills
         || a.aura_skills < b.aura_skills
     {
@@ -609,10 +641,13 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
         || a.mf > b.mf
         || a.life > b.life
         || a.mana > b.mana
+        || a.vit > b.vit
+        || a.ene > b.ene
         || a.frw > b.frw
         || a.str_bonus > b.str_bonus
         || a.dex_bonus > b.dex_bonus
-        || a.skills > b.skills
+        || a.general_skills() > b.general_skills()
+        || a.all_skills > b.all_skills
         || a.action_skills > b.action_skills
         || a.aura_skills > b.aura_skills;
     strictly_better || a_idx < b_idx
@@ -830,7 +865,7 @@ struct PureAxisDp {
 }
 
 impl PureAxisDp {
-    fn build(items: &[(usize, &CharmSpec, i32)], max_slots: i32) -> Self {
+    fn build(items: &[(usize, &CharmSpec, i32)], max_slots: i32, class: CharClass) -> Self {
         if items.is_empty() {
             return Self {
                 best_gain: vec![0],
@@ -840,7 +875,7 @@ impl PureAxisDp {
         }
         let cap = max_slots.max(0) as usize;
         let mut best_gain = vec![0i32; cap + 1];
-        let mut best_tie = vec![(0i32, 0i32, 0i32, 0i32); cap + 1];
+        let mut best_tie = vec![(0i32, 0i32, 0i32, 0i32, 0i32); cap + 1];
         let mut best_picks = vec![Vec::new(); cap + 1];
 
         for &(idx, ch, val) in items {
@@ -853,9 +888,10 @@ impl PureAxisDp {
                 let prev_tie = best_tie[s - sz];
                 let cand_tie = (
                     prev_tie.0 + ch.skills_total(),
-                    prev_tie.1 + ch.life,
-                    prev_tie.2 + ch.mana,
-                    prev_tie.3 + ch.frw,
+                    prev_tie.1 + ch.all_skills,
+                    prev_tie.2 + charm_eff_life(ch, class),
+                    prev_tie.3 + charm_eff_mana(ch, class),
+                    prev_tie.4 + ch.frw,
                 );
                 if (cand_gain, cand_tie) > (best_gain[s], best_tie[s]) {
                     best_gain[s] = cand_gain;
@@ -976,6 +1012,7 @@ pub(crate) struct CharmSolver<'a> {
     sunder_opts: Vec<&'a CharmSpec>,
     c: &'a BuildConstraints,
     mode: SearchMode,
+    class: CharClass,
     raw_max_slots: i32,
     max_slots: i32,
     sum_neg: [i32; 4],
@@ -1012,7 +1049,7 @@ impl<'a> CharmSolver<'a> {
     pub(crate) fn charm_ub_stats(&self) -> Stats {
         let base = if let Some(&first) = self.sunder_opts.first() {
             let mut acc = Stats {
-                all_skills: first.skills,
+                all_skills: first.general_skills(),
                 action_skill_bonus: first.action_skills,
                 aura_skill_bonus: first.aura_skills,
                 fhr: first.fhr,
@@ -1028,7 +1065,7 @@ impl<'a> CharmSolver<'a> {
             };
             for &s in &self.sunder_opts[1..] {
                 acc = acc.max_each(Stats {
-                    all_skills: s.skills,
+                    all_skills: s.general_skills(),
                     action_skill_bonus: s.action_skills,
                     aura_skill_bonus: s.aura_skills,
                     fhr: s.fhr,
@@ -1109,8 +1146,8 @@ impl<'a> CharmSolver<'a> {
                     s.fhr,
                     s.fr + s.lr + s.pr,
                     s.str_bonus + s.dex_bonus,
-                    s.life,
-                    s.mana,
+                    charm_eff_life(s, class),
+                    charm_eff_mana(s, class),
                     -s.size,
                 ))
             });
@@ -1156,7 +1193,7 @@ impl<'a> CharmSolver<'a> {
             charm_stat_ub(&pool, max_slots, |ch| ch.cr),
             charm_stat_ub(&pool, max_slots, |ch| ch.pr),
         ];
-        let ub_skills = charm_stat_ub(&pool, max_slots, |ch| ch.skills);
+        let ub_skills = charm_stat_ub(&pool, max_slots, |ch| ch.general_skills());
         let ub_action_skills = charm_stat_ub(&pool, max_slots, |ch| ch.action_skills);
         let ub_aura_skills = charm_stat_ub(&pool, max_slots, |ch| ch.aura_skills);
         let ub_mf = charm_stat_ub(&pool, max_slots, |ch| ch.mf);
@@ -1231,7 +1268,7 @@ impl<'a> CharmSolver<'a> {
 
         let mut pure_items: [Vec<(usize, &CharmSpec, i32)>; 9] = std::array::from_fn(|_| Vec::new());
         let mut unique_map: BTreeMap<i32, Vec<usize>> = BTreeMap::new();
-        type MultiKey = [i32; 13];
+        type MultiKey = [i32; 14];
         let mut multi_map: BTreeMap<MultiKey, Vec<usize>> = BTreeMap::new();
 
         for (idx, &ch) in pool.iter().enumerate() {
@@ -1254,6 +1291,7 @@ impl<'a> CharmSolver<'a> {
                     ch.mf,
                     ch.str_bonus,
                     ch.dex_bonus,
+                    ch.all_skills,
                     ch.skills,
                     ch.action_skills,
                     ch.aura_skills,
@@ -1262,15 +1300,27 @@ impl<'a> CharmSolver<'a> {
             }
         }
         let pure_axes: [PureAxisDp; 9] =
-            std::array::from_fn(|d| PureAxisDp::build(&pure_items[d], max_slots));
+            std::array::from_fn(|d| PureAxisDp::build(&pure_items[d], max_slots, class));
 
         let mut groups: Vec<CharmGroup> = Vec::new();
         for (_, mut opts) in unique_map {
             opts.sort_by(|&a, &b| {
                 let ca = pool[a];
                 let cb = pool[b];
-                let va = (main_val_of(ca), ca.skills_total(), ca.life, ca.mana);
-                let vb = (main_val_of(cb), cb.skills_total(), cb.life, cb.mana);
+                let va = (
+                    main_val_of(ca),
+                    ca.skills_total(),
+                    ca.all_skills,
+                    charm_eff_life(ca, class),
+                    charm_eff_mana(ca, class),
+                );
+                let vb = (
+                    main_val_of(cb),
+                    cb.skills_total(),
+                    cb.all_skills,
+                    charm_eff_life(cb, class),
+                    charm_eff_mana(cb, class),
+                );
                 vb.cmp(&va)
             });
             let mut max_pos = StatTotals::default();
@@ -1296,7 +1346,20 @@ impl<'a> CharmSolver<'a> {
             members.sort_by(|&a, &b| {
                 let ca = pool[a];
                 let cb = pool[b];
-                (cb.life, cb.mana, cb.frw).cmp(&(ca.life, ca.mana, ca.frw))
+                (
+                    charm_eff_life(cb, class),
+                    cb.life,
+                    charm_eff_mana(cb, class),
+                    cb.mana,
+                    cb.frw,
+                )
+                    .cmp(&(
+                        charm_eff_life(ca, class),
+                        ca.life,
+                        charm_eff_mana(ca, class),
+                        ca.mana,
+                        ca.frw,
+                    ))
             });
             let rep = pool[members[0]];
             let size = rep.size.max(1);
@@ -1329,8 +1392,8 @@ impl<'a> CharmSolver<'a> {
                         mv * 1000 / sz,
                         feas,
                         -ch.size,
-                        ch.life,
-                        ch.mana,
+                        charm_eff_life(ch, class),
+                        charm_eff_mana(ch, class),
                         ch.frw,
                         -(rep_idx as i32),
                     )
@@ -1351,8 +1414,8 @@ impl<'a> CharmSolver<'a> {
                         mv * 1000 / (*size as i64),
                         feas,
                         -*size,
-                        ch.life,
-                        ch.mana,
+                        charm_eff_life(ch, class),
+                        charm_eff_mana(ch, class),
                         ch.frw,
                         -(rep_idx as i32),
                     )
@@ -1406,6 +1469,7 @@ impl<'a> CharmSolver<'a> {
             sunder_opts,
             c,
             mode,
+            class,
             raw_max_slots,
             max_slots,
             sum_neg,
@@ -1972,8 +2036,16 @@ impl<'a> CharmSolver<'a> {
             };
             let rem_main = self.main_score_of_indices(&idxs, [0; 4]);
             let total_cr = leaf_s.cr + idxs.iter().map(|&i| self.pool[i].cr).sum::<i32>();
-            let total_life = sunder.life + idxs.iter().map(|&i| self.pool[i].life).sum::<i32>();
-            let total_mana = sunder.mana + idxs.iter().map(|&i| self.pool[i].mana).sum::<i32>();
+            let total_life = charm_eff_life(sunder, self.class)
+                + idxs
+                    .iter()
+                    .map(|&i| charm_eff_life(self.pool[i], self.class))
+                    .sum::<i32>();
+            let total_mana = charm_eff_mana(sunder, self.class)
+                + idxs
+                    .iter()
+                    .map(|&i| charm_eff_mana(self.pool[i], self.class))
+                    .sum::<i32>();
             let total_fhr = leaf_s.fhr + idxs.iter().map(|&i| self.pool[i].fhr).sum::<i32>();
             let total_slots = sunder.size + idxs.iter().map(|&i| self.pool[i].size).sum::<i32>();
             let score = (
@@ -2243,7 +2315,14 @@ impl<'a> CharmSolver<'a> {
             state.pick(idx);
         }
         let res_targets = [self.c.min_fr, self.c.min_lr, self.c.min_cr, self.c.min_pr];
-        greedy_fill_remaining(&mut state, caps, res_targets, self.mode, true);
+        greedy_fill_remaining(
+            &mut state,
+            caps,
+            res_targets,
+            self.mode,
+            self.class,
+            true,
+        );
         state.chosen_indices
     }
 }

@@ -30,6 +30,9 @@ def _charm_key(c: CharmSpec) -> tuple[object, ...]:
         c.skills,
         getattr(c, "action_skills", 0),
         getattr(c, "aura_skills", 0),
+        getattr(c, "all_skills", 0),
+        getattr(c, "vit", 0),
+        getattr(c, "ene", 0),
         c.unique_id,
         c.cold_sunder,
     )

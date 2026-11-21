@@ -1276,3 +1276,81 @@ fn test_ub_main_counts_action_and_aura_skills_total() {
         assert!(picked_min1.iter().any(|ch| ch.name == name));
     }
 }
+
+#[test]
+fn test_charm_solver_handles_all_skills_and_vit_ene_tiebreak() {
+    let torch_low = CharmSpec {
+        name: "Torch 10/10".to_string(),
+        size: 2,
+        skills: 3,
+        str_bonus: 10,
+        dex_bonus: 10,
+        vit: 10,
+        ene: 10,
+        fr: 15,
+        lr: 15,
+        cr: 15,
+        pr: 15,
+        unique_id: Some(400),
+        ..Default::default()
+    };
+    let torch_high = CharmSpec {
+        name: "Torch 20/15".to_string(),
+        size: 2,
+        skills: 3,
+        str_bonus: 10,
+        dex_bonus: 10,
+        vit: 20,
+        ene: 20,
+        fr: 15,
+        lr: 15,
+        cr: 15,
+        pr: 15,
+        unique_id: Some(400),
+        ..Default::default()
+    };
+    let anni = CharmSpec {
+        name: "Annihilus".to_string(),
+        size: 1,
+        all_skills: 1,
+        str_bonus: 15,
+        dex_bonus: 15,
+        vit: 15,
+        ene: 15,
+        fr: 15,
+        lr: 15,
+        cr: 15,
+        pr: 15,
+        unique_id: Some(381),
+        ..Default::default()
+    };
+
+    let pool = vec![&torch_low, &torch_high, &anni];
+    let c = BuildConstraints {
+        char_class: 3,
+        base_hell_res: 45,
+        min_fhr: 0,
+        min_fr: 75,
+        min_lr: 75,
+        min_cr: 75,
+        min_pr: 75,
+        max_charm_slots: 3,
+        ..Default::default()
+    };
+    let mut solver = CharmSolver::new(&pool, &c, SearchMode::Power);
+    assert_eq!(solver.charm_ub_stats().all_skills, 4);
+
+    let leaf = Stats {
+        fr: 45,
+        lr: 45,
+        cr: 45,
+        pr: 45,
+        ..Default::default()
+    };
+    let picked = solver
+        .solve_with_min_main(leaf, (0, 0), 4)
+        .expect("Torch + Anni should satisfy min_main=4");
+    assert_eq!(picked.len(), 2);
+    assert!(picked.iter().any(|ch| ch.name == "Torch 20/15"));
+    assert!(picked.iter().any(|ch| ch.name == "Annihilus"));
+}

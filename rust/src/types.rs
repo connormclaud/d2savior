@@ -1385,11 +1385,18 @@ pub struct CharmSpec {
     pub aura_skills: i32,
     pub unique_id: Option<i32>,
     pub cold_sunder: bool,
+    pub all_skills: i32,
+    pub vit: i32,
+    pub ene: i32,
 }
 
 impl CharmSpec {
+    pub(crate) fn general_skills(&self) -> i32 {
+        self.all_skills + self.skills
+    }
+
     pub(crate) fn skills_total(&self) -> i32 {
-        self.skills + self.action_skills + self.aura_skills
+        self.general_skills() + self.action_skills + self.aura_skills
     }
 }
 
@@ -1418,6 +1425,9 @@ impl CharmSpec {
         cold_sunder = false,
         action_skills = 0,
         aura_skills = 0,
+        all_skills = 0,
+        vit = 0,
+        ene = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1441,6 +1451,9 @@ impl CharmSpec {
         cold_sunder: bool,
         action_skills: i32,
         aura_skills: i32,
+        all_skills: i32,
+        vit: i32,
+        ene: i32,
     ) -> Self {
         Self {
             name,
@@ -1463,13 +1476,21 @@ impl CharmSpec {
             aura_skills,
             unique_id,
             cold_sunder,
+            all_skills,
+            vit,
+            ene,
         }
     }
 
     fn __repr__(&self) -> String {
         format!(
             "CharmSpec(name={:?}, size={}, skills={}, fhr={}, mf={}, life={})",
-            self.name, self.size, self.skills, self.fhr, self.mf, self.life
+            self.name,
+            self.size,
+            self.general_skills(),
+            self.fhr,
+            self.mf,
+            self.life
         )
     }
 }
