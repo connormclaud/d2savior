@@ -95,6 +95,24 @@ def test_overrides_and_validation_errors(tmp_path: Path) -> None:
     assert "CBF" in ov.summary_tags()
     assert "FRW>=55" in ov.summary_tags()
 
+    # to_overrides preserves resolved preset fields.
+    round_ov = res.to_overrides()
+    assert (round_ov.mode, round_ov.allow_mf, round_ov.require_cbf, round_ov.min_frw) == (
+        "power",
+        True,
+        True,
+        55,
+    )
+
+    # Invalid override mode rejected.
+    with pytest.raises(ValueError, match="Invalid mode"):
+        resolve_build_expr(
+            "leveling",
+            CharClass.PALADIN,
+            overrides=ConstraintOverrides(mode="bogus"),  # ty: ignore[invalid-argument-type]
+            user_dir=tmp_path,
+        )
+
     # Class mismatch rejected.
     with pytest.raises(ValueError, match="only supported for Paladin"):
         resolve_build_expr("leveling", CharClass.SORCERESS, user_dir=tmp_path)

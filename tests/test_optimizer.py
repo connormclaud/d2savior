@@ -1146,6 +1146,44 @@ def test_cli_optimize_paladin_fixtures(capsys: pytest.CaptureFixture[str]) -> No
     assert "FHR: " in out_floors
     assert "FCR: " in out_floors
 
+    # Paladin CLI routes through resolve_build_expr (user TOML presets, +, ',', --mode, --no-mf).
+    with pytest.raises(SystemExit) as exc_bogus:
+        main(["optimize", "--no-config", "smite", str(pal_dir), "-b", "bogus"])
+    assert exc_bogus.value.code == 1
+    assert "Unknown build preset 'bogus'" in capsys.readouterr().err
+
+    with pytest.raises(SystemExit) as exc_bad_mode:
+        main(["optimize", "--no-config", "smite", str(pal_dir), "--mode", "bogus"])
+    assert exc_bad_mode.value.code == 1
+    assert "Invalid mode 'bogus'" in capsys.readouterr().err
+
+
+@requires_native
+def test_cli_paladin_toml_presets_and_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    pal_dir = FIXTURES_DIR / "paladin_snapshot"
+    (tmp_path / "fast.toml").write_text(
+        'title = "Paladin Fast"\nrequire_cbf = true\nmin_frw = 30\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("d2savior.optimizer.presets.get_presets_dir", lambda: tmp_path)
+
+    # User TOML preset + multi-run (,)
+    main(["optimize", "--no-config", "smite", str(pal_dir), "-b", "leveling+fast,max-res"])
+    out_multi = capsys.readouterr().out
+    assert "=== Paladin Fast ===" in out_multi
+    assert "=== Paladin Max Resist" in out_multi
+    assert "CBF: Yes" in out_multi
+
+    # --mode power and --no-mf must be honored rather than falling through to leveling-probe.
+    main(["optimize", "--no-config", "smite", str(pal_dir), "--mode", "power", "--no-mf"])
+    out_power = capsys.readouterr().out
+    assert "=== Paladin Power" in out_power
+    assert "MF: 0%" in out_power
+
 
 @requires_native
 def test_paladin_dedup_key_and_keep_equipped_preserves_zero_stat_items() -> None:

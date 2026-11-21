@@ -127,13 +127,40 @@ class ResolvedPreset:
         if overrides is None:
             return self
         updates: dict[str, Any] = {}
-        for key in ("mode", *_BOOL_CONSTRAINT_KEYS, *_INT_CONSTRAINT_KEYS):
+        if overrides.mode is not None:
+            mode_low = overrides.mode.strip().lower()
+            if mode_low not in VALID_MODES:
+                raise ValueError(
+                    f"Invalid mode '{overrides.mode}'; expected one of: {', '.join(sorted(VALID_MODES))}"
+                )
+            updates["mode"] = mode_low
+        for key in (*_BOOL_CONSTRAINT_KEYS, *_INT_CONSTRAINT_KEYS):
             val = getattr(overrides, key)
             if val is not None:
                 updates[key] = val
         if not updates:
             return self
         return replace(self, **updates)
+
+    def to_overrides(self) -> ConstraintOverrides:
+        """Convert all constraint fields of this resolved preset into `ConstraintOverrides`."""
+        return ConstraintOverrides(
+            mode=self.mode,
+            allow_mf=self.allow_mf,
+            min_fcr=self.min_fcr,
+            min_fhr=self.min_fhr,
+            min_fr=self.min_fr,
+            min_lr=self.min_lr,
+            min_cr=self.min_cr,
+            min_pr=self.min_pr,
+            require_cbf=self.require_cbf,
+            min_frw=self.min_frw,
+            min_ias=self.min_ias,
+            min_cb=self.min_cb,
+            min_ll=self.min_ll,
+            min_pdr=self.min_pdr,
+            min_mf=self.min_mf,
+        )
 
     def constraint_kwargs(self) -> dict[str, Any]:
         """Return keyword arguments matching `CharacterBaseline.build_constraints`."""

@@ -27,7 +27,7 @@ from d2savior.optimizer.native import (
     class_breakpoints,
     optimize_builds,
 )
-from d2savior.optimizer.presets import ConstraintOverrides
+from d2savior.optimizer.presets import ConstraintOverrides, ResolvedPreset
 from d2savior.optimizer.skill_tables import build_paladin_dps_tables
 
 PALADIN_BUILD_CHOICES: tuple[str, ...] = ("leveling",)
@@ -363,6 +363,59 @@ def select_paladin_max_res_preset(
     return title, constraints, resolved_spec
 
 
+def build_paladin_preset_constraints(
+    char_data: D2SStruct,
+    preset: ResolvedPreset,
+    *,
+    max_charm_slots: int = 23,
+    limit: int = 3,
+    extra_chars: Sequence[D2SStruct] = (),
+    stashes: Sequence[SharedStash] = (),
+    resolver: GameDataResolver | None = None,
+    bo_base_bonus: int | None = None,
+    spec: str | None = None,
+    keep_equipped: bool | str | None = False,
+    targets: int = 1,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
+) -> tuple[str, BuildConstraints, str, str]:
+    """Build a `BuildConstraints` profile from a resolved TOML preset for a Paladin."""
+    eff_targets = max(1, targets)
+    baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
+        char_data,
+        spec=spec,
+        max_charm_slots=max_charm_slots,
+        extra_chars=extra_chars,
+        stashes=stashes,
+        resolver=resolver,
+        bo_base_bonus=bo_base_bonus,
+        keep_equipped=keep_equipped,
+        targets=eff_targets,
+        left_skill=left_skill,
+        right_skill=right_skill,
+    )
+    offense = paladin_offense_profile(
+        resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
+    )
+    constraints = baseline.build_constraints(
+        limit=limit,
+        offense=offense,
+        **preset.constraint_kwargs(),
+    )
+    if preset.title:
+        title = f"{preset.title} [{eff_targets} targets]" if eff_targets > 1 else preset.title
+    elif preset.mode == "max-res" and preset.name == "max-res":
+        title = f"Paladin Max Resist (lvl {char_level}, {diff_name})"
+    else:
+        mode_label = (
+            "Max Resist" if preset.mode == "max-res" else preset.mode.replace("-", " ").title()
+        )
+        name_part = "" if preset.name in ("leveling", preset.mode) else f" — {preset.name}"
+        target_suffix = f", {eff_targets} targets" if eff_targets > 1 else ""
+        title = f"Paladin {mode_label}{name_part} (lvl {char_level}, {diff_name}{target_suffix})"
+    return title, constraints, resolved_spec, diff_name
+
+
 def _step_below_bp(bp: int, table: tuple[int, ...]) -> int | None:
     lower = [b for b in table if b < bp]
     return lower[-1] if lower else None
@@ -644,6 +697,7 @@ def optimize_paladin_leveling(
     left_skill: int | None = None,
     right_skill: int | None = None,
     overrides: ConstraintOverrides | None = None,
+    title: str | None = None,
 ) -> tuple[str, list[tuple[str, BuildResult]], str, str]:
     """Optimize Paladin leveling gear and inventory charms across breakpoint/resist trade-offs."""
     eff_targets = max(1, targets)
@@ -669,9 +723,14 @@ def optimize_paladin_leveling(
     skill_name, _ = paladin_primary_skill_info(char_data, resolved_spec)
     spec_label = skill_name or resolved_spec.replace("-", " ").title()
     target_suffix = f", {eff_targets} targets" if eff_targets > 1 else ""
-    title = f"Paladin Leveling — {spec_label} (lvl {char_level}, {diff_name}{target_suffix})"
+    if title is not None:
+        eff_title = f"{title} [{eff_targets} targets]" if eff_targets > 1 else title
+    else:
+        eff_title = (
+            f"Paladin Leveling — {spec_label} (lvl {char_level}, {diff_name}{target_suffix})"
+        )
     if limit <= 0:
-        return title, [], resolved_spec, diff_name
+        return eff_title, [], resolved_spec, diff_name
 
     # Build extra floor kwargs from overrides (excludes mode — handled by probe itself).
     extra_kwargs: dict[str, Any] = {}
@@ -707,10 +766,10 @@ def optimize_paladin_leveling(
         extra_kwargs=extra_kwargs,
     )
     if opt1 is None:
-        return title, [], resolved_spec, diff_name
+        return eff_title, [], resolved_spec, diff_name
     if limit == 1:
         return (
-            title,
+            eff_title,
             [(_format_opt1_label(opt1, is_caster=is_caster), opt1)],
             resolved_spec,
             diff_name,
@@ -727,4 +786,4 @@ def optimize_paladin_leveling(
         is_smite=is_smite,
         extra_kwargs=extra_kwargs,
     )
-    return title, collected, resolved_spec, diff_name
+    return eff_title, collected, resolved_spec, diff_name

@@ -21,7 +21,6 @@ lazy from d2savior.core.char_formatter import (
     format_char_summary,
     format_timestamp,
 )
-lazy from d2savior.core.constants import DIFFICULTY_NAMES
 lazy from d2savior.core.d2s_struct import D2SStruct
 lazy from d2savior.core.enums import CharClass
 lazy from d2savior.core.ibitstream import IBitStream
@@ -38,7 +37,6 @@ lazy from d2savior.core.stash_formatter import (
     format_stash_info,
     format_stash_summary,
 )
-lazy from d2savior.core.stats import get_current_difficulty
 lazy from d2savior.optimizer import (
     PALADIN_BUILD_CHOICES,
     SORC_ONLY_BUILD_CHOICES,
@@ -46,6 +44,7 @@ lazy from d2savior.optimizer import (
     CharmSpec,
     ConstraintOverrides,
     ItemSpec,
+    build_paladin_preset_constraints,
     extract_pool,
     format_build_report,
     format_paladin_leveling_report,
@@ -54,7 +53,7 @@ lazy from d2savior.optimizer import (
     optimize_paladin_leveling,
     paladin_primary_skill_info,
     parse_keep_gear,
-    select_paladin_max_res_preset,
+    resolve_build_expr,
     select_sorc_presets,
     validate_supported_class,
 )
@@ -608,60 +607,73 @@ def _run_paladin_optimize(
     right_skill: int | None = None,
     overrides: ConstraintOverrides | None = None,
 ) -> None:
-    if args.build.lower() == "max-res":
-        title, constraints, resolved_spec = select_paladin_max_res_preset(
-            primary,
-            max_charm_slots=args.charm_slots,
-            limit=args.limit,
-            extra_chars=extras,
-            stashes=stashes,
-            resolver=resolver,
-            keep_equipped=args.keep_gear,
-            targets=args.targets,
-            left_skill=left_skill,
-            right_skill=right_skill,
-            overrides=overrides,
+    resolved_presets = resolve_build_expr(
+        args.build,
+        CharClass.PALADIN,
+        overrides=overrides,
+        char_name=primary.get_char_name(),
+    )
+    has_mode_override = overrides is not None and overrides.mode is not None
+    for preset in resolved_presets:
+        use_probe = (
+            preset.strategy == "leveling-probe"
+            and not has_mode_override
+            and preset.mode == "leveling-res"
         )
-        diff_name = DIFFICULTY_NAMES[get_current_difficulty(primary)]
-        skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
-        report = format_build_report(
-            title,
-            optimize_builds(items, charms, constraints),
-            charms,
-            char_class=primary.char_class,
-            diff_name=diff_name,
-            primary_skill_name=skill_name,
-            primary_skill_base=base_skill_lvl,
-            primary_inv_loc=primary_inv_loc,
-        )
-    else:
-        title, options, resolved_spec, diff_name = optimize_paladin_leveling(
-            primary,
-            items,
-            charms,
-            max_charm_slots=args.charm_slots,
-            limit=args.limit,
-            extra_chars=extras,
-            stashes=stashes,
-            resolver=resolver,
-            keep_equipped=args.keep_gear,
-            targets=args.targets,
-            left_skill=left_skill,
-            right_skill=right_skill,
-            overrides=overrides,
-        )
-        skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
-        report = format_paladin_leveling_report(
-            title,
-            options,
-            charms,
-            diff_name=diff_name,
-            primary_skill_name=skill_name,
-            primary_skill_base=base_skill_lvl,
-            primary_inv_loc=primary_inv_loc,
-        )
-    print(report)
-    print()
+        if use_probe:
+            title, options, resolved_spec, diff_name = optimize_paladin_leveling(
+                primary,
+                items,
+                charms,
+                max_charm_slots=args.charm_slots,
+                limit=args.limit,
+                extra_chars=extras,
+                stashes=stashes,
+                resolver=resolver,
+                keep_equipped=args.keep_gear,
+                targets=args.targets,
+                left_skill=left_skill,
+                right_skill=right_skill,
+                overrides=preset.to_overrides(),
+                title=preset.title,
+            )
+            skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
+            report = format_paladin_leveling_report(
+                title,
+                options,
+                charms,
+                diff_name=diff_name,
+                primary_skill_name=skill_name,
+                primary_skill_base=base_skill_lvl,
+                primary_inv_loc=primary_inv_loc,
+            )
+        else:
+            title, constraints, resolved_spec, diff_name = build_paladin_preset_constraints(
+                primary,
+                preset,
+                max_charm_slots=args.charm_slots,
+                limit=args.limit,
+                extra_chars=extras,
+                stashes=stashes,
+                resolver=resolver,
+                keep_equipped=args.keep_gear,
+                targets=args.targets,
+                left_skill=left_skill,
+                right_skill=right_skill,
+            )
+            skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
+            report = format_build_report(
+                title,
+                optimize_builds(items, charms, constraints),
+                charms,
+                char_class=primary.char_class,
+                diff_name=diff_name,
+                primary_skill_name=skill_name,
+                primary_skill_base=base_skill_lvl,
+                primary_inv_loc=primary_inv_loc,
+            )
+        print(report)
+        print()
 
 
 def _is_valid_keep_gear_expr(token: str) -> bool:
@@ -990,7 +1002,7 @@ def cmd_optimize(argv: list[str]) -> int:
                 right_skill=right_skill,
                 overrides=active_overrides,
             )
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     return 0
