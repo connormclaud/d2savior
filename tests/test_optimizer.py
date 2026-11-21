@@ -1704,3 +1704,60 @@ def test_item_pct_life_scales_evaluate_and_optimize() -> None:
     # bo_able_life = 600, vit_life = 20. +5% max life adds 30 to both life_no_bo and life_bo.
     assert res_jah.life_no_bo == res_plain.life_no_bo + 30
     assert res_jah.life_bo == res_plain.life_bo + 30
+
+
+@requires_native
+def test_angelic_set_and_itd_win_with_ar_cth_model() -> None:
+    # Verify extracted Angelic Halo + Wings from real fixtures give 2pc +AR/lvl and beat plain jewelry
+    resolver = GameDataResolver.load()
+    pal_dir = FIXTURES_DIR / "paladin_snapshot"
+    ok_p, smite, _ = parse_d2s_file(str(pal_dir / "smite.d2s"), resolver=resolver)
+    assert ok_p
+    assert smite is not None
+    items, _ = extract_pool(smite, resolver=resolver)
+    halos = [it for it in items if it.name.startswith("Angelic Halo") and it.set_bonuses]
+    assert halos
+    assert any(req == 2 and bonus.ar == 360 for req, bonus in halos[0].set_bonuses)
+
+    plain_sword = ItemSpec(
+        "Plain Sword", "weapon", "test", wclass="1hs", wep_phys_2x=60, can_zeal=True
+    )
+    eth_sword = ItemSpec(
+        "Eth Sword",
+        "weapon",
+        "test",
+        wclass="1hs",
+        wep_phys_2x=60,
+        can_zeal=True,
+        target_def_pct=25,
+    )
+    res = optimize_builds(
+        [plain_sword, eth_sword],
+        [],
+        BuildConstraints(
+            char_class=int(CharClass.PALADIN),
+            offense="zeal",
+            mode="leveling",
+            base_str=50,
+            base_dex=20,
+            base_hell_res=75,
+            min_fcr=0,
+            min_fhr=0,
+            min_fr=0,
+            min_lr=0,
+            min_cr=0,
+            min_pr=0,
+            target_def=1000,
+            action_hits=[5],
+            action_ed=[0],
+            action_ar_pct=[10],
+            aura_hit_dmg=[0.0],
+            aura_pulse_dps=[0.0],
+            use_bo=False,
+        ),
+    )
+    assert len(res) >= 1
+    assert res[0].items[0].name == "Eth Sword"
+    assert res[0].ar == (85 * 110) // 100
+    assert 0 < res[0].cth < 95
+    assert res[0].raw_dps > res[0].dps

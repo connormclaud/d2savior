@@ -129,6 +129,10 @@ _USEFUL_ITEM_STATS: tuple[str, ...] = (
     "flat_phys_2x",
     "flat_elem_2x",
     "cold_dmg_pct",
+    "ar",
+    "ar_pct",
+    "itd",
+    "target_def_pct",
     "fcr",
     "fhr",
     "frw",
@@ -207,6 +211,10 @@ class _PropAcc:
     flat_phys_2x: int = 0
     flat_elem_2x: int = 0
     cold_dmg_pct: int = 0
+    ar: int = 0
+    ar_pct: int = 0
+    itd: int = 0
+    target_def_pct: int = 0
     fcr: int = 0
     fhr: int = 0
     frw: int = 0
@@ -326,6 +334,10 @@ class _PropAcc:
             cold_dmg_pct=self.cold_dmg_pct,
             global_set_bonuses=list(global_set_bonuses),
             pct_life=self.pct_life,
+            ar=self.ar,
+            ar_pct=self.ar_pct,
+            itd=self.itd,
+            target_def_pct=self.target_def_pct,
         )
 
     def to_charm_spec(
@@ -361,6 +373,7 @@ class _PropAcc:
             all_skills=self.all_skills,
             vit=self.vit,
             ene=self.ene,
+            ar=self.ar,
         )
 
 
@@ -438,12 +451,38 @@ def _apply_paladin_skill_prop(
                 pal_spec in _ELEMENTAL_AURA_SPECS
                 and pal_primary_id is not None
                 and params[0] == pal_primary_id
-            ):
+            ) or (pal_spec not in _ELEMENTAL_AURA_SPECS and params[0] in (108, 122, 123)):
                 acc.aura_skill_bonus += params[1]
         elif pal_primary_id is not None and params[0] == pal_primary_id:
             acc.primary_skill += params[1]
         return True
     return False
+
+
+_PAL_MELEE_STAT_MAP: frozendict[int, str] = frozendict(
+    {19: "ar", 119: "ar_pct", 116: "target_def_pct"}
+)
+
+
+def _apply_paladin_ar_prop(
+    acc: _PropAcc, pid: int, pval: int, resolver: GameDataResolver, char_level: int
+) -> None:
+    if attr := _PAL_MELEE_STAT_MAP.get(pid):
+        setattr(acc, attr, getattr(acc, attr) + pval)
+    elif pid == 115 and pval > 0:
+        acc.itd = 1
+    elif pid in (123, 124) and pval > 0:
+        acc.ar += max(1, pval // 3)
+    elif pid in (224, 225):
+        scaled = adjust_property_values(
+            pid, [pval], resolver.data.get_stat(pid), char_level=char_level
+        )
+        if isinstance(scaled, int):
+            setattr(
+                acc,
+                "ar" if pid == 224 else "ar_pct",
+                getattr(acc, "ar" if pid == 224 else "ar_pct") + scaled,
+            )
 
 
 def _apply_paladin_prop(
@@ -477,16 +516,16 @@ def _apply_paladin_prop(
             pid, [pval], resolver.data.get_stat(pid), char_level=char_level
         )
         if isinstance(scaled, int):
-            if pid == 218:
-                acc.flat_phys_2x += scaled
-            else:
-                acc.off_ed += scaled
+            attr = "flat_phys_2x" if pid == 218 else "off_ed"
+            setattr(acc, attr, getattr(acc, attr) + scaled)
     elif pid == 247:
         scaled = adjust_property_values(
             pid, [pval], resolver.data.get_stat(pid), char_level=char_level
         )
         if isinstance(scaled, int):
             acc.cb += scaled
+    elif pal_offense in ("zeal", "melee"):
+        _apply_paladin_ar_prop(acc, pid, pval, resolver, char_level)
 
 
 def _compute_weapon_phys_2x(

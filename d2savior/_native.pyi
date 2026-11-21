@@ -20,6 +20,10 @@ class ItemSpec:
     flat_phys_2x: int
     flat_elem_2x: int
     cold_dmg_pct: int
+    ar: int
+    ar_pct: int
+    itd: int
+    target_def_pct: int
     fcr: int
     fhr: int
     frw: int
@@ -130,6 +134,10 @@ class ItemSpec:
         cold_dmg_pct: int = 0,
         global_set_bonuses: Sequence[tuple[int, ItemSpec]] = (),
         pct_life: int = 0,
+        ar: int = 0,
+        ar_pct: int = 0,
+        itd: int = 0,
+        target_def_pct: int = 0,
     ) -> None: ...
     @property
     def skills(self) -> int: ...
@@ -158,6 +166,7 @@ class CharmSpec:
     all_skills: int
     vit: int
     ene: int
+    ar: int
 
     def __init__(
         self,
@@ -184,6 +193,7 @@ class CharmSpec:
         all_skills: int = 0,
         vit: int = 0,
         ene: int = 0,
+        ar: int = 0,
     ) -> None: ...
 
 class BuildConstraints:
@@ -232,6 +242,10 @@ class BuildConstraints:
     min_ll: int
     min_pdr: int
     min_mf: int
+    action_ar_pct: list[int]
+    aura_ar_pct: list[int]
+    aura_target_def_pct: list[int]
+    target_def: int
 
     def __init__(
         self,
@@ -280,6 +294,10 @@ class BuildConstraints:
         min_pdr: int = 0,
         min_mf: int = 0,
         fixed_slots: Sequence[str] = (),
+        action_ar_pct: Sequence[int] = (),
+        aura_ar_pct: Sequence[int] = (),
+        aura_target_def_pct: Sequence[int] = (),
+        target_def: int = 180,
     ) -> None: ...
 
 class BuildResult:
@@ -361,6 +379,12 @@ class BuildResult:
     def bo_lvl(self) -> int: ...
     @property
     def charm_slots(self) -> int: ...
+    @property
+    def ar(self) -> int: ...
+    @property
+    def cth(self) -> int: ...
+    @property
+    def raw_dps(self) -> float: ...
     @property
     def items(self) -> list[ItemSpec]: ...
     @property

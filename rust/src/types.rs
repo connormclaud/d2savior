@@ -50,6 +50,13 @@ impl CharClass {
         }
     }
 
+    pub(crate) fn base_ar_from_dex(self, dex: i32) -> i32 {
+        match self {
+            Self::Sorceress => (5 * dex - 50).max(0),
+            Self::Paladin => (5 * dex - 15).max(0),
+        }
+    }
+
     pub(crate) fn fcr_bps(self) -> &'static [i32] {
         match self {
             Self::Sorceress => SORCERESS_FCR_BPS,
@@ -378,16 +385,61 @@ impl OffenseProfile {
         }
     }
 
-    /// Compute exact single-target DPS for `Zeal`/`Melee` with precomputed skill tables.
+    /// Compute total Attack Rating and equal-level Chance to Hit (`0.05..=0.95`).
+    pub(crate) fn compute_ar_and_cth(
+        self,
+        s: Stats,
+        used_zeal: bool,
+        c: &BuildConstraints,
+    ) -> (i32, f64) {
+        let eff_action = (s.all_skills + s.pal_skills + s.action_skill_bonus).max(0) as usize;
+        let eff_aura = (s.all_skills + s.pal_skills + s.aura_skill_bonus).max(0) as usize;
+        let class = CharClass::from_id_or_default(c.char_class);
+        let total_dex = s.dex_bonus.max(0);
+        let base_ar = (class.base_ar_from_dex(total_dex) + s.ar.max(0)).max(0);
+        let act_ar_pct = if (used_zeal || self == Self::Melee) && !c.action_ar_pct.is_empty() {
+            c.action_ar_pct[eff_action.min(c.action_ar_pct.len() - 1)]
+        } else {
+            0
+        };
+        let aura_ar_pct = if !c.aura_ar_pct.is_empty() {
+            c.aura_ar_pct[eff_aura.min(c.aura_ar_pct.len() - 1)]
+        } else {
+            0
+        };
+        let total_ar_pct = (s.ar_pct + act_ar_pct + aura_ar_pct).max(0);
+        let total_ar = ((base_ar as i64) * (100 + total_ar_pct as i64) / 100) as i32;
+        let base_dr = if c.target_def > 0 { c.target_def } else { 180 };
+        let cth = if s.itd > 0 {
+            0.95
+        } else {
+            let conv_red = if c.aura_target_def_pct.is_empty() {
+                0
+            } else {
+                c.aura_target_def_pct[eff_aura.min(c.aura_target_def_pct.len() - 1)]
+            };
+            let def_red_pct = (s.target_def_pct.max(0) + conv_red.max(0)).clamp(0, 100);
+            let eff_dr = (base_dr as f64) * (100 - def_red_pct) as f64 / 100.0;
+            let denom = total_ar as f64 + eff_dr;
+            if denom <= 0.0 {
+                0.95
+            } else {
+                (total_ar as f64 / denom).clamp(0.05, 0.95)
+            }
+        };
+        (total_ar, cth)
+    }
+
+    /// Compute effective/raw single-target DPS, rounded CTH%, IAS info, and `used_zeal`.
     ///
     /// Expects `s.str_bonus` and `s.dex_bonus` to be total character strength/dexterity
     /// (`c.base_str + gear + charms`), matching `ub_ch` in `search.rs`.
-    pub(crate) fn compute_dps(
+    pub(crate) fn compute_dps_detailed(
         self,
         hand: HandWeapon,
         s: Stats,
         c: &BuildConstraints,
-    ) -> (f64, i32, i32, i32, bool) {
+    ) -> (f64, f64, i32, i32, i32, i32, bool) {
         let eff_action = (s.all_skills + s.pal_skills + s.action_skill_bonus).max(0) as usize;
         let eff_aura = (s.all_skills + s.pal_skills + s.aura_skill_bonus).max(0) as usize;
 
@@ -435,9 +487,31 @@ impl OffenseProfile {
             0.0
         };
 
-        let dps = (d_phys + d_aura_hit * aura_hit_mult + d_splash_fire + d_elem_gear) * rate
-            + d_aura_pulse * targets;
-        (dps, ias_bp, display_frames, last_frames, used_zeal)
+        let (_, cth) = self.compute_ar_and_cth(s, used_zeal, c);
+        let direct_hit = d_phys + d_aura_hit * aura_hit_mult + d_elem_gear;
+        let eff_dps = (direct_hit * cth + d_splash_fire) * rate + d_aura_pulse * targets;
+        let raw_dps = (direct_hit + d_splash_fire) * rate + d_aura_pulse * targets;
+        let cth_pct = (cth * 100.0).round() as i32;
+        (
+            eff_dps,
+            raw_dps,
+            cth_pct,
+            ias_bp,
+            display_frames,
+            last_frames,
+            used_zeal,
+        )
+    }
+
+    pub(crate) fn compute_dps(
+        self,
+        hand: HandWeapon,
+        s: Stats,
+        c: &BuildConstraints,
+    ) -> (f64, i32, i32, i32, bool) {
+        let (eff_dps, _, _, ias_bp, display_frames, last_frames, used_zeal) =
+            self.compute_dps_detailed(hand, s, c);
+        (eff_dps, ias_bp, display_frames, last_frames, used_zeal)
     }
 
     pub(crate) fn score(self, eff_primary: i32, ias_bp: i32, cb: i32) -> i32 {
@@ -476,6 +550,10 @@ pub(crate) struct Stats {
     pub(crate) flat_phys_2x: i32,
     pub(crate) flat_elem_2x: i32,
     pub(crate) cold_dmg_pct: i32,
+    pub(crate) ar: i32,
+    pub(crate) ar_pct: i32,
+    pub(crate) itd: i32,
+    pub(crate) target_def_pct: i32,
     pub(crate) fcr: i32,
     pub(crate) fhr: i32,
     pub(crate) frw: i32,
@@ -577,6 +655,10 @@ impl Stats {
             self.off_ed = 0;
             self.flat_phys_2x = 0;
             self.flat_elem_2x = 0;
+            self.ar = 0;
+            self.ar_pct = 0;
+            self.itd = 0;
+            self.target_def_pct = 0;
         }
         if !(mode == SearchMode::Mf || c.min_mf > 0 || !c.allow_mf) {
             self.mf = 0;
@@ -625,6 +707,10 @@ impl Stats {
             flat_phys_2x: self.flat_phys_2x + o.flat_phys_2x,
             flat_elem_2x: self.flat_elem_2x + o.flat_elem_2x,
             cold_dmg_pct: self.cold_dmg_pct + o.cold_dmg_pct,
+            ar: self.ar + o.ar,
+            ar_pct: self.ar_pct + o.ar_pct,
+            itd: self.itd + o.itd,
+            target_def_pct: self.target_def_pct + o.target_def_pct,
             fcr: self.fcr + o.fcr,
             fhr: self.fhr + o.fhr,
             frw: self.frw + o.frw,
@@ -674,6 +760,10 @@ impl Stats {
             flat_phys_2x: self.flat_phys_2x.max(o.flat_phys_2x),
             flat_elem_2x: self.flat_elem_2x.max(o.flat_elem_2x),
             cold_dmg_pct: self.cold_dmg_pct.max(o.cold_dmg_pct),
+            ar: self.ar.max(o.ar),
+            ar_pct: self.ar_pct.max(o.ar_pct),
+            itd: self.itd.max(o.itd),
+            target_def_pct: self.target_def_pct.max(o.target_def_pct),
             fcr: self.fcr.max(o.fcr),
             fhr: self.fhr.max(o.fhr),
             frw: self.frw.max(o.frw),
@@ -722,6 +812,10 @@ impl Stats {
             && self.flat_phys_2x >= o.flat_phys_2x
             && self.flat_elem_2x >= o.flat_elem_2x
             && self.cold_dmg_pct >= o.cold_dmg_pct
+            && self.ar >= o.ar
+            && self.ar_pct >= o.ar_pct
+            && self.itd >= o.itd
+            && self.target_def_pct >= o.target_def_pct
             && self.fcr >= o.fcr
             && self.fhr >= o.fhr
             && self.frw >= o.frw
@@ -776,6 +870,10 @@ pub struct ItemSpec {
     pub flat_phys_2x: i32,
     pub flat_elem_2x: i32,
     pub cold_dmg_pct: i32,
+    pub ar: i32,
+    pub ar_pct: i32,
+    pub itd: i32,
+    pub target_def_pct: i32,
     pub fcr: i32,
     pub fhr: i32,
     pub frw: i32,
@@ -1048,6 +1146,10 @@ impl ItemSpec {
             flat_phys_2x: self.flat_phys_2x,
             flat_elem_2x: self.flat_elem_2x,
             cold_dmg_pct: self.cold_dmg_pct,
+            ar: self.ar,
+            ar_pct: self.ar_pct,
+            itd: self.itd,
+            target_def_pct: self.target_def_pct,
             fcr: self.fcr,
             fhr: self.fhr,
             frw: self.frw,
@@ -1107,6 +1209,10 @@ impl ItemSpec {
             flat_phys_2x: s.flat_phys_2x,
             flat_elem_2x: s.flat_elem_2x,
             cold_dmg_pct: s.cold_dmg_pct,
+            ar: s.ar,
+            ar_pct: s.ar_pct,
+            itd: s.itd,
+            target_def_pct: s.target_def_pct,
             fcr: s.fcr,
             fhr: s.fhr,
             frw: s.frw,
@@ -1223,6 +1329,10 @@ impl ItemSpec {
         cold_dmg_pct = 0,
         global_set_bonuses = Vec::new(),
         pct_life = 0,
+        ar = 0,
+        ar_pct = 0,
+        itd = 0,
+        target_def_pct = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1287,6 +1397,10 @@ impl ItemSpec {
         cold_dmg_pct: i32,
         global_set_bonuses: Vec<(i32, ItemSpec)>,
         pct_life: i32,
+        ar: i32,
+        ar_pct: i32,
+        itd: i32,
+        target_def_pct: i32,
     ) -> Self {
         Self {
             name,
@@ -1304,6 +1418,10 @@ impl ItemSpec {
             flat_phys_2x,
             flat_elem_2x,
             cold_dmg_pct,
+            ar,
+            ar_pct,
+            itd,
+            target_def_pct,
             fcr,
             fhr,
             frw,
@@ -1398,6 +1516,7 @@ pub struct CharmSpec {
     pub all_skills: i32,
     pub vit: i32,
     pub ene: i32,
+    pub ar: i32,
 }
 
 impl CharmSpec {
@@ -1438,6 +1557,7 @@ impl CharmSpec {
         all_skills = 0,
         vit = 0,
         ene = 0,
+        ar = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1464,6 +1584,7 @@ impl CharmSpec {
         all_skills: i32,
         vit: i32,
         ene: i32,
+        ar: i32,
     ) -> Self {
         Self {
             name,
@@ -1489,6 +1610,7 @@ impl CharmSpec {
             all_skills,
             vit,
             ene,
+            ar,
         }
     }
 
@@ -1554,6 +1676,10 @@ pub struct BuildConstraints {
     pub min_ll: i32,
     pub min_pdr: i32,
     pub min_mf: i32,
+    pub action_ar_pct: Vec<i32>,
+    pub aura_ar_pct: Vec<i32>,
+    pub aura_target_def_pct: Vec<i32>,
+    pub target_def: i32,
 }
 
 impl Default for BuildConstraints {
@@ -1604,6 +1730,10 @@ impl Default for BuildConstraints {
             min_ll: 0,
             min_pdr: 0,
             min_mf: 0,
+            action_ar_pct: Vec::new(),
+            aura_ar_pct: Vec::new(),
+            aura_target_def_pct: Vec::new(),
+            target_def: 180,
         }
     }
 }
@@ -1658,6 +1788,10 @@ impl BuildConstraints {
         min_pdr = 0,
         min_mf = 0,
         fixed_slots = Vec::new(),
+        action_ar_pct = Vec::new(),
+        aura_ar_pct = Vec::new(),
+        aura_target_def_pct = Vec::new(),
+        target_def = 180,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1706,6 +1840,10 @@ impl BuildConstraints {
         min_pdr: i32,
         min_mf: i32,
         fixed_slots: Vec<String>,
+        action_ar_pct: Vec<i32>,
+        aura_ar_pct: Vec<i32>,
+        aura_target_def_pct: Vec<i32>,
+        target_def: i32,
     ) -> Self {
         Self {
             allow_mf,
@@ -1753,6 +1891,10 @@ impl BuildConstraints {
             min_ll,
             min_pdr,
             min_mf,
+            action_ar_pct,
+            aura_ar_pct,
+            aura_target_def_pct,
+            target_def,
         }
     }
 }
@@ -1814,6 +1956,9 @@ pub struct BuildResult {
     pub mana_bo: i32,
     pub bo_lvl: i32,
     pub charm_slots: i32,
+    pub ar: i32,
+    pub cth: i32,
+    pub raw_dps: f64,
     pub items: Vec<ItemSpec>,
     pub charms: Vec<CharmSpec>,
     pub evaluated_candidates: usize,

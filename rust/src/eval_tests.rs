@@ -271,3 +271,82 @@ fn test_pct_life_scales_bo_able_life_only() {
     assert_eq!(res_no_bo.life_no_bo, 730);
     assert_eq!(res_no_bo.life_bo, 730);
 }
+
+#[test]
+fn test_ar_and_chance_to_hit_scaling() {
+    assert_eq!(CharClass::Paladin.base_ar_from_dex(20), 85);
+    assert_eq!(CharClass::Sorceress.base_ar_from_dex(25), 75);
+    assert_eq!(CharClass::Sorceress.base_ar_from_dex(5), 0);
+
+    // Base Paladin: dex=20 -> 85 base AR; sword weapon phys_2x=200 (100 avg), 1hs wsm=0 @ 0 IAS -> 15f = 25/15 hit/s.
+    let sword = ItemSpec {
+        name: "Test Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 200,
+        can_zeal: true,
+        ..Default::default()
+    };
+    let mut ring_ar = mk_test_item("AR Ring", "ring", 0, 0, 0, 0, 0);
+    ring_ar.ar = 200;
+    ring_ar.ar_pct = 20;
+    let charm_ar = CharmSpec {
+        name: "Fine SC".into(),
+        size: 1,
+        ar: 20,
+        ..Default::default()
+    };
+    let mut wep_itd = sword.clone();
+    wep_itd.itd = 1;
+    let mut wep_eth = sword.clone();
+    wep_eth.target_def_pct = 50;
+
+    let c_base = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        offense: "zeal".into(),
+        mode: "leveling".into(),
+        base_str: 0,
+        base_dex: 20,
+        target_def: 300,
+        action_hits: vec![2, 3],
+        action_ed: vec![0, 0],
+        action_ar_pct: vec![10, 50],
+        aura_ar_pct: vec![40, 60],
+        aura_target_def_pct: vec![0, 50],
+        aura_hit_dmg: vec![0.0, 0.0],
+        aura_pulse_dps: vec![0.0, 0.0],
+        use_bo: false,
+        ..Default::default()
+    };
+
+    // Total base AR = 85 + 200 + 20 = 305.
+    // Eff action=0 (hits=2 -> used_zeal=true, action_ar_pct=10%), eff aura=0 (aura_ar_pct=40%), ring ar_pct=20%
+    // => +70% AR => AR = 305 * 170 / 100 = 518.
+    let res_plain = eval_build_core(&[&sword, &ring_ar], &[&charm_ar], &c_base, 1);
+    assert_eq!(res_plain.ar, 518);
+    assert_eq!(res_plain.cth, 63);
+    assert!(res_plain.used_zeal);
+    let zeal_rate = 25.0 * 2.0 / (res_plain.ias_frames + res_plain.ias_last_frames) as f64;
+    let expected_cth_plain = 518.0 / (518.0 + 300.0);
+    let expected_dps_plain = 100.0 * expected_cth_plain * zeal_rate;
+    let expected_raw_dps_plain = 100.0 * zeal_rate;
+    assert!((res_plain.dps - expected_dps_plain).abs() < 1e-6);
+    assert!((res_plain.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
+
+    // -50% Target Defense (weapon) + -50% (Conviction at +1 aura): total 100% reduction -> eff_dr = 0 -> CTH clamped to 0.95.
+    let mut ring_sk = ring_ar.clone();
+    ring_sk.aura_skill_bonus = 1;
+    let res_eth_conv = eval_build_core(&[&wep_eth, &ring_sk], &[&charm_ar], &c_base, 1);
+    // +1 aura gives aura_ar_pct=60% => total_ar_pct = 20 + 10 + 60 = 90 => 305 * 190 / 100 = 579.
+    assert_eq!(res_eth_conv.ar, 579);
+    assert_eq!(res_eth_conv.cth, 95);
+    let expected_dps_eth_conv = 100.0 * 0.95 * zeal_rate;
+    assert!((res_eth_conv.dps - expected_dps_eth_conv).abs() < 1e-6);
+    assert!((res_eth_conv.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
+
+    // ITD gives 95% CTH directly regardless of low AR.
+    let res_itd = eval_build_core(&[&wep_itd], &[], &c_base, 1);
+    assert_eq!(res_itd.ar, 85 * 150 / 100); // 127
+    assert_eq!(res_itd.cth, 95);
+    assert!((res_itd.dps - expected_dps_eth_conv).abs() < 1e-6);
+}

@@ -127,6 +127,10 @@ class _FakeItemSpec:
     splash_fire: bool = False
     splash_fire_2x: int = 0
     cold_dmg_pct: int = 0
+    ar: int = 0
+    ar_pct: int = 0
+    itd: int = 0
+    target_def_pct: int = 0
 
 
 @dataclass
@@ -154,6 +158,7 @@ class _FakeCharmSpec:
     all_skills: int = 0
     vit: int = 0
     ene: int = 0
+    ar: int = 0
 
 
 @dataclass
@@ -203,6 +208,10 @@ class _FakeConstraints:
     min_ll: int = 0
     min_pdr: int = 0
     min_mf: int = 0
+    action_ar_pct: list[int] = field(default_factory=list)
+    aura_ar_pct: list[int] = field(default_factory=list)
+    aura_target_def_pct: list[int] = field(default_factory=list)
+    target_def: int = 180
 
 
 @dataclass
@@ -245,6 +254,9 @@ class _FakeBuildResult:
     mana_bo: int = 100
     charm_slots: int = 0
     evaluated_candidates: int = 12
+    ar: int = 0
+    cth: int = 0
+    raw_dps: float = 0.0
 
 
 def _as_result(res: _FakeBuildResult) -> BuildResult:
@@ -886,6 +898,31 @@ def test_report_formatting_sorc_paladin_and_charms() -> None:
     assert "DR: 15% | LL: 7%" in pal_report
     assert "BO lvl 5: 850" in pal_report
 
+    pal_dps_res = _as_result(
+        _FakeBuildResult(
+            dps=800.0,
+            raw_dps=1000.0,
+            used_zeal=True,
+            ar=1200,
+            cth=86,
+            skills=2,
+            action_skill_bonus=1,
+            ias=40,
+            ias_bp=32,
+            ias_frames=6,
+            ias_last_frames=11,
+        )
+    )
+    dps_report = format_build_report(
+        "Paladin Zeal",
+        [pal_dps_res],
+        char_class=int(CharClass.PALADIN),
+        diff_name="Normal",
+        primary_skill_name="Zeal",
+        primary_skill_base=4,
+    )
+    assert "DPS: 1000 (Zeal) | AR: 1200 (86%) |" in dps_report
+
     assert "No loadout found" in format_paladin_leveling_report("Empty Pal", [])
     lvl_report = format_paladin_leveling_report(
         "Paladin Leveling",
@@ -1503,3 +1540,55 @@ def test_extract_per_level_attrs_res_def_and_pct_life() -> None:
     # Non-armor item with 0 base defense (e.g., Leaf staff with +2 Def/lvl -> pval=16 -> +160 Def).
     staff_def = calculate_effective_defence(0, [(214, 16, [16])], char_level=80, resolver=resolver)
     assert staff_def == 160
+
+
+def test_ar_stats_extracted_only_for_melee_paladin() -> None:
+    resolver = GameDataResolver.load()
+    ar_props: list[tuple[int, int, list[int]]] = [
+        (19, 100, [100]),  # +100 AR
+        (119, 50, [50]),  # +50% AR
+        (115, 1, [1]),  # ITD
+        (116, 25, [25]),  # -25% Target Defense
+        (123, 75, [75]),  # +75 AR vs Demons (-> +25)
+        (124, 60, [60]),  # +60 AR vs Undead (-> +20)
+        (224, 24, [24]),  # Angelic Halo 2pc +12/lvl * 30 = +360 AR
+        (225, 8, [8]),  # +4%/lvl AR * 30 = +120% AR
+    ]
+
+    # Extracted for melee / zeal Paladin
+    pal_acc = _PropAcc()
+    _apply_props_to_acc(
+        pal_acc,
+        ar_props,
+        resolver,
+        30,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="holy-fire",
+        pal_offense="melee",
+    )
+    assert pal_acc.ar == 100 + 25 + 20 + 360
+    assert pal_acc.ar_pct == 50 + 120
+    assert pal_acc.itd == 1
+    assert pal_acc.target_def_pct == 25
+
+    # Skipped for Smite Paladin and Sorceress (keeps non-melee item/charm pools unchanged)
+    for cls_id, p_spec, p_off in (
+        (int(CharClass.PALADIN), "smite", "smite"),
+        (int(CharClass.SORCERESS), "leveling", "caster"),
+    ):
+        non_melee = _PropAcc()
+        _apply_props_to_acc(
+            non_melee,
+            ar_props,
+            resolver,
+            30,
+            char_class=cls_id,
+            pal_spec=p_spec,
+            pal_offense=p_off,
+        )
+        assert (non_melee.ar, non_melee.ar_pct, non_melee.itd, non_melee.target_def_pct) == (
+            0,
+            0,
+            0,
+            0,
+        )

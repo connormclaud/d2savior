@@ -92,6 +92,40 @@ class TestPaladinDpsTables:
         assert exploding_arrow_fire_2x(0) == 0
         assert exploding_arrow_fire_2x(3) == 44
 
+    def test_paladin_ar_and_conviction_tables(self):
+        # Zeal lvl 1..20 (ToHit=10, LevToHit=10 => 10 * slvl) + Fanaticism lvl 20 (40 + 19*5 = 135%)
+        # + Blessed Aim 4 hard pts passive (+20%) => aura_ar_pct[0] = 155%.
+        # Fanaticism keeps has_aura=False so primary skill remains Zeal!
+        c_zeal = _make_paladin({10: 1, 26: 20, 12: 4})
+        t_zeal = build_paladin_dps_tables(c_zeal, "zeal", "zeal", max_bonus=5)
+        assert t_zeal.has_aura is False
+        assert t_zeal.action_ar_pct[:3] == (10, 20, 30)
+        assert t_zeal.aura_ar_pct[:3] == (155, 160, 165)
+        assert t_zeal.aura_target_def_pct == (0,)
+
+        # Blessed Aim active (offset=12, lvl 10 => 75 + 9*15 = 210%) overrides passive when selected.
+        c_ba = _make_paladin({10: 5, 12: 10})
+        t_ba = build_paladin_dps_tables(c_ba, "zeal", "zeal", right_skill=108, max_bonus=2)
+        assert t_ba.has_aura is False
+        assert t_ba.aura_ar_pct == (210, 225, 240)
+
+        # Vengeance (offset=15, ToHit=20, LevToHit=10) + Conviction (ID=123, offset=27)
+        c_conv = _make_paladin({15: 20, 27: 20})
+        t_conv = build_paladin_dps_tables(c_conv, "vengeance", "melee", max_bonus=5)
+        assert t_conv.has_aura is False
+        assert t_conv.action_ar_pct[:2] == (210, 220)
+        # Conviction slvl 20: 90%, slvl 21: 91%, slvl 25: 92%.
+        assert t_conv.aura_target_def_pct[:2] == (90, 91)
+        assert t_conv.aura_target_def_pct[5] == 92
+
+        # Sacrifice (offset=0, ToHit=20, LevToHit=7) & Charge (offset=11, ToHit=50, LevToHit=15).
+        assert build_paladin_dps_tables(
+            _make_paladin({0: 2}), "sacrifice", "melee", max_bonus=1
+        ).action_ar_pct == (27, 34)
+        assert build_paladin_dps_tables(
+            _make_paladin({11: 2}), "charge", "melee", max_bonus=1
+        ).action_ar_pct == (65, 80)
+
 
 def _make_sorc(skill_pts: dict[int, int], left: int = 0, right: int = 0) -> D2SStruct:
     char = D2SStruct()

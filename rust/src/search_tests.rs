@@ -3125,3 +3125,112 @@ fn test_pct_life_breaks_life_bo_tie_and_is_not_pareto_pruned() {
         "Jah Helm"
     );
 }
+
+#[test]
+fn test_ar_cth_angelic_itd_target_def_and_brute_force_parity() {
+    // Compare weapons with identical base phys/speed: Plain Sword vs ITD Sword vs -50% Target Def Sword,
+    // plus Angelic Wings + Halo (2pc +360 AR set bonus) vs plain jewelry, and +AR Small Charm.
+    let plain_wep = ItemSpec {
+        name: "Plain Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 80,
+        can_zeal: true,
+        ..Default::default()
+    };
+    let mut eth_wep = plain_wep.clone();
+    eth_wep.name = "Eth Sword".into();
+    eth_wep.target_def_pct = 25;
+    eth_wep.wep_phys_2x = 76; // slightly lower raw dmg, higher CTH
+
+    let mut itd_wep = plain_wep.clone();
+    itd_wep.name = "ITD Sword".into();
+    itd_wep.itd = 1;
+    itd_wep.wep_phys_2x = 70; // lowest raw dmg, but 95% CTH
+
+    let plain_amu = mk_item("Plain Amulet", "amulet", 0, 0, 0, 0, 0);
+    let plain_ring = mk_item("Plain Ring", "ring", 0, 0, 0, 0, 0);
+
+    let mut angel_wings = mk_item("Angelic Wings", "amulet", 0, 0, 0, 0, 0);
+    angel_wings.set_group = 10;
+    angel_wings.set_item_id = 54;
+    let mut angel_halo = mk_item("Angelic Halo", "ring", 0, 0, 0, 0, 0);
+    angel_halo.set_group = 10;
+    angel_halo.set_item_id = 53;
+    let mut halo_2pc = ItemSpec::empty("2pc");
+    halo_2pc.ar = 360;
+    angel_halo.set_bonuses = vec![(2, halo_2pc)];
+
+    let charms = vec![
+        CharmSpec {
+            name: "Sharp SC 1".into(),
+            size: 1,
+            ar: 36,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Balance SC".into(),
+            size: 1,
+            fhr: 5,
+            ..Default::default()
+        },
+    ];
+
+    let c = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        offense: "zeal".into(),
+        mode: "leveling".into(),
+        base_hell_res: 75,
+        base_str: 50,
+        base_dex: 20, // base AR = 85
+        target_def: 1200, // Hell-scale target defense -> low hit rate without AR/ITD
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 2,
+        limit: 3,
+        use_bo: false,
+        aura_hit_dmg: vec![0.0, 0.0],
+        aura_pulse_dps: vec![0.0, 0.0],
+        action_ed: vec![0, 0],
+        action_hits: vec![5, 5],
+        action_ar_pct: vec![10, 20],
+        aura_ar_pct: vec![0, 0],
+        has_aura: false,
+        ..Default::default()
+    };
+
+    // 1. Without Angelic, Plain Sword CTH is terrible (85 / (85+1200) ~ 6.6%) so ITD Sword wins easily!
+    let res_wep = optimize_builds_core(
+        &[plain_wep.clone(), eth_wep.clone(), itd_wep.clone(), plain_amu.clone(), plain_ring.clone()],
+        &charms,
+        &c,
+    )
+    .unwrap();
+    assert_eq!(res_wep[0].items[0].name, "ITD Sword");
+
+    // 2. Comparing Plain Sword with Angelic 2pc vs Plain Jewelry -> Angelic 2pc + Sharp SC wins via higher AR & DPS,
+    //    and matches brute-force search parity!
+    let angel_items = vec![
+        plain_wep,
+        eth_wep,
+        plain_amu,
+        angel_wings,
+        plain_ring,
+        angel_halo,
+    ];
+    let opt = optimize_builds_core(&angel_items, &charms, &c).unwrap();
+    let bf = brute_force_top_scores(&angel_items, &charms, &c, SearchMode::Leveling);
+    assert!(!opt.is_empty());
+    let mut top_sc = validate_and_score_result(&opt[0], &c, SearchMode::Leveling);
+    top_sc.locality = 0;
+    assert_eq!(top_sc, bf[0]);
+    let names: Vec<&str> = opt[0].items.iter().map(|i| i.name.as_str()).collect();
+    assert!(names.contains(&"Angelic Wings"));
+    assert!(names.contains(&"Angelic Halo"));
+    assert!(opt[0].ar > 400);
+    assert!(opt[0].charms.iter().any(|ch| ch.name == "Sharp SC 1"));
+}

@@ -390,7 +390,7 @@ fn greedy_fill_remaining(
                 + charm_eff_mana(c, class) as f64 * 0.4
                 + (caps[3] - state.cur_res[3]).max(0).min(c.pr) as f64 * 1.2;
             if matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) {
-                s += c.frw as f64 * 1.5;
+                s += c.frw as f64 * 1.5 + c.ar as f64 * 0.25;
             }
             if state.cur_res[0] < caps[0] {
                 s += (caps[0] - state.cur_res[0]).min(c.fr) as f64 * 2.0;
@@ -621,6 +621,7 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
         || a.mana < b.mana
         || a.vit < b.vit
         || a.ene < b.ene
+        || a.ar < b.ar
         || a.frw < b.frw
         || a.str_bonus < b.str_bonus
         || a.dex_bonus < b.dex_bonus
@@ -643,6 +644,7 @@ fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> 
         || a.mana > b.mana
         || a.vit > b.vit
         || a.ene > b.ene
+        || a.ar > b.ar
         || a.frw > b.frw
         || a.str_bonus > b.str_bonus
         || a.dex_bonus > b.dex_bonus
@@ -875,7 +877,7 @@ impl PureAxisDp {
         }
         let cap = max_slots.max(0) as usize;
         let mut best_gain = vec![0i32; cap + 1];
-        let mut best_tie = vec![(0i32, 0i32, 0i32, 0i32, 0i32); cap + 1];
+        let mut best_tie = vec![(0i32, 0i32, 0i32, 0i32, 0i32, 0i32); cap + 1];
         let mut best_picks = vec![Vec::new(); cap + 1];
 
         for &(idx, ch, val) in items {
@@ -892,6 +894,7 @@ impl PureAxisDp {
                     prev_tie.2 + charm_eff_life(ch, class),
                     prev_tie.3 + charm_eff_mana(ch, class),
                     prev_tie.4 + ch.frw,
+                    prev_tie.5 + ch.ar,
                 );
                 if (cand_gain, cand_tie) > (best_gain[s], best_tie[s]) {
                     best_gain[s] = cand_gain;
@@ -1025,6 +1028,7 @@ pub(crate) struct CharmSolver<'a> {
     ub_action_skills: i32,
     ub_aura_skills: i32,
     ub_mf: i32,
+    ub_ar: i32,
     groups: Vec<CharmGroup>,
     pure_axes: [PureAxisDp; 9],
     suf_pos: Vec<StatTotals>,
@@ -1061,6 +1065,7 @@ impl<'a> CharmSolver<'a> {
                 mf: first.mf,
                 str_bonus: first.str_bonus,
                 dex_bonus: first.dex_bonus,
+                ar: first.ar,
                 ..Default::default()
             };
             for &s in &self.sunder_opts[1..] {
@@ -1077,6 +1082,7 @@ impl<'a> CharmSolver<'a> {
                     mf: s.mf,
                     str_bonus: s.str_bonus,
                     dex_bonus: s.dex_bonus,
+                    ar: s.ar,
                     ..Default::default()
                 });
             }
@@ -1097,6 +1103,7 @@ impl<'a> CharmSolver<'a> {
             mf: base.mf + self.ub_mf,
             str_bonus: base.str_bonus + self.ub_str,
             dex_bonus: base.dex_bonus + self.ub_dex,
+            ar: base.ar + self.ub_ar,
             ..Default::default()
         }
     }
@@ -1197,6 +1204,7 @@ impl<'a> CharmSolver<'a> {
         let ub_action_skills = charm_stat_ub(&pool, max_slots, |ch| ch.action_skills);
         let ub_aura_skills = charm_stat_ub(&pool, max_slots, |ch| ch.aura_skills);
         let ub_mf = charm_stat_ub(&pool, max_slots, |ch| ch.mf);
+        let ub_ar = charm_stat_ub(&pool, max_slots, |ch| ch.ar);
 
         let is_relevant = |ch: &CharmSpec| {
             let helps_feas = ch.str_bonus > 0
@@ -1352,6 +1360,7 @@ impl<'a> CharmSolver<'a> {
                     charm_eff_mana(cb, class),
                     cb.mana,
                     cb.frw,
+                    cb.ar,
                 )
                     .cmp(&(
                         charm_eff_life(ca, class),
@@ -1359,6 +1368,7 @@ impl<'a> CharmSolver<'a> {
                         charm_eff_mana(ca, class),
                         ca.mana,
                         ca.frw,
+                        ca.ar,
                     ))
             });
             let rep = pool[members[0]];
@@ -1482,6 +1492,7 @@ impl<'a> CharmSolver<'a> {
             ub_action_skills,
             ub_aura_skills,
             ub_mf,
+            ub_ar,
             groups,
             pure_axes,
             suf_pos,

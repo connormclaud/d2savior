@@ -281,13 +281,18 @@ def _build_paladin_baseline(
         resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
     )
     if offense in ("zeal", "melee"):
-        dps_tables = build_paladin_dps_tables(char_data, resolved_spec, offense)
+        dps_tables = build_paladin_dps_tables(
+            char_data, resolved_spec, offense, right_skill=right_skill
+        )
         aura_hit_dmg = dps_tables.aura_hit_dmg
         aura_pulse_dps = dps_tables.aura_pulse_dps
         action_ed = dps_tables.action_ed
         action_hits = dps_tables.action_hits
         has_aura = dps_tables.has_aura
         aura_is_fire = dps_tables.aura_is_fire
+        action_ar_pct = dps_tables.action_ar_pct
+        aura_ar_pct = dps_tables.aura_ar_pct
+        aura_target_def_pct = dps_tables.aura_target_def_pct
     else:
         aura_hit_dmg = ()
         aura_pulse_dps = ()
@@ -295,6 +300,10 @@ def _build_paladin_baseline(
         action_hits = ()
         has_aura = False
         aura_is_fire = False
+        action_ar_pct = ()
+        aura_ar_pct = ()
+        aura_target_def_pct = ()
+    target_def = (6, 12, 20)[min(max(diff_idx, 0), 2)] * char_level
     fixed_all, fixed_slots = resolve_fixed_gear(keep_equipped)
     baseline = CharacterBaseline(
         char_class=int(CharClass.PALADIN),
@@ -318,6 +327,10 @@ def _build_paladin_baseline(
         has_aura=has_aura,
         aura_is_fire=aura_is_fire,
         targets=max(1, targets),
+        action_ar_pct=action_ar_pct,
+        aura_ar_pct=aura_ar_pct,
+        aura_target_def_pct=aura_target_def_pct,
+        target_def=target_def,
     )
     return baseline, char_level, diff_name, resolved_spec
 

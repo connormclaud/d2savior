@@ -33,6 +33,7 @@ def _charm_key(c: CharmSpec) -> tuple[object, ...]:
         getattr(c, "all_skills", 0),
         getattr(c, "vit", 0),
         getattr(c, "ene", 0),
+        getattr(c, "ar", 0),
         c.unique_id,
         c.cold_sunder,
     )
@@ -114,11 +115,15 @@ def _format_paladin_option_lines(
     else:
         skill_str = f"Skills: +{res.skills}"
     dps_val = getattr(res, "dps", 0.0)
-    dps_prefix = (
-        f"DPS: {dps_val:.0f} ({'Zeal' if getattr(res, 'used_zeal', False) else 'Attack'}) | "
-        if dps_val > 0.0
-        else ""
-    )
+    if dps_val > 0.0:
+        shown_dps = getattr(res, "raw_dps", 0.0) or dps_val
+        atk_label = "Zeal" if getattr(res, "used_zeal", False) else "Attack"
+        cth_val = getattr(res, "cth", 0)
+        ar_val = getattr(res, "ar", 0)
+        ar_part = f"AR: {ar_val} ({cth_val}%) | " if cth_val > 0 else ""
+        dps_prefix = f"DPS: {shown_dps:.0f} ({atk_label}) | {ar_part}"
+    else:
+        dps_prefix = ""
     extra_combat = (
         f" | DR: {res.pdr_pct}% | LL: {res.life_leech}%" if (res.pdr_pct or res.life_leech) else ""
     )

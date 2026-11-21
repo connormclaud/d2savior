@@ -22,8 +22,13 @@ _SKILL_BLIZZARD = 59
 _SKILL_SACRIFICE = 96
 _SKILL_HOLY_FIRE = 102
 _SKILL_ZEAL = 106
+_SKILL_CHARGE = 107
+_SKILL_BLESSED_AIM = 108
+_SKILL_VENGEANCE = 111
 _SKILL_HOLY_FREEZE = 114
 _SKILL_HOLY_SHOCK = 118
+_SKILL_FANATICISM = 122
+_SKILL_CONVICTION = 123
 
 _ELEMENTAL_AURA_SPECS: frozendict[str, int] = frozendict(
     {
@@ -71,6 +76,8 @@ class _SkillFormula:
     passivecalc1: str
     passivecalc2: str
     synergies: tuple[tuple[str, int], ...]  # (skill_name, pct_per_blvl)
+    tohit: int = 0
+    lev_tohit: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +90,17 @@ class PaladinDpsTables:
     action_hits: tuple[int, ...]
     has_aura: bool
     aura_is_fire: bool = False
+    action_ar_pct: tuple[int, ...] = (0,)
+    aura_ar_pct: tuple[int, ...] = (0,)
+    aura_target_def_pct: tuple[int, ...] = (0,)
+
+
+def _skill_tohit_pct(sf: _SkillFormula, slvl: int) -> int:
+    return 0 if slvl <= 0 else sf.tohit + (slvl - 1) * sf.lev_tohit
+
+
+def _diminishing_returns(low: int, high: int, slvl: int) -> int:
+    return 0 if slvl <= 0 else low + ((high - low) * ((110 * slvl) // (slvl + 6))) // 100
 
 
 def _piecewise_linear(base: int, levs: tuple[int, int, int, int, int], slvl: int) -> int:
@@ -111,10 +129,16 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
         _SKILL_ICE_BLAST,
         _SKILL_GLACIAL_SPIKE,
         _SKILL_BLIZZARD,
+        _SKILL_SACRIFICE,
         _SKILL_HOLY_FIRE,
+        _SKILL_ZEAL,
+        _SKILL_CHARGE,
+        _SKILL_BLESSED_AIM,
+        _SKILL_VENGEANCE,
         _SKILL_HOLY_FREEZE,
         _SKILL_HOLY_SHOCK,
-        _SKILL_ZEAL,
+        _SKILL_FANATICISM,
+        _SKILL_CONVICTION,
     }
 
     for row in TsvReader(skills_path):
@@ -155,6 +179,8 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
             passivecalc1=row.get("passivecalc1"),
             passivecalc2=row.get("passivecalc2"),
             synergies=synergies,
+            tohit=row.get_int("ToHit"),
+            lev_tohit=row.get_int("LevToHit"),
         )
     return formulas, name_to_id
 
@@ -183,6 +209,7 @@ def build_paladin_dps_tables(
     spec: str,
     offense: str,
     *,
+    right_skill: int | None = None,
     max_bonus: int = DEFAULT_MAX_SKILL_BONUS,
 ) -> PaladinDpsTables:
     """Build 1D aura/action DPS lookup tables from skills.txt for a Paladin."""
@@ -223,8 +250,60 @@ def build_paladin_dps_tables(
         aura_pulse_t = (0.0,)
         has_aura = False
 
-    # --- Action tables (Zeal vs normal Attack) ---
+    # --- Passive Blessed Aim & non-elemental support aura AR / -Target Defense ---
+    ba_pts = _pal_hard_pts(skill_levels, _SKILL_BLESSED_AIM)
+    ba_par8 = formulas[_SKILL_BLESSED_AIM].params.get(8, 5) if _SKILL_BLESSED_AIM in formulas else 5
+    passive_ar_pct = ba_pts * ba_par8
+
+    if right_skill == -1 or has_aura:
+        support_aura_id: int | None = None
+    else:
+        eff_right = right_skill if right_skill is not None else active_skill_bindings(char_data)[1]
+        if eff_right in (_SKILL_FANATICISM, _SKILL_BLESSED_AIM, _SKILL_CONVICTION) and (
+            _pal_hard_pts(skill_levels, eff_right) > 0
+        ):
+            support_aura_id = eff_right
+        elif spec in ("zeal", "sacrifice", "charge", "leveling") and (
+            _pal_hard_pts(skill_levels, _SKILL_FANATICISM) > 0
+        ):
+            support_aura_id = _SKILL_FANATICISM
+        elif spec == "vengeance" and _pal_hard_pts(skill_levels, _SKILL_CONVICTION) > 0:
+            support_aura_id = _SKILL_CONVICTION
+        else:
+            support_aura_id = None
+
+    if support_aura_id == _SKILL_FANATICISM and _SKILL_FANATICISM in formulas:
+        ff = formulas[_SKILL_FANATICISM]
+        base_f = _pal_hard_pts(skill_levels, _SKILL_FANATICISM)
+        aura_ar_pct_t = tuple(
+            passive_ar_pct + _skill_tohit_pct(ff, base_f + b) for b in range(max_bonus + 1)
+        )
+        aura_tdef_t: tuple[int, ...] = (0,)
+    elif support_aura_id == _SKILL_BLESSED_AIM and _SKILL_BLESSED_AIM in formulas:
+        bf = formulas[_SKILL_BLESSED_AIM]
+        base_ba = _pal_hard_pts(skill_levels, _SKILL_BLESSED_AIM)
+        par3, par4 = bf.params.get(3, 75), bf.params.get(4, 15)
+        aura_ar_pct_t = tuple(par3 + (base_ba + b - 1) * par4 for b in range(max_bonus + 1))
+        aura_tdef_t = (0,)
+    elif support_aura_id == _SKILL_CONVICTION and _SKILL_CONVICTION in formulas:
+        cf = formulas[_SKILL_CONVICTION]
+        base_c = _pal_hard_pts(skill_levels, _SKILL_CONVICTION)
+        par5, par6 = cf.params.get(5, 40), cf.params.get(6, 100)
+        aura_ar_pct_t = (passive_ar_pct,)
+        aura_tdef_t = tuple(
+            _diminishing_returns(par5, par6, base_c + b) for b in range(max_bonus + 1)
+        )
+    else:
+        aura_ar_pct_t = (passive_ar_pct,)
+        aura_tdef_t = (0,)
+
+    # --- Action tables (Zeal vs Sacrifice/Charge/Vengeance vs normal Attack) ---
     base_zeal = _pal_hard_pts(skill_levels, _SKILL_ZEAL)
+    melee_action_ids = {
+        "sacrifice": _SKILL_SACRIFICE,
+        "charge": _SKILL_CHARGE,
+        "vengeance": _SKILL_VENGEANCE,
+    }
     if offense == "zeal" and base_zeal > 0 and _SKILL_ZEAL in formulas:
         zf = formulas[_SKILL_ZEAL]
         par4 = zf.params.get(4, 6)
@@ -235,16 +314,26 @@ def build_paladin_dps_tables(
 
         action_ed_list: list[int] = []
         action_hits_list: list[int] = []
+        action_ar_list: list[int] = []
         for b in range(max_bonus + 1):
             slvl = base_zeal + b
             action_hits_list.append(min(par5 + slvl - 1, par6))
             lvl_ed = 0 if slvl < 5 else (slvl - 4) * par4
             action_ed_list.append(lvl_ed + sac_ed)
+            action_ar_list.append(_skill_tohit_pct(zf, slvl))
         action_ed_t = tuple(action_ed_list)
         action_hits_t = tuple(action_hits_list)
+        action_ar_t: tuple[int, ...] = tuple(action_ar_list)
     else:
         action_ed_t = (0,)
         action_hits_t = (1,)
+        act_id = melee_action_ids.get(spec) if offense == "melee" else None
+        base_act = _pal_hard_pts(skill_levels, act_id) if act_id is not None else 0
+        if act_id is not None and base_act > 0 and act_id in formulas:
+            sf = formulas[act_id]
+            action_ar_t = tuple(_skill_tohit_pct(sf, base_act + b) for b in range(max_bonus + 1))
+        else:
+            action_ar_t = (0,)
 
     return PaladinDpsTables(
         aura_hit_dmg=aura_hit_t,
@@ -253,6 +342,9 @@ def build_paladin_dps_tables(
         action_hits=action_hits_t,
         has_aura=has_aura,
         aura_is_fire=has_aura and aura_id == _SKILL_HOLY_FIRE,
+        action_ar_pct=action_ar_t,
+        aura_ar_pct=aura_ar_pct_t,
+        aura_target_def_pct=aura_tdef_t,
     )
 
 

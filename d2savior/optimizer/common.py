@@ -243,6 +243,10 @@ class CharacterBaseline:
     blizz_dmg: tuple[float, ...] = ()
     filler_dmg: tuple[float, ...] = ()
     filler_is_aoe: bool = False
+    action_ar_pct: tuple[int, ...] = ()
+    aura_ar_pct: tuple[int, ...] = ()
+    aura_target_def_pct: tuple[int, ...] = ()
+    target_def: int = 180
 
     def build_constraints(
         self,
@@ -311,4 +315,8 @@ class CharacterBaseline:
             min_ll=min_ll,
             min_pdr=min_pdr,
             min_mf=min_mf,
+            action_ar_pct=list(self.action_ar_pct),
+            aura_ar_pct=list(self.aura_ar_pct),
+            aura_target_def_pct=list(self.aura_target_def_pct),
+            target_def=self.target_def,
         )

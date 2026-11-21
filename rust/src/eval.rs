@@ -132,6 +132,9 @@ pub(crate) struct EvalSummary {
     pub charm_slots: i32,
     pub defense: i32,
     pub belt_slots: i32,
+    pub ar: i32,
+    pub cth: i32,
+    pub raw_dps: f64,
 }
 
 impl EvalSummary {
@@ -181,6 +184,9 @@ impl EvalSummary {
             mana_bo: self.mana_bo,
             bo_lvl: self.bo_lvl,
             charm_slots: self.charm_slots,
+            ar: self.ar,
+            cth: self.cth,
+            raw_dps: self.raw_dps,
             items: items.iter().map(|i| (*i).clone()).collect(),
             charms: charms.iter().map(|c| (*c).clone()).collect(),
             evaluated_candidates,
@@ -212,6 +218,7 @@ pub(crate) fn eval_build_summary(
     let charm_mana: i32 = charms.iter().map(|ch| ch.mana).sum();
     let charm_vit: i32 = charms.iter().map(|ch| ch.vit).sum();
     let charm_ene: i32 = charms.iter().map(|ch| ch.ene).sum();
+    let charm_ar: i32 = charms.iter().map(|ch| ch.ar).sum();
 
     let skills = gear.total_skills() + charm_skills;
     let fcr = gear.fcr;
@@ -278,28 +285,42 @@ pub(crate) fn eval_build_summary(
     let offense = OffenseProfile::parse(&c.offense, class).unwrap_or(OffenseProfile::Caster);
     let action_skill_bonus = gear.action_skill_bonus + charm_action_skills;
     let aura_skill_bonus = gear.aura_skill_bonus + charm_aura_skills;
-    let (dps, ias_bp, ias_frames, ias_last_frames, used_zeal) = if offense.uses_dps_tables(c) {
-        let combined = Stats {
-            all_skills: gear.all_skills + charm_skills,
-            action_skill_bonus,
-            aura_skill_bonus,
-            str_bonus: c.base_str + gear.str_bonus + charm_str,
-            dex_bonus: c.base_dex + gear.dex_bonus + charm_dex,
-            ..gear
-        };
-        offense.compute_dps(hand, combined, c)
-    } else if offense.uses_caster_dps(c) {
-        let combined = Stats {
-            all_skills: gear.all_skills + charm_skills,
-            action_skill_bonus,
-            ..gear
-        };
-        let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
-        (offense.compute_caster_dps(combined, c), bp, frames, 0, false)
-    } else {
-        let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
-        (0.0, bp, frames, 0, offense == OffenseProfile::Zeal && hand.can_zeal)
+    let combined_ar_stats = Stats {
+        all_skills: gear.all_skills + charm_skills,
+        action_skill_bonus,
+        aura_skill_bonus,
+        str_bonus: c.base_str + gear.str_bonus + charm_str,
+        dex_bonus: c.base_dex + gear.dex_bonus + charm_dex,
+        ar: gear.ar + charm_ar,
+        ..gear
     };
+    let (dps, raw_dps, cth, ias_bp, ias_frames, ias_last_frames, used_zeal) =
+        if offense.uses_dps_tables(c) {
+            offense.compute_dps_detailed(hand, combined_ar_stats, c)
+        } else if offense.uses_caster_dps(c) {
+            let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
+            (
+                offense.compute_caster_dps(combined_ar_stats, c),
+                0.0,
+                0,
+                bp,
+                frames,
+                0,
+                false,
+            )
+        } else {
+            let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
+            (
+                0.0,
+                0.0,
+                0,
+                bp,
+                frames,
+                0,
+                offense == OffenseProfile::Zeal && hand.can_zeal,
+            )
+        };
+    let (ar, _) = offense.compute_ar_and_cth(combined_ar_stats, used_zeal, c);
 
     EvalSummary {
         skills,
@@ -344,6 +365,9 @@ pub(crate) fn eval_build_summary(
         charm_slots: charms.iter().map(|ch| ch.size).sum(),
         defense: gear.defense,
         belt_slots: gear.belt_slots,
+        ar,
+        cth,
+        raw_dps,
     }
 }
 
