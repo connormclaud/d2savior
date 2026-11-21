@@ -845,6 +845,585 @@ pub(crate) fn normalize_set_items(
     out
 }
 
+const RELAXED_MIN_CR: i32 = -1_000_000;
+type RingPairDedupKey = (Stats, i32, i32, ItemSetSig);
+type RingPairNames = HashSet<(String, String)>;
+
+struct GlobalSetBounds {
+    bonuses: Vec<Stats>,
+    overflow_ub: Stats,
+    hand_masks: Vec<(u64, u64)>,
+    group_masks: Vec<Vec<u64>>,
+    ring_pair_masks: Vec<(u64, u64)>,
+    suf_one: Vec<u64>,
+    suf_two: Vec<u64>,
+}
+
+impl GlobalSetBounds {
+    fn build(hands: &[ItemPair], groups: &[Vec<ItemSpec>], ring_pairs: &[ItemPair]) -> Self {
+        let mut group_to_idx: HashMap<i32, usize> = HashMap::new();
+        let mut bonuses: Vec<Stats> = Vec::new();
+        let mut overflow_groups: HashMap<i32, Stats> = HashMap::new();
+
+        let mut register = |it: &ItemSpec| {
+            if it.set_group == 0 || it.global_set_bonuses.is_empty() {
+                return;
+            }
+            let max_b = it.max_possible_global_set_bonus_stats();
+            if max_b == Stats::default() {
+                return;
+            }
+            if let Some(&idx) = group_to_idx.get(&it.set_group) {
+                bonuses[idx] = bonuses[idx].max_each(max_b);
+            } else if let Some(prev) = overflow_groups.get_mut(&it.set_group) {
+                *prev = prev.max_each(max_b);
+            } else if bonuses.len() < 64 {
+                let idx = bonuses.len();
+                group_to_idx.insert(it.set_group, idx);
+                bonuses.push(max_b);
+            } else {
+                overflow_groups.insert(it.set_group, max_b);
+            }
+        };
+
+        for h in hands {
+            register(&h.first);
+            register(&h.second);
+        }
+        for grp in groups {
+            for it in grp {
+                register(it);
+            }
+        }
+        for rp in ring_pairs {
+            register(&rp.first);
+            register(&rp.second);
+        }
+
+        let overflow_ub = overflow_groups
+            .into_values()
+            .fold(Stats::default(), |acc, s| acc.add(s));
+
+        let bit_of = |it: &ItemSpec| -> u64 {
+            if it.set_group == 0 {
+                0
+            } else {
+                group_to_idx
+                    .get(&it.set_group)
+                    .map_or(0, |&idx| 1u64 << idx)
+            }
+        };
+        let pair_mask = |p: &ItemPair| -> (u64, u64) {
+            let b1 = bit_of(&p.first);
+            let b2 = bit_of(&p.second);
+            (b1 | b2, b1 & b2)
+        };
+
+        let hand_masks: Vec<(u64, u64)> = hands.iter().map(&pair_mask).collect();
+        let group_masks: Vec<Vec<u64>> = groups
+            .iter()
+            .map(|grp| grp.iter().map(&bit_of).collect())
+            .collect();
+        let ring_pair_masks: Vec<(u64, u64)> = ring_pairs.iter().map(&pair_mask).collect();
+
+        let n = 1 + groups.len() + 1;
+        let mut slot_one = vec![0u64; n];
+        let mut slot_two = vec![0u64; n];
+        for &(m1, m2) in &hand_masks {
+            slot_one[0] |= m1;
+            slot_two[0] |= m2;
+        }
+        for (k, gm) in group_masks.iter().enumerate() {
+            for &m in gm {
+                slot_one[k + 1] |= m;
+            }
+        }
+        for &(m1, m2) in &ring_pair_masks {
+            slot_one[n - 1] |= m1;
+            slot_two[n - 1] |= m2;
+        }
+
+        let mut suf_one = vec![0u64; n + 1];
+        let mut suf_two = vec![0u64; n + 1];
+        for i in (0..n).rev() {
+            suf_two[i] = suf_two[i + 1] | slot_two[i] | (suf_one[i + 1] & slot_one[i]);
+            suf_one[i] = suf_one[i + 1] | slot_one[i];
+        }
+
+        Self {
+            bonuses,
+            overflow_ub,
+            hand_masks,
+            group_masks,
+            ring_pair_masks,
+            suf_one,
+            suf_two,
+        }
+    }
+
+    #[inline]
+    fn ub_for_mask(&self, mut mask: u64) -> Stats {
+        let mut acc = self.overflow_ub;
+        while mask != 0 {
+            let b = mask.trailing_zeros() as usize;
+            acc = acc.add(self.bonuses[b]);
+            mask &= mask - 1;
+        }
+        acc
+    }
+}
+
+struct SearchPool<'a> {
+    hands: &'a [ItemPair],
+    groups: &'a [Vec<ItemSpec>],
+    ring_pairs: &'a [ItemPair],
+    suf: &'a [Stats],
+    global_sets: &'a GlobalSetBounds,
+    raw_pool: &'a [&'a CharmSpec],
+}
+
+#[derive(Clone, Copy)]
+struct DfsNode {
+    acc: Stats,
+    reqs: (i32, i32),
+    g_one: u64,
+    g_two: u64,
+    non_wep_all_sk: i32,
+    has_set: bool,
+}
+
+fn leaf_items_ref<'a>(
+    hand: &'a ItemPair,
+    groups: &'a [Vec<ItemSpec>],
+    chosen_slots: &[usize],
+    rp: &'a ItemPair,
+) -> [&'a ItemSpec; LEAF_ITEM_COUNT] {
+    std::array::from_fn(|i| match i {
+        0 => &hand.first,
+        1 => &hand.second,
+        k if k < 2 + SINGLE_SLOTS.len() => {
+            let slot_idx = k - 2;
+            &groups[slot_idx][chosen_slots[slot_idx]]
+        }
+        k if k == 2 + SINGLE_SLOTS.len() => &rp.first,
+        _ => &rp.second,
+    })
+}
+
+struct SearchState<'a> {
+    hands: &'a [ItemPair],
+    hand_order: Vec<usize>,
+    max_hand_ub_dps: i32,
+    groups: &'a [Vec<ItemSpec>],
+    ring_pairs: &'a [ItemPair],
+    suf: &'a [Stats],
+    global_sets: &'a GlobalSetBounds,
+    has_overflow_set_ub: bool,
+    ch: Stats,
+    charm_solver: CharmSolver<'a>,
+    c: &'a BuildConstraints,
+    mode: SearchMode,
+    offense: OffenseProfile,
+    chosen_hand: usize,
+    chosen_slots: Vec<usize>,
+    evals: usize,
+    top_results: TopResults,
+}
+
+impl<'a> SearchState<'a> {
+    fn can_prune_by_score(
+        &self,
+        ub_ch: Stats,
+        hand: Option<HandWeapon>,
+        caps: (i32, i32, i32, i32),
+    ) -> bool {
+        let level_scores = || {
+            let eff_primary_ub = ub_ch.primary_power_skills_for(self.offense, self.c.has_aura);
+            let off_ub = if self.offense.uses_dps_tables(self.c) {
+                match hand {
+                    Some(hw) => {
+                        OffenseProfile::dps_bucket(self.offense.compute_dps(hw, ub_ch, self.c).0)
+                    }
+                    None => self.max_hand_ub_dps,
+                }
+            } else {
+                let ub_ias = match hand {
+                    Some(hw) => self.offense.attack_speed(hw.wclass, hw.wsm, ub_ch.ias).0,
+                    None => ub_ch.ias,
+                };
+                self.offense.score(eff_primary_ub, ub_ias, ub_ch.cb)
+            };
+            let res_base = res_base_ub(ub_ch, caps);
+            let cbf_ub = i32::from(ub_ch.cbf > 0);
+            (off_ub, res_base, cbf_ub)
+        };
+        match self.mode {
+            SearchMode::Power => self.top_results.nth_primary().is_some_and(|cutoff| {
+                let power_ub = if self.offense.uses_caster_dps(self.c) {
+                    self.offense.compute_caster_dps(ub_ch, self.c).floor() as i32
+                } else {
+                    ub_ch.primary_power_skills_for(self.offense, self.c.has_aura)
+                };
+                power_ub < cutoff
+            }),
+            SearchMode::Mf => self
+                .top_results
+                .nth_primary()
+                .is_some_and(|cutoff| ub_ch.mf < cutoff),
+            SearchMode::MaxRes => self.top_results.nth_top2().is_some_and(|cutoff| {
+                (
+                    capped_res_sum(ub_ch.fr, ub_ch.lr, ub_ch.cr, ub_ch.pr, caps),
+                    ub_ch.primary_power_skills_for(self.offense, self.c.has_aura),
+                ) < cutoff
+            }),
+            SearchMode::Leveling => self
+                .top_results
+                .nth_top3()
+                .is_some_and(|cutoff| level_scores() < cutoff),
+            SearchMode::LevelingRes => self.top_results.nth_top3().is_some_and(|cutoff| {
+                let (off_ub, res_base, cbf_ub) = level_scores();
+                (res_base, off_ub, cbf_ub) < cutoff
+            }),
+        }
+    }
+
+    #[inline]
+    fn can_prune_ub(&self, ub: Stats, reqs: (i32, i32), hand: Option<HandWeapon>) -> bool {
+        if ub.fcr < self.c.min_fcr
+            || (self.c.require_cbf && ub.cbf <= 0)
+            || ub.ias < self.c.min_ias
+            || ub.cb < self.c.min_cb
+            || (ub.life_leech + ub.ctc_lifetap_pct.clamp(0, 100) / 2) < self.c.min_ll
+            || ub.pdr_pct.min(HARD_MAX_PDR_PCT) < self.c.min_pdr
+        {
+            return true;
+        }
+        let ub_ch = ub.add(self.ch);
+        if ub_ch.fhr < self.c.min_fhr
+            || ub_ch.fr < self.c.min_fr
+            || ub_ch.lr < self.c.min_lr
+            || ub_ch.cr < self.c.min_cr
+            || ub_ch.pr < self.c.min_pr
+            || ub_ch.frw < self.c.min_frw
+            || ub_ch.mf < self.c.min_mf
+        {
+            return true;
+        }
+        let caps_ub = res_caps(ub, self.c);
+        if caps_ub.0 < self.c.min_fr
+            || caps_ub.1 < self.c.min_lr
+            || caps_ub.2 < self.c.min_cr
+            || caps_ub.3 < self.c.min_pr
+        {
+            return true;
+        }
+        if ub_ch.str_bonus < reqs.0 || ub_ch.dex_bonus < reqs.1 {
+            return true;
+        }
+        self.can_prune_by_score(ub_ch, hand, caps_ub)
+    }
+
+    fn eval_ring_pairs(&mut self, cur: DfsNode) {
+        let hand = &self.hands[self.chosen_hand];
+        let hw = hand.first.hand_weapon();
+        for rp_idx in 0..self.ring_pairs.len() {
+            let rp = &self.ring_pairs[rp_idx];
+            let (rp_one, rp_two) = self.global_sets.ring_pair_masks[rp_idx];
+            let leaf_possible_g = cur.g_two | rp_two | (cur.g_one & rp_one);
+            let leaf_ub = cur
+                .acc
+                .add(rp.max_stats)
+                .add(self.global_sets.ub_for_mask(leaf_possible_g));
+            let ub_reqs = merge_reqs(cur.reqs, rp.reqs);
+            if self.can_prune_ub(leaf_ub, ub_reqs, Some(hw)) {
+                continue;
+            }
+
+            let leaf_has_set = cur.has_set || rp.set_sig.is_some();
+            let rp_max_stats = rp.max_stats;
+            let rp_all_skills = rp.combined.all_skills;
+            let (items_ref_opt, gear, leaf, all_sk_non_wep, (final_req_str, final_req_dex)) =
+                if leaf_has_set {
+                    let items_ref = leaf_items_ref(hand, self.groups, &self.chosen_slots, rp);
+                    let (gear, all_sk_non_wep, reqs_exact) =
+                        compute_effective_gear_stats_and_reqs(&items_ref);
+                    let leaf = Stats {
+                        fr: gear.fr + self.c.base_hell_res,
+                        lr: gear.lr + self.c.base_hell_res,
+                        cr: gear.cr + self.c.base_hell_res,
+                        pr: gear.pr + self.c.base_hell_res,
+                        str_bonus: gear.str_bonus + self.c.base_str,
+                        dex_bonus: gear.dex_bonus + self.c.base_dex,
+                        ..gear
+                    };
+                    (Some(items_ref), gear, leaf, all_sk_non_wep, reqs_exact)
+                } else {
+                    // With no set pieces anywhere on the leaf, `cur.acc.add(rp.max_stats)` is exact.
+                    let leaf = cur.acc.add(rp_max_stats);
+                    let gear = Stats {
+                        fr: leaf.fr - self.c.base_hell_res,
+                        lr: leaf.lr - self.c.base_hell_res,
+                        cr: leaf.cr - self.c.base_hell_res,
+                        pr: leaf.pr - self.c.base_hell_res,
+                        str_bonus: leaf.str_bonus - self.c.base_str,
+                        dex_bonus: leaf.dex_bonus - self.c.base_dex,
+                        ..leaf
+                    };
+                    (
+                        None,
+                        gear,
+                        leaf,
+                        cur.non_wep_all_sk + rp_all_skills,
+                        ub_reqs,
+                    )
+                };
+            if leaf_has_set || self.has_overflow_set_ub {
+                if !self.c.allow_mf && leaf.mf > 0 {
+                    continue;
+                }
+                if self.can_prune_ub(leaf, (final_req_str, final_req_dex), Some(hw)) {
+                    continue;
+                }
+            }
+            self.evals += 1;
+
+            let min_main_needed = match self.mode {
+                SearchMode::LevelingRes => self.top_results.nth_primary().map_or(0, |cut| {
+                    let cur_sum = res_base_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr);
+                    (cut - cur_sum).max(0)
+                }),
+                SearchMode::MaxRes => self.top_results.nth_primary().map_or(0, |cut| {
+                    let caps_l = res_caps(leaf, self.c);
+                    let cur_sum = capped_res_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr, caps_l);
+                    (cut - cur_sum).max(0)
+                }),
+                SearchMode::Mf => self
+                    .top_results
+                    .nth_primary()
+                    .map_or(0, |cut| (cut - leaf.mf).max(0)),
+                SearchMode::Power => self.top_results.nth_primary().map_or(0, |cut| {
+                    if self.offense.uses_caster_dps(self.c) {
+                        let max_k = (self.ch.all_skills
+                            + self.ch.action_skill_bonus
+                            + self.ch.aura_skill_bonus)
+                            .max(0);
+                        (0..=max_k)
+                            .find(|&k| {
+                                let s = Stats {
+                                    all_skills: leaf.all_skills + k,
+                                    ..leaf
+                                };
+                                self.offense.compute_caster_dps(s, self.c).floor() as i32 >= cut
+                            })
+                            .unwrap_or(max_k + 1)
+                    } else {
+                        let cur_sk = leaf.primary_power_skills_for(self.offense, self.c.has_aura);
+                        (cut - cur_sk).max(0)
+                    }
+                }),
+                SearchMode::Leveling => 0,
+            };
+            let Some(mut charms_sel) = self.charm_solver.solve_with_min_main(
+                leaf,
+                (final_req_str, final_req_dex),
+                min_main_needed,
+            ) else {
+                continue;
+            };
+            let mut sum = eval_build_summary(gear, all_sk_non_wep, hw, &charms_sel, self.c);
+            if (!self.c.allow_mf && sum.mf > 0)
+                || sum.fcr < self.c.min_fcr
+                || sum.fhr < self.c.min_fhr
+                || (self.c.require_cbf && !sum.cbf)
+                || sum.ias < self.c.min_ias
+                || sum.cb < self.c.min_cb
+                || (sum.life_leech + sum.ctc_lifetap_pct.clamp(0, 100) / 2) < self.c.min_ll
+                || sum.pdr_pct < self.c.min_pdr
+                || sum.frw < self.c.min_frw
+                || sum.mf < self.c.min_mf
+            {
+                continue;
+            }
+            if sum.fr < self.c.min_fr
+                || sum.lr < self.c.min_lr
+                || sum.cr < self.c.min_cr
+                || sum.pr < self.c.min_pr
+            {
+                continue;
+            }
+            let mut score = score_eval_summary(self.mode, self.offense, &sum, self.c);
+            let items_ref = items_ref_opt
+                .unwrap_or_else(|| leaf_items_ref(hand, self.groups, &self.chosen_slots, rp));
+            score.locality = items_ref.iter().map(|it| item_locality_score(&it.loc)).sum();
+            if self.offense.uses_dps_tables(self.c)
+                && matches!(self.mode, SearchMode::Leveling | SearchMode::LevelingRes)
+            {
+                self.charm_solver.improve_for_dps(
+                    gear,
+                    all_sk_non_wep,
+                    hw,
+                    leaf,
+                    (final_req_str, final_req_dex),
+                    self.offense,
+                    self.top_results.nth_top3(),
+                    &mut charms_sel,
+                    &mut sum,
+                    &mut score,
+                );
+            }
+            if !self.top_results.would_accept(score) {
+                continue;
+            }
+            let res = sum.into_result(&items_ref, &charms_sel, 0);
+            self.top_results.push(score, res, self.offense);
+        }
+    }
+
+    fn dfs(&mut self, idx: usize, cur: DfsNode) {
+        let possible_g = cur.g_two
+            | (cur.g_one & self.global_sets.suf_one[idx])
+            | self.global_sets.suf_two[idx];
+        let ub = cur
+            .acc
+            .add(self.suf[idx])
+            .add(self.global_sets.ub_for_mask(possible_g));
+        let hand_opt = (idx > 0).then(|| self.hands[self.chosen_hand].first.hand_weapon());
+        if self.can_prune_ub(ub, cur.reqs, hand_opt) {
+            return;
+        }
+
+        if idx == self.groups.len() + 1 {
+            self.eval_ring_pairs(cur);
+            return;
+        }
+
+        if idx == 0 {
+            for pos in 0..self.hand_order.len() {
+                let i = self.hand_order[pos];
+                let h = &self.hands[i];
+                let (h_one, h_two) = self.global_sets.hand_masks[i];
+                self.chosen_hand = i;
+                self.dfs(
+                    1,
+                    DfsNode {
+                        acc: cur.acc.add(h.max_stats),
+                        reqs: merge_reqs(cur.reqs, h.reqs),
+                        g_one: h_one,
+                        g_two: h_two,
+                        non_wep_all_sk: 0,
+                        has_set: h.set_sig.is_some(),
+                    },
+                );
+            }
+            return;
+        }
+
+        let g = idx - 1;
+        for i in 0..self.groups[g].len() {
+            let it = &self.groups[g][i];
+            let bit = self.global_sets.group_masks[g][i];
+            self.chosen_slots.push(i);
+            self.dfs(
+                idx + 1,
+                DfsNode {
+                    acc: cur.acc.add(it.max_total_stats()),
+                    reqs: merge_reqs(cur.reqs, item_eff_reqs(it)),
+                    g_one: cur.g_one | bit,
+                    g_two: cur.g_two | (cur.g_one & bit),
+                    non_wep_all_sk: cur.non_wep_all_sk + it.all_skills,
+                    has_set: cur.has_set || it.set_group != 0,
+                },
+            );
+            self.chosen_slots.pop();
+        }
+    }
+}
+
+fn run_search_pass(
+    pool: &SearchPool<'_>,
+    c: &BuildConstraints,
+    mode: SearchMode,
+    offense: OffenseProfile,
+) -> (Vec<BuildResult>, bool) {
+    let charm_solver = CharmSolver::new(pool.raw_pool, c, mode);
+    let has_cold_sunder = charm_solver.has_cold_sunder();
+    let ch = charm_solver.charm_ub_stats();
+
+    let init_acc = Stats {
+        fr: c.base_hell_res,
+        lr: c.base_hell_res,
+        cr: c.base_hell_res,
+        pr: c.base_hell_res,
+        str_bonus: c.base_str,
+        dex_bonus: c.base_dex,
+        ..Default::default()
+    };
+
+    let mut hand_order: Vec<usize> = (0..pool.hands.len()).collect();
+    let max_hand_ub_dps = if offense.uses_dps_tables(c) {
+        let tail_ub = init_acc.add(pool.suf[1]).add(ch);
+        let hand_ubs: Vec<i32> = pool
+            .hands
+            .iter()
+            .enumerate()
+            .map(|(h_idx, h)| {
+                let (h_one, h_two) = pool.global_sets.hand_masks[h_idx];
+                let possible_h = h_two
+                    | (h_one & pool.global_sets.suf_one[1])
+                    | pool.global_sets.suf_two[1];
+                let ub_h = tail_ub
+                    .add(h.max_stats)
+                    .add(pool.global_sets.ub_for_mask(possible_h));
+                OffenseProfile::dps_bucket(
+                    offense.compute_dps(h.first.hand_weapon(), ub_h, c).0,
+                )
+            })
+            .collect();
+        if mode == SearchMode::Leveling {
+            hand_order.sort_by_key(|&i| Reverse(hand_ubs[i]));
+        }
+        hand_ubs.into_iter().max().unwrap_or(0)
+    } else {
+        0
+    };
+
+    let has_overflow_set_ub = pool.global_sets.overflow_ub != Stats::default();
+    let mut state = SearchState {
+        hands: pool.hands,
+        hand_order,
+        max_hand_ub_dps,
+        groups: pool.groups,
+        ring_pairs: pool.ring_pairs,
+        suf: pool.suf,
+        global_sets: pool.global_sets,
+        has_overflow_set_ub,
+        ch,
+        charm_solver,
+        c,
+        mode,
+        offense,
+        chosen_hand: 0,
+        chosen_slots: Vec::with_capacity(pool.groups.len()),
+        evals: 0,
+        top_results: TopResults::new(c.limit),
+    };
+
+    state.dfs(
+        0,
+        DfsNode {
+            acc: init_acc,
+            reqs: (0, 0),
+            g_one: 0,
+            g_two: 0,
+            non_wep_all_sk: 0,
+            has_set: false,
+        },
+    );
+
+    let total_evals = state.evals;
+    (state.top_results.finish(total_evals), has_cold_sunder)
+}
+
 pub fn optimize_builds_core(
     items: &[ItemSpec],
     charms: &[CharmSpec],
@@ -941,8 +1520,6 @@ pub fn optimize_builds_core(
         ))
     });
     let mut ring_pairs: Vec<ItemPair> = Vec::with_capacity(all_pairs.len());
-    type RingPairDedupKey = (Stats, i32, i32, ItemSetSig);
-    type RingPairNames = HashSet<(String, String)>;
     let mut seen_rp: HashMap<RingPairDedupKey, RingPairNames> = HashMap::new();
     for rp in all_pairs {
         let comb_stats = rp.combined.stats().for_mode(mode, offense, c);
@@ -977,629 +1554,7 @@ pub fn optimize_builds_core(
         .fold(Stats::default(), |acc, h| acc.max_each(h.max_stats));
     suf[0] = suf[1].add(hands_max);
 
-    struct GlobalSetBounds {
-        bonuses: Vec<Stats>,
-        overflow_ub: Stats,
-        hand_masks: Vec<(u64, u64)>,
-        group_masks: Vec<Vec<u64>>,
-        ring_pair_masks: Vec<(u64, u64)>,
-        suf_one: Vec<u64>,
-        suf_two: Vec<u64>,
-    }
-
-    impl GlobalSetBounds {
-        fn build(hands: &[ItemPair], groups: &[Vec<ItemSpec>], ring_pairs: &[ItemPair]) -> Self {
-            let mut group_to_idx: HashMap<i32, usize> = HashMap::new();
-            let mut bonuses: Vec<Stats> = Vec::new();
-            let mut overflow_groups: HashMap<i32, Stats> = HashMap::new();
-
-            let mut register = |it: &ItemSpec| {
-                if it.set_group == 0 || it.global_set_bonuses.is_empty() {
-                    return;
-                }
-                let max_b = it.max_possible_global_set_bonus_stats();
-                if max_b == Stats::default() {
-                    return;
-                }
-                if let Some(&idx) = group_to_idx.get(&it.set_group) {
-                    bonuses[idx] = bonuses[idx].max_each(max_b);
-                } else if let Some(prev) = overflow_groups.get_mut(&it.set_group) {
-                    *prev = prev.max_each(max_b);
-                } else if bonuses.len() < 64 {
-                    let idx = bonuses.len();
-                    group_to_idx.insert(it.set_group, idx);
-                    bonuses.push(max_b);
-                } else {
-                    overflow_groups.insert(it.set_group, max_b);
-                }
-            };
-
-            for h in hands {
-                register(&h.first);
-                register(&h.second);
-            }
-            for grp in groups {
-                for it in grp {
-                    register(it);
-                }
-            }
-            for rp in ring_pairs {
-                register(&rp.first);
-                register(&rp.second);
-            }
-
-            let overflow_ub = overflow_groups
-                .into_values()
-                .fold(Stats::default(), |acc, s| acc.add(s));
-
-            let bit_of = |it: &ItemSpec| -> u64 {
-                if it.set_group == 0 {
-                    0
-                } else {
-                    group_to_idx
-                        .get(&it.set_group)
-                        .map_or(0, |&idx| 1u64 << idx)
-                }
-            };
-            let pair_mask = |p: &ItemPair| -> (u64, u64) {
-                let b1 = bit_of(&p.first);
-                let b2 = bit_of(&p.second);
-                (b1 | b2, b1 & b2)
-            };
-
-            let hand_masks: Vec<(u64, u64)> = hands.iter().map(&pair_mask).collect();
-            let group_masks: Vec<Vec<u64>> = groups
-                .iter()
-                .map(|grp| grp.iter().map(&bit_of).collect())
-                .collect();
-            let ring_pair_masks: Vec<(u64, u64)> = ring_pairs.iter().map(&pair_mask).collect();
-
-            let n = 1 + groups.len() + 1;
-            let mut slot_one = vec![0u64; n];
-            let mut slot_two = vec![0u64; n];
-            for &(m1, m2) in &hand_masks {
-                slot_one[0] |= m1;
-                slot_two[0] |= m2;
-            }
-            for (k, gm) in group_masks.iter().enumerate() {
-                for &m in gm {
-                    slot_one[k + 1] |= m;
-                }
-            }
-            for &(m1, m2) in &ring_pair_masks {
-                slot_one[n - 1] |= m1;
-                slot_two[n - 1] |= m2;
-            }
-
-            let mut suf_one = vec![0u64; n + 1];
-            let mut suf_two = vec![0u64; n + 1];
-            for i in (0..n).rev() {
-                suf_two[i] = suf_two[i + 1] | slot_two[i] | (suf_one[i + 1] & slot_one[i]);
-                suf_one[i] = suf_one[i + 1] | slot_one[i];
-            }
-
-            Self {
-                bonuses,
-                overflow_ub,
-                hand_masks,
-                group_masks,
-                ring_pair_masks,
-                suf_one,
-                suf_two,
-            }
-        }
-
-        #[inline]
-        fn ub_for_mask(&self, mut mask: u64) -> Stats {
-            let mut acc = self.overflow_ub;
-            while mask != 0 {
-                let b = mask.trailing_zeros() as usize;
-                acc = acc.add(self.bonuses[b]);
-                mask &= mask - 1;
-            }
-            acc
-        }
-    }
-
     let global_sets = GlobalSetBounds::build(&hands, &groups, &ring_pairs);
-
-    const RELAXED_MIN_CR: i32 = -1_000_000;
-
-    struct SearchPool<'a> {
-        hands: &'a [ItemPair],
-        groups: &'a [Vec<ItemSpec>],
-        ring_pairs: &'a [ItemPair],
-        suf: &'a [Stats],
-        global_sets: &'a GlobalSetBounds,
-        raw_pool: &'a [&'a CharmSpec],
-    }
-
-    fn run_search_pass(
-        pool: &SearchPool<'_>,
-        c: &BuildConstraints,
-        mode: SearchMode,
-        offense: OffenseProfile,
-    ) -> (Vec<BuildResult>, bool) {
-        let charm_solver = CharmSolver::new(pool.raw_pool, c, mode);
-        let has_cold_sunder = charm_solver.has_cold_sunder();
-        let ch = charm_solver.charm_ub_stats();
-
-        fn can_prune_by_score(
-            st: &State<'_>,
-            ub_ch: Stats,
-            hand: Option<HandWeapon>,
-            caps: (i32, i32, i32, i32),
-        ) -> bool {
-            let level_scores = || {
-                let eff_primary_ub = ub_ch.primary_power_skills_for(st.offense, st.c.has_aura);
-                let off_ub = if st.offense.uses_dps_tables(st.c) {
-                    match hand {
-                        Some(hw) => {
-                            OffenseProfile::dps_bucket(st.offense.compute_dps(hw, ub_ch, st.c).0)
-                        }
-                        None => st.max_hand_ub_dps,
-                    }
-                } else {
-                    let ub_ias = match hand {
-                        Some(hw) => st.offense.attack_speed(hw.wclass, hw.wsm, ub_ch.ias).0,
-                        None => ub_ch.ias,
-                    };
-                    st.offense.score(eff_primary_ub, ub_ias, ub_ch.cb)
-                };
-                let res_base = res_base_ub(ub_ch, caps);
-                let cbf_ub = i32::from(ub_ch.cbf > 0);
-                (off_ub, res_base, cbf_ub)
-            };
-            match st.mode {
-                SearchMode::Power => st.top_results.nth_primary().is_some_and(|cutoff| {
-                    let power_ub = if st.offense.uses_caster_dps(st.c) {
-                        st.offense.compute_caster_dps(ub_ch, st.c).floor() as i32
-                    } else {
-                        ub_ch.primary_power_skills_for(st.offense, st.c.has_aura)
-                    };
-                    power_ub < cutoff
-                }),
-                SearchMode::Mf => st.top_results.nth_primary().is_some_and(|cutoff| ub_ch.mf < cutoff),
-                SearchMode::MaxRes => st.top_results.nth_top2().is_some_and(|cutoff| {
-                    (
-                        capped_res_sum(ub_ch.fr, ub_ch.lr, ub_ch.cr, ub_ch.pr, caps),
-                        ub_ch.primary_power_skills_for(st.offense, st.c.has_aura),
-                    ) < cutoff
-                }),
-                SearchMode::Leveling => st
-                    .top_results
-                    .nth_top3()
-                    .is_some_and(|cutoff| level_scores() < cutoff),
-                SearchMode::LevelingRes => st.top_results.nth_top3().is_some_and(|cutoff| {
-                    let (off_ub, res_base, cbf_ub) = level_scores();
-                    (res_base, off_ub, cbf_ub) < cutoff
-                }),
-            }
-        }
-
-        struct State<'a> {
-            hands: &'a [ItemPair],
-            hand_order: Vec<usize>,
-            max_hand_ub_dps: i32,
-            groups: &'a [Vec<ItemSpec>],
-            ring_pairs: &'a [ItemPair],
-            suf: &'a [Stats],
-            global_sets: &'a GlobalSetBounds,
-            has_overflow_set_ub: bool,
-            ch: Stats,
-            charm_solver: CharmSolver<'a>,
-            c: &'a BuildConstraints,
-            mode: SearchMode,
-            offense: OffenseProfile,
-            chosen_hand: usize,
-            chosen_slots: Vec<usize>,
-            evals: usize,
-            top_results: TopResults,
-        }
-
-        #[derive(Clone, Copy)]
-        struct DfsNode {
-            acc: Stats,
-            reqs: (i32, i32),
-            g_one: u64,
-            g_two: u64,
-            non_wep_all_sk: i32,
-            has_set: bool,
-        }
-
-        fn dfs(st: &mut State<'_>, idx: usize, cur: DfsNode) {
-            let possible_g = cur.g_two
-                | (cur.g_one & st.global_sets.suf_one[idx])
-                | st.global_sets.suf_two[idx];
-            let ub = cur
-                .acc
-                .add(st.suf[idx])
-                .add(st.global_sets.ub_for_mask(possible_g));
-            if ub.fcr < st.c.min_fcr
-                || (st.c.require_cbf && ub.cbf <= 0)
-                || ub.ias < st.c.min_ias
-                || ub.cb < st.c.min_cb
-                || (ub.life_leech + ub.ctc_lifetap_pct.clamp(0, 100) / 2) < st.c.min_ll
-                || ub.pdr_pct.min(HARD_MAX_PDR_PCT) < st.c.min_pdr
-            {
-                return;
-            }
-            let ub_ch = ub.add(st.ch);
-            if ub_ch.fhr < st.c.min_fhr
-                || ub_ch.fr < st.c.min_fr
-                || ub_ch.lr < st.c.min_lr
-                || ub_ch.cr < st.c.min_cr
-                || ub_ch.pr < st.c.min_pr
-                || ub_ch.frw < st.c.min_frw
-                || ub_ch.mf < st.c.min_mf
-            {
-                return;
-            }
-            let caps_ub = res_caps(ub, st.c);
-            if caps_ub.0 < st.c.min_fr
-                || caps_ub.1 < st.c.min_lr
-                || caps_ub.2 < st.c.min_cr
-                || caps_ub.3 < st.c.min_pr
-            {
-                return;
-            }
-            if ub_ch.str_bonus < cur.reqs.0 || ub_ch.dex_bonus < cur.reqs.1 {
-                return;
-            }
-            let hand_opt = (idx > 0).then(|| st.hands[st.chosen_hand].first.hand_weapon());
-            if can_prune_by_score(st, ub_ch, hand_opt, caps_ub) {
-                return;
-            }
-
-            if idx == st.groups.len() + 1 {
-                let hand = &st.hands[st.chosen_hand];
-                let hw = hand.first.hand_weapon();
-                for (rp_idx, rp) in st.ring_pairs.iter().enumerate() {
-                    let (rp_one, rp_two) = st.global_sets.ring_pair_masks[rp_idx];
-                    let leaf_possible_g = cur.g_two | rp_two | (cur.g_one & rp_one);
-                    let leaf_ub = cur
-                        .acc
-                        .add(rp.max_stats)
-                        .add(st.global_sets.ub_for_mask(leaf_possible_g));
-                    if leaf_ub.fcr < st.c.min_fcr
-                        || (st.c.require_cbf && leaf_ub.cbf <= 0)
-                        || leaf_ub.ias < st.c.min_ias
-                        || leaf_ub.cb < st.c.min_cb
-                        || (leaf_ub.life_leech + leaf_ub.ctc_lifetap_pct.clamp(0, 100) / 2)
-                            < st.c.min_ll
-                        || leaf_ub.pdr_pct.min(HARD_MAX_PDR_PCT) < st.c.min_pdr
-                    {
-                        continue;
-                    }
-                    let leaf_ub_ch = leaf_ub.add(st.ch);
-                    if leaf_ub_ch.fhr < st.c.min_fhr
-                        || leaf_ub_ch.fr < st.c.min_fr
-                        || leaf_ub_ch.lr < st.c.min_lr
-                        || leaf_ub_ch.cr < st.c.min_cr
-                        || leaf_ub_ch.pr < st.c.min_pr
-                        || leaf_ub_ch.frw < st.c.min_frw
-                        || leaf_ub_ch.mf < st.c.min_mf
-                    {
-                        continue;
-                    }
-                    let caps_ub_leaf = res_caps(leaf_ub, st.c);
-                    if caps_ub_leaf.0 < st.c.min_fr
-                        || caps_ub_leaf.1 < st.c.min_lr
-                        || caps_ub_leaf.2 < st.c.min_cr
-                        || caps_ub_leaf.3 < st.c.min_pr
-                    {
-                        continue;
-                    }
-                    let ub_reqs = merge_reqs(cur.reqs, rp.reqs);
-                    if leaf_ub_ch.str_bonus < ub_reqs.0 || leaf_ub_ch.dex_bonus < ub_reqs.1 {
-                        continue;
-                    }
-                    if can_prune_by_score(st, leaf_ub_ch, Some(hw), caps_ub_leaf) {
-                        continue;
-                    }
-
-                    let leaf_has_set = cur.has_set || rp.set_sig.is_some();
-                    let build_items_ref = || -> [&ItemSpec; LEAF_ITEM_COUNT] {
-                        std::array::from_fn(|i| match i {
-                            0 => &hand.first,
-                            1 => &hand.second,
-                            k if k < 2 + SINGLE_SLOTS.len() => {
-                                let slot_idx = k - 2;
-                                &st.groups[slot_idx][st.chosen_slots[slot_idx]]
-                            }
-                            k if k == 2 + SINGLE_SLOTS.len() => &rp.first,
-                            _ => &rp.second,
-                        })
-                    };
-                    let (items_ref_opt, gear, leaf, all_sk_non_wep, (final_req_str, final_req_dex)) =
-                        if leaf_has_set {
-                            let items_ref = build_items_ref();
-                            let (gear, all_sk_non_wep, reqs_exact) =
-                                compute_effective_gear_stats_and_reqs(&items_ref);
-                            let leaf = Stats {
-                                fr: gear.fr + st.c.base_hell_res,
-                                lr: gear.lr + st.c.base_hell_res,
-                                cr: gear.cr + st.c.base_hell_res,
-                                pr: gear.pr + st.c.base_hell_res,
-                                str_bonus: gear.str_bonus + st.c.base_str,
-                                dex_bonus: gear.dex_bonus + st.c.base_dex,
-                                ..gear
-                            };
-                            (Some(items_ref), gear, leaf, all_sk_non_wep, reqs_exact)
-                        } else {
-                            // With no set pieces anywhere on the leaf, `cur.acc.add(rp.max_stats)` is exact.
-                            let leaf = cur.acc.add(rp.max_stats);
-                            let gear = Stats {
-                                fr: leaf.fr - st.c.base_hell_res,
-                                lr: leaf.lr - st.c.base_hell_res,
-                                cr: leaf.cr - st.c.base_hell_res,
-                                pr: leaf.pr - st.c.base_hell_res,
-                                str_bonus: leaf.str_bonus - st.c.base_str,
-                                dex_bonus: leaf.dex_bonus - st.c.base_dex,
-                                ..leaf
-                            };
-                            (
-                                None,
-                                gear,
-                                leaf,
-                                cur.non_wep_all_sk + rp.combined.all_skills,
-                                ub_reqs,
-                            )
-                        };
-                    if leaf_has_set || st.has_overflow_set_ub {
-                        if !st.c.allow_mf && leaf.mf > 0 {
-                            continue;
-                        }
-                        if leaf.fcr < st.c.min_fcr
-                            || (st.c.require_cbf && leaf.cbf <= 0)
-                            || leaf.ias < st.c.min_ias
-                            || leaf.cb < st.c.min_cb
-                            || (leaf.life_leech + leaf.ctc_lifetap_pct.clamp(0, 100) / 2)
-                                < st.c.min_ll
-                            || leaf.pdr_pct.min(HARD_MAX_PDR_PCT) < st.c.min_pdr
-                        {
-                            continue;
-                        }
-                        let leaf_ch = leaf.add(st.ch);
-                        if leaf_ch.fhr < st.c.min_fhr
-                            || leaf_ch.fr < st.c.min_fr
-                            || leaf_ch.lr < st.c.min_lr
-                            || leaf_ch.cr < st.c.min_cr
-                            || leaf_ch.pr < st.c.min_pr
-                            || leaf_ch.frw < st.c.min_frw
-                            || leaf_ch.mf < st.c.min_mf
-                        {
-                            continue;
-                        }
-                        let caps_leaf = res_caps(leaf, st.c);
-                        if caps_leaf.0 < st.c.min_fr
-                            || caps_leaf.1 < st.c.min_lr
-                            || caps_leaf.2 < st.c.min_cr
-                            || caps_leaf.3 < st.c.min_pr
-                        {
-                            continue;
-                        }
-                        if leaf_ch.str_bonus < final_req_str || leaf_ch.dex_bonus < final_req_dex {
-                            continue;
-                        }
-                        if can_prune_by_score(st, leaf_ch, Some(hw), caps_leaf) {
-                            continue;
-                        }
-                    }
-                    st.evals += 1;
-
-                    let min_main_needed = match st.mode {
-                        SearchMode::LevelingRes => st.top_results.nth_primary().map_or(0, |cut| {
-                            let cur = res_base_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr);
-                            (cut - cur).max(0)
-                        }),
-                        SearchMode::MaxRes => st.top_results.nth_primary().map_or(0, |cut| {
-                            let caps_l = res_caps(leaf, st.c);
-                            let cur = capped_res_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr, caps_l);
-                            (cut - cur).max(0)
-                        }),
-                        SearchMode::Mf => {
-                            st.top_results
-                                .nth_primary()
-                                .map_or(0, |cut| (cut - leaf.mf).max(0))
-                        }
-                        SearchMode::Power => st.top_results.nth_primary().map_or(0, |cut| {
-                            if st.offense.uses_caster_dps(st.c) {
-                                let max_k = (st.ch.all_skills
-                                    + st.ch.action_skill_bonus
-                                    + st.ch.aura_skill_bonus)
-                                    .max(0);
-                                (0..=max_k)
-                                    .find(|&k| {
-                                        let s = Stats {
-                                            all_skills: leaf.all_skills + k,
-                                            ..leaf
-                                        };
-                                        st.offense.compute_caster_dps(s, st.c).floor() as i32 >= cut
-                                    })
-                                    .unwrap_or(max_k + 1)
-                            } else {
-                                let cur = leaf.primary_power_skills_for(st.offense, st.c.has_aura);
-                                (cut - cur).max(0)
-                            }
-                        }),
-                        SearchMode::Leveling => 0,
-                    };
-                    let Some(mut charms_sel) = st.charm_solver.solve_with_min_main(
-                        leaf,
-                        (final_req_str, final_req_dex),
-                        min_main_needed,
-                    ) else {
-                        continue;
-                    };
-                    let mut sum = eval_build_summary(gear, all_sk_non_wep, hw, &charms_sel, st.c);
-                    if (!st.c.allow_mf && sum.mf > 0)
-                        || sum.fcr < st.c.min_fcr
-                        || sum.fhr < st.c.min_fhr
-                        || (st.c.require_cbf && !sum.cbf)
-                        || sum.ias < st.c.min_ias
-                        || sum.cb < st.c.min_cb
-                        || (sum.life_leech + sum.ctc_lifetap_pct.clamp(0, 100) / 2) < st.c.min_ll
-                        || sum.pdr_pct < st.c.min_pdr
-                        || sum.frw < st.c.min_frw
-                        || sum.mf < st.c.min_mf
-                    {
-                        continue;
-                    }
-                    if sum.fr < st.c.min_fr
-                        || sum.lr < st.c.min_lr
-                        || sum.cr < st.c.min_cr
-                        || sum.pr < st.c.min_pr
-                    {
-                        continue;
-                    }
-                    let mut score = score_eval_summary(st.mode, st.offense, &sum, st.c);
-                    let items_ref = items_ref_opt.unwrap_or_else(build_items_ref);
-                    score.locality = items_ref.iter().map(|it| item_locality_score(&it.loc)).sum();
-                    if st.offense.uses_dps_tables(st.c)
-                        && matches!(st.mode, SearchMode::Leveling | SearchMode::LevelingRes)
-                    {
-                        st.charm_solver.improve_for_dps(
-                            gear,
-                            all_sk_non_wep,
-                            hw,
-                            leaf,
-                            (final_req_str, final_req_dex),
-                            st.offense,
-                            st.top_results.nth_top3(),
-                            &mut charms_sel,
-                            &mut sum,
-                            &mut score,
-                        );
-                    }
-                    if !st.top_results.would_accept(score) {
-                        continue;
-                    }
-                    let res = sum.into_result(&items_ref, &charms_sel, 0);
-                    st.top_results.push(score, res, st.offense);
-                }
-                return;
-            }
-
-            if idx == 0 {
-                for pos in 0..st.hand_order.len() {
-                    let i = st.hand_order[pos];
-                    let h = &st.hands[i];
-                    let (h_one, h_two) = st.global_sets.hand_masks[i];
-                    st.chosen_hand = i;
-                    dfs(
-                        st,
-                        1,
-                        DfsNode {
-                            acc: cur.acc.add(h.max_stats),
-                            reqs: merge_reqs(cur.reqs, h.reqs),
-                            g_one: h_one,
-                            g_two: h_two,
-                            non_wep_all_sk: 0,
-                            has_set: h.set_sig.is_some(),
-                        },
-                    );
-                }
-                return;
-            }
-
-            let g = idx - 1;
-            for i in 0..st.groups[g].len() {
-                let it = &st.groups[g][i];
-                let bit = st.global_sets.group_masks[g][i];
-                st.chosen_slots.push(i);
-                dfs(
-                    st,
-                    idx + 1,
-                    DfsNode {
-                        acc: cur.acc.add(it.max_total_stats()),
-                        reqs: merge_reqs(cur.reqs, item_eff_reqs(it)),
-                        g_one: cur.g_one | bit,
-                        g_two: cur.g_two | (cur.g_one & bit),
-                        non_wep_all_sk: cur.non_wep_all_sk + it.all_skills,
-                        has_set: cur.has_set || it.set_group != 0,
-                    },
-                );
-                st.chosen_slots.pop();
-            }
-        }
-
-        let init_acc = Stats {
-            fr: c.base_hell_res,
-            lr: c.base_hell_res,
-            cr: c.base_hell_res,
-            pr: c.base_hell_res,
-            str_bonus: c.base_str,
-            dex_bonus: c.base_dex,
-            ..Default::default()
-        };
-
-        let mut hand_order: Vec<usize> = (0..pool.hands.len()).collect();
-        let max_hand_ub_dps = if offense.uses_dps_tables(c) {
-            let tail_ub = init_acc.add(pool.suf[1]).add(ch);
-            let hand_ubs: Vec<i32> = pool
-                .hands
-                .iter()
-                .enumerate()
-                .map(|(h_idx, h)| {
-                    let (h_one, h_two) = pool.global_sets.hand_masks[h_idx];
-                    let possible_h = h_two
-                        | (h_one & pool.global_sets.suf_one[1])
-                        | pool.global_sets.suf_two[1];
-                    let ub_h = tail_ub
-                        .add(h.max_stats)
-                        .add(pool.global_sets.ub_for_mask(possible_h));
-                    OffenseProfile::dps_bucket(
-                        offense.compute_dps(h.first.hand_weapon(), ub_h, c).0,
-                    )
-                })
-                .collect();
-            if mode == SearchMode::Leveling {
-                hand_order.sort_by_key(|&i| Reverse(hand_ubs[i]));
-            }
-            hand_ubs.into_iter().max().unwrap_or(0)
-        } else {
-            0
-        };
-
-        let has_overflow_set_ub = pool.global_sets.overflow_ub != Stats::default();
-        let mut state = State {
-            hands: pool.hands,
-            hand_order,
-            max_hand_ub_dps,
-            groups: pool.groups,
-            ring_pairs: pool.ring_pairs,
-            suf: pool.suf,
-            global_sets: pool.global_sets,
-            has_overflow_set_ub,
-            ch,
-            charm_solver,
-            c,
-            mode,
-            offense,
-            chosen_hand: 0,
-            chosen_slots: Vec::with_capacity(pool.groups.len()),
-            evals: 0,
-            top_results: TopResults::new(c.limit),
-        };
-
-        dfs(
-            &mut state,
-            0,
-            DfsNode {
-                acc: init_acc,
-                reqs: (0, 0),
-                g_one: 0,
-                g_two: 0,
-                non_wep_all_sk: 0,
-                has_set: false,
-            },
-        );
-
-        let total_evals = state.evals;
-        (state.top_results.finish(total_evals), has_cold_sunder)
-    }
-
     let raw_pool: Vec<&CharmSpec> = charms
         .iter()
         .filter(|ch| {
