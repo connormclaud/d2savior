@@ -10,7 +10,12 @@ from d2savior.core.item_name import LongName
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
 from d2savior.core.stats import collect_item_properties
-from d2savior.optimizer.native import BuildConstraints, OffenseProfileStr, SearchModeStr
+from d2savior.optimizer.native import (
+    BuildConstraints,
+    OffenseProfileStr,
+    SearchModeStr,
+    TargetTypeStr,
+)
 
 SUPPORTED_OPTIMIZER_CLASSES: tuple[CharClass, ...] = (CharClass.SORCERESS, CharClass.PALADIN)
 
@@ -247,6 +252,7 @@ class CharacterBaseline:
     aura_ar_pct: tuple[int, ...] = ()
     aura_target_def_pct: tuple[int, ...] = ()
     target_def: int = 180
+    target_type: TargetTypeStr = "champion"
 
     def build_constraints(
         self,
@@ -319,4 +325,5 @@ class CharacterBaseline:
             aura_ar_pct=list(self.aura_ar_pct),
             aura_target_def_pct=list(self.aura_target_def_pct),
             target_def=self.target_def,
+            target_type=self.target_type,
         )

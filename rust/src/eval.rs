@@ -8,6 +8,8 @@ use crate::types::{
     CharmSpec, HandWeapon, ItemSpec, OffenseProfile, Stats, BASE_MAX_RES, HARD_MAX_PDR_PCT,
     HARD_MAX_RES,
 };
+#[cfg(feature = "python")]
+use crate::types::TargetType;
 
 #[cfg(feature = "python")]
 #[pyfunction]
@@ -469,6 +471,7 @@ pub fn evaluate_build(
 ) -> PyResult<BuildResult> {
     if let Some(c) = constraints.as_ref() {
         CharClass::from_id(c.char_class).map_err(PyValueError::new_err)?;
+        TargetType::parse(&c.target_type).map_err(PyValueError::new_err)?;
         let item_refs: Vec<&ItemSpec> = items.iter().collect();
         let charm_refs: Vec<&CharmSpec> = charms.iter().collect();
         return Ok(eval_build_core(&item_refs, &charm_refs, c, 1));

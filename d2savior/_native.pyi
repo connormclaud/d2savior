@@ -3,6 +3,7 @@ from typing import Literal
 
 SearchModeStr = Literal["power", "mf", "max-res", "leveling", "leveling-res"]
 OffenseProfileStr = Literal["caster", "melee", "zeal", "smite"]
+TargetTypeStr = Literal["trash", "champion", "boss"]
 
 class ItemSpec:
     name: str
@@ -246,6 +247,7 @@ class BuildConstraints:
     aura_ar_pct: list[int]
     aura_target_def_pct: list[int]
     target_def: int
+    target_type: str
 
     def __init__(
         self,
@@ -298,6 +300,7 @@ class BuildConstraints:
         aura_ar_pct: Sequence[int] = (),
         aura_target_def_pct: Sequence[int] = (),
         target_def: int = 180,
+        target_type: TargetTypeStr = "champion",
     ) -> None: ...
 
 class BuildResult:

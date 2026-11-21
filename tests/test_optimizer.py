@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -1842,3 +1843,63 @@ def test_evaluate_build_with_constraints_and_melee_action_end_to_end() -> None:
             primary_skill_base=20,
         )
         assert f"({skill_label}) | AR:" in report_m
+
+
+@requires_native
+def test_target_type_prevents_overvaluing_itd_on_champion_and_boss() -> None:
+    resolver = GameDataResolver.load()
+    ok_p, smite, _ = parse_d2s_file(
+        str(FIXTURES_DIR / "paladin_snapshot" / "smite.d2s"), resolver=resolver
+    )
+    assert ok_p
+    assert smite is not None
+
+    plain_sword = ItemSpec(
+        "Plain Sword", "weapon", "Inv", wclass="1hs", wep_phys_2x=100, can_zeal=True
+    )
+    itd_sword = ItemSpec(
+        "ITD Sword", "weapon", "Inv", wclass="1hs", wep_phys_2x=70, can_zeal=True, itd=1
+    )
+    items = [plain_sword, itd_sword]
+
+    _, opts_default, _, _ = optimize_paladin_leveling(
+        smite, items, [], spec="zeal", resolver=resolver, bo_base_bonus=0, limit=1
+    )
+    _, opts_boss, _, _ = optimize_paladin_leveling(
+        smite,
+        items,
+        [],
+        spec="zeal",
+        resolver=resolver,
+        bo_base_bonus=0,
+        limit=1,
+        target_type="boss",
+    )
+    title_trash, opts_trash, _, _ = optimize_paladin_leveling(
+        smite,
+        items,
+        [],
+        spec="zeal",
+        resolver=resolver,
+        bo_base_bonus=0,
+        limit=1,
+        target_type="trash",
+    )
+    assert opts_default[0][1].items[0].name == "Plain Sword"
+    assert opts_boss[0][1].items[0].name == "Plain Sword"
+    assert opts_boss[0][1].cth < opts_default[0][1].cth
+    assert opts_trash[0][1].items[0].name == "ITD Sword"
+    assert opts_trash[0][1].cth == 95
+    assert "trash" in title_trash
+
+    bad_target: Any = "uber"
+    with pytest.raises(ValueError, match="Unknown target_type"):
+        optimize_paladin_leveling(
+            smite,
+            items,
+            [],
+            spec="zeal",
+            resolver=resolver,
+            bo_base_bonus=0,
+            target_type=bad_target,
+        )

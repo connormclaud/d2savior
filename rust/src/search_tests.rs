@@ -3208,14 +3208,34 @@ fn test_ar_cth_angelic_itd_target_def_and_brute_force_parity() {
         ..Default::default()
     };
 
-    // 1. Without Angelic, Plain Sword CTH is terrible (85 / (85+1200) ~ 6.6%) so ITD Sword wins easily!
-    let res_wep = optimize_builds_core(
+    // 1. Against trash, Plain Sword CTH is terrible (85 / (85+1200) ~ 6.6%) so ITD Sword wins easily!
+    let c_trash = BuildConstraints {
+        target_type: "trash".into(),
+        ..c.clone()
+    };
+    let res_wep_trash = optimize_builds_core(
         &[plain_wep.clone(), eth_wep.clone(), itd_wep.clone(), plain_amu.clone(), plain_ring.clone()],
         &charms,
-        &c,
+        &c_trash,
     )
     .unwrap();
-    assert_eq!(res_wep[0].items[0].name, "ITD Sword");
+    assert_eq!(res_wep_trash[0].items[0].name, "ITD Sword");
+
+    // 1b. Against default target_type="champion", ITD is disabled so higher raw-dmg Eth/Plain beat ITD Sword
+    //     and match brute-force parity.
+    let champ_items = vec![
+        plain_wep.clone(),
+        eth_wep.clone(),
+        itd_wep,
+        plain_amu.clone(),
+        plain_ring.clone(),
+    ];
+    let res_wep_champ = optimize_builds_core(&champ_items, &charms, &c).unwrap();
+    assert_ne!(res_wep_champ[0].items[0].name, "ITD Sword");
+    let bf_champ = brute_force_top_scores(&champ_items, &charms, &c, SearchMode::Leveling);
+    let mut top_champ = validate_and_score_result(&res_wep_champ[0], &c, SearchMode::Leveling);
+    top_champ.locality = 0;
+    assert_eq!(top_champ, bf_champ[0]);
 
     // 2. Comparing Plain Sword with Angelic 2pc vs Plain Jewelry -> Angelic 2pc + Sharp SC wins via higher AR & DPS,
     //    and matches brute-force search parity!
@@ -3388,8 +3408,19 @@ fn test_ar_charms_brute_force_parity_all_cases() {
             ..Default::default()
         },
     ];
-    let opt4_itd = assert_bf_parity(&[sword_itd], &charms_case4, &c_1slot, SearchMode::Leveling);
+    let opt4_itd = assert_bf_parity(
+        std::slice::from_ref(&sword_itd),
+        &charms_case4,
+        &BuildConstraints {
+            target_type: "trash".into(),
+            ..c_1slot.clone()
+        },
+        SearchMode::Leveling,
+    );
     assert_eq!(opt4_itd[0].charms[0].name, "Vita SC 20");
+    // Under default target_type="champion", ITD=1 is disabled so +18 AR advances dps_bucket and Fine SC 18 wins.
+    let opt4_itd_champ = assert_bf_parity(&[sword_itd], &charms_case4, &c_1slot, SearchMode::Leveling);
+    assert_eq!(opt4_itd_champ[0].charms[0].name, "Fine SC 18");
     // Same-bucket test without ITD: at high AR (ar=1000, target_def=100 -> cth ~ 91%), +18 AR (<0.2% DPS)
     // stays in the same 2% dps_bucket so Vita SC 20 wins.
     let mut sword_high_ar = sword.clone();

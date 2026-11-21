@@ -1,7 +1,7 @@
 """Paladin leveling presets, spec detection, and breakpoint trade-off search."""
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 from d2savior.core.constants import CLASS_SKILL_BASES, DIFFICULTY_NAMES
 from d2savior.core.d2s_struct import D2SStruct
@@ -25,6 +25,7 @@ from d2savior.optimizer.native import (
     ItemSpec,
     OffenseProfileStr,
     SearchModeStr,
+    TargetTypeStr,
     class_breakpoints,
     optimize_builds,
 )
@@ -244,6 +245,17 @@ def _paladin_passive_max_res(char_data: D2SStruct) -> tuple[int, int, int]:
     )
 
 
+_VALID_TARGET_TYPES: frozenset[str] = frozenset({"trash", "champion", "boss"})
+
+
+def _normalize_target_type(target_type: str) -> TargetTypeStr:
+    resolved = target_type.strip().lower()
+    if resolved not in _VALID_TARGET_TYPES:
+        valid = ", ".join(sorted(_VALID_TARGET_TYPES))
+        raise ValueError(f"Unknown target_type '{target_type}'; expected one of: {valid}")
+    return cast(TargetTypeStr, resolved)
+
+
 def _build_paladin_baseline(
     char_data: D2SStruct,
     *,
@@ -255,10 +267,12 @@ def _build_paladin_baseline(
     bo_base_bonus: int | None,
     keep_equipped: bool | str | None,
     targets: int = 1,
+    target_type: TargetTypeStr = "champion",
     left_skill: int | None = None,
     right_skill: int | None = None,
 ) -> tuple[CharacterBaseline, int, str, str]:
     validate_paladin(char_data)
+    resolved_target_type = _normalize_target_type(target_type)
     resolved_spec = (
         spec.lower()
         if spec
@@ -303,7 +317,8 @@ def _build_paladin_baseline(
         action_ar_pct = ()
         aura_ar_pct = ()
         aura_target_def_pct = ()
-    target_def = (6, 12, 20)[min(max(diff_idx, 0), 2)] * char_level
+    base_def = (6, 12, 20)[min(max(diff_idx, 0), 2)]
+    target_def = (base_def * 3 // 2 if resolved_target_type == "boss" else base_def) * char_level
     fixed_all, fixed_slots = resolve_fixed_gear(keep_equipped)
     baseline = CharacterBaseline(
         char_class=int(CharClass.PALADIN),
@@ -331,6 +346,7 @@ def _build_paladin_baseline(
         aura_ar_pct=aura_ar_pct,
         aura_target_def_pct=aura_target_def_pct,
         target_def=target_def,
+        target_type=resolved_target_type,
     )
     return baseline, char_level, diff_name, resolved_spec
 
@@ -346,6 +362,7 @@ def select_paladin_max_res_preset(
     spec: str | None = None,
     keep_equipped: bool | str | None = False,
     targets: int = 1,
+    target_type: TargetTypeStr = "champion",
     left_skill: int | None = None,
     right_skill: int | None = None,
     overrides: ConstraintOverrides | None = None,
@@ -370,6 +387,7 @@ def select_paladin_max_res_preset(
         spec=spec,
         keep_equipped=keep_equipped,
         targets=targets,
+        target_type=target_type,
         left_skill=left_skill,
         right_skill=right_skill,
     )
@@ -389,11 +407,13 @@ def build_paladin_preset_constraints(
     spec: str | None = None,
     keep_equipped: bool | str | None = False,
     targets: int = 1,
+    target_type: TargetTypeStr = "champion",
     left_skill: int | None = None,
     right_skill: int | None = None,
 ) -> tuple[str, BuildConstraints, str, str]:
     """Build a `BuildConstraints` profile from a resolved TOML preset for a Paladin."""
     eff_targets = max(1, targets)
+    resolved_target_type = _normalize_target_type(target_type)
     baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
         char_data,
         spec=spec,
@@ -404,6 +424,7 @@ def build_paladin_preset_constraints(
         bo_base_bonus=bo_base_bonus,
         keep_equipped=keep_equipped,
         targets=eff_targets,
+        target_type=resolved_target_type,
         left_skill=left_skill,
         right_skill=right_skill,
     )
@@ -415,17 +436,23 @@ def build_paladin_preset_constraints(
         offense=offense,
         **preset.constraint_kwargs(),
     )
+    target_type_part = f", {resolved_target_type}" if resolved_target_type != "champion" else ""
     if preset.title:
-        title = f"{preset.title} [{eff_targets} targets]" if eff_targets > 1 else preset.title
+        extra = [
+            f"{eff_targets} targets" if eff_targets > 1 else "",
+            resolved_target_type if resolved_target_type != "champion" else "",
+        ]
+        extra_str = ", ".join(p for p in extra if p)
+        title = f"{preset.title} [{extra_str}]" if extra_str else preset.title
     elif preset.mode == "max-res" and preset.name == "max-res":
-        title = f"Paladin Max Resist (lvl {char_level}, {diff_name})"
+        title = f"Paladin Max Resist (lvl {char_level}, {diff_name}{target_type_part})"
     else:
         mode_label = (
             "Max Resist" if preset.mode == "max-res" else preset.mode.replace("-", " ").title()
         )
         name_part = "" if preset.name in ("leveling", preset.mode) else f" — {preset.name}"
         target_suffix = f", {eff_targets} targets" if eff_targets > 1 else ""
-        title = f"Paladin {mode_label}{name_part} (lvl {char_level}, {diff_name}{target_suffix})"
+        title = f"Paladin {mode_label}{name_part} (lvl {char_level}, {diff_name}{target_suffix}{target_type_part})"
     return title, constraints, resolved_spec, diff_name
 
 
@@ -719,6 +746,7 @@ def optimize_paladin_leveling(
     bo_base_bonus: int | None = None,
     keep_equipped: bool | str | None = False,
     targets: int = 1,
+    target_type: TargetTypeStr = "champion",
     left_skill: int | None = None,
     right_skill: int | None = None,
     overrides: ConstraintOverrides | None = None,
@@ -726,6 +754,7 @@ def optimize_paladin_leveling(
 ) -> tuple[str, list[tuple[str, BuildResult]], str, str]:
     """Optimize Paladin leveling gear and inventory charms across breakpoint/resist trade-offs."""
     eff_targets = max(1, targets)
+    resolved_target_type = _normalize_target_type(target_type)
     baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
         char_data,
         spec=spec,
@@ -736,6 +765,7 @@ def optimize_paladin_leveling(
         bo_base_bonus=bo_base_bonus,
         keep_equipped=keep_equipped,
         targets=eff_targets,
+        target_type=resolved_target_type,
         left_skill=left_skill,
         right_skill=right_skill,
     )
@@ -748,12 +778,16 @@ def optimize_paladin_leveling(
     skill_name, _ = paladin_primary_skill_info(char_data, resolved_spec)
     spec_label = skill_name or resolved_spec.replace("-", " ").title()
     target_suffix = f", {eff_targets} targets" if eff_targets > 1 else ""
+    target_type_part = f", {resolved_target_type}" if resolved_target_type != "champion" else ""
     if title is not None:
-        eff_title = f"{title} [{eff_targets} targets]" if eff_targets > 1 else title
+        extra = [
+            f"{eff_targets} targets" if eff_targets > 1 else "",
+            resolved_target_type if resolved_target_type != "champion" else "",
+        ]
+        extra_str = ", ".join(p for p in extra if p)
+        eff_title = f"{title} [{extra_str}]" if extra_str else title
     else:
-        eff_title = (
-            f"Paladin Leveling — {spec_label} (lvl {char_level}, {diff_name}{target_suffix})"
-        )
+        eff_title = f"Paladin Leveling — {spec_label} (lvl {char_level}, {diff_name}{target_suffix}{target_type_part})"
     if limit <= 0:
         return eff_title, [], resolved_spec, diff_name
 

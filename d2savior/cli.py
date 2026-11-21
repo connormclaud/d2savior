@@ -636,6 +636,7 @@ def _run_paladin_optimize(
                 resolver=resolver,
                 keep_equipped=args.keep_gear,
                 targets=args.targets,
+                target_type=args.target_type,
                 left_skill=left_skill,
                 right_skill=right_skill,
                 overrides=preset.to_overrides(),
@@ -662,6 +663,7 @@ def _run_paladin_optimize(
                 resolver=resolver,
                 keep_equipped=args.keep_gear,
                 targets=args.targets,
+                target_type=args.target_type,
                 left_skill=left_skill,
                 right_skill=right_skill,
             )
@@ -817,6 +819,15 @@ def cmd_optimize(argv: list[str]) -> int:
         type=int,
         default=1,
         help="Number of simultaneous targets for AoE DPS (e.g. 1=boss, 3=pack; default: 1)",
+    )
+    parser.add_argument(
+        "--target-type",
+        choices=("boss", "champion", "trash"),
+        default="champion",
+        help=(
+            "Target monster class for AR/CTH: champion (default; ITD disabled, gear -%% Def halved), "
+            "boss (1.5x defense, ITD disabled, gear -%% Def halved), or trash (normal; full ITD/-%% Def)"
+        ),
     )
     parser.add_argument(
         "--left-skill",

@@ -19,6 +19,26 @@ fn test_build_constraints_default_matches_expected() {
     assert!(d.use_bo);
     assert!(!d.fixed_gear);
     assert_eq!(d.offense, "caster");
+    assert_eq!(d.target_type, "champion");
+}
+
+#[test]
+fn test_target_type_parsing_and_mechanics() {
+    assert_eq!(TargetType::default(), TargetType::Champion);
+    assert_eq!(TargetType::parse("trash"), Ok(TargetType::Trash));
+    assert_eq!(TargetType::parse("CHAMPION"), Ok(TargetType::Champion));
+    assert_eq!(TargetType::parse("Boss"), Ok(TargetType::Boss));
+    assert!(TargetType::parse("uber").is_err());
+
+    assert!(TargetType::Trash.allows_itd());
+    assert!(!TargetType::Champion.allows_itd());
+    assert!(!TargetType::Boss.allows_itd());
+
+    assert_eq!(TargetType::Trash.gear_target_def_reduction(50), 50);
+    assert_eq!(TargetType::Champion.gear_target_def_reduction(50), 25);
+    assert_eq!(TargetType::Boss.gear_target_def_reduction(50), 25);
+    assert_eq!(TargetType::Champion.gear_target_def_reduction(25), 12);
+    assert_eq!(TargetType::Boss.gear_target_def_reduction(120), 50);
 }
 
 #[test]

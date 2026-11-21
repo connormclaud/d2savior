@@ -163,6 +163,40 @@ impl HandWeapon {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum TargetType {
+    Trash,
+    #[default]
+    Champion,
+    Boss,
+}
+
+impl TargetType {
+    pub(crate) fn parse(s: &str) -> Result<Self, String> {
+        match s.to_ascii_lowercase().as_str() {
+            "trash" => Ok(Self::Trash),
+            "champion" => Ok(Self::Champion),
+            "boss" => Ok(Self::Boss),
+            other => Err(format!(
+                "invalid target_type '{other}'; expected 'trash', 'champion', or 'boss'"
+            )),
+        }
+    }
+
+    pub(crate) fn allows_itd(self) -> bool {
+        matches!(self, Self::Trash)
+    }
+
+    pub(crate) fn gear_target_def_reduction(self, target_def_pct: i32) -> i32 {
+        let clamped = target_def_pct.clamp(0, 100);
+        if matches!(self, Self::Trash) {
+            clamped
+        } else {
+            clamped / 2
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum OffenseProfile {
     Caster,
@@ -411,8 +445,9 @@ impl OffenseProfile {
         };
         let total_ar_pct = (s.ar_pct + act_ar_pct + aura_ar_pct).max(0);
         let total_ar = ((base_ar as i64) * (100 + total_ar_pct as i64) / 100) as i32;
+        let target_type = TargetType::parse(&c.target_type).unwrap_or_default();
         let base_dr = c.target_def.max(0);
-        let cth = if s.itd > 0 {
+        let cth = if s.itd > 0 && target_type.allows_itd() {
             0.95
         } else {
             let conv_red = if c.aura_target_def_pct.is_empty() {
@@ -420,9 +455,11 @@ impl OffenseProfile {
             } else {
                 c.aura_target_def_pct[eff_aura.min(c.aura_target_def_pct.len() - 1)]
             };
-            // In D2R, Conviction's defense reduction and gear -% Target Defense stack multiplicatively.
+            // In D2R, Conviction's defense reduction and gear -% Target Defense stack multiplicatively,
+            // and gear -% Target Defense is halved against Champions, Uniques, and Bosses.
             let conv_mult = (100 - conv_red.clamp(0, 100)) as f64 / 100.0;
-            let gear_mult = (100 - s.target_def_pct.clamp(0, 100)) as f64 / 100.0;
+            let gear_red = target_type.gear_target_def_reduction(s.target_def_pct);
+            let gear_mult = (100 - gear_red) as f64 / 100.0;
             let eff_dr = (base_dr as f64) * conv_mult * gear_mult;
             let denom = total_ar as f64 + eff_dr;
             if denom <= 0.0 {
@@ -668,6 +705,8 @@ impl Stats {
             self.ar_pct = 0;
             self.itd = 0;
             self.target_def_pct = 0;
+        } else if !TargetType::parse(&c.target_type).unwrap_or_default().allows_itd() {
+            self.itd = 0;
         }
         if !(mode == SearchMode::Mf || c.min_mf > 0 || !c.allow_mf) {
             self.mf = 0;
@@ -1689,6 +1728,7 @@ pub struct BuildConstraints {
     pub aura_ar_pct: Vec<i32>,
     pub aura_target_def_pct: Vec<i32>,
     pub target_def: i32,
+    pub target_type: String,
 }
 
 impl Default for BuildConstraints {
@@ -1743,6 +1783,7 @@ impl Default for BuildConstraints {
             aura_ar_pct: Vec::new(),
             aura_target_def_pct: Vec::new(),
             target_def: 180,
+            target_type: String::from("champion"),
         }
     }
 }
@@ -1801,6 +1842,7 @@ impl BuildConstraints {
         aura_ar_pct = Vec::new(),
         aura_target_def_pct = Vec::new(),
         target_def = 180,
+        target_type = String::from("champion"),
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1853,6 +1895,7 @@ impl BuildConstraints {
         aura_ar_pct: Vec<i32>,
         aura_target_def_pct: Vec<i32>,
         target_def: i32,
+        target_type: String,
     ) -> Self {
         Self {
             allow_mf,
@@ -1904,6 +1947,7 @@ impl BuildConstraints {
             aura_ar_pct,
             aura_target_def_pct,
             target_def,
+            target_type,
         }
     }
 }

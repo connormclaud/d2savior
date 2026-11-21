@@ -333,20 +333,53 @@ fn test_ar_and_chance_to_hit_scaling() {
     assert!((res_plain.dps - expected_dps_plain).abs() < 1e-6);
     assert!((res_plain.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
 
-    // -50% Target Defense (weapon) * -50% (Conviction at +1 aura): multiplicative reduction =>
-    // eff_dr = 300 * 0.5 * 0.5 = 75 -> CTH = 579 / (579 + 75) = 579 / 654 (~89%).
+    // Default target_type="champion": -50% Target Defense (weapon) is halved to -25%,
+    // stacking multiplicatively with -50% (Conviction at +1 aura):
+    // eff_dr = 300 * 0.5 * 0.75 = 112.5 -> CTH = 579 / (579 + 112.5) = 579 / 691.5 (~84%).
     let mut ring_sk = ring_ar.clone();
     ring_sk.aura_skill_bonus = 1;
-    let res_eth_conv = eval_build_core(&[&wep_eth, &ring_sk], &[&charm_ar], &c_base, 1);
+    let res_eth_conv_champ = eval_build_core(&[&wep_eth, &ring_sk], &[&charm_ar], &c_base, 1);
     // +1 aura gives aura_ar_pct=60% => total_ar_pct = 20 + 10 + 60 = 90 => 305 * 190 / 100 = 579.
+    assert_eq!(res_eth_conv_champ.ar, 579);
+    assert_eq!(res_eth_conv_champ.cth, 84);
+    let expected_dps_eth_conv_champ = 100.0 * (579.0 / (579.0 + 112.5)) * zeal_rate;
+    assert!((res_eth_conv_champ.dps - expected_dps_eth_conv_champ).abs() < 1e-6);
+    assert!((res_eth_conv_champ.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
+
+    // target_type="boss": same -50% gear Target Def halving as champion.
+    let c_boss = BuildConstraints {
+        target_type: "boss".into(),
+        ..c_base.clone()
+    };
+    let res_eth_conv_boss = eval_build_core(&[&wep_eth, &ring_sk], &[&charm_ar], &c_boss, 1);
+    assert_eq!(res_eth_conv_boss.cth, 84);
+    assert!((res_eth_conv_boss.dps - expected_dps_eth_conv_champ).abs() < 1e-6);
+
+    // target_type="trash": full -50% Target Defense (weapon) * -50% (Conviction) =>
+    // eff_dr = 300 * 0.5 * 0.5 = 75 -> CTH = 579 / (579 + 75) = 579 / 654 (~89%).
+    let c_trash = BuildConstraints {
+        target_type: "trash".into(),
+        ..c_base.clone()
+    };
+    let res_eth_conv = eval_build_core(&[&wep_eth, &ring_sk], &[&charm_ar], &c_trash, 1);
     assert_eq!(res_eth_conv.ar, 579);
     assert_eq!(res_eth_conv.cth, 89);
     let expected_dps_eth_conv = 100.0 * (579.0 / (579.0 + 75.0)) * zeal_rate;
     assert!((res_eth_conv.dps - expected_dps_eth_conv).abs() < 1e-6);
     assert!((res_eth_conv.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
 
-    // ITD gives 95% CTH directly regardless of low AR.
-    let res_itd = eval_build_core(&[&wep_itd], &[], &c_base, 1);
+    // ITD is disabled against champion (default) and boss, using normal AR vs target_def instead.
+    let res_itd_champ = eval_build_core(&[&wep_itd], &[], &c_base, 1);
+    let expected_cth_champ: f64 = 127.0 / (127.0 + 300.0);
+    assert_eq!(res_itd_champ.ar, 127);
+    assert_eq!(res_itd_champ.cth, (expected_cth_champ * 100.0).round() as i32);
+    assert!((res_itd_champ.dps - 100.0 * expected_cth_champ * zeal_rate).abs() < 1e-6);
+
+    let res_itd_boss = eval_build_core(&[&wep_itd], &[], &c_boss, 1);
+    assert_eq!(res_itd_boss.cth, res_itd_champ.cth);
+
+    // ITD gives 95% CTH directly against trash regardless of low AR.
+    let res_itd = eval_build_core(&[&wep_itd], &[], &c_trash, 1);
     assert_eq!(res_itd.ar, 85 * 150 / 100); // 127
     assert_eq!(res_itd.cth, 95);
     let expected_dps_itd = 100.0 * 0.95 * zeal_rate;

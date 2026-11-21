@@ -10,8 +10,8 @@ use crate::charms::CharmSolver;
 use crate::eval::{eval_build_summary, res_caps, EvalSummary};
 use crate::types::{
     compute_effective_gear_stats_and_reqs, eff_req, BuildConstraints, BuildResult, CharClass,
-    CharmSpec, HandWeapon, ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, WeaponClass,
-    BASE_MAX_RES, HARD_MAX_PDR_PCT,
+    CharmSpec, HandWeapon, ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, TargetType,
+    WeaponClass, BASE_MAX_RES, HARD_MAX_PDR_PCT,
 };
 
 const SINGLE_SLOTS: [&str; 6] = ["helm", "armor", "amulet", "belt", "gloves", "boots"];
@@ -852,6 +852,7 @@ pub fn optimize_builds_core(
 ) -> Result<Vec<BuildResult>, String> {
     let class = CharClass::from_id(c.char_class)?;
     let offense = OffenseProfile::parse(&c.offense, class)?;
+    TargetType::parse(&c.target_type)?;
     let mode = match c.mode.to_ascii_lowercase().as_str() {
         "power" => SearchMode::Power,
         "mf" => SearchMode::Mf,

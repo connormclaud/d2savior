@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -212,6 +212,7 @@ class _FakeConstraints:
     aura_ar_pct: list[int] = field(default_factory=list)
     aura_target_def_pct: list[int] = field(default_factory=list)
     target_def: int = 180
+    target_type: str = "champion"
 
 
 @dataclass
@@ -1707,3 +1708,95 @@ def test_format_paladin_option_lines_melee_action_labels() -> None:
             has_aura=False,
         )
         assert f"DPS: 1000 ({skill_name}) | AR: 1200 (85%)" in lines[1]
+
+
+def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+    from d2savior.cli import cmd_optimize
+    from d2savior.optimizer.paladin import _build_paladin_baseline
+
+    resolver = GameDataResolver.load()
+    ok_p, smite, _ = parse_d2s_file(
+        str(FIXTURES_DIR / "paladin_snapshot" / "smite.d2s"), resolver=resolver
+    )
+    assert ok_p
+    assert smite is not None
+    lvl = smite.player_stats.level or smite.char_level
+
+    monkeypatch.setattr("d2savior.optimizer.common.BuildConstraints", _FakeConstraints)
+    b_champ, _, _, _ = _build_paladin_baseline(
+        smite,
+        spec="holy-fire",
+        max_charm_slots=23,
+        extra_chars=(),
+        stashes=(),
+        resolver=resolver,
+        bo_base_bonus=0,
+        keep_equipped=False,
+    )
+    b_trash, _, _, _ = _build_paladin_baseline(
+        smite,
+        spec="holy-fire",
+        max_charm_slots=23,
+        extra_chars=(),
+        stashes=(),
+        resolver=resolver,
+        bo_base_bonus=0,
+        keep_equipped=False,
+        target_type="trash",
+    )
+    b_boss, _, _, _ = _build_paladin_baseline(
+        smite,
+        spec="holy-fire",
+        max_charm_slots=23,
+        extra_chars=(),
+        stashes=(),
+        resolver=resolver,
+        bo_base_bonus=0,
+        keep_equipped=False,
+        target_type="boss",
+    )
+    assert b_champ.target_type == "champion"
+    assert b_trash.target_type == "trash"
+    assert b_boss.target_type == "boss"
+    assert b_champ.target_def == 6 * lvl
+    assert b_trash.target_def == 6 * lvl
+    assert b_boss.target_def == 9 * lvl
+    assert b_champ.build_constraints(mode="leveling", limit=1).target_type == "champion"
+    assert b_boss.build_constraints(mode="leveling", limit=1).target_type == "boss"
+
+    bad_target: Any = "uber"
+    with pytest.raises(ValueError, match="Unknown target_type"):
+        _build_paladin_baseline(
+            smite,
+            spec="holy-fire",
+            max_charm_slots=23,
+            extra_chars=(),
+            stashes=(),
+            resolver=resolver,
+            bo_base_bonus=0,
+            keep_equipped=False,
+            target_type=bad_target,
+        )
+
+    captured: list[str] = []
+
+    monkeypatch.setattr("d2savior.cli._resolve_and_save_targets", lambda _args: ["smite.d2s"])
+    monkeypatch.setattr("d2savior.cli.GameDataResolver.load", lambda **_kw: resolver)
+    monkeypatch.setattr(
+        "d2savior.cli._load_optimize_pool",
+        lambda *_a, **_kw: (smite, [], [], None),
+    )
+    monkeypatch.setattr("d2savior.cli.extract_pool", lambda *_a, **_kw: ([], []))
+    monkeypatch.setattr(
+        "d2savior.cli.optimize_paladin_leveling",
+        lambda *_a, **kw: (
+            captured.append(kw["target_type"]) or "Title",
+            [],
+            "holy-fire",
+            "Normal",
+        ),
+    )
+    assert cmd_optimize(["smite.d2s", "-b", "leveling"]) == 0
+    assert cmd_optimize(["smite.d2s", "-b", "leveling", "--target-type", "boss"]) == 0
+    assert cmd_optimize(["smite.d2s", "-b", "leveling", "--target-type", "trash"]) == 0
+    assert captured == ["champion", "boss", "trash"]
