@@ -839,70 +839,247 @@ pub(crate) enum SearchMode {
     LevelingRes,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub(crate) struct Stats {
-    pub(crate) all_skills: i32,
-    pub(crate) sorc_skills: i32,
-    pub(crate) pal_skills: i32,
-    pub(crate) blizz_skills: i32,
-    pub(crate) cm_skills: i32,
-    pub(crate) primary_skill: i32,
-    pub(crate) action_skill_bonus: i32,
-    pub(crate) aura_skill_bonus: i32,
-    pub(crate) off_ed: i32,
-    pub(crate) flat_phys_2x: i32,
-    pub(crate) flat_fire_2x: i32,
-    pub(crate) flat_elem_2x: i32,
-    pub(crate) cold_dmg_pct: i32,
-    pub(crate) ds: i32,
-    pub(crate) cs_oskill: i32,
-    pub(crate) ow: i32,
-    pub(crate) ed_demon: i32,
-    pub(crate) ed_undead: i32,
-    pub(crate) psn_dps_2x: i32,
-    pub(crate) pierce: i32,
-    pub(crate) ctc_static_pct: i32,
-    pub(crate) ctc_venom_dps_2x: i32,
-    pub(crate) ctc_decrep_pct: i32,
-    pub(crate) ctc_lifetap_pct: i32,
-    pub(crate) ctc_orb_dmg_2x: i32,
-    pub(crate) ar: i32,
-    pub(crate) ar_pct: i32,
-    pub(crate) itd: i32,
-    pub(crate) target_def_pct: i32,
-    pub(crate) fcr: i32,
-    pub(crate) fhr: i32,
-    pub(crate) frw: i32,
-    pub(crate) ias: i32,
-    pub(crate) cb: i32,
-    pub(crate) cbf: i32,
-    pub(crate) pdr_pct: i32,
-    pub(crate) life_leech: i32,
-    pub(crate) fr: i32,
-    pub(crate) lr: i32,
-    pub(crate) cr: i32,
-    pub(crate) pr: i32,
-    pub(crate) max_fr: i32,
-    pub(crate) max_lr: i32,
-    pub(crate) max_cr: i32,
-    pub(crate) max_pr: i32,
-    pub(crate) mf: i32,
-    pub(crate) life: i32,
-    pub(crate) mana: i32,
-    pub(crate) life_per_lvl: i32,
-    pub(crate) mana_per_lvl: i32,
-    pub(crate) vit: i32,
-    pub(crate) ene: i32,
-    pub(crate) pct_life: i32,
-    pub(crate) pct_mana: i32,
-    pub(crate) mdr: i32,
-    pub(crate) dr_flat: i32,
-    pub(crate) fire_abs_pct: i32,
-    pub(crate) str_bonus: i32,
-    pub(crate) dex_bonus: i32,
-    pub(crate) defense: i32,
-    pub(crate) belt_slots: i32,
+macro_rules! stat_combine {
+    (add, $a:expr, $b:expr) => {
+        $a + $b
+    };
+    (max, $a:expr, $b:expr) => {
+        $a.max($b)
+    };
 }
+
+macro_rules! and_all {
+    ($first:expr $(, $rest:expr)* $(,)?) => {
+        $first $(&& $rest)*
+    };
+}
+
+macro_rules! define_stat_types {
+    ($( $field:ident => $combine:ident ),* $(,)?) => {
+        #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+        pub(crate) struct Stats {
+            $( pub(crate) $field: i32, )*
+        }
+
+        impl Stats {
+            pub(crate) fn add(self, o: Stats) -> Stats {
+                Stats {
+                    $( $field: stat_combine!($combine, self.$field, o.$field), )*
+                }
+            }
+
+            pub(crate) fn max_each(self, o: Stats) -> Stats {
+                Stats {
+                    $( $field: self.$field.max(o.$field), )*
+                }
+            }
+
+            pub(crate) fn dominates(self, o: Stats) -> bool {
+                and_all!( $( self.$field >= o.$field ),* )
+            }
+        }
+
+        /// Item specification passed between Python (`d2savior`) and Rust.
+        #[cfg_attr(feature = "python", pyclass(get_all, set_all))]
+        #[derive(Clone, Debug, Default, PartialEq, Eq)]
+        pub struct ItemSpec {
+            pub name: String,
+            pub slot: String,
+            pub loc: String,
+            $( pub $field: i32, )*
+            pub req_str: i32,
+            pub req_dex: i32,
+            pub set_group: i32,
+            pub set_item_id: i32,
+            pub set_bonuses: Vec<(i32, ItemSpec)>,
+            pub global_set_bonuses: Vec<(i32, ItemSpec)>,
+            pub wsm: i32,
+            pub wclass: String,
+            pub wep_phys_2x: i32,
+            pub wep_str_pct: i32,
+            pub wep_dex_pct: i32,
+            pub can_zeal: bool,
+            pub splash_fire: bool,
+            pub splash_fire_2x: i32,
+        }
+
+        impl ItemSpec {
+            pub(crate) fn stats(&self) -> Stats {
+                Stats {
+                    $( $field: self.$field, )*
+                }
+            }
+
+            pub(crate) fn from_stats(
+                name: String,
+                slot: String,
+                loc: String,
+                s: Stats,
+                req_str: i32,
+                req_dex: i32,
+            ) -> Self {
+                Self {
+                    name,
+                    slot,
+                    loc,
+                    $( $field: s.$field, )*
+                    req_str,
+                    req_dex,
+                    ..Default::default()
+                }
+            }
+        }
+
+        #[cfg(feature = "python")]
+        #[pymethods]
+        impl ItemSpec {
+            #[new]
+            #[pyo3(signature = (
+                name,
+                slot,
+                loc = String::new(),
+                $( $field = 0, )*
+                req_str = 0,
+                req_dex = 0,
+                set_group = 0,
+                set_item_id = 0,
+                set_bonuses = Vec::new(),
+                global_set_bonuses = Vec::new(),
+                wsm = 0,
+                wclass = String::new(),
+                wep_phys_2x = 0,
+                wep_str_pct = 0,
+                wep_dex_pct = 0,
+                can_zeal = false,
+                splash_fire = false,
+                splash_fire_2x = 0,
+            ))]
+            #[allow(clippy::too_many_arguments)]
+            pub fn new(
+                name: String,
+                slot: String,
+                loc: String,
+                $( $field: i32, )*
+                req_str: i32,
+                req_dex: i32,
+                set_group: i32,
+                set_item_id: i32,
+                set_bonuses: Vec<(i32, ItemSpec)>,
+                global_set_bonuses: Vec<(i32, ItemSpec)>,
+                wsm: i32,
+                wclass: String,
+                wep_phys_2x: i32,
+                wep_str_pct: i32,
+                wep_dex_pct: i32,
+                can_zeal: bool,
+                splash_fire: bool,
+                splash_fire_2x: i32,
+            ) -> Self {
+                Self {
+                    name,
+                    slot,
+                    loc,
+                    $( $field, )*
+                    req_str,
+                    req_dex,
+                    set_group,
+                    set_item_id,
+                    set_bonuses,
+                    global_set_bonuses,
+                    wsm,
+                    wclass,
+                    wep_phys_2x,
+                    wep_str_pct,
+                    wep_dex_pct,
+                    can_zeal,
+                    splash_fire,
+                    splash_fire_2x,
+                }
+            }
+
+            #[getter]
+            pub fn skills(&self) -> i32 {
+                self.total_skills()
+            }
+
+            fn __repr__(&self) -> String {
+                format!(
+                    "ItemSpec(name={:?}, slot={:?}, skills={}, fcr={}, fhr={}, mf={})",
+                    self.name,
+                    self.slot,
+                    self.total_skills(),
+                    self.fcr,
+                    self.fhr,
+                    self.mf
+                )
+            }
+        }
+    };
+}
+
+define_stat_types!(
+    all_skills => add,
+    sorc_skills => add,
+    pal_skills => add,
+    blizz_skills => add,
+    cm_skills => add,
+    primary_skill => add,
+    action_skill_bonus => add,
+    aura_skill_bonus => add,
+    off_ed => add,
+    flat_phys_2x => add,
+    flat_fire_2x => add,
+    flat_elem_2x => add,
+    cold_dmg_pct => add,
+    ds => add,
+    cs_oskill => add,
+    ow => add,
+    ed_demon => add,
+    ed_undead => add,
+    psn_dps_2x => add,
+    pierce => add,
+    ctc_static_pct => add,
+    ctc_venom_dps_2x => max,
+    ctc_decrep_pct => add,
+    ctc_lifetap_pct => add,
+    ctc_orb_dmg_2x => add,
+    ar => add,
+    ar_pct => add,
+    itd => add,
+    target_def_pct => add,
+    fcr => add,
+    fhr => add,
+    frw => add,
+    ias => add,
+    cb => add,
+    cbf => add,
+    pdr_pct => add,
+    life_leech => add,
+    fr => add,
+    lr => add,
+    cr => add,
+    pr => add,
+    max_fr => add,
+    max_lr => add,
+    max_cr => add,
+    max_pr => add,
+    mf => add,
+    life => add,
+    mana => add,
+    life_per_lvl => add,
+    mana_per_lvl => add,
+    vit => add,
+    ene => add,
+    pct_life => add,
+    pct_mana => add,
+    mdr => add,
+    dr_flat => add,
+    fire_abs_pct => add,
+    str_bonus => add,
+    dex_bonus => add,
+    defense => add,
+    belt_slots => add,
+);
 
 impl Stats {
     pub(crate) fn total_skills(self) -> i32 {
@@ -1041,286 +1218,6 @@ impl Stats {
         self.fire_abs_pct = 0;
         self
     }
-
-    pub(crate) fn add(self, o: Stats) -> Stats {
-        Stats {
-            all_skills: self.all_skills + o.all_skills,
-            sorc_skills: self.sorc_skills + o.sorc_skills,
-            pal_skills: self.pal_skills + o.pal_skills,
-            blizz_skills: self.blizz_skills + o.blizz_skills,
-            cm_skills: self.cm_skills + o.cm_skills,
-            primary_skill: self.primary_skill + o.primary_skill,
-            action_skill_bonus: self.action_skill_bonus + o.action_skill_bonus,
-            aura_skill_bonus: self.aura_skill_bonus + o.aura_skill_bonus,
-            off_ed: self.off_ed + o.off_ed,
-            flat_phys_2x: self.flat_phys_2x + o.flat_phys_2x,
-            flat_fire_2x: self.flat_fire_2x + o.flat_fire_2x,
-            flat_elem_2x: self.flat_elem_2x + o.flat_elem_2x,
-            cold_dmg_pct: self.cold_dmg_pct + o.cold_dmg_pct,
-            ds: self.ds + o.ds,
-            cs_oskill: self.cs_oskill + o.cs_oskill,
-            ow: self.ow + o.ow,
-            ed_demon: self.ed_demon + o.ed_demon,
-            ed_undead: self.ed_undead + o.ed_undead,
-            psn_dps_2x: self.psn_dps_2x + o.psn_dps_2x,
-            pierce: self.pierce + o.pierce,
-            ctc_static_pct: self.ctc_static_pct + o.ctc_static_pct,
-            ctc_venom_dps_2x: self.ctc_venom_dps_2x.max(o.ctc_venom_dps_2x),
-            ctc_decrep_pct: self.ctc_decrep_pct + o.ctc_decrep_pct,
-            ctc_lifetap_pct: self.ctc_lifetap_pct + o.ctc_lifetap_pct,
-            ctc_orb_dmg_2x: self.ctc_orb_dmg_2x + o.ctc_orb_dmg_2x,
-            ar: self.ar + o.ar,
-            ar_pct: self.ar_pct + o.ar_pct,
-            itd: self.itd + o.itd,
-            target_def_pct: self.target_def_pct + o.target_def_pct,
-            fcr: self.fcr + o.fcr,
-            fhr: self.fhr + o.fhr,
-            frw: self.frw + o.frw,
-            ias: self.ias + o.ias,
-            cb: self.cb + o.cb,
-            cbf: self.cbf + o.cbf,
-            pdr_pct: self.pdr_pct + o.pdr_pct,
-            life_leech: self.life_leech + o.life_leech,
-            fr: self.fr + o.fr,
-            lr: self.lr + o.lr,
-            cr: self.cr + o.cr,
-            pr: self.pr + o.pr,
-            max_fr: self.max_fr + o.max_fr,
-            max_lr: self.max_lr + o.max_lr,
-            max_cr: self.max_cr + o.max_cr,
-            max_pr: self.max_pr + o.max_pr,
-            mf: self.mf + o.mf,
-            life: self.life + o.life,
-            mana: self.mana + o.mana,
-            life_per_lvl: self.life_per_lvl + o.life_per_lvl,
-            mana_per_lvl: self.mana_per_lvl + o.mana_per_lvl,
-            vit: self.vit + o.vit,
-            ene: self.ene + o.ene,
-            pct_life: self.pct_life + o.pct_life,
-            pct_mana: self.pct_mana + o.pct_mana,
-            mdr: self.mdr + o.mdr,
-            dr_flat: self.dr_flat + o.dr_flat,
-            fire_abs_pct: self.fire_abs_pct + o.fire_abs_pct,
-            str_bonus: self.str_bonus + o.str_bonus,
-            dex_bonus: self.dex_bonus + o.dex_bonus,
-            defense: self.defense + o.defense,
-            belt_slots: self.belt_slots + o.belt_slots,
-        }
-    }
-
-    pub(crate) fn max_each(self, o: Stats) -> Stats {
-        Stats {
-            all_skills: self.all_skills.max(o.all_skills),
-            sorc_skills: self.sorc_skills.max(o.sorc_skills),
-            pal_skills: self.pal_skills.max(o.pal_skills),
-            blizz_skills: self.blizz_skills.max(o.blizz_skills),
-            cm_skills: self.cm_skills.max(o.cm_skills),
-            primary_skill: self.primary_skill.max(o.primary_skill),
-            action_skill_bonus: self.action_skill_bonus.max(o.action_skill_bonus),
-            aura_skill_bonus: self.aura_skill_bonus.max(o.aura_skill_bonus),
-            off_ed: self.off_ed.max(o.off_ed),
-            flat_phys_2x: self.flat_phys_2x.max(o.flat_phys_2x),
-            flat_fire_2x: self.flat_fire_2x.max(o.flat_fire_2x),
-            flat_elem_2x: self.flat_elem_2x.max(o.flat_elem_2x),
-            cold_dmg_pct: self.cold_dmg_pct.max(o.cold_dmg_pct),
-            ds: self.ds.max(o.ds),
-            cs_oskill: self.cs_oskill.max(o.cs_oskill),
-            ow: self.ow.max(o.ow),
-            ed_demon: self.ed_demon.max(o.ed_demon),
-            ed_undead: self.ed_undead.max(o.ed_undead),
-            psn_dps_2x: self.psn_dps_2x.max(o.psn_dps_2x),
-            pierce: self.pierce.max(o.pierce),
-            ctc_static_pct: self.ctc_static_pct.max(o.ctc_static_pct),
-            ctc_venom_dps_2x: self.ctc_venom_dps_2x.max(o.ctc_venom_dps_2x),
-            ctc_decrep_pct: self.ctc_decrep_pct.max(o.ctc_decrep_pct),
-            ctc_lifetap_pct: self.ctc_lifetap_pct.max(o.ctc_lifetap_pct),
-            ctc_orb_dmg_2x: self.ctc_orb_dmg_2x.max(o.ctc_orb_dmg_2x),
-            ar: self.ar.max(o.ar),
-            ar_pct: self.ar_pct.max(o.ar_pct),
-            itd: self.itd.max(o.itd),
-            target_def_pct: self.target_def_pct.max(o.target_def_pct),
-            fcr: self.fcr.max(o.fcr),
-            fhr: self.fhr.max(o.fhr),
-            frw: self.frw.max(o.frw),
-            ias: self.ias.max(o.ias),
-            cb: self.cb.max(o.cb),
-            cbf: self.cbf.max(o.cbf),
-            pdr_pct: self.pdr_pct.max(o.pdr_pct),
-            life_leech: self.life_leech.max(o.life_leech),
-            fr: self.fr.max(o.fr),
-            lr: self.lr.max(o.lr),
-            cr: self.cr.max(o.cr),
-            pr: self.pr.max(o.pr),
-            max_fr: self.max_fr.max(o.max_fr),
-            max_lr: self.max_lr.max(o.max_lr),
-            max_cr: self.max_cr.max(o.max_cr),
-            max_pr: self.max_pr.max(o.max_pr),
-            mf: self.mf.max(o.mf),
-            life: self.life.max(o.life),
-            mana: self.mana.max(o.mana),
-            life_per_lvl: self.life_per_lvl.max(o.life_per_lvl),
-            mana_per_lvl: self.mana_per_lvl.max(o.mana_per_lvl),
-            vit: self.vit.max(o.vit),
-            ene: self.ene.max(o.ene),
-            pct_life: self.pct_life.max(o.pct_life),
-            pct_mana: self.pct_mana.max(o.pct_mana),
-            mdr: self.mdr.max(o.mdr),
-            dr_flat: self.dr_flat.max(o.dr_flat),
-            fire_abs_pct: self.fire_abs_pct.max(o.fire_abs_pct),
-            str_bonus: self.str_bonus.max(o.str_bonus),
-            dex_bonus: self.dex_bonus.max(o.dex_bonus),
-            defense: self.defense.max(o.defense),
-            belt_slots: self.belt_slots.max(o.belt_slots),
-        }
-    }
-
-    pub(crate) fn dominates(self, o: Stats) -> bool {
-        self.all_skills >= o.all_skills
-            && self.sorc_skills >= o.sorc_skills
-            && self.pal_skills >= o.pal_skills
-            && self.blizz_skills >= o.blizz_skills
-            && self.cm_skills >= o.cm_skills
-            && self.primary_skill >= o.primary_skill
-            && self.action_skill_bonus >= o.action_skill_bonus
-            && self.aura_skill_bonus >= o.aura_skill_bonus
-            && self.off_ed >= o.off_ed
-            && self.flat_phys_2x >= o.flat_phys_2x
-            && self.flat_fire_2x >= o.flat_fire_2x
-            && self.flat_elem_2x >= o.flat_elem_2x
-            && self.cold_dmg_pct >= o.cold_dmg_pct
-            && self.ds >= o.ds
-            && self.cs_oskill >= o.cs_oskill
-            && self.ow >= o.ow
-            && self.ed_demon >= o.ed_demon
-            && self.ed_undead >= o.ed_undead
-            && self.psn_dps_2x >= o.psn_dps_2x
-            && self.pierce >= o.pierce
-            && self.ctc_static_pct >= o.ctc_static_pct
-            && self.ctc_venom_dps_2x >= o.ctc_venom_dps_2x
-            && self.ctc_decrep_pct >= o.ctc_decrep_pct
-            && self.ctc_lifetap_pct >= o.ctc_lifetap_pct
-            && self.ctc_orb_dmg_2x >= o.ctc_orb_dmg_2x
-            && self.ar >= o.ar
-            && self.ar_pct >= o.ar_pct
-            && self.itd >= o.itd
-            && self.target_def_pct >= o.target_def_pct
-            && self.fcr >= o.fcr
-            && self.fhr >= o.fhr
-            && self.frw >= o.frw
-            && self.ias >= o.ias
-            && self.cb >= o.cb
-            && self.cbf >= o.cbf
-            && self.pdr_pct >= o.pdr_pct
-            && self.life_leech >= o.life_leech
-            && self.fr >= o.fr
-            && self.lr >= o.lr
-            && self.cr >= o.cr
-            && self.pr >= o.pr
-            && self.max_fr >= o.max_fr
-            && self.max_lr >= o.max_lr
-            && self.max_cr >= o.max_cr
-            && self.max_pr >= o.max_pr
-            && self.mf >= o.mf
-            && self.life >= o.life
-            && self.mana >= o.mana
-            && self.life_per_lvl >= o.life_per_lvl
-            && self.mana_per_lvl >= o.mana_per_lvl
-            && self.vit >= o.vit
-            && self.ene >= o.ene
-            && self.pct_life >= o.pct_life
-            && self.pct_mana >= o.pct_mana
-            && self.mdr >= o.mdr
-            && self.dr_flat >= o.dr_flat
-            && self.fire_abs_pct >= o.fire_abs_pct
-            && self.str_bonus >= o.str_bonus
-            && self.dex_bonus >= o.dex_bonus
-            && self.defense >= o.defense
-            && self.belt_slots >= o.belt_slots
-    }
-}
-
-/// Item specification passed between Python (`d2savior`) and Rust.
-#[cfg_attr(feature = "python", pyclass(get_all, set_all))]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct ItemSpec {
-    pub name: String,
-    pub slot: String,
-    pub loc: String,
-    pub all_skills: i32,
-    pub sorc_skills: i32,
-    pub pal_skills: i32,
-    pub blizz_skills: i32,
-    pub cm_skills: i32,
-    pub primary_skill: i32,
-    pub action_skill_bonus: i32,
-    pub aura_skill_bonus: i32,
-    pub off_ed: i32,
-    pub flat_phys_2x: i32,
-    pub flat_fire_2x: i32,
-    pub flat_elem_2x: i32,
-    pub cold_dmg_pct: i32,
-    pub ds: i32,
-    pub cs_oskill: i32,
-    pub ow: i32,
-    pub ed_demon: i32,
-    pub ed_undead: i32,
-    pub psn_dps_2x: i32,
-    pub pierce: i32,
-    pub ctc_static_pct: i32,
-    pub ctc_venom_dps_2x: i32,
-    pub ctc_decrep_pct: i32,
-    pub ctc_lifetap_pct: i32,
-    pub ctc_orb_dmg_2x: i32,
-    pub ar: i32,
-    pub ar_pct: i32,
-    pub itd: i32,
-    pub target_def_pct: i32,
-    pub fcr: i32,
-    pub fhr: i32,
-    pub frw: i32,
-    pub ias: i32,
-    pub cb: i32,
-    pub cbf: i32,
-    pub pdr_pct: i32,
-    pub life_leech: i32,
-    pub fr: i32,
-    pub lr: i32,
-    pub cr: i32,
-    pub pr: i32,
-    pub mf: i32,
-    pub life: i32,
-    pub life_per_lvl: i32,
-    pub mana: i32,
-    pub mana_per_lvl: i32,
-    pub vit: i32,
-    pub ene: i32,
-    pub pct_life: i32,
-    pub pct_mana: i32,
-    pub mdr: i32,
-    pub dr_flat: i32,
-    pub fire_abs_pct: i32,
-    pub str_bonus: i32,
-    pub dex_bonus: i32,
-    pub req_str: i32,
-    pub req_dex: i32,
-    pub max_fr: i32,
-    pub max_lr: i32,
-    pub max_cr: i32,
-    pub max_pr: i32,
-    pub defense: i32,
-    pub belt_slots: i32,
-    pub set_group: i32,
-    pub set_item_id: i32,
-    pub set_bonuses: Vec<(i32, ItemSpec)>,
-    pub global_set_bonuses: Vec<(i32, ItemSpec)>,
-    pub wsm: i32,
-    pub wclass: String,
-    pub wep_phys_2x: i32,
-    pub wep_str_pct: i32,
-    pub wep_dex_pct: i32,
-    pub can_zeal: bool,
-    pub splash_fire: bool,
-    pub splash_fire_2x: i32,
 }
 
 pub(crate) type SetBonusSig = Vec<(i32, Stats)>;
@@ -1531,427 +1428,6 @@ impl ItemSpec {
                 .map(|(req, b)| (-*req, b.stats())),
         );
         sig
-    }
-
-    pub(crate) fn stats(&self) -> Stats {
-        Stats {
-            all_skills: self.all_skills,
-            sorc_skills: self.sorc_skills,
-            pal_skills: self.pal_skills,
-            blizz_skills: self.blizz_skills,
-            cm_skills: self.cm_skills,
-            primary_skill: self.primary_skill,
-            action_skill_bonus: self.action_skill_bonus,
-            aura_skill_bonus: self.aura_skill_bonus,
-            off_ed: self.off_ed,
-            flat_phys_2x: self.flat_phys_2x,
-            flat_fire_2x: self.flat_fire_2x,
-            flat_elem_2x: self.flat_elem_2x,
-            cold_dmg_pct: self.cold_dmg_pct,
-            ds: self.ds,
-            cs_oskill: self.cs_oskill,
-            ow: self.ow,
-            ed_demon: self.ed_demon,
-            ed_undead: self.ed_undead,
-            psn_dps_2x: self.psn_dps_2x,
-            pierce: self.pierce,
-            ctc_static_pct: self.ctc_static_pct,
-            ctc_venom_dps_2x: self.ctc_venom_dps_2x,
-            ctc_decrep_pct: self.ctc_decrep_pct,
-            ctc_lifetap_pct: self.ctc_lifetap_pct,
-            ctc_orb_dmg_2x: self.ctc_orb_dmg_2x,
-            ar: self.ar,
-            ar_pct: self.ar_pct,
-            itd: self.itd,
-            target_def_pct: self.target_def_pct,
-            fcr: self.fcr,
-            fhr: self.fhr,
-            frw: self.frw,
-            ias: self.ias,
-            cb: self.cb,
-            cbf: self.cbf,
-            pdr_pct: self.pdr_pct,
-            life_leech: self.life_leech,
-            fr: self.fr,
-            lr: self.lr,
-            cr: self.cr,
-            pr: self.pr,
-            max_fr: self.max_fr,
-            max_lr: self.max_lr,
-            max_cr: self.max_cr,
-            max_pr: self.max_pr,
-            mf: self.mf,
-            life: self.life,
-            mana: self.mana,
-            life_per_lvl: self.life_per_lvl,
-            mana_per_lvl: self.mana_per_lvl,
-            vit: self.vit,
-            ene: self.ene,
-            pct_life: self.pct_life,
-            pct_mana: self.pct_mana,
-            mdr: self.mdr,
-            dr_flat: self.dr_flat,
-            fire_abs_pct: self.fire_abs_pct,
-            str_bonus: self.str_bonus,
-            dex_bonus: self.dex_bonus,
-            defense: self.defense,
-            belt_slots: self.belt_slots,
-        }
-    }
-
-    pub(crate) fn from_stats(
-        name: String,
-        slot: String,
-        loc: String,
-        s: Stats,
-        req_str: i32,
-        req_dex: i32,
-    ) -> Self {
-        Self {
-            name,
-            slot,
-            loc,
-            all_skills: s.all_skills,
-            sorc_skills: s.sorc_skills,
-            pal_skills: s.pal_skills,
-            blizz_skills: s.blizz_skills,
-            cm_skills: s.cm_skills,
-            primary_skill: s.primary_skill,
-            action_skill_bonus: s.action_skill_bonus,
-            aura_skill_bonus: s.aura_skill_bonus,
-            off_ed: s.off_ed,
-            flat_phys_2x: s.flat_phys_2x,
-            flat_fire_2x: s.flat_fire_2x,
-            flat_elem_2x: s.flat_elem_2x,
-            cold_dmg_pct: s.cold_dmg_pct,
-            ds: s.ds,
-            cs_oskill: s.cs_oskill,
-            ow: s.ow,
-            ed_demon: s.ed_demon,
-            ed_undead: s.ed_undead,
-            psn_dps_2x: s.psn_dps_2x,
-            pierce: s.pierce,
-            ctc_static_pct: s.ctc_static_pct,
-            ctc_venom_dps_2x: s.ctc_venom_dps_2x,
-            ctc_decrep_pct: s.ctc_decrep_pct,
-            ctc_lifetap_pct: s.ctc_lifetap_pct,
-            ctc_orb_dmg_2x: s.ctc_orb_dmg_2x,
-            ar: s.ar,
-            ar_pct: s.ar_pct,
-            itd: s.itd,
-            target_def_pct: s.target_def_pct,
-            fcr: s.fcr,
-            fhr: s.fhr,
-            frw: s.frw,
-            ias: s.ias,
-            cb: s.cb,
-            cbf: s.cbf,
-            pdr_pct: s.pdr_pct,
-            life_leech: s.life_leech,
-            fr: s.fr,
-            lr: s.lr,
-            cr: s.cr,
-            pr: s.pr,
-            mf: s.mf,
-            life: s.life,
-            life_per_lvl: s.life_per_lvl,
-            mana: s.mana,
-            mana_per_lvl: s.mana_per_lvl,
-            vit: s.vit,
-            ene: s.ene,
-            pct_life: s.pct_life,
-            pct_mana: s.pct_mana,
-            mdr: s.mdr,
-            dr_flat: s.dr_flat,
-            fire_abs_pct: s.fire_abs_pct,
-            str_bonus: s.str_bonus,
-            dex_bonus: s.dex_bonus,
-            req_str,
-            req_dex,
-            max_fr: s.max_fr,
-            max_lr: s.max_lr,
-            max_cr: s.max_cr,
-            max_pr: s.max_pr,
-            defense: s.defense,
-            belt_slots: s.belt_slots,
-            set_group: 0,
-            set_item_id: 0,
-            set_bonuses: Vec::new(),
-            global_set_bonuses: Vec::new(),
-            wsm: 0,
-            wclass: String::new(),
-            wep_phys_2x: 0,
-            wep_str_pct: 0,
-            wep_dex_pct: 0,
-            can_zeal: false,
-            splash_fire: false,
-            splash_fire_2x: 0,
-        }
-    }
-}
-
-#[cfg(feature = "python")]
-#[pymethods]
-impl ItemSpec {
-    #[new]
-    #[pyo3(signature = (
-        name,
-        slot,
-        loc = String::new(),
-        all_skills = 0,
-        sorc_skills = 0,
-        fcr = 0,
-        fhr = 0,
-        frw = 0,
-        fr = 0,
-        lr = 0,
-        cr = 0,
-        pr = 0,
-        mf = 0,
-        life = 0,
-        mana = 0,
-        vit = 0,
-        ene = 0,
-        pct_mana = 0,
-        mdr = 0,
-        dr_flat = 0,
-        fire_abs_pct = 0,
-        str_bonus = 0,
-        dex_bonus = 0,
-        req_str = 0,
-        req_dex = 0,
-        max_fr = 0,
-        max_lr = 0,
-        max_cr = 0,
-        max_pr = 0,
-        life_per_lvl = 0,
-        mana_per_lvl = 0,
-        blizz_skills = 0,
-        cm_skills = 0,
-        defense = 0,
-        belt_slots = 0,
-        pal_skills = 0,
-        primary_skill = 0,
-        ias = 0,
-        cb = 0,
-        cbf = 0,
-        pdr_pct = 0,
-        life_leech = 0,
-        set_group = 0,
-        set_item_id = 0,
-        set_bonuses = Vec::new(),
-        wsm = 0,
-        wclass = String::new(),
-        action_skill_bonus = 0,
-        aura_skill_bonus = 0,
-        off_ed = 0,
-        flat_phys_2x = 0,
-        flat_elem_2x = 0,
-        wep_phys_2x = 0,
-        wep_str_pct = 0,
-        wep_dex_pct = 0,
-        can_zeal = false,
-        splash_fire = false,
-        splash_fire_2x = 0,
-        cold_dmg_pct = 0,
-        global_set_bonuses = Vec::new(),
-        pct_life = 0,
-        ar = 0,
-        ar_pct = 0,
-        itd = 0,
-        target_def_pct = 0,
-        flat_fire_2x = 0,
-        ds = 0,
-        cs_oskill = 0,
-        ow = 0,
-        ed_demon = 0,
-        ed_undead = 0,
-        psn_dps_2x = 0,
-        pierce = 0,
-        ctc_static_pct = 0,
-        ctc_venom_dps_2x = 0,
-        ctc_decrep_pct = 0,
-        ctc_lifetap_pct = 0,
-        ctc_orb_dmg_2x = 0,
-    ))]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        name: String,
-        slot: String,
-        loc: String,
-        all_skills: i32,
-        sorc_skills: i32,
-        fcr: i32,
-        fhr: i32,
-        frw: i32,
-        fr: i32,
-        lr: i32,
-        cr: i32,
-        pr: i32,
-        mf: i32,
-        life: i32,
-        mana: i32,
-        vit: i32,
-        ene: i32,
-        pct_mana: i32,
-        mdr: i32,
-        dr_flat: i32,
-        fire_abs_pct: i32,
-        str_bonus: i32,
-        dex_bonus: i32,
-        req_str: i32,
-        req_dex: i32,
-        max_fr: i32,
-        max_lr: i32,
-        max_cr: i32,
-        max_pr: i32,
-        life_per_lvl: i32,
-        mana_per_lvl: i32,
-        blizz_skills: i32,
-        cm_skills: i32,
-        defense: i32,
-        belt_slots: i32,
-        pal_skills: i32,
-        primary_skill: i32,
-        ias: i32,
-        cb: i32,
-        cbf: i32,
-        pdr_pct: i32,
-        life_leech: i32,
-        set_group: i32,
-        set_item_id: i32,
-        set_bonuses: Vec<(i32, ItemSpec)>,
-        wsm: i32,
-        wclass: String,
-        action_skill_bonus: i32,
-        aura_skill_bonus: i32,
-        off_ed: i32,
-        flat_phys_2x: i32,
-        flat_elem_2x: i32,
-        wep_phys_2x: i32,
-        wep_str_pct: i32,
-        wep_dex_pct: i32,
-        can_zeal: bool,
-        splash_fire: bool,
-        splash_fire_2x: i32,
-        cold_dmg_pct: i32,
-        global_set_bonuses: Vec<(i32, ItemSpec)>,
-        pct_life: i32,
-        ar: i32,
-        ar_pct: i32,
-        itd: i32,
-        target_def_pct: i32,
-        flat_fire_2x: i32,
-        ds: i32,
-        cs_oskill: i32,
-        ow: i32,
-        ed_demon: i32,
-        ed_undead: i32,
-        psn_dps_2x: i32,
-        pierce: i32,
-        ctc_static_pct: i32,
-        ctc_venom_dps_2x: i32,
-        ctc_decrep_pct: i32,
-        ctc_lifetap_pct: i32,
-        ctc_orb_dmg_2x: i32,
-    ) -> Self {
-        Self {
-            name,
-            slot,
-            loc,
-            all_skills,
-            sorc_skills,
-            pal_skills,
-            blizz_skills,
-            cm_skills,
-            primary_skill,
-            action_skill_bonus,
-            aura_skill_bonus,
-            off_ed,
-            flat_phys_2x,
-            flat_fire_2x,
-            flat_elem_2x,
-            cold_dmg_pct,
-            ds,
-            cs_oskill,
-            ow,
-            ed_demon,
-            ed_undead,
-            psn_dps_2x,
-            pierce,
-            ctc_static_pct,
-            ctc_venom_dps_2x,
-            ctc_decrep_pct,
-            ctc_lifetap_pct,
-            ctc_orb_dmg_2x,
-            ar,
-            ar_pct,
-            itd,
-            target_def_pct,
-            fcr,
-            fhr,
-            frw,
-            ias,
-            cb,
-            cbf,
-            pdr_pct,
-            life_leech,
-            fr,
-            lr,
-            cr,
-            pr,
-            mf,
-            life,
-            life_per_lvl,
-            mana,
-            mana_per_lvl,
-            vit,
-            ene,
-            pct_life,
-            pct_mana,
-            mdr,
-            dr_flat,
-            fire_abs_pct,
-            str_bonus,
-            dex_bonus,
-            req_str,
-            req_dex,
-            max_fr,
-            max_lr,
-            max_cr,
-            max_pr,
-            defense,
-            belt_slots,
-            set_group,
-            set_item_id,
-            set_bonuses,
-            global_set_bonuses,
-            wsm,
-            wclass,
-            wep_phys_2x,
-            wep_str_pct,
-            wep_dex_pct,
-            can_zeal,
-            splash_fire,
-            splash_fire_2x,
-        }
-    }
-
-    #[getter]
-    pub fn skills(&self) -> i32 {
-        self.total_skills()
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "ItemSpec(name={:?}, slot={:?}, skills={}, fcr={}, fhr={}, mf={})",
-            self.name,
-            self.slot,
-            self.total_skills(),
-            self.fcr,
-            self.fhr,
-            self.mf
-        )
     }
 }
 

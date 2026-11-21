@@ -353,3 +353,80 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
     assert!(neg_ar >= 0);
     assert!((5..=95).contains(&neg_cth));
 }
+
+#[test]
+fn test_stats_combine_and_itemspec_roundtrip() {
+    let a = Stats {
+        all_skills: 2,
+        fr: 30,
+        ctc_static_pct: 5,
+        ctc_venom_dps_2x: 30,
+        belt_slots: 12,
+        ..Default::default()
+    };
+    let b = Stats {
+        all_skills: 1,
+        fr: 15,
+        ctc_static_pct: 10,
+        ctc_venom_dps_2x: 50,
+        belt_slots: 4,
+        ..Default::default()
+    };
+
+    // add sums additive stats and takes .max() on ctc_venom_dps_2x in both orders.
+    let added = a.add(b);
+    assert_eq!(added.all_skills, 3);
+    assert_eq!(added.fr, 45);
+    assert_eq!(added.ctc_static_pct, 15);
+    assert_eq!(added.ctc_venom_dps_2x, 50);
+    assert_eq!(added.belt_slots, 16);
+    assert_eq!(b.add(a), added);
+
+    // max_each takes per-field max across additive and max fields.
+    let maxed = a.max_each(b);
+    assert_eq!(maxed.all_skills, 2);
+    assert_eq!(maxed.fr, 30);
+    assert_eq!(maxed.ctc_static_pct, 10);
+    assert_eq!(maxed.ctc_venom_dps_2x, 50);
+    assert_eq!(maxed.belt_slots, 12);
+
+    // dominates requires >= across every stat field (first, middle ctc_venom_dps_2x, and last).
+    assert!(added.dominates(a));
+    assert!(added.dominates(b));
+    assert!(a.dominates(a));
+    assert!(!a.dominates(b));
+    assert!(!Stats {
+        all_skills: added.all_skills - 1,
+        ..added
+    }
+    .dominates(added));
+    assert!(!Stats {
+        ctc_venom_dps_2x: added.ctc_venom_dps_2x - 1,
+        ..added
+    }
+    .dominates(added));
+    assert!(!Stats {
+        belt_slots: added.belt_slots - 1,
+        ..added
+    }
+    .dominates(added));
+
+    // ItemSpec::from_stats -> ItemSpec::stats round-trips all stats and sets reqs/defaults.
+    let item = ItemSpec::from_stats(
+        "Test Item".to_string(),
+        "armor".to_string(),
+        "Stash".to_string(),
+        added,
+        97,
+        42,
+    );
+    assert_eq!(item.name, "Test Item");
+    assert_eq!(item.slot, "armor");
+    assert_eq!(item.loc, "Stash");
+    assert_eq!(item.req_str, 97);
+    assert_eq!(item.req_dex, 42);
+    assert_eq!(item.stats(), added);
+    assert_eq!(item.set_group, 0);
+    assert_eq!(item.wsm, 0);
+    assert!(!item.can_zeal);
+}
