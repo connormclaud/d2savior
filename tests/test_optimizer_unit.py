@@ -1490,7 +1490,8 @@ def test_normalize_keep_gear_argv_before_positionals() -> None:
     ]
 
 
-def test_to_charm_spec_preserves_all_skills_vit_and_ene() -> None:
+def test_to_charm_spec_preserves_all_skills_vit_and_ene(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("d2savior.optimizer.extract.CharmSpec", _FakeCharmSpec)
     acc = _PropAcc(
         all_skills=1,
         sorc_skills=3,
