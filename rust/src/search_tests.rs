@@ -729,14 +729,18 @@ fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated()
 
     // With limit=1 (threshold 2), Ring C and Ring D (>=2 dominators) are dropped while Ring B (1 dominator) stays.
     let rings_only: Vec<ItemSpec> = items.into_iter().filter(|i| i.slot == "ring").collect();
+    let c_ring_1 = BuildConstraints {
+        min_fcr: 105,
+        min_pr: 0,
+        limit: 1,
+        ..test_constraints()
+    };
     let pruned1 = prune_slot_items(
         rings_only.clone(),
-        1,
         true,
-        156,
-        0,
+        SearchMode::Power,
         OffenseProfile::Caster,
-        105,
+        &c_ring_1,
     );
     let names1: HashSet<&str> = pruned1.iter().map(|i| i.name.as_str()).collect();
     assert!(names1.contains("Ring A") && names1.contains("Ring B"));
@@ -744,7 +748,17 @@ fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated()
     assert!(!names1.contains("Ring C") && !names1.contains("Ring D"));
 
     // With limit=2 (threshold 3), Ring C (2 dominators: A, B) stays for #2 pair (A+C), while Ring D (3 dominators) drops.
-    let pruned2 = prune_slot_items(rings_only, 2, true, 156, 0, OffenseProfile::Caster, 105);
+    let c_ring_2 = BuildConstraints {
+        limit: 2,
+        ..c_ring_1
+    };
+    let pruned2 = prune_slot_items(
+        rings_only,
+        true,
+        SearchMode::Power,
+        OffenseProfile::Caster,
+        &c_ring_2,
+    );
     let names2: HashSet<&str> = pruned2.iter().map(|i| i.name.as_str()).collect();
     assert!(names2.contains("Ring C"));
     assert!(!names2.contains("Ring D"));
@@ -867,12 +881,12 @@ fn brute_force_top_scores(
             .cloned()
             .collect()
     };
-    if !shs.is_empty() && empty_dominators(&w1h, c.base_str, c.base_dex, offense, c.min_fcr) == 0 {
+    if !shs.is_empty() && empty_dominators(&w1h, mode, offense, c) == 0 {
         w1h.push(empty_weapon.clone());
     }
     if !require_shield
         && !w1h.is_empty()
-        && empty_dominators(&shs, c.base_str, c.base_dex, offense, c.min_fcr) == 0
+        && empty_dominators(&shs, mode, offense, c) == 0
     {
         shs.push(empty_shield.clone());
     }
@@ -887,7 +901,7 @@ fn brute_force_top_scores(
     }
     if !require_shield
         && !hand_pairs.iter().any(|(a, b)| {
-            let comb = a.stats().add(b.stats()).for_offense(offense, c.min_fcr);
+            let comb = a.stats().add(b.stats()).for_mode(mode, offense, c);
             let reqs = normalize_reqs(
                 merge_reqs(item_eff_reqs(a), item_eff_reqs(b)),
                 c.base_str,
@@ -913,7 +927,7 @@ fn brute_force_top_scores(
                 .filter(|i| i.slot == slot && valid_item(i))
                 .cloned()
                 .collect();
-            if empty_dominators(&v, c.base_str, c.base_dex, offense, c.min_fcr) == 0 {
+            if empty_dominators(&v, mode, offense, c) == 0 {
                 v.push(empty_singles[idx].clone());
             }
             v
@@ -924,7 +938,7 @@ fn brute_force_top_scores(
         .filter(|i| i.slot == "ring" && valid_item(i))
         .cloned()
         .collect();
-    let ring_dom = empty_dominators(&rings, c.base_str, c.base_dex, offense, c.min_fcr);
+    let ring_dom = empty_dominators(&rings, mode, offense, c);
     for _ in 0..2usize.saturating_sub(ring_dom) {
         rings.push(empty_ring.clone());
     }
@@ -2817,4 +2831,224 @@ fn test_partial_fixed_slots_keeps_only_selected_slots() {
     let names_jew: Vec<&str> = res_jew[0].items.iter().map(|i| i.name.as_str()).collect();
     assert!(names_jew.contains(&"Plain Ring"));
     assert!(names_jew.contains(&"Shako"));
+}
+
+#[test]
+fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
+    let base_item = ItemSpec {
+        name: "Base Helm".to_string(),
+        slot: "helm".to_string(),
+        all_skills: 2,
+        fcr: 20,
+        fr: 20,
+        life: 40,
+        defense: 100,
+        belt_slots: 12,
+        ..Default::default()
+    };
+
+    // 1. Power + Caster DPS (no filler): zeroes mf/fhr/ias/cb/cbf/pdr/ll/frw/off_ed/action/aura/mdr/dr_flat/fire_abs_pct
+    //    when unconstrained, while keeping cold_dmg_pct, cm_skills, mana*, life*, defense, belt_slots.
+    let mut noisy_power = base_item.clone();
+    noisy_power.name = "Noisy Power Helm".to_string();
+    noisy_power.life = 30;
+    noisy_power.mf = 50;
+    noisy_power.fhr = 20;
+    noisy_power.frw = 30;
+    noisy_power.ias = 20;
+    noisy_power.cb = 15;
+    noisy_power.cbf = 1;
+    noisy_power.pdr_pct = 8;
+    noisy_power.life_leech = 7;
+    noisy_power.mdr = 12;
+    noisy_power.dr_flat = 10;
+    noisy_power.fire_abs_pct = 15;
+    noisy_power.off_ed = 40;
+    noisy_power.flat_phys_2x = 20;
+    noisy_power.flat_elem_2x = 20;
+    noisy_power.action_skill_bonus = 2;
+    noisy_power.aura_skill_bonus = 2;
+
+    let c_power = BuildConstraints {
+        mode: "power".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_mf: 0,
+        allow_mf: true,
+        blizz_dmg: vec![100.0; 5],
+        limit: 1,
+        ..test_constraints()
+    };
+    let pruned_pow = prune_slot_items(
+        vec![base_item.clone(), noisy_power.clone()],
+        false,
+        SearchMode::Power,
+        OffenseProfile::Caster,
+        &c_power,
+    );
+    assert_eq!(pruned_pow.len(), 1);
+    assert_eq!(pruned_pow[0].name, "Base Helm");
+
+    // Enabling active constraint/filler_dmg/cold_dmg_pct/cm_skills/mana must keep distinct items.
+    for mut c_keep in [
+        BuildConstraints { min_mf: 10, ..c_power.clone() },
+        BuildConstraints { min_fhr: 10, ..c_power.clone() },
+        BuildConstraints { require_cbf: true, ..c_power.clone() },
+        BuildConstraints { filler_dmg: vec![50.0; 5], ..c_power.clone() },
+    ] {
+        c_keep.limit = 1;
+        let kept = prune_slot_items(
+            vec![base_item.clone(), noisy_power.clone()],
+            false,
+            SearchMode::Power,
+            OffenseProfile::Caster,
+            &c_keep,
+        );
+        assert_eq!(kept.len(), 2);
+    }
+    let mut cold_helm = base_item.clone();
+    cold_helm.name = "Cold Helm".to_string();
+    cold_helm.life = 30;
+    cold_helm.cold_dmg_pct = 15;
+    assert_eq!(
+        prune_slot_items(
+            vec![base_item.clone(), cold_helm],
+            false,
+            SearchMode::Power,
+            OffenseProfile::Caster,
+            &c_power,
+        )
+        .len(),
+        2
+    );
+
+    // 2. MaxRes + Caster: zeroes mana*, cold_dmg_pct, cm_skills, mf, mdr, etc.
+    let mut noisy_res = base_item.clone();
+    noisy_res.name = "Noisy Res Helm".to_string();
+    noisy_res.life = 30;
+    noisy_res.mana = 100;
+    noisy_res.mana_per_lvl = 50;
+    noisy_res.ene = 20;
+    noisy_res.pct_mana = 25;
+    noisy_res.cold_dmg_pct = 20;
+    noisy_res.cm_skills = 2;
+    noisy_res.mf = 40;
+    noisy_res.mdr = 10;
+    let c_max_res = BuildConstraints {
+        mode: "max-res".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_mf: 0,
+        allow_mf: true,
+        limit: 1,
+        ..test_constraints()
+    };
+    let pruned_res = prune_slot_items(
+        vec![base_item.clone(), noisy_res],
+        false,
+        SearchMode::MaxRes,
+        OffenseProfile::Caster,
+        &c_max_res,
+    );
+    assert_eq!(pruned_res.len(), 1);
+    assert_eq!(pruned_res[0].name, "Base Helm");
+
+    // 3. Mf + Caster: zeroes ias, cb, cbf, mdr, dr_flat, fire_abs_pct, mana, cold_dmg_pct, while keeping mf.
+    let mut noisy_mf = base_item.clone();
+    noisy_mf.name = "Noisy MF Helm".to_string();
+    noisy_mf.life = 30;
+    noisy_mf.ias = 30;
+    noisy_mf.cb = 35;
+    noisy_mf.cbf = 1;
+    noisy_mf.mdr = 10;
+    noisy_mf.dr_flat = 10;
+    noisy_mf.fire_abs_pct = 10;
+    noisy_mf.mana = 80;
+    noisy_mf.cold_dmg_pct = 15;
+    let c_mf = BuildConstraints {
+        mode: "mf".to_string(),
+        limit: 1,
+        ..test_constraints()
+    };
+    let pruned_mf = prune_slot_items(
+        vec![base_item.clone(), noisy_mf],
+        false,
+        SearchMode::Mf,
+        OffenseProfile::Caster,
+        &c_mf,
+    );
+    assert_eq!(pruned_mf.len(), 1);
+    assert_eq!(pruned_mf[0].name, "Base Helm");
+
+    // 4. Empty dominator check ignores permanently dead stats like `mdr`.
+    let mdr_only = ItemSpec {
+        name: "MDR Only".to_string(),
+        slot: "helm".to_string(),
+        mdr: 15,
+        ..Default::default()
+    };
+    assert_eq!(
+        empty_dominators(&[mdr_only], SearchMode::Power, OffenseProfile::Caster, &c_power),
+        0
+    );
+
+    // 5. Leveling + Smite preserves pdr_pct, cb, ias, cbf, frw.
+    let mut smite_extra = base_item.clone();
+    smite_extra.name = "Smite Helm".to_string();
+    smite_extra.life = 30;
+    smite_extra.pdr_pct = 8;
+    let c_smite = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        mode: "leveling".to_string(),
+        offense: "smite".to_string(),
+        limit: 1,
+        ..test_constraints()
+    };
+    assert_eq!(
+        prune_slot_items(
+            vec![base_item, smite_extra],
+            false,
+            SearchMode::Leveling,
+            OffenseProfile::Smite,
+            &c_smite,
+        )
+        .len(),
+        2
+    );
+}
+
+#[test]
+fn test_item_sort_key_uses_for_mode_so_higher_locality_duplicate_wins() {
+    let mut belt_mule = mk_item("Arachnid Mesh", "belt", 20, 20, 1, 0, 0);
+    belt_mule.loc = "mule Stash".to_string();
+    belt_mule.cold_dmg_pct = 15;
+    let mut belt_eq = mk_item("Arachnid Mesh", "belt", 0, 0, 1, 0, 0);
+    belt_eq.loc = "Equipped".to_string();
+
+    let mut ring_mule = mk_item("SoJ", "ring", 20, 20, 1, 0, 0);
+    ring_mule.loc = "mule Stash".to_string();
+    ring_mule.cold_dmg_pct = 15;
+    let mut ring_eq = mk_item("SoJ", "ring", 0, 0, 1, 0, 0);
+    ring_eq.loc = "Equipped".to_string();
+
+    let c = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        mode: "power".to_string(),
+        offense: "melee".to_string(),
+        base_hell_res: 75,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        limit: 1,
+        ..test_constraints()
+    };
+    let res = optimize_builds_core(&[belt_mule, belt_eq, ring_mule, ring_eq], &[], &c).unwrap();
+    assert_eq!(res.len(), 1);
+    let belt = res[0].items.iter().find(|it| it.slot == "belt").unwrap();
+    let ring = res[0].items.iter().find(|it| it.slot == "ring").unwrap();
+    assert_eq!(belt.loc, "Equipped");
+    assert_eq!(ring.loc, "Equipped");
 }

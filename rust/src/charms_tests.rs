@@ -1129,6 +1129,44 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
         assert!(chosen.iter().any(|ch| ch.name == "Ruby SC" || ch.name == "Sapphire SC"));
     }
 
+    // Part B2: PureAxisDp breaks equal-gain ties on `skills_total()` before life in MaxRes / LevelingRes.
+    let fhr_skill_charms = [
+        CharmSpec {
+            name: "Balance GC of Vita".to_string(),
+            size: 3,
+            fhr: 12,
+            life: 20,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Skiller GC of Balance".to_string(),
+            size: 3,
+            fhr: 12,
+            skills: 1,
+            ..Default::default()
+        },
+    ];
+    let fhr_skill_pool: Vec<&CharmSpec> = fhr_skill_charms.iter().collect();
+    let c_fhr_skill = BuildConstraints {
+        base_hell_res: 0,
+        min_fhr: 12,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 3,
+        ..Default::default()
+    };
+    for mode in [SearchMode::MaxRes, SearchMode::LevelingRes] {
+        let mut solver = CharmSolver::new(&fhr_skill_pool, &c_fhr_skill, mode);
+        assert!(solver.groups.is_empty());
+        let chosen = solver
+            .solve_with_min_main(Stats::default(), (0, 0), 0)
+            .unwrap();
+        assert_eq!(chosen.len(), 1);
+        assert_eq!(chosen[0].name, "Skiller GC of Balance");
+    }
+
     // Part C: Active axis classification for FR/MF SC in Power (min_mf=0 vs min_mf>0) and Mf.
     let fr_mf_charm = [CharmSpec {
         name: "11 FR / 7 MF SC".to_string(),

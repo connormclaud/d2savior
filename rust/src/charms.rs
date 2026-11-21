@@ -840,7 +840,7 @@ impl PureAxisDp {
         }
         let cap = max_slots.max(0) as usize;
         let mut best_gain = vec![0i32; cap + 1];
-        let mut best_tie = vec![(0i32, 0i32, 0i32); cap + 1];
+        let mut best_tie = vec![(0i32, 0i32, 0i32, 0i32); cap + 1];
         let mut best_picks = vec![Vec::new(); cap + 1];
 
         for &(idx, ch, val) in items {
@@ -851,7 +851,12 @@ impl PureAxisDp {
             for s in (sz..=cap).rev() {
                 let cand_gain = best_gain[s - sz] + val;
                 let prev_tie = best_tie[s - sz];
-                let cand_tie = (prev_tie.0 + ch.life, prev_tie.1 + ch.mana, prev_tie.2 + ch.frw);
+                let cand_tie = (
+                    prev_tie.0 + ch.skills_total(),
+                    prev_tie.1 + ch.life,
+                    prev_tie.2 + ch.mana,
+                    prev_tie.3 + ch.frw,
+                );
                 if (cand_gain, cand_tie) > (best_gain[s], best_tie[s]) {
                     best_gain[s] = cand_gain;
                     best_tie[s] = cand_tie;
@@ -1655,12 +1660,15 @@ impl<'a> CharmSolver<'a> {
             }
 
             // Objective upper-bound pruning once an incumbent or floor exists.
+            let rem_dfs_slots = rem_slots - must_pure_slots as i32;
             if let Some(best) = ctx.best_main {
                 let can_beat = match s.mode {
                     SearchMode::Power | SearchMode::Leveling => {
-                        cur_skills + eval_sorted_ub(&s.order_skills, g_idx, rem_slots) > best
+                        cur_skills + eval_sorted_ub(&s.order_skills, g_idx, rem_dfs_slots) > best
                     }
-                    SearchMode::Mf => cur_mf + eval_sorted_ub(&s.order_mf, g_idx, rem_slots) > best,
+                    SearchMode::Mf => {
+                        cur_mf + eval_sorted_ub(&s.order_mf, g_idx, rem_dfs_slots) > best
+                    }
                     SearchMode::MaxRes | SearchMode::LevelingRes => {
                         let cur_gain = cur_main;
                         let min_needed = best - cur_gain + 1;
@@ -1676,7 +1684,7 @@ impl<'a> CharmSolver<'a> {
                             cur_gain
                                 + s.max_res_gain_ub(
                                     g_idx,
-                                    rem_slots,
+                                    rem_dfs_slots,
                                     rem_room,
                                     min_needed,
                                     &mut ctx.scratch,

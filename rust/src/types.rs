@@ -540,19 +540,72 @@ impl Stats {
         self.max_fr + self.max_lr + self.max_cr + self.max_pr
     }
 
-    pub(crate) fn for_offense(mut self, offense: OffenseProfile, min_fcr: i32) -> Self {
-        if !offense.uses_fcr() && min_fcr <= 0 {
+    /// Zero fields unused by active constraints or `BuildScore` for exact dominance pruning.
+    pub(crate) fn for_mode(
+        mut self,
+        mode: SearchMode,
+        offense: OffenseProfile,
+        c: &BuildConstraints,
+    ) -> Self {
+        let is_leveling = matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes);
+        let caster_dps = offense.uses_caster_dps(c);
+        if !(c.min_fcr > 0
+            || (offense.uses_fcr() && (mode != SearchMode::Power || caster_dps)))
+        {
             self.fcr = 0;
+        }
+        if mode == SearchMode::Power && c.min_fhr <= 0 {
+            self.fhr = 0;
+        }
+        if !(mode == SearchMode::Power && caster_dps) {
+            self.cold_dmg_pct = 0;
+        }
+        if !(mode == SearchMode::Power && offense == OffenseProfile::Caster) {
+            self.cm_skills = 0;
+        }
+        if !(offense.is_melee_dps()
+            || (mode == SearchMode::Power && caster_dps && !c.filler_dmg.is_empty()))
+        {
+            self.action_skill_bonus = 0;
         }
         if !offense.is_melee_dps() {
             self.aura_skill_bonus = 0;
+        }
+        if !(is_leveling && offense.uses_dps_tables(c)) {
             self.off_ed = 0;
             self.flat_phys_2x = 0;
             self.flat_elem_2x = 0;
         }
-        if !offense.uses_fcr() {
-            self.cold_dmg_pct = 0;
+        if !(mode == SearchMode::Mf || c.min_mf > 0 || !c.allow_mf) {
+            self.mf = 0;
         }
+        if mode != SearchMode::Power {
+            self.mana = 0;
+            self.mana_per_lvl = 0;
+            self.ene = 0;
+            self.pct_mana = 0;
+        }
+        if !(is_leveling || c.min_frw > 0) {
+            self.frw = 0;
+        }
+        if !((is_leveling && offense != OffenseProfile::Caster) || c.min_ias > 0) {
+            self.ias = 0;
+        }
+        if !((is_leveling && offense == OffenseProfile::Smite) || c.min_cb > 0) {
+            self.cb = 0;
+        }
+        if !(is_leveling || c.require_cbf) {
+            self.cbf = 0;
+        }
+        if !((mode == SearchMode::Leveling && offense == OffenseProfile::Smite) || c.min_pdr > 0) {
+            self.pdr_pct = 0;
+        }
+        if c.min_ll <= 0 {
+            self.life_leech = 0;
+        }
+        self.mdr = 0;
+        self.dr_flat = 0;
+        self.fire_abs_pct = 0;
         self
     }
 
@@ -954,7 +1007,11 @@ impl ItemSpec {
     }
 
     pub(crate) fn max_total_stats(&self) -> Stats {
-        self.stats().add(self.max_possible_set_bonus_stats())
+        if self.set_group == 0 {
+            self.stats()
+        } else {
+            self.stats().add(self.max_possible_set_bonus_stats())
+        }
     }
 
     pub(crate) fn set_bonus_sig(&self) -> SetBonusSig {
