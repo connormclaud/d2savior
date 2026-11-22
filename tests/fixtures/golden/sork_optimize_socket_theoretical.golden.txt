@@ -1,0 +1,84 @@
+=== Socket Quest Optimizer: sork (Sorceress lvl 74, Nightmare) ===
+Socket Quests (sork): Normal: Used | Nightmare: Unclaimed | Hell: Locked
+Socketables (owned + theoretical): 17 runes, 29 gem types, 22 jewels | Eligible items: 50
+
+--- 1. 0% MF Base Hunting (105% FCR, 86% FHR, 75% All Res) ---
+Baseline: No loadout found matching all constraints.
+  #1 Wall of the Eyeless (Bone Shield) [mule_unique Stash] (shield, 1 socket) + Um Rune [Theoretical] [theoretical]
+     Gain  : Unlocks feasible build!
+     Result: DPS: 3975 | Skills: +2 | FCR: 107% (BP 105%) | FHR: 110% (BP 86%) | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 993
+  #2 Rockstopper (Sallet) [mule_unique Stash] (helm, 1 socket) + Um Rune [Theoretical] [theoretical]
+     Gain  : Unlocks feasible build!
+     Result: DPS: 3975 | Skills: +2 | FCR: 107% (BP 105%) | FHR: 110% (BP 86%) | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 958
+  #3 Iratha's Coil (Crown) [Stash Tab 2] (helm, 1 socket) + Um Rune [Theoretical] [theoretical]
+     Gain  : Unlocks feasible build!
+     Result: DPS: 3975 | Skills: +2 | FCR: 107% (BP 105%) | FHR: 93% (BP 86%) | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 928
+
+--- 2A. Max MF & Boss Farm — Speed (105% FCR, 60% FHR, 75% F/L/C) ---
+Baseline: DPS: 3725 | Skills: +1 | FCR: 105% (BP 105%) | FHR: 60% (BP 60%) | MF: 77% | Nightmare Res: F:75 L:75 C:75 P:63 | Life: 967
+  #1 Suicide Branch (Burnt Wand) [Stash Tab 3] (weapon, 1 socket) + Ist Rune [Theoretical] [theoretical]
+     Gain  : MF 77%->107%
+     Result: DPS: 3725 | Skills: +1 | FCR: 105% (BP 105%) | FHR: 60% (BP 60%) | MF: 107% | Nightmare Res: F:75 L:75 C:75 P:63 | Life: 967
+  #2 Rockstopper (Sallet) [mule_unique Stash] (helm, 1 socket) + Ist Rune [Theoretical] [theoretical]
+     Gain  : MF 77%->102%
+     Result: DPS: 3725 | Skills: +1 | FCR: 105% (BP 105%) | FHR: 60% (BP 60%) | MF: 102% | Nightmare Res: F:75 L:75 C:75 P:63 | Life: 967
+  #3 Wall of the Eyeless (Bone Shield) [mule_unique Stash] (shield, 1 socket) + Ist Rune [Theoretical] [theoretical]
+     Gain  : MF 77%->102%
+     Result: DPS: 3725 | Skills: +1 | FCR: 105% (BP 105%) | FHR: 60% (BP 60%) | MF: 102% | Nightmare Res: F:75 L:75 C:75 P:63 | Life: 967
+  #4 The Oculus (Swirling Crystal) [mule_unique Stash] (weapon, 1 socket) + Shimmering Jewel of Thunder (All Resistances +8, Adds 1-92 lightning damage) [Stash Tab 4]
+     Gain  : Skills +1->+3, DPS 3725->4271, MF 77%->93%, Nightmare Res P:63->66
+     Result: DPS: 4271 | Skills: +3 | FCR: 105% (BP 105%) | FHR: 60% (BP 60%) | MF: 93% | Nightmare Res: F:75 L:75 C:75 P:66 | Life: 967
+     Gear changes: weapon: replaces Suicide Branch (Burnt Wand); amulet: Beryl Amulet of Luck -> Amulet of the Apprentice
+
+--- 2B. Max MF & Boss Farm — Pure MF (63% FCR, 60% FHR, 75% F/L/C) ---
+Baseline: DPS: 4028 | Skills: +3 | FCR: 65% (BP 63%) | FHR: 65% (BP 60%) | MF: 158% | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 958
+  #1 Stealskull (Casque) [Stash Tab 3] (helm, 1 socket) + Shael Rune [Stash Tab 6]
+     Gain  : MF 158%->198%, Life 958->937
+     Result: DPS: 4028 | Skills: +3 | FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | MF: 198% | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 937
+     Gear changes: belt: Bitter Buckle (Rare Belt) -> Arctic Binding (Light Belt); gloves: Raven Knuckle (Rare Light Gauntlets) -> Arctic Mitts (Light Gauntlets)
+  #2 The Oculus (Swirling Crystal) [mule_unique Stash] (weapon, 1 socket) + Ist Rune [Theoretical] [theoretical]
+     Gain  : MF 158%->188%
+     Result: DPS: 4028 | Skills: +3 | FCR: 65% (BP 63%) | FHR: 65% (BP 60%) | MF: 188% | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 958
+  #3 Rockstopper (Sallet) [mule_unique Stash] (helm, 1 socket) + Ist Rune [Theoretical] [theoretical]
+     Gain  : MF 158%->177%, Life 958->977
+     Result: DPS: 4028 | Skills: +3 | FCR: 65% (BP 63%) | FHR: 60% (BP 60%) | MF: 177% | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 977
+     Gear changes: helm: replaces Stealskull (Casque); belt: Bitter Buckle (Rare Belt) -> Arctic Binding (Light Belt); gloves: Raven Knuckle (Rare Light Gauntlets) -> Arctic Mitts (Light Gauntlets); boots: Rune Nails (Rare Chain Boots) -> Treads of Cthon (Chain Boots)
+
+--- 3. Max Power & Terror Zones (105% FCR, 86% FHR, 75% All Res) ---
+Baseline: No loadout found matching all constraints.
+  #1 Wall of the Eyeless (Bone Shield) [mule_unique Stash] (shield, 1 socket) + Um Rune [Theoretical] [theoretical]
+     Gain  : Unlocks feasible build!
+     Result: DPS: 3975 | Skills: +2 | FCR: 107% (BP 105%) | FHR: 110% (BP 86%) | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 993
+  #2 Rockstopper (Sallet) [mule_unique Stash] (helm, 1 socket) + Um Rune [Theoretical] [theoretical]
+     Gain  : Unlocks feasible build!
+     Result: DPS: 3975 | Skills: +2 | FCR: 107% (BP 105%) | FHR: 110% (BP 86%) | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 958
+  #3 Iratha's Coil (Crown) [Stash Tab 2] (helm, 1 socket) + Um Rune [Theoretical] [theoretical]
+     Gain  : Unlocks feasible build!
+     Result: DPS: 3975 | Skills: +2 | FCR: 107% (BP 105%) | FHR: 93% (BP 86%) | Nightmare Res: F:75 L:75 C:75 P:75 | Life: 928
+
+--- 4. Max Resist (63% FCR, 60% FHR, Max All Res) ---
+Baseline: DPS: 4028 | Skills: +3 | FCR: 70% (BP 63%) | FHR: 60% (BP 60%) | MF: 50% | Nightmare Res: F:75 L:75 C:90 P:75 | Life: 1023
+  #1 Hawkmail (Scale Mail) [mule_unique Stash] (armor, 1 socket) + Vex Rune [Theoretical] [theoretical]
+     Gain  : Nightmare Res F:75->80
+     Result: DPS: 4028 | Skills: +3 | FCR: 70% (BP 63%) | FHR: 60% (BP 60%) | MF: 50% | Nightmare Res: F:80 L:75 C:90 P:75 | Life: 1023
+  #2 Rockstopper (Sallet) [mule_unique Stash] (helm, 1 socket) + Vex Rune [Theoretical] [theoretical]
+     Gain  : Nightmare Res F:75->80
+     Result: DPS: 4028 | Skills: +3 | FCR: 70% (BP 63%) | FHR: 60% (BP 60%) | MF: 50% | Nightmare Res: F:80 L:75 C:90 P:75 | Life: 1023
+  #3 Wall of the Eyeless (Bone Shield) [mule_unique Stash] (shield, 1 socket) + Vex Rune [Theoretical] [theoretical]
+     Gain  : Nightmare Res F:75->80
+     Result: DPS: 4028 | Skills: +3 | FCR: 70% (BP 63%) | FHR: 60% (BP 60%) | MF: 50% | Nightmare Res: F:80 L:75 C:90 P:75 | Life: 1023
+  #4 Undead Crown (Crown) [sork Stash] (helm, 1 socket) + Lo Rune [Theoretical] [theoretical]
+     Gain  : Skills +3->+2, DPS 4028->3746, MF 50%->0%, Nightmare Res L:75->80, Life 1023->957
+     Result: DPS: 3746 | Skills: +2 | FCR: 64% (BP 63%) | FHR: 60% (BP 60%) | Nightmare Res: F:75 L:80 C:90 P:75 | Life: 957
+     Gear changes: weapon: The Oculus (Swirling Crystal) -> Spirit (Broad Sword); shield: Wall of the Eyeless (Bone Shield) -> Ancients' Pledge (Large Shield); helm: replaces Rockstopper (Sallet); amulet: Storm Beads (Rare Amulet) -> Amulet of the Apprentice; belt: Bitter Buckle (Rare Belt) -> Coral Belt of the Mammoth; gloves: Horazon's Hold (Demonhide Gloves) -> Iratha's Cuff (Light Gauntlets); boots: Sapphire Chain Boots of Thawing -> Rune Nails (Rare Chain Boots)
+  #5 The Face of Horror (Mask) [Stash Tab 1] (helm, 1 socket) + Vex Rune [Theoretical] [theoretical]
+     Gain  : Skills +3->+2, DPS 4028->3746, MF 50%->0%, Nightmare Res F:75->80, Life 1023->921
+     Result: DPS: 3746 | Skills: +2 | FCR: 64% (BP 63%) | FHR: 60% (BP 60%) | Nightmare Res: F:80 L:75 C:90 P:75 | Life: 921
+     Gear changes: weapon: The Oculus (Swirling Crystal) -> Spirit (Broad Sword); shield: Wall of the Eyeless (Bone Shield) -> Ancients' Pledge (Large Shield); helm: replaces Rockstopper (Sallet); amulet: Storm Beads (Rare Amulet) -> Amulet of the Apprentice; belt: Bitter Buckle (Rare Belt) -> Lenymo (Sash); gloves: Horazon's Hold (Demonhide Gloves) -> Shadow Claw (Rare Heavy Gloves)
+
+=== Overall Best Socket Quest Targets ===
+  - Rockstopper (Sallet) [mule_unique Stash] (helm): top-5 in 5/5 presets (best #2 with Um Rune [Theoretical])
+  - Wall of the Eyeless (Bone Shield) [mule_unique Stash] (shield): top-5 in 4/5 presets (best #1 with Um Rune [Theoretical])
+  - The Oculus (Swirling Crystal) [mule_unique Stash] (weapon): top-5 in 2/5 presets (best #2 with Ist Rune [Theoretical])
+  - Iratha's Coil (Crown) [Stash Tab 2] (helm): top-5 in 2/5 presets (best #3 with Um Rune [Theoretical])
+  - Hawkmail (Scale Mail) [mule_unique Stash] (armor): top-5 in 1/5 presets (best #1 with Vex Rune [Theoretical])

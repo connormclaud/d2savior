@@ -164,6 +164,9 @@ class GameDataResolver:
     def get_belt_rows(self, item_code: str) -> int:
         return self.data.get_belt_rows(item_code)
 
+    def get_max_sockets(self, item_code: str, ilvl: int = 99) -> int:
+        return self.data.get_max_sockets(item_code, ilvl)
+
     def is_descendant(self, item_type_code: str, ancestor_code: str) -> bool:
         return self.data.is_descendant(item_type_code, ancestor_code)
 
@@ -191,25 +194,15 @@ class GameDataResolver:
     def get_hireling(self, hireling_id: int) -> HirelingInfo | None:
         return self.data.get_hireling(hireling_id)
 
-    def get_socket_properties(
-        self, parent_item: D2Item | None, socket_item: D2Item | None
+    def get_socket_properties_for_code(
+        self, parent_item: D2Item | None, code: str
     ) -> list[tuple[int, int, list[int]]]:
-        """Return parsed properties (prop_id, value, params) granted by socket_item to parent_item."""
-        if socket_item is None:
+        """Return parsed properties granted by gem/rune `code` when socketed into `parent_item`."""
+        norm_code = code.strip().lower()
+        if not norm_code:
             return []
 
-        # If it's a Jewel with its own property_list:
-        tp = socket_item.type_specific_info
-        if tp and tp.property_list:
-            props = tp.property_list.get_parsed_properties(self.version, data=self.data)
-            if props:
-                return props
-
-        code = socket_item.code_str.lower()
-        if not code:
-            return []
-
-        gem_info = self.data.get_gem_info(code)
+        gem_info = self.data.get_gem_info(norm_code)
         if not gem_info:
             return []
 
@@ -231,6 +224,22 @@ class GameDataResolver:
             result.extend(self._gem_mod_to_properties(mod))
 
         return result
+
+    def get_socket_properties(
+        self, parent_item: D2Item | None, socket_item: D2Item | None
+    ) -> list[tuple[int, int, list[int]]]:
+        """Return parsed properties (prop_id, value, params) granted by socket_item to parent_item."""
+        if socket_item is None:
+            return []
+
+        # If it's a Jewel with its own property_list:
+        tp = socket_item.type_specific_info
+        if tp and tp.property_list:
+            props = tp.property_list.get_parsed_properties(self.version, data=self.data)
+            if props:
+                return props
+
+        return self.get_socket_properties_for_code(parent_item, socket_item.code_str)
 
     def _resolve_ranged_gem_mod(
         self, mod: GemMod, *, include_len: bool

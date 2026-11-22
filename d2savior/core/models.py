@@ -299,8 +299,12 @@ class SetInfo:
 class RuneWordInfo:
     name: str = ""
     runeword_id: int = 0
-    rune_codes: list = field(default_factory=list)
+    rune_codes: list[str] = field(default_factory=list)
     key: str = ""
+    complete: bool = True
+    itypes: tuple[str, ...] = ()
+    etypes: tuple[str, ...] = ()
+    mods: tuple[SetBonusMod, ...] = ()
 
 
 @dataclass(slots=True)
@@ -445,6 +449,8 @@ class VersionData:
     type_descendants: dict[str, set[str]] = field(default_factory=dict)
     type_bodyloc: dict[str, tuple[int, int]] = field(default_factory=dict)
     type_beltable: set[str] = field(default_factory=set)
+    type_max_sockets: dict[str, tuple[int, int, int, int, int]] = field(default_factory=dict)
+    active_runewords: list[RuneWordInfo] = field(default_factory=list)
     item_manager: ItemMetaDataManager | None = None
     prop_meta: dict[int, PropertyMetaData] = field(default_factory=dict)
 
@@ -597,3 +603,18 @@ class VersionData:
         if item_info and item_info.belt_rows > 0:
             return item_info.belt_rows
         return 0
+
+    def get_max_sockets(self, item_code: str, ilvl: int = 99) -> int:
+        """Return max possible sockets for `item_code` at `ilvl` from item table & itemtypes.txt."""
+        if not item_code:
+            return 0
+        item_info = self.items.get(item_code.lower().strip())
+        if item_info is None or not item_info.hasinv or item_info.gemsockets <= 0:
+            return 0
+        item_type = item_info.type.lower().strip()
+        sock_spec = self.type_max_sockets.get(item_type)
+        if sock_spec is None:
+            return item_info.gemsockets
+        m1, t1, m2, t2, m3 = sock_spec
+        cap = m1 if ilvl <= t1 else (m2 if ilvl <= t2 else m3)
+        return min(item_info.gemsockets, cap)

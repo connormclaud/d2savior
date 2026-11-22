@@ -1,0 +1,26 @@
+=== Socket Quest Optimizer: smite (Paladin lvl 30, Normal) ===
+Socket Quests (smite): Normal: Locked | Nightmare: Locked | Hell: Locked
+Socketables (owned only): 23 runes, 31 gem types, 34 jewels | Eligible items: 35
+
+--- Paladin Leveling (lvl 30, Normal) ---
+Baseline: DPS: 1223 | Skills: +4 | IAS: 40% (BP 32%) | CB: 0% | FHR: 90% (BP 86%) | MF: 30% | Normal Res: F:76 L:75 C:75 P:75 | Life: 719
+  #1 Superior Rondache [smite Stash] (shield, 4 sockets) -> Spirit (Tal+Thul+Ort+Amn)
+     Gain  : Skills +4->+6, DPS 1223->1407, Life 719->806
+     Result: DPS: 1407 | Skills: +6 | IAS: 40% (BP 32%) | CB: 0% | FHR: 110% (BP 86%) | MF: 30% | Normal Res: F:76 L:75 C:75 P:75 | Life: 806
+     Gear changes: shield: replaces The Ward (Gothic Shield)
+  #2 Silks of the Victor (Ancient Armor) [mule_unique Inv] (armor, 1 socket) + Hel Rune [Stash Tab 6]
+     Gain  : DPS 1223->1405, IAS BP 32%->54%, CBF lost, MF 30%->15%, Life 719->744
+     Result: DPS: 1405 | Skills: +4 | IAS: 60% (BP 54%) | CB: 0% | FHR: 89% (BP 86%) | MF: 15% | Normal Res: F:76 L:75 C:75 P:75 | Life: 744
+     Gear changes: armor: replaces The Spirit Shroud (Ghost Armor); belt: Goldwrap (Heavy Belt) -> Beast Buckle (Rare Sharkskin Belt)
+  #3 Peasant Crown (War Hat) [smite Equipped] (helm, 1 socket) + Perfect Amethyst [Stash Tab 6]
+     Gain  : DPS 1223->1406, IAS BP 32%->54%, CBF lost, MF 30%->15%, Life 719->729
+     Result: DPS: 1406 | Skills: +4 | IAS: 55% (BP 54%) | CB: 0% | FHR: 90% (BP 86%) | MF: 15% | Normal Res: F:76 L:75 C:75 P:75 | Life: 729
+     Gear changes: armor: The Spirit Shroud (Ghost Armor) -> Silks of the Victor (Ancient Armor); belt: Goldwrap (Heavy Belt) -> Immortal King's Detail (War Belt); gloves: Sigon's Gage (Gauntlets) -> Immortal King's Forge (War Gauntlets); boots: Sigon's Sabot (Greaves) -> Tearhaunch (Greaves)
+  #4 Sigon's Visor (Great Helm) [Stash Tab 1] (helm, 1 socket) + Perfect Amethyst [Stash Tab 6]
+     Gain  : Skills +4->+3, DPS 1223->1351, IAS BP 32%->54%, CBF lost, MF 30%->15%, Life 719->694
+     Result: DPS: 1351 | Skills: +3 | IAS: 60% (BP 54%) | CB: 0% | FHR: 89% (BP 86%) | MF: 15% | Normal Res: F:76 L:75 C:75 P:75 | Life: 694
+     Gear changes: helm: replaces Peasant Crown (War Hat); armor: The Spirit Shroud (Ghost Armor) -> Silks of the Victor (Ancient Armor); belt: Goldwrap (Heavy Belt) -> Beast Buckle (Rare Sharkskin Belt); boots: Sigon's Sabot (Greaves) -> Tearhaunch (Greaves)
+  #5 Tarnhelm (Skull Cap) [Stash Tab 1] (helm, 1 socket) + Perfect Amethyst [Stash Tab 6]
+     Gain  : DPS 1223->1406, IAS BP 32%->54%, CBF lost, MF 30%->53%, Life 719->669
+     Result: DPS: 1406 | Skills: +4 | IAS: 55% (BP 54%) | CB: 0% | FHR: 90% (BP 86%) | MF: 53% | Normal Res: F:76 L:75 C:75 P:75 | Life: 669
+     Gear changes: helm: replaces Peasant Crown (War Hat); armor: The Spirit Shroud (Ghost Armor) -> Silks of the Victor (Ancient Armor); belt: Goldwrap (Heavy Belt) -> Immortal King's Detail (War Belt); gloves: Sigon's Gage (Gauntlets) -> Immortal King's Forge (War Gauntlets); boots: Sigon's Sabot (Greaves) -> Tearhaunch (Greaves)

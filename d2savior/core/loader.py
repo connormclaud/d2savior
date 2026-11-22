@@ -399,13 +399,28 @@ class D2DataLoader:
         runewords: dict[int, RuneWordInfo] = {}
 
         if runes_file:
-            for row in TsvReader(runes_file):
+            reader = TsvReader(runes_file)
+            has_complete = reader.has_columns("complete")
+            for row in reader:
                 key = row.get("Name")
                 if not key.startswith("Runeword"):
                     continue
 
                 canonical_name = row.get("*Rune Name") or key
-                rune_codes = [code for i in range(1, 7) if (code := row.get(f"Rune{i}"))]
+                rune_codes = [code.lower() for i in range(1, 7) if (code := row.get(f"Rune{i}"))]
+                complete = row.get_bool("complete") if has_complete else True
+                itypes = tuple(it.lower() for i in range(1, 7) if (it := row.get(f"itype{i}")))
+                etypes = tuple(et.lower() for i in range(1, 4) if (et := row.get(f"etype{i}")))
+                mods = tuple(
+                    SetBonusMod(
+                        code=mod_code,
+                        param=row.get(f"T1Param{i}"),
+                        min_val=row.get_int(f"T1Min{i}"),
+                        max_val=row.get_int(f"T1Max{i}"),
+                    )
+                    for i in range(1, 8)
+                    if (mod_code := row.get(f"T1Code{i}"))
+                )
 
                 try:
                     rw_num = int(key.replace("Runeword", ""))
@@ -421,6 +436,10 @@ class D2DataLoader:
                     runeword_id=d2r_id,
                     key=key,
                     rune_codes=rune_codes,
+                    complete=complete,
+                    itypes=itypes,
+                    etypes=etypes,
+                    mods=mods,
                 )
 
                 if d2r_id > 0:
@@ -665,13 +684,20 @@ class D2DataLoader:
         }
     )
 
-    def load_itemtypes(
+    def _load_itemtypes_full(
         self, filepath: str | Traversable
-    ) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, tuple[int, int]], set[str]]:
+    ) -> tuple[
+        dict[str, set[str]],
+        dict[str, set[str]],
+        dict[str, tuple[int, int]],
+        set[str],
+        dict[str, tuple[int, int, int, int, int]],
+    ]:
         type_ancestors: dict[str, set[str]] = {}
         type_descendants: dict[str, set[str]] = {}
         type_bodyloc: dict[str, tuple[int, int]] = {}
         beltable_codes: set[str] = set()
+        type_max_sockets: dict[str, tuple[int, int, int, int, int]] = {}
 
         type_equivs: dict[str, tuple[str, str]] = {}
         all_codes: set[str] = set()
@@ -685,16 +711,25 @@ class D2DataLoader:
             equiv2 = row.get("equiv2").lower()
             bl1 = self.BODYLOC_MAP.get(row.get("bodyloc1").lower(), 0)
             bl2 = self.BODYLOC_MAP.get(row.get("bodyloc2").lower(), 0)
+            sock_spec = (
+                row.get_int("MaxSockets1"),
+                row.get_int("MaxSocketsLevelThreshold1", 25),
+                row.get_int("MaxSockets2"),
+                row.get_int("MaxSocketsLevelThreshold2", 40),
+                row.get_int("MaxSockets3"),
+            )
 
             key = type_name.lower()
             type_equivs[key] = (equiv1, equiv2)
             all_codes.add(key)
             type_bodyloc[key] = (bl1, bl2)
+            type_max_sockets[key] = sock_spec
             if code:
                 code_lower = code.lower()
                 type_equivs[code_lower] = (equiv1, equiv2)
                 all_codes.add(code_lower)
                 type_bodyloc[code_lower] = (bl1, bl2)
+                type_max_sockets[code_lower] = sock_spec
 
             if row.get("beltable") == "1":
                 beltable_codes.add(key)
@@ -714,6 +749,14 @@ class D2DataLoader:
                     type_descendants[ancestor] = set()
                 type_descendants[ancestor].add(code)
 
+        return type_ancestors, type_descendants, type_bodyloc, beltable_codes, type_max_sockets
+
+    def load_itemtypes(
+        self, filepath: str | Traversable
+    ) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, tuple[int, int]], set[str]]:
+        type_ancestors, type_descendants, type_bodyloc, beltable_codes, _ = (
+            self._load_itemtypes_full(filepath)
+        )
         return type_ancestors, type_descendants, type_bodyloc, beltable_codes
 
     def _build_ancestors(
@@ -789,7 +832,8 @@ class D2DataLoader:
             version_data.type_descendants,
             version_data.type_bodyloc,
             version_data.type_beltable,
-        ) = self.load_itemtypes(itemtypes_path)
+            version_data.type_max_sockets,
+        ) = self._load_itemtypes_full(itemtypes_path)
 
         # Load ItemStatCost.txt
         itemstatcost_path = self._resolve_path("ItemStatCost.txt", dirs)
@@ -855,6 +899,14 @@ class D2DataLoader:
         runes_txt_path = self._resolve_path("runes.txt", dirs)
         runewords_path = self._resolve_path("local/item-runes.json", dirs)
         version_data.runewords = self.load_runewords(runes_txt_path, runewords_path)
+        seen_rw_ids: set[int] = set()
+        version_data.active_runewords = []
+        for rw_info in version_data.runewords.values():
+            if id(rw_info) in seen_rw_ids:
+                continue
+            seen_rw_ids.add(id(rw_info))
+            if rw_info.complete and rw_info.rune_codes:
+                version_data.active_runewords.append(rw_info)
 
         # Load gems.txt
         gems_path = self._resolve_path("gems.txt", dirs)

@@ -167,6 +167,7 @@ def _compute_weapon_phys_2x(
     slot: str,
     code: str,
     version: int = 0x63,
+    extra_props: Sequence[tuple[int, int, list[int]]] = (),
 ) -> tuple[int, int, int, bool]:
     """Return `(wep_phys_2x, str_pct, dex_pct, can_zeal)` for a weapon item."""
     w_info = resolver.data.get_item(code)
@@ -174,7 +175,7 @@ def _compute_weapon_phys_2x(
         return 0, 0, 0, False
 
     tp = item.type_specific_info
-    if tp is not None and item.gem_items:
+    if tp is not None and (item.gem_items or extra_props):
         sources: list[Sequence[tuple[int, int, list[int]]]] = []
         if tp.property_list:
             sources.append(tp.property_list.get_parsed_properties(version, data=resolver.data))
@@ -184,6 +185,8 @@ def _compute_weapon_phys_2x(
             )
         for gem in item.gem_items:
             sources.append(resolver.get_socket_properties(item, gem))
+        if extra_props:
+            sources.append(extra_props)
     else:
         sources = [props]
 
@@ -453,10 +456,13 @@ def _item_to_spec(
     allow_eth_melee: bool = False,
     sorc_filler_id: int | None = None,
     pal_aura_id: int | None = -1,
+    extra_props: Sequence[tuple[int, int, list[int]]] = (),
+    extra_levelreq: int = 0,
+    name_override: str | None = None,
 ) -> ItemSpec | CharmSpec | None:
     if item.location == ItemLocation.SOCKET:
         return None
-    if _item_levelreq(item, resolver) > char_level:
+    if max(_item_levelreq(item, resolver), extra_levelreq) > char_level:
         return None
     resolved_offense = (
         pal_offense
@@ -496,6 +502,8 @@ def _item_to_spec(
         return None
     is_weapon = slot in ("weapon", "weapon2h")
     props = list(collect_item_properties(item, resolver=resolver, version=version))
+    if extra_props:
+        props.extend(extra_props)
     acc = _PropAcc()
     _apply_props_to_acc(
         acc,
@@ -562,6 +570,7 @@ def _item_to_spec(
             slot=slot,
             code=code,
             version=version,
+            extra_props=extra_props,
         )
         exp_lvl = max(
             (params[0] if params else val for pid, val, params in props if pid == 158),
@@ -581,7 +590,11 @@ def _item_to_spec(
     if not keep_slot and set_group == 0 and not has_useful_stat and not has_weapon_dps:
         return None
 
-    display_name = get_item_display_name(item, resolver=resolver, version=version)
+    display_name = (
+        name_override
+        if name_override is not None
+        else get_item_display_name(item, resolver=resolver, version=version)
+    )
     if item.is_ethereal and not display_name.endswith(" (eth)"):
         display_name = f"{display_name} (eth)"
 
@@ -701,7 +714,7 @@ def _extract_char_specs(
     return [spec for _, spec in char_items], [spec for _, spec in char_charms]
 
 
-def extract_pool(
+def _extract_pool_with_context(
     primary_char: D2SStruct,
     extra_chars: Sequence[D2SStruct] = (),
     stashes: Sequence[SharedStash] = (),
@@ -713,8 +726,13 @@ def extract_pool(
     left_skill: int | None = None,
     right_skill: int | None = None,
     targets: int = 1,
-) -> tuple[list[ItemSpec], list[CharmSpec]]:
-    """Extract class-equippable ItemSpecs and CharmSpecs across characters and shared stashes."""
+) -> tuple[
+    list[ItemSpec],
+    list[CharmSpec],
+    dict[str, int],
+    dict[tuple[str, int], list[tuple[int, ItemSpec]]],
+]:
+    """Extract pool specs plus shared set-group ID and global set-bonus caches."""
     if resolver is None:
         resolver = GameDataResolver.load()
 
@@ -827,4 +845,33 @@ def extract_pool(
         items_out.extend(ch_items)
         charms_out.extend(ch_charms)
 
+    return items_out, charms_out, set_group_ids, global_set_cache
+
+
+def extract_pool(
+    primary_char: D2SStruct,
+    extra_chars: Sequence[D2SStruct] = (),
+    stashes: Sequence[SharedStash] = (),
+    resolver: GameDataResolver | None = None,
+    *,
+    pal_spec: str | None = None,
+    keep_equipped: bool | str | None = False,
+    allow_eth_melee: bool = False,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
+    targets: int = 1,
+) -> tuple[list[ItemSpec], list[CharmSpec]]:
+    """Extract class-equippable ItemSpecs and CharmSpecs across characters and shared stashes."""
+    items_out, charms_out, _, _ = _extract_pool_with_context(
+        primary_char,
+        extra_chars=extra_chars,
+        stashes=stashes,
+        resolver=resolver,
+        pal_spec=pal_spec,
+        keep_equipped=keep_equipped,
+        allow_eth_melee=allow_eth_melee,
+        left_skill=left_skill,
+        right_skill=right_skill,
+        targets=targets,
+    )
     return items_out, charms_out

@@ -457,7 +457,7 @@ COMMANDS = frozendict(
         ),
         "optimize": (
             cmd_optimize,
-            "optimize [name]   Optimize Sorceress or Paladin leveling builds (-b ...)",
+            "optimize [socket] [name]  Optimize builds or Socket Quest candidates (-b ...)",
         ),
     }
 )

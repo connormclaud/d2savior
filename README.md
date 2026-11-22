@@ -138,6 +138,12 @@ d2savior optimize sork -b mf --charm-slots 23 --limit 5
 
 # Pass explicit save/stash files without modifying config
 d2savior optimize --no-config /path/to/sork.d2s /path/to/mule.d2s /path/to/ModernSharedStashSoftCoreV2.d2i
+
+# Find the best item for Larzuk's Socket Quest (owned gems/runes/jewels & craftable runewords)
+d2savior optimize socket sork -b tz
+
+# Include theoretical/ideal runes, perfect gems, and runewords not currently owned
+d2savior optimize socket sork --theoretical
 ```
 
 ### Save Directory & Automatic Lookup

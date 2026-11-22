@@ -25,9 +25,11 @@ lazy from d2savior.optimizer import (
     extract_pool,
     format_build_report,
     format_paladin_leveling_report,
+    format_socket_report,
     list_presets,
     optimize_builds,
     optimize_paladin_leveling,
+    optimize_socket_quests,
     paladin_primary_skill_info,
     parse_keep_gear,
     resolve_build_expr,
@@ -334,10 +336,19 @@ def _split_optimize_targets(
     return char_name, paths
 
 
-def _build_optimize_parser() -> argparse.ArgumentParser:
+def _build_optimize_parser(
+    *,
+    prog: str = "d2savior optimize",
+    description: str = (
+        "Optimize Sorceress or Paladin leveling builds across characters and shared stash "
+        "(use 'optimize socket' to find the best item for Larzuk's Socket Quest)"
+    ),
+    default_limit: int = 3,
+    include_socket_flags: bool = False,
+) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="d2savior optimize",
-        description="Optimize Sorceress or Paladin leveling builds across characters and shared stash",
+        prog=prog,
+        description=description,
         parents=[_common_parser],
     )
     parser.add_argument(
@@ -368,8 +379,8 @@ def _build_optimize_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--limit",
         type=int,
-        default=3,
-        help="Maximum top options to show per build preset (default: 3)",
+        default=default_limit,
+        help=f"Maximum top options to show per build preset (default: {default_limit})",
     )
     parser.add_argument(
         "--keep-gear",
@@ -480,14 +491,35 @@ def _build_optimize_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--min-mf", type=int, default=None, metavar="N", help="Minimum Magic Find floor"
     )
+    if include_socket_flags:
+        parser.add_argument(
+            "--theoretical",
+            "--ideal",
+            dest="theoretical",
+            action="store_true",
+            help="Also evaluate theoretical runes, perfect gems, and runewords not currently owned",
+        )
     return parser
 
 
-def cmd_optimize(argv: list[str]) -> int:
-    parser = _build_optimize_parser()
+def _prepare_optimize_run(
+    argv: list[str], parser: argparse.ArgumentParser
+) -> (
+    tuple[
+        argparse.Namespace,
+        ConstraintOverrides | None,
+        int | None,
+        int | None,
+        D2SStruct,
+        list[D2SStruct],
+        list[SharedStash],
+        GameDataResolver,
+    ]
+    | int
+):
+    """Parse optimize args, handle --list-builds, validate flags, and load target character/pool."""
     args = parser.parse_intermixed_args(_normalize_keep_gear_argv(argv, parser))
 
-    # --list-builds: print preset catalog and exit (no character file needed).
     if args.list_builds:
         entries = list_presets()
         if not entries:
@@ -508,10 +540,7 @@ def cmd_optimize(argv: list[str]) -> int:
     except ValueError as exc:
         parser.error(str(exc))
 
-    # Build ConstraintOverrides from CLI flags.
-    min_pr = args.min_pr
-    if args.ignore_pr:
-        min_pr = 0
+    min_pr = 0 if args.ignore_pr else args.min_pr
     overrides = ConstraintOverrides(
         mode=args.mode,
         allow_mf=args.allow_mf,
@@ -529,7 +558,6 @@ def cmd_optimize(argv: list[str]) -> int:
         min_pdr=args.min_pdr,
         min_mf=args.min_mf,
     )
-    # Only pass overrides if any field is set.
     active_overrides = overrides if overrides.as_kwargs() else None
 
     try:
@@ -537,6 +565,7 @@ def cmd_optimize(argv: list[str]) -> int:
         right_skill = resolve_skill_override(args.right_skill) if args.right_skill else None
     except ValueError as exc:
         parser.error(str(exc))
+
     target_char, args.file_path = _split_optimize_targets(args.file_path, args.char)
     files_to_process = _resolve_and_save_targets(args)
     if not files_to_process:
@@ -549,6 +578,59 @@ def cmd_optimize(argv: list[str]) -> int:
     if primary is None:
         print(err or "Error: Character not found in target saves", file=sys.stderr)
         return 1
+
+    return args, active_overrides, left_skill, right_skill, primary, extras, stashes, resolver
+
+
+def cmd_optimize_socket(argv: list[str]) -> int:
+    """Run the Larzuk Socket Quest optimizer (`d2savior optimize socket`)."""
+    parser = _build_optimize_parser(
+        prog="d2savior optimize socket",
+        description=(
+            "Find the best unsocketed gear or runeword base for Larzuk's Socket Quest "
+            "across characters and shared stash"
+        ),
+        default_limit=5,
+        include_socket_flags=True,
+    )
+    prepared = _prepare_optimize_run(argv, parser)
+    if isinstance(prepared, int):
+        return prepared
+    args, active_overrides, left_skill, right_skill, primary, extras, stashes, resolver = prepared
+
+    try:
+        report = optimize_socket_quests(
+            primary,
+            extra_chars=extras,
+            stashes=stashes,
+            resolver=resolver,
+            build=args.build,
+            max_charm_slots=args.charm_slots,
+            limit=args.limit,
+            keep_equipped=args.keep_gear,
+            targets=args.targets,
+            target_type=args.target_type,
+            left_skill=left_skill,
+            right_skill=right_skill,
+            overrides=active_overrides,
+            theoretical=args.theoretical,
+        )
+        print(format_socket_report(report))
+    except (RuntimeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_optimize(argv: list[str]) -> int:
+    if argv and argv[0] == "socket":
+        return cmd_optimize_socket(argv[1:])
+
+    parser = _build_optimize_parser()
+    prepared = _prepare_optimize_run(argv, parser)
+    if isinstance(prepared, int):
+        return prepared
+    args, active_overrides, left_skill, right_skill, primary, extras, stashes, resolver = prepared
 
     primary_inv_loc = f"{primary.get_char_name()} Inv"
     try:

@@ -24,8 +24,10 @@ from d2savior.optimizer import (
     extract_pool,
     format_build_report,
     format_paladin_leveling_report,
+    format_socket_report,
     optimize_builds,
     optimize_paladin_leveling,
+    optimize_socket_quests,
     paladin_primary_skill_info,
     select_paladin_max_res_preset,
     select_sorc_presets,
@@ -68,11 +70,16 @@ MULE_UNIQUE_FIND_GRIM_SUMMARY_GOLDEN = os.path.join(
     GOLDEN_DIR, "mule_unique_find_grim_summary.golden.txt"
 )
 SORK_OPTIMIZE_GOLDEN = os.path.join(GOLDEN_DIR, "sork_optimize.golden.txt")
+SORK_OPTIMIZE_SOCKET_GOLDEN = os.path.join(GOLDEN_DIR, "sork_optimize_socket.golden.txt")
+SORK_OPTIMIZE_SOCKET_THEORETICAL_GOLDEN = os.path.join(
+    GOLDEN_DIR, "sork_optimize_socket_theoretical.golden.txt"
+)
 SMITE_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "smite_summary.golden.txt")
 SMITE_OPTIMIZE_LEVELING_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_leveling.golden.txt")
 SMITE_OPTIMIZE_KEEP_GEAR_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_keep_gear.golden.txt")
 SMITE_OPTIMIZE_MAX_RES_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_max_res.golden.txt")
 SMITE_OPTIMIZE_CBF_FRW30_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_cbf_frw30.golden.txt")
+SMITE_OPTIMIZE_SOCKET_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_socket.golden.txt")
 
 STASH_FIND_CASES = [
     ("Charm", STASH_FIND_CHARM_SUMMARY_GOLDEN),
@@ -358,6 +365,53 @@ class TestSmokeAPI:
             report + "\n\n", SMITE_OPTIMIZE_CBF_FRW30_GOLDEN, "smite_optimize_cbf_frw30_api"
         )
 
+    @pytest.mark.parametrize(
+        ("theoretical", "golden_path", "case_name"),
+        [
+            (False, SORK_OPTIMIZE_SOCKET_GOLDEN, "sork_optimize_socket_api"),
+            (
+                True,
+                SORK_OPTIMIZE_SOCKET_THEORETICAL_GOLDEN,
+                "sork_optimize_socket_theoretical_api",
+            ),
+        ],
+    )
+    def test_sork_optimize_socket(self, game_data_resolver, theoretical, golden_path, case_name):
+        pytest.importorskip("d2savior._native")
+        s_kind, sork, _ = parse_file(SORK_D2S, resolver=game_data_resolver)
+        m_kind, mule, _ = parse_file(MULE_UNIQUE_D2S, resolver=game_data_resolver)
+        st_kind, stash, _ = parse_file(STASH_D2I, resolver=game_data_resolver)
+        assert s_kind == "char"
+        assert isinstance(sork, D2SStruct)
+        assert m_kind == "char"
+        assert isinstance(mule, D2SStruct)
+        assert st_kind == "stash"
+        assert isinstance(stash, SharedStash)
+
+        report = optimize_socket_quests(
+            sork,
+            extra_chars=[mule],
+            stashes=[stash],
+            resolver=game_data_resolver,
+            theoretical=theoretical,
+        )
+        assert_matches_golden(format_socket_report(report) + "\n", golden_path, case_name)
+
+    def test_smite_optimize_socket(self, game_data_resolver):
+        pytest.importorskip("d2savior._native")
+        smite, extras, stashes = self._load_paladin_snapshot(game_data_resolver)
+        report = optimize_socket_quests(
+            smite,
+            extra_chars=extras,
+            stashes=stashes,
+            resolver=game_data_resolver,
+        )
+        assert_matches_golden(
+            format_socket_report(report) + "\n",
+            SMITE_OPTIMIZE_SOCKET_GOLDEN,
+            "smite_optimize_socket_api",
+        )
+
 
 class TestSmokeCLI:
     """Smoke tests validating end-to-end command-line interface execution."""
@@ -519,6 +573,57 @@ class TestSmokeCLI:
             cwd=REPO_ROOT,
         )
         assert_matches_golden(res.stdout, golden_path, case_name)
+
+    @pytest.mark.parametrize(
+        ("extra_args", "golden_path", "case_name"),
+        [
+            ([], SORK_OPTIMIZE_SOCKET_GOLDEN, "cli_sork_optimize_socket"),
+            (
+                ["--theoretical"],
+                SORK_OPTIMIZE_SOCKET_THEORETICAL_GOLDEN,
+                "cli_sork_optimize_socket_theoretical",
+            ),
+        ],
+    )
+    def test_cli_sork_optimize_socket(self, extra_args, golden_path, case_name):
+        pytest.importorskip("d2savior._native")
+        res = subprocess.run(
+            [
+                sys.executable,
+                CLI_SCRIPT,
+                "optimize",
+                "socket",
+                "--no-config",
+                *extra_args,
+                SORK_D2S,
+                MULE_UNIQUE_D2S,
+                STASH_D2I,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=REPO_ROOT,
+        )
+        assert_matches_golden(res.stdout, golden_path, case_name)
+
+    def test_cli_smite_optimize_socket(self):
+        pytest.importorskip("d2savior._native")
+        res = subprocess.run(
+            [
+                sys.executable,
+                CLI_SCRIPT,
+                "optimize",
+                "socket",
+                "--no-config",
+                "smite",
+                PALADIN_SNAPSHOT_DIR,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=REPO_ROOT,
+        )
+        assert_matches_golden(res.stdout, SMITE_OPTIMIZE_SOCKET_GOLDEN, "cli_smite_optimize_socket")
 
     def test_cli_list_builds(self):
         """--list-builds prints all built-in presets without requiring a save file."""
