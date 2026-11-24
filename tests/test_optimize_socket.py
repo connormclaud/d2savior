@@ -5,13 +5,14 @@ from pathlib import Path
 import pytest
 
 from d2savior.cli import main, parse_d2i_file, parse_d2s_file
-from d2savior.core.enums import ItemLocation, ItemQuality
+from d2savior.core.enums import CharClass, ItemLocation, ItemQuality
 from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
 from d2savior.optimizer import (
     HAS_NATIVE,
     ItemSpec,
+    extract_pool,
     extract_socketables,
     find_unclaimed_socket_quests,
     format_socket_report,
@@ -19,6 +20,8 @@ from d2savior.optimizer import (
     get_socket_quest_status,
     optimize_socket_quests,
 )
+from d2savior.optimizer.paladin import build_paladin_preset_constraints
+from d2savior.optimizer.presets import resolve_build_expr
 from d2savior.optimizer.socket import SocketCandidateVariant, _pareto_prune_variants
 
 requires_native = pytest.mark.skipif(not HAS_NATIVE, reason="d2savior._native is not built")
@@ -259,3 +262,128 @@ def test_cli_optimize_socket(capsys: pytest.CaptureFixture[str]) -> None:
     out_theo = capsys.readouterr().out
     assert "Ist Rune" in out_theo
     assert "[theoretical]" in out_theo
+    assert "lvl 99 unbound Str/Dex" in out_theo
+
+
+@requires_native
+def test_theoretical_socket_unbinds_level_and_str_dex_reqs(
+    game_data_resolver: GameDataResolver,
+) -> None:
+    # Low-level / low-Str Sorc (lvl 17, Str 20, Dex 25) against Paladin stash (high-lvl/high-Str items)
+    _, norm_sorc, _ = parse_d2s_file(str(FIXTURES_DIR / "Sorc.d2s"), resolver=game_data_resolver)
+    _, pal_stash, _, _ = parse_d2i_file(
+        str(PAL_FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=game_data_resolver
+    )
+    assert norm_sorc is not None
+    assert isinstance(pal_stash, SharedStash)
+
+    # Without theoretical: high-level/high-Str items like Lidless Wall (lvl 41, Str 58) are excluded.
+    sorc_owned = optimize_socket_quests(
+        norm_sorc,
+        stashes=[pal_stash],
+        resolver=game_data_resolver,
+        build="mf-pure",
+        theoretical=False,
+        limit=5,
+    )
+    sorc_theo = optimize_socket_quests(
+        norm_sorc,
+        stashes=[pal_stash],
+        resolver=game_data_resolver,
+        build="mf-pure",
+        theoretical=True,
+        limit=5,
+    )
+    assert sorc_theo.char_level == 17
+    assert sorc_theo.eligible_item_count > sorc_owned.eligible_item_count
+    assert any("Lidless Wall" in c.variant.item_name for c in sorc_theo.presets[0].candidates)
+    assert all("Lidless Wall" not in c.variant.item_name for c in sorc_owned.presets[0].candidates)
+
+    # Synthetic high-Str/high-lvl Monarch (lvlreq 54, req_str 156) is usable as Spirit base on lvl 17 Sorc.
+    monarch = _make_item("uit", quality=ItemQuality.NORMAL, ilvl=85)
+    norm_sorc.item_list.items.append(monarch)
+    pool_default, _ = extract_pool(norm_sorc, resolver=game_data_resolver)
+    pool_unbound, _ = extract_pool(
+        norm_sorc, resolver=game_data_resolver, char_level_override=99, ignore_reqs=True
+    )
+    assert all(it.req_str == 0 and it.req_dex == 0 for it in pool_unbound)
+    assert len(pool_unbound) >= len(pool_default)
+
+    sorc_monarch_owned = optimize_socket_quests(
+        norm_sorc,
+        stashes=[pal_stash],
+        resolver=game_data_resolver,
+        build="mf-pure",
+        theoretical=False,
+        limit=5,
+    )
+    sorc_monarch_theo = optimize_socket_quests(
+        norm_sorc,
+        stashes=[pal_stash],
+        resolver=game_data_resolver,
+        build="mf-pure",
+        theoretical=True,
+        limit=5,
+    )
+    assert all(
+        "Monarch" not in c.variant.item_name for c in sorc_monarch_owned.presets[0].candidates
+    )
+    assert any(
+        "Monarch" in c.variant.item_name and "Spirit" in c.variant.action_label
+        for c in sorc_monarch_theo.presets[0].candidates
+    )
+
+
+@requires_native
+def test_theoretical_socket_paladin_lvl99_preserves_base_stats(
+    game_data_resolver: GameDataResolver,
+) -> None:
+    _, smite, _ = parse_d2s_file(str(PAL_FIXTURES_DIR / "smite.d2s"), resolver=game_data_resolver)
+    extras = [
+        ch
+        for p in sorted(PAL_FIXTURES_DIR.glob("mule_*.d2s"))
+        if (ch := parse_d2s_file(str(p), resolver=game_data_resolver)[1]) is not None
+    ]
+    _, stash, _, _ = parse_d2i_file(
+        str(PAL_FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=game_data_resolver
+    )
+    assert smite is not None
+    assert isinstance(stash, SharedStash)
+
+    # Paladin baseline with char_level_override=99 keeps real base_str/base_dex (no fake melee DPS inflation).
+    preset = resolve_build_expr("leveling", CharClass.PALADIN)[0]
+    title_99, constraints_99, _, _ = build_paladin_preset_constraints(
+        smite,
+        preset,
+        extra_chars=extras,
+        stashes=[stash],
+        resolver=game_data_resolver,
+        char_level_override=99,
+    )
+    assert constraints_99.char_level == 99
+    assert constraints_99.base_str == smite.player_stats.strength
+    assert constraints_99.base_dex == smite.player_stats.dexterity
+    assert "lvl 99" in title_99
+
+    rep_owned = optimize_socket_quests(
+        smite,
+        extra_chars=extras,
+        stashes=[stash],
+        resolver=game_data_resolver,
+        theoretical=False,
+        limit=5,
+    )
+    rep_theo = optimize_socket_quests(
+        smite,
+        extra_chars=extras,
+        stashes=[stash],
+        resolver=game_data_resolver,
+        theoretical=True,
+        limit=5,
+    )
+    assert rep_theo.char_level == 30
+    assert rep_theo.eligible_item_count > rep_owned.eligible_item_count
+    cands = rep_theo.presets[0].candidates
+    assert any("Sacred Targe" in c.variant.item_name for c in cands)
+    assert any("Guillaume's Face" in c.variant.item_name for c in cands)
+    assert all("Sacred Targe" not in c.variant.item_name for c in rep_owned.presets[0].candidates)

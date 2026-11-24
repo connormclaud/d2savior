@@ -497,7 +497,7 @@ def _build_optimize_parser(
             "--ideal",
             dest="theoretical",
             action="store_true",
-            help="Also evaluate theoretical runes, perfect gems, and runewords not currently owned",
+            help="Evaluate theoretical runes, perfect gems, and runewords for a lvl 99 respec unbound by current level and Str/Dex requirements",
         )
     return parser
 

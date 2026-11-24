@@ -459,6 +459,7 @@ def _item_to_spec(
     extra_props: Sequence[tuple[int, int, list[int]]] = (),
     extra_levelreq: int = 0,
     name_override: str | None = None,
+    ignore_reqs: bool = False,
 ) -> ItemSpec | CharmSpec | None:
     if item.location == ItemLocation.SOCKET:
         return None
@@ -598,12 +599,15 @@ def _item_to_spec(
     if item.is_ethereal and not display_name.endswith(" (eth)"):
         display_name = f"{display_name} (eth)"
 
+    eff_req_str = 0 if ignore_reqs else _effective_req(base_req_str, item.is_ethereal, acc.req_pct)
+    eff_req_dex = 0 if ignore_reqs else _effective_req(base_req_dex, item.is_ethereal, acc.req_pct)
+
     return acc.to_item_spec(
         name=display_name,
         slot=slot,
         loc=loc,
-        req_str=_effective_req(base_req_str, item.is_ethereal, acc.req_pct),
-        req_dex=_effective_req(base_req_dex, item.is_ethereal, acc.req_pct),
+        req_str=eff_req_str,
+        req_dex=eff_req_dex,
         belt_slots=belt_slots,
         set_group=set_group,
         set_item_id=set_item_id,
@@ -649,6 +653,7 @@ def _extract_char_specs(
     allow_eth_melee: bool = False,
     sorc_filler_id: int | None = None,
     pal_aura_id: int | None = -1,
+    ignore_reqs: bool = False,
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
     ver = char.version or 0x63
     char_resolver = resolver.for_version(ver)
@@ -698,6 +703,7 @@ def _extract_char_specs(
             allow_eth_melee=allow_eth_melee,
             sorc_filler_id=sorc_filler_id,
             pal_aura_id=pal_aura_id,
+            ignore_reqs=ignore_reqs,
         )
         if isinstance(spec, ItemSpec):
             char_items.append((_char_item_locality_rank(it, swap_slots=char_swap_slots), spec))
@@ -726,6 +732,8 @@ def _extract_pool_with_context(
     left_skill: int | None = None,
     right_skill: int | None = None,
     targets: int = 1,
+    char_level_override: int | None = None,
+    ignore_reqs: bool = False,
 ) -> tuple[
     list[ItemSpec],
     list[CharmSpec],
@@ -738,7 +746,11 @@ def _extract_pool_with_context(
 
     kept_slots = parse_keep_gear(keep_equipped)
     keep_all = kept_slots == ALL_GEAR_SLOTS
-    char_level = max(1, primary_char.player_stats.level or primary_char.char_level)
+    char_level = (
+        char_level_override
+        if char_level_override is not None
+        else max(1, primary_char.player_stats.level or primary_char.char_level)
+    )
     char_class = primary_char.char_class
     resolved_pal_spec = (
         pal_spec
@@ -790,6 +802,7 @@ def _extract_pool_with_context(
         allow_eth_melee=allow_eth_melee,
         sorc_filler_id=sorc_filler_id,
         pal_aura_id=pal_aura_id,
+        ignore_reqs=ignore_reqs,
     )
     items_out.extend(ch_items)
     charms_out.extend(ch_charms)
@@ -819,6 +832,7 @@ def _extract_pool_with_context(
                     allow_eth_melee=allow_eth_melee,
                     sorc_filler_id=sorc_filler_id,
                     pal_aura_id=pal_aura_id,
+                    ignore_reqs=ignore_reqs,
                 )
                 if isinstance(spec, ItemSpec):
                     items_out.append(spec)
@@ -841,6 +855,7 @@ def _extract_pool_with_context(
             allow_eth_melee=allow_eth_melee,
             sorc_filler_id=sorc_filler_id,
             pal_aura_id=pal_aura_id,
+            ignore_reqs=ignore_reqs,
         )
         items_out.extend(ch_items)
         charms_out.extend(ch_charms)
@@ -860,6 +875,8 @@ def extract_pool(
     left_skill: int | None = None,
     right_skill: int | None = None,
     targets: int = 1,
+    char_level_override: int | None = None,
+    ignore_reqs: bool = False,
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
     """Extract class-equippable ItemSpecs and CharmSpecs across characters and shared stashes."""
     items_out, charms_out, _, _ = _extract_pool_with_context(
@@ -873,5 +890,7 @@ def extract_pool(
         left_skill=left_skill,
         right_skill=right_skill,
         targets=targets,
+        char_level_override=char_level_override,
+        ignore_reqs=ignore_reqs,
     )
     return items_out, charms_out

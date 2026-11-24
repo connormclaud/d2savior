@@ -1,6 +1,6 @@
 === Socket Quest Optimizer: sork (Sorceress lvl 74, Nightmare) ===
 Socket Quests (sork): Normal: Used | Nightmare: Unclaimed | Hell: Locked
-Socketables (owned + theoretical): 17 runes, 29 gem types, 22 jewels | Eligible items: 50
+Socketables (owned + theoretical, lvl 99 unbound Str/Dex): 17 runes, 29 gem types, 22 jewels | Eligible items: 50
 
 --- 1. 0% MF Base Hunting (105% FCR, 86% FHR, 75% All Res) ---
 Baseline: No loadout found matching all constraints.

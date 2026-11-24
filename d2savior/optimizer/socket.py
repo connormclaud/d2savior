@@ -56,6 +56,7 @@ _SOCKETABLE_SLOTS: frozenset[str] = frozenset({"helm", "armor", "shield", "weapo
 _JEWEL_CODES: frozenset[str] = frozenset({"jew", "cjw"})
 _RUNE_CODES_STR: tuple[str, ...] = tuple(f"r{i:02d}" for i in range(1, 34))
 _THEORETICAL_GEM_CODES: tuple[str, ...] = ("gpv", "gpb", "gpg", "gpr", "gpw", "gpy", "skz")
+THEORETICAL_CHAR_LEVEL = 99
 
 _COMPARE_POS_STATS: tuple[str, ...] = (
     "all_skills",
@@ -540,6 +541,7 @@ def _consider_candidate_item(
     sorc_filler_id: int | None,
     pal_aura_id: int | None,
     dedup: dict[tuple[object, ...], _CandidateItem],
+    ignore_reqs: bool = False,
 ) -> None:
     if it.location == ItemLocation.SOCKET or (keep_all and not is_active_primary):
         return
@@ -575,6 +577,7 @@ def _consider_candidate_item(
         skip_useful_check=True,
         sorc_filler_id=sorc_filler_id,
         pal_aura_id=pal_aura_id,
+        ignore_reqs=ignore_reqs,
     )
     dedup[d_key] = _CandidateItem(
         item=it,
@@ -602,9 +605,15 @@ def _collect_eligible_items(
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     sorc_filler_id: int | None,
     pal_aura_id: int | None,
+    char_level_override: int | None = None,
+    ignore_reqs: bool = False,
 ) -> list[_CandidateItem]:
     """Find deduplicated, class-equippable, unsocketed items eligible for Larzuk."""
-    char_level = max(1, primary_char.player_stats.level or primary_char.char_level)
+    char_level = (
+        char_level_override
+        if char_level_override is not None
+        else max(1, primary_char.player_stats.level or primary_char.char_level)
+    )
     char_class = primary_char.char_class
     keep_all = kept_slots == ALL_GEAR_SLOTS
     primary_inactive = inactive_weapon_slots(primary_char)
@@ -622,6 +631,7 @@ def _collect_eligible_items(
         "sorc_filler_id": sorc_filler_id,
         "pal_aura_id": pal_aura_id,
         "dedup": dedup,
+        "ignore_reqs": ignore_reqs,
     }
 
     for is_primary, ch in [(True, primary_char), *((False, c) for c in extra_chars)]:
@@ -723,6 +733,7 @@ def _build_runeword_variants(
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     sorc_filler_id: int | None,
     pal_aura_id: int | None,
+    ignore_reqs: bool = False,
 ) -> list[SocketCandidateVariant]:
     ver_res = cand.resolver
     item_info = ver_res.get_item(cand.item.code_str.strip().lower())
@@ -777,6 +788,7 @@ def _build_runeword_variants(
             extra_props=extra_props,
             extra_levelreq=rw_lvlreq,
             name_override=variant_name,
+            ignore_reqs=ignore_reqs,
         )
         if not isinstance(spec, ItemSpec):
             continue
@@ -808,6 +820,7 @@ def _build_gear_socket_variants(
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     sorc_filler_id: int | None,
     pal_aura_id: int | None,
+    ignore_reqs: bool = False,
 ) -> list[SocketCandidateVariant]:
     ver_res = cand.resolver
     base_vec = _spec_stat_vec(cand.base_spec) if cand.base_spec is not None else None
@@ -840,6 +853,7 @@ def _build_gear_socket_variants(
             extra_props=s_props,
             extra_levelreq=sock.levelreq,
             name_override=variant_name,
+            ignore_reqs=ignore_reqs,
         )
         if not isinstance(spec, ItemSpec):
             continue
@@ -1146,6 +1160,7 @@ def _resolve_paladin_socket_presets(
     left_skill: int | None,
     right_skill: int | None,
     overrides: ConstraintOverrides | None,
+    char_level_override: int | None = None,
 ) -> list[tuple[str, BuildConstraints, str]]:
     resolved = resolve_build_expr(
         build,
@@ -1176,6 +1191,7 @@ def _resolve_paladin_socket_presets(
                 target_type=cast(TargetTypeStr, target_type),
                 left_skill=left_skill,
                 right_skill=right_skill,
+                char_level_override=char_level_override,
             )
             offense = paladin_offense_profile(
                 resolved_spec, primary_char, left_skill=left_skill, right_skill=right_skill
@@ -1217,6 +1233,7 @@ def _resolve_paladin_socket_presets(
                 target_type=cast(TargetTypeStr, target_type),
                 left_skill=left_skill,
                 right_skill=right_skill,
+                char_level_override=char_level_override,
             )
             presets_out.append((title, constraints, diff_name))
     return presets_out
@@ -1244,6 +1261,8 @@ def optimize_socket_quests(
         resolver = GameDataResolver.load()
 
     char_level = max(1, primary_char.player_stats.level or primary_char.char_level)
+    level_override = THEORETICAL_CHAR_LEVEL if theoretical else None
+    eff_char_level = THEORETICAL_CHAR_LEVEL if theoretical else char_level
     char_class = primary_char.char_class
     if char_class not in (CharClass.SORCERESS, CharClass.PALADIN):
         actual = CharClass(char_class).display_name
@@ -1287,6 +1306,8 @@ def optimize_socket_quests(
         left_skill=left_skill,
         right_skill=right_skill,
         targets=targets,
+        char_level_override=level_override,
+        ignore_reqs=theoretical,
     )
 
     socketables, rune_counts, gem_type_count, jewel_count = extract_socketables(
@@ -1309,6 +1330,8 @@ def optimize_socket_quests(
         global_set_cache=global_set_cache,
         sorc_filler_id=sorc_filler_id,
         pal_aura_id=pal_aura_id,
+        char_level_override=level_override,
+        ignore_reqs=theoretical,
     )
 
     candidate_groups: list[tuple[_CandidateItem, list[SocketCandidateVariant]]] = []
@@ -1319,7 +1342,7 @@ def optimize_socket_quests(
                 cand,
                 rune_counts=rune_counts,
                 theoretical=theoretical,
-                char_level=char_level,
+                char_level=eff_char_level,
                 char_class=char_class,
                 pal_spec=pal_spec,
                 pal_offense=pal_offense,
@@ -1327,12 +1350,13 @@ def optimize_socket_quests(
                 global_set_cache=global_set_cache,
                 sorc_filler_id=sorc_filler_id,
                 pal_aura_id=pal_aura_id,
+                ignore_reqs=theoretical,
             )
         else:
             variants = _build_gear_socket_variants(
                 cand,
                 socketables=socketables,
-                char_level=char_level,
+                char_level=eff_char_level,
                 char_class=char_class,
                 pal_spec=pal_spec,
                 pal_offense=pal_offense,
@@ -1340,6 +1364,7 @@ def optimize_socket_quests(
                 global_set_cache=global_set_cache,
                 sorc_filler_id=sorc_filler_id,
                 pal_aura_id=pal_aura_id,
+                ignore_reqs=theoretical,
             )
         if variants:
             candidate_groups.append((cand, variants))
@@ -1361,6 +1386,7 @@ def optimize_socket_quests(
             left_skill=left_skill,
             right_skill=right_skill,
             overrides=overrides,
+            char_level_override=level_override,
         )
         preset_specs = [(title, c, diff_name) for title, c in sorc_presets]
     else:
@@ -1379,6 +1405,7 @@ def optimize_socket_quests(
             left_skill=left_skill,
             right_skill=right_skill,
             overrides=overrides,
+            char_level_override=level_override,
         )
         diff_name = preset_specs[0][2] if preset_specs else "Normal"
 
@@ -1513,7 +1540,11 @@ def format_socket_report(report: SocketQuestReport) -> str:
     if report.other_unclaimed:
         other_str = ", ".join(f"{name} ({diff})" for name, diff in report.other_unclaimed)
         lines.append(f"Other unclaimed Socket Quests: {other_str}")
-    mode_tag = "owned + theoretical" if report.theoretical else "owned only"
+    mode_tag = (
+        f"owned + theoretical, lvl {THEORETICAL_CHAR_LEVEL} unbound Str/Dex"
+        if report.theoretical
+        else "owned only"
+    )
     lines.append(
         f"Socketables ({mode_tag}): {report.owned_rune_types} runes, "
         f"{report.owned_gem_types} gem types, {report.owned_jewel_count} jewels | "

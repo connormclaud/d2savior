@@ -257,6 +257,7 @@ def _build_paladin_baseline(
     target_type: TargetTypeStr = "champion",
     left_skill: int | None = None,
     right_skill: int | None = None,
+    char_level_override: int | None = None,
 ) -> tuple[CharacterBaseline, int, str, str]:
     validate_paladin(char_data)
     resolved_target_type = _normalize_target_type(target_type)
@@ -268,7 +269,11 @@ def _build_paladin_baseline(
     if resolved_spec not in PALADIN_SPEC_INFO:
         valid = ", ".join(PALADIN_SPEC_INFO)
         raise ValueError(f"Unknown Paladin spec '{resolved_spec}'; expected one of: {valid}")
-    char_level = max(1, char_data.player_stats.level or char_data.char_level)
+    char_level = (
+        char_level_override
+        if char_level_override is not None
+        else max(1, char_data.player_stats.level or char_data.char_level)
+    )
     diff_idx = get_current_difficulty(char_data)
     diff_name = DIFFICULTY_NAMES[diff_idx]
     base_res = get_difficulty_resist_penalty(char_data, diff_idx) + compute_anya_resist_bonus(
@@ -404,6 +409,7 @@ def build_paladin_preset_constraints(
     target_type: TargetTypeStr = "champion",
     left_skill: int | None = None,
     right_skill: int | None = None,
+    char_level_override: int | None = None,
 ) -> tuple[str, BuildConstraints, str, str]:
     """Build a `BuildConstraints` profile from a resolved TOML preset for a Paladin."""
     eff_targets = max(1, targets)
@@ -421,6 +427,7 @@ def build_paladin_preset_constraints(
         target_type=resolved_target_type,
         left_skill=left_skill,
         right_skill=right_skill,
+        char_level_override=char_level_override,
     )
     offense = paladin_offense_profile(
         resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill

@@ -142,7 +142,7 @@ d2savior optimize --no-config /path/to/sork.d2s /path/to/mule.d2s /path/to/Moder
 # Find the best item for Larzuk's Socket Quest (owned gems/runes/jewels & craftable runewords)
 d2savior optimize socket sork -b tz
 
-# Include theoretical/ideal runes, perfect gems, and runewords not currently owned
+# Include theoretical/ideal runes, perfect gems, and runewords for a lvl 99 respec (unbound level & Str/Dex reqs)
 d2savior optimize socket sork --theoretical
 ```
 

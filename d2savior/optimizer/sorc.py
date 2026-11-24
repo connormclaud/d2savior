@@ -138,6 +138,7 @@ def select_sorc_presets(
     left_skill: int | None = None,
     right_skill: int | None = None,
     overrides: ConstraintOverrides | None = None,
+    char_level_override: int | None = None,
 ) -> list[tuple[str, BuildConstraints]]:
     """Select one or more Sorceress build preset profiles by name."""
     validate_sorceress(char_data)
@@ -150,7 +151,11 @@ def select_sorc_presets(
         # Re-raise with the legacy error message format expected by existing tests.
         valid = ", ".join((*BUILD_PRESET_ALIASES.keys(), "leveling"))
         raise ValueError(f"Unknown build preset '{build}'; expected one of: {valid}") from None
-    char_level = max(1, char_data.player_stats.level or char_data.char_level)
+    char_level = (
+        char_level_override
+        if char_level_override is not None
+        else max(1, char_data.player_stats.level or char_data.char_level)
+    )
     diff_idx = get_current_difficulty(char_data)
     base_res = get_difficulty_resist_penalty(char_data, diff_idx) + compute_anya_resist_bonus(
         char_data
@@ -189,6 +194,7 @@ def select_sorc_presets(
         blizz_dmg=sorc_dps.blizz_dmg,
         filler_dmg=sorc_dps.filler_dmg,
         filler_is_aoe=sorc_dps.filler_is_aoe,
+        char_level=char_level,
     )
 
     out: list[tuple[str, BuildConstraints]] = []
