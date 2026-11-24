@@ -932,7 +932,6 @@ def test_report_formatting_sorc_paladin_and_charms() -> None:
             mana_bo=150,
         )
     )
-    pal_res_nobo = _as_result(_FakeBuildResult(skills=1, bo_lvl=0, life_no_bo=500, mana_bo=80))
     pal_report = format_build_report(
         "Paladin Max Resist",
         [pal_res_bo],
@@ -972,14 +971,39 @@ def test_report_formatting_sorc_paladin_and_charms() -> None:
     assert "DPS: 1000 (Zeal) | AR: 1200 (86%) |" in dps_report
 
     assert "No loadout found" in format_paladin_leveling_report("Empty Pal", [])
+    pal_res_nm = _as_result(
+        _FakeBuildResult(
+            skills=1,
+            bo_lvl=0,
+            life_no_bo=500,
+            mana_bo=80,
+            fr=78,
+            lr=75,
+            cr=75,
+            pr=75,
+            fr_raw=78,
+            lr_raw=76,
+            cr_raw=75,
+            pr_raw=80,
+        )
+    )
     lvl_report = format_paladin_leveling_report(
         "Paladin Leveling",
-        [("High Breakpoint", pal_res_nobo)],
+        [("High Breakpoint", pal_res_nm)],
         diff_name="Nightmare",
         primary_skill_name=None,
     )
     assert "Option #1: High Breakpoint" in lvl_report
+    assert "Nightmare Res: F:78%(118) L:75%(116) C:75%(115) P:75%(120)" in lvl_report
     assert "Life: 500 | Mana: 80" in lvl_report
+
+    hell_report = format_build_report(
+        "Hell Sorc",
+        [pal_res_nm],
+        diff_name="Hell",
+        resist_penalty=-50,
+    )
+    assert "Hell Res: F:78%(128) L:75%(126) C:75%(125) P:75%(130)" in hell_report
 
 
 def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatch) -> None:

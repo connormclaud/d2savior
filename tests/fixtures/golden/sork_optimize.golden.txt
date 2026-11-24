@@ -5,7 +5,7 @@
 Option #1 (evaluated 48 pruned sets):
   DPS: 3725 (Blizz + Glacial Spike) | Skills: +1 | Blizz Avg: 1760 | CM: -120%
   FCR: 105% (BP 105%, 8f) | FHR: 60% (BP 60%, 8f) | FRW: 50% | MF: 77%
-  Nightmare Res: F:75%(83) L:75%(77) C:75%(81) P:63%(63)
+  Nightmare Res: F:75%(123) L:75%(117) C:75%(121) P:63%(103)
   Life: 967 | Mana: 247 | Charm slots: 23
     - weapon  : Suicide Branch (Burnt Wand) (Stash Tab 3)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -24,7 +24,7 @@ Option #1 (evaluated 48 pruned sets):
 Option #2 (evaluated 48 pruned sets):
   DPS: 3725 (Blizz + Glacial Spike) | Skills: +1 | Blizz Avg: 1760 | CM: -120%
   FCR: 105% (BP 105%, 8f) | FHR: 60% (BP 60%, 8f) | FRW: 50% | MF: 77%
-  Nightmare Res: F:75%(83) L:75%(77) C:75%(81) P:63%(63)
+  Nightmare Res: F:75%(123) L:75%(117) C:75%(121) P:63%(103)
   Life: 967 | Mana: 247 | Charm slots: 23
     - weapon  : Suicide Branch (Burnt Wand) (Stash Tab 3)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -43,7 +43,7 @@ Option #2 (evaluated 48 pruned sets):
 Option #3 (evaluated 48 pruned sets):
   DPS: 3725 (Blizz + Glacial Spike) | Skills: +1 | Blizz Avg: 1760 | CM: -120%
   FCR: 105% (BP 105%, 8f) | FHR: 60% (BP 60%, 8f) | FRW: 50% | MF: 77%
-  Nightmare Res: F:75%(83) L:75%(77) C:75%(81) P:63%(63)
+  Nightmare Res: F:75%(123) L:75%(117) C:75%(121) P:63%(103)
   Life: 947 | Mana: 247 | Charm slots: 23
     - weapon  : Suicide Branch (Burnt Wand) (Stash Tab 3)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -64,7 +64,7 @@ Option #3 (evaluated 48 pruned sets):
 Option #1 (evaluated 24 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%, 9f) | FHR: 65% (BP 60%, 8f) | FRW: 50% | MF: 158%
-  Nightmare Res: F:75%(75) L:75%(76) C:75%(78) P:75%(77)
+  Nightmare Res: F:75%(115) L:75%(116) C:75%(118) P:75%(117)
   Life: 958 | Mana: 267 | Charm slots: 19
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Rhyme (Kite Shield) (sork Swap)
@@ -83,7 +83,7 @@ Option #1 (evaluated 24 pruned sets):
 Option #2 (evaluated 24 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%, 9f) | FHR: 65% (BP 60%, 8f) | FRW: 30% | MF: 158%
-  Nightmare Res: F:75%(78) L:75%(76) C:75%(86) P:75%(77)
+  Nightmare Res: F:75%(118) L:75%(116) C:75%(126) P:75%(117)
   Life: 958 | Mana: 267 | Charm slots: 19
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Rhyme (Kite Shield) (sork Swap)
@@ -102,7 +102,7 @@ Option #2 (evaluated 24 pruned sets):
 Option #3 (evaluated 24 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%, 9f) | FHR: 65% (BP 60%, 8f) | FRW: 50% | MF: 158%
-  Nightmare Res: F:75%(75) L:75%(76) C:75%(75) P:75%(77)
+  Nightmare Res: F:75%(115) L:75%(116) C:75%(115) P:75%(117)
   Life: 958 | Mana: 267 | Charm slots: 16
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Rhyme (Kite Shield) (sork Swap)
@@ -126,7 +126,7 @@ Option #3 (evaluated 24 pruned sets):
 Option #1 (evaluated 1083 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 70% (BP 63%, 9f) | FHR: 60% (BP 60%, 8f) | FRW: 15% | MF: 50%
-  Nightmare Res: F:75%(79) L:75%(87) C:90%(90) P:75%(77)
+  Nightmare Res: F:75%(119) L:75%(127) C:90%(130) P:75%(117)
   Life: 1023 | Mana: 249 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -145,7 +145,7 @@ Option #1 (evaluated 1083 pruned sets):
 Option #2 (evaluated 1083 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 70% (BP 63%, 9f) | FHR: 60% (BP 60%, 8f) | FRW: 15% | MF: 50%
-  Nightmare Res: F:75%(79) L:75%(87) C:90%(90) P:75%(77)
+  Nightmare Res: F:75%(119) L:75%(127) C:90%(130) P:75%(117)
   Life: 1023 | Mana: 249 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -164,7 +164,7 @@ Option #2 (evaluated 1083 pruned sets):
 Option #3 (evaluated 1083 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 70% (BP 63%, 9f) | FHR: 60% (BP 60%, 8f) | FRW: 15% | MF: 50%
-  Nightmare Res: F:75%(79) L:75%(87) C:90%(90) P:75%(77)
+  Nightmare Res: F:75%(119) L:75%(127) C:90%(130) P:75%(117)
   Life: 1008 | Mana: 249 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)

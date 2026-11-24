@@ -129,6 +129,7 @@ def test_socket_quest_status_and_socketables(game_data_resolver: GameDataResolve
     assert any(opt.code == "r22" and not opt.owned for opt in theo_opts)
 
 
+@requires_native
 def test_pareto_prune_preserves_zero_mf_bucket() -> None:
     v_mf = SocketCandidateVariant(
         item_name="Shako",

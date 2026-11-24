@@ -15,11 +15,15 @@ typecheck:
 	uv run ty check d2savior tests
 
 .PHONY: check
-check: lint typecheck tests
+check: lint typecheck tests-no-native tests
 
 .PHONY: tests
 tests:
 	uv run pytest tests/ -v
+
+.PHONY: tests-no-native
+tests-no-native:
+	uv run python -c 'import sys, pytest; sys.modules["d2savior._native"] = None; sys.exit(pytest.main(["tests/", "-v"]))'
 
 .PHONY: test_bits
 test_bits:

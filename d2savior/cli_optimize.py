@@ -13,7 +13,7 @@ lazy from d2savior.core.d2s_struct import D2SStruct
 lazy from d2savior.core.enums import CharClass
 lazy from d2savior.core.resolver import GameDataResolver
 lazy from d2savior.core.stash import SharedStash
-lazy from d2savior.core.stats import get_current_difficulty
+lazy from d2savior.core.stats import get_current_difficulty, get_difficulty_resist_penalty
 lazy from d2savior.optimizer import (
     PALADIN_BUILD_CHOICES,
     SORC_ONLY_BUILD_CHOICES,
@@ -139,7 +139,9 @@ def _run_sorc_optimize(
     filler_name = build_sorc_dps_tables(
         primary, left_skill=left_skill, right_skill=right_skill, targets=args.targets
     ).filler_skill_name
-    diff_name = DIFFICULTY_NAMES[get_current_difficulty(primary)]
+    diff_idx = get_current_difficulty(primary)
+    diff_name = DIFFICULTY_NAMES[diff_idx]
+    resist_penalty = get_difficulty_resist_penalty(primary, diff_idx)
     for title, constraints in select_sorc_presets(
         primary,
         build=args.build,
@@ -161,6 +163,7 @@ def _run_sorc_optimize(
                 results,
                 charms,
                 diff_name=diff_name,
+                resist_penalty=resist_penalty,
                 primary_inv_loc=primary_inv_loc,
                 filler_skill_name=filler_name,
             )
@@ -189,6 +192,7 @@ def _run_paladin_optimize(
         char_name=primary.get_char_name(),
     )
     has_mode_override = overrides is not None and overrides.mode is not None
+    resist_penalty = get_difficulty_resist_penalty(primary)
     for preset in resolved_presets:
         use_probe = (
             preset.strategy == "leveling-probe"
@@ -219,6 +223,7 @@ def _run_paladin_optimize(
                 options,
                 charms,
                 diff_name=diff_name,
+                resist_penalty=resist_penalty,
                 primary_skill_name=skill_name,
                 primary_skill_base=base_skill_lvl,
                 primary_inv_loc=primary_inv_loc,
@@ -245,6 +250,7 @@ def _run_paladin_optimize(
                 charms,
                 char_class=primary.char_class,
                 diff_name=diff_name,
+                resist_penalty=resist_penalty,
                 primary_skill_name=skill_name,
                 primary_skill_base=base_skill_lvl,
                 primary_inv_loc=primary_inv_loc,

@@ -3,10 +3,31 @@
 from collections import Counter
 from collections.abc import Sequence
 
+from d2savior.core.constants import DIFFICULTY_NAMES, DIFFICULTY_RESIST_PENALTIES_EXPANSION
 from d2savior.core.enums import CharClass
 from d2savior.optimizer.native import BuildResult, CharmSpec
 from d2savior.optimizer.paladin import PALADIN_FCR_FRAMES, PALADIN_FHR_FRAMES
 from d2savior.optimizer.sorc import SORCERESS_FCR_FRAMES, SORCERESS_FHR_FRAMES
+
+_DEFAULT_DIFFICULTY_PENALTIES: frozendict[str, int] = frozendict(
+    zip(DIFFICULTY_NAMES, DIFFICULTY_RESIST_PENALTIES_EXPANSION, strict=True)
+)
+
+
+def _format_res_line(diff_name: str, res: BuildResult, resist_penalty: int | None) -> str:
+    """Format effective (capped) and pre-penalty total resistances for a build option."""
+    penalty = (
+        resist_penalty
+        if resist_penalty is not None
+        else _DEFAULT_DIFFICULTY_PENALTIES.get(diff_name, 0)
+    )
+    return (
+        f"  {diff_name} Res: "
+        f"F:{res.fr}%({res.fr_raw - penalty}) "
+        f"L:{res.lr}%({res.lr_raw - penalty}) "
+        f"C:{res.cr}%({res.cr_raw - penalty}) "
+        f"P:{res.pr}%({res.pr_raw - penalty})"
+    )
 
 
 def _charm_key(c: CharmSpec) -> tuple[object, ...]:
@@ -101,6 +122,7 @@ def _format_paladin_option_lines(
     charms: Sequence[CharmSpec],
     *,
     diff_name: str,
+    resist_penalty: int | None = None,
     primary_skill_name: str | None,
     primary_skill_base: int,
     primary_inv_loc: str | None,
@@ -151,9 +173,7 @@ def _format_paladin_option_lines(
     lines.append(
         f"  FHR: {res.fhr}% (BP {res.fhr_bp}%, {fhr_f}f) | FCR: {res.fcr}% (BP {res.fcr_bp}%, {fcr_f}f) | FRW: {res.frw}% | MF: {res.mf}%"
     )
-    lines.append(
-        f"  {diff_name} Res: F:{res.fr}%({res.fr_raw}) L:{res.lr}%({res.lr_raw}) C:{res.cr}%({res.cr_raw}) P:{res.pr}%({res.pr_raw})"
-    )
+    lines.append(_format_res_line(diff_name, res, resist_penalty))
     if res.bo_lvl > 0:
         lines.append(
             f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"
@@ -176,6 +196,7 @@ def format_build_report(
     *,
     char_class: int = int(CharClass.SORCERESS),
     diff_name: str = "Hell",
+    resist_penalty: int | None = None,
     primary_skill_name: str | None = None,
     primary_skill_base: int = 0,
     primary_inv_loc: str | None = None,
@@ -196,6 +217,7 @@ def format_build_report(
                     res,
                     charms,
                     diff_name=diff_name,
+                    resist_penalty=resist_penalty,
                     primary_skill_name=primary_skill_name,
                     primary_skill_base=primary_skill_base,
                     primary_inv_loc=primary_inv_loc,
@@ -220,9 +242,7 @@ def format_build_report(
         lines.append(
             f"  FCR: {res.fcr}% (BP {res.fcr_bp}%, {fcr_f}f) | FHR: {res.fhr}% (BP {res.fhr_bp}%, {fhr_f}f) | FRW: {res.frw}% | MF: {res.mf}%"
         )
-        lines.append(
-            f"  {diff_name} Res: F:{res.fr}%({res.fr_raw}) L:{res.lr}%({res.lr_raw}) C:{res.cr}%({res.cr_raw}) P:{res.pr}%({res.pr_raw})"
-        )
+        lines.append(_format_res_line(diff_name, res, resist_penalty))
         if res.bo_lvl > 0:
             lines.append(
                 f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"
@@ -244,6 +264,7 @@ def format_paladin_leveling_report(
     charms: Sequence[CharmSpec] = (),
     *,
     diff_name: str = "Normal",
+    resist_penalty: int | None = None,
     primary_skill_name: str | None = None,
     primary_skill_base: int = 0,
     primary_inv_loc: str | None = None,
@@ -262,6 +283,7 @@ def format_paladin_leveling_report(
                 res,
                 charms,
                 diff_name=diff_name,
+                resist_penalty=resist_penalty,
                 primary_skill_name=primary_skill_name,
                 primary_skill_base=primary_skill_base,
                 primary_inv_loc=primary_inv_loc,
