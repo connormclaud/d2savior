@@ -3584,3 +3584,122 @@ fn test_damage_charms_and_combat_stats_brute_force_parity() {
         assert_eq!(top_sc, bf[0], "mismatch for mode={mode_str}");
     }
 }
+
+#[test]
+fn test_optimize_builds_with_baseline_prunes_and_preserves_ties() {
+    let base_items = vec![
+        mk_item("Spirit Sword", "weapon", 35, 55, 2, 0, 0),
+        mk_item("Spirit Shield", "shield", 35, 55, 2, 35, 0),
+        mk_item("Lore", "helm", 0, 0, 1, 30, 0),
+        mk_item("Vipermagi", "armor", 30, 0, 1, 35, 0),
+        mk_item("Amulet", "amulet", 10, 0, 1, 30, 0),
+        mk_item("Belt", "belt", 0, 0, 0, 35, 0),
+        mk_item("Trangs", "gloves", 20, 0, 0, 35, 0),
+        mk_item("Aldurs", "boots", 0, 0, 0, 45, 0),
+        mk_item("Ring A", "ring", 10, 0, 0, 20, 0),
+        mk_item("Ring B", "ring", 10, 0, 0, 20, 0),
+    ];
+    let c = BuildConstraints {
+        min_pr: 75,
+        limit: 1,
+        ..test_constraints()
+    };
+    let baseline = optimize_builds_with_baseline(&base_items, &[], &c, None).unwrap()[0].clone();
+    assert_eq!(baseline.skills, 7);
+
+    // 1. Strictly worse candidate than baseline returns empty when floor is enforced.
+    let weaker_helm = mk_item("Peasant Crown", "helm", 0, 0, 0, 30, 0);
+    let mut weaker_pool: Vec<ItemSpec> = base_items
+        .iter()
+        .filter(|it| it.slot != "helm")
+        .cloned()
+        .collect();
+    weaker_pool.push(weaker_helm);
+    let worse_res = optimize_builds_with_baseline(&weaker_pool, &[], &c, Some(&baseline)).unwrap();
+    assert!(worse_res.is_empty());
+
+    // 2. Strictly better candidate than baseline is returned.
+    let better_helm = mk_item("Shako", "helm", 0, 0, 2, 30, 0);
+    let mut better_pool: Vec<ItemSpec> = base_items
+        .iter()
+        .filter(|it| it.slot != "helm")
+        .cloned()
+        .collect();
+    better_pool.push(better_helm);
+    let better_res = optimize_builds_with_baseline(&better_pool, &[], &c, Some(&baseline)).unwrap();
+    assert_eq!(better_res.len(), 1);
+    assert_eq!(better_res[0].skills, 8);
+
+    // 3. Candidate tying BuildScore (overcap resist beyond 75) is still accepted so Python's extra key can rank it.
+    let mut tie_helm = mk_item("Lore [+Ral]", "helm", 0, 0, 1, 30, 0);
+    tie_helm.fr = 60;
+    let mut tie_pool: Vec<ItemSpec> = base_items
+        .iter()
+        .filter(|it| it.slot != "helm")
+        .cloned()
+        .collect();
+    tie_pool.push(tie_helm);
+    let tie_res = optimize_builds_with_baseline(&tie_pool, &[], &c, Some(&baseline)).unwrap();
+    assert_eq!(tie_res.len(), 1);
+    assert!(tie_res[0].fr_raw > baseline.fr_raw);
+
+    // 4. Cold-sunder baseline relaxed below strict min_cr allows strict unlock on pass 1 and falls back with floor on pass 2.
+    let sunder = CharmSpec {
+        name: "Cold Rupture".into(),
+        size: 3,
+        cold_sunder: true,
+        cr: -120,
+        ..Default::default()
+    };
+    let c_cold = BuildConstraints {
+        base_hell_res: -100,
+        min_cr: 75,
+        min_pr: 75,
+        limit: 1,
+        ..test_constraints()
+    };
+    // Baseline CR = 285 - 100 - 120 = 65 < 75, so it falls back to relaxed CR.
+    let relaxed_base =
+        optimize_builds_with_baseline(&base_items, std::slice::from_ref(&sunder), &c_cold, None)
+            .unwrap()[0]
+            .clone();
+    assert!(relaxed_base.cr < c_cold.min_cr);
+
+    // A +35 CR helm (+5 CR over Lore) gives CR = 70 (< 75) and ties relaxed score -> pass 2 returns it.
+    let mut um_helm = mk_item("Lore [+Ral-Cold]", "helm", 0, 0, 1, 30, 0);
+    um_helm.cr = 35;
+    let mut um_pool: Vec<ItemSpec> = base_items
+        .iter()
+        .filter(|it| it.slot != "helm")
+        .cloned()
+        .collect();
+    um_pool.push(um_helm);
+    let um_res = optimize_builds_with_baseline(
+        &um_pool,
+        std::slice::from_ref(&sunder),
+        &c_cold,
+        Some(&relaxed_base),
+    )
+    .unwrap();
+    assert_eq!(um_res.len(), 1);
+    assert!(um_res[0].cr > relaxed_base.cr);
+
+    // Huge CR unlock on helm meets strict min_cr = 75 -> pass 1 succeeds even though strict_floor was None.
+    let mut strict_unlock_helm = mk_item("Kira's", "helm", 0, 0, 0, 30, 0);
+    strict_unlock_helm.cr = 100;
+    let mut unlock_pool: Vec<ItemSpec> = base_items
+        .iter()
+        .filter(|it| it.slot != "helm")
+        .cloned()
+        .collect();
+    unlock_pool.push(strict_unlock_helm);
+    let unlock_res = optimize_builds_with_baseline(
+        &unlock_pool,
+        std::slice::from_ref(&sunder),
+        &c_cold,
+        Some(&relaxed_base),
+    )
+    .unwrap();
+    assert_eq!(unlock_res.len(), 1);
+    assert!(unlock_res[0].cr >= 75);
+}

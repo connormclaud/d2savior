@@ -9,9 +9,10 @@ use pyo3::prelude::*;
 use crate::charms::CharmSolver;
 use crate::eval::{eval_build_summary, res_caps, EvalSummary};
 use crate::types::{
-    compute_effective_gear_stats_and_reqs, eff_req, BuildConstraints, BuildResult, CharClass,
-    CharmSpec, HandWeapon, ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, TargetType,
-    WeaponClass, BASE_MAX_RES, HARD_MAX_PDR_PCT,
+    compute_effective_gear_stats, compute_effective_gear_stats_and_reqs, eff_req,
+    equipped_hand_weapon, BuildConstraints, BuildResult, CharClass, CharmSpec, HandWeapon,
+    ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, TargetType, WeaponClass,
+    BASE_MAX_RES, HARD_MAX_PDR_PCT,
 };
 
 const SINGLE_SLOTS: [&str; 6] = ["helm", "armor", "amulet", "belt", "gloves", "boots"];
@@ -106,52 +107,70 @@ fn build_sig(res: &BuildResult, offense: OffenseProfile) -> BuildSig {
     )
 }
 
+fn combine_cut<T: Ord>(a: Option<T>, b: Option<T>) -> Option<T> {
+    match (a, b) {
+        (Some(x), Some(y)) => Some(x.max(y)),
+        (x, y) => x.or(y),
+    }
+}
+
 /// Deduplicating result collector bounded to `limit` distinct signatures when `limit > 0`.
 struct TopResults {
     limit: usize,
     seq: usize,
+    score_floor: Option<BuildScore>,
     entries: Vec<(BuildScore, usize, BuildSig, BuildResult)>,
 }
 
 impl TopResults {
-    fn new(limit: usize) -> Self {
+    fn with_floor(limit: usize, score_floor: Option<BuildScore>) -> Self {
         Self {
             limit,
             seq: 0,
+            score_floor,
             entries: Vec::new(),
         }
     }
 
     fn would_accept(&self, score: BuildScore) -> bool {
+        if self.score_floor.is_some_and(|floor| score < floor) {
+            return false;
+        }
         self.limit == 0
             || self.entries.len() < self.limit
             || self.entries.last().is_some_and(|worst| score > worst.0)
     }
 
     fn nth_primary(&self) -> Option<i32> {
-        if self.limit > 0 && self.entries.len() >= self.limit {
+        let entry_cut = if self.limit > 0 && self.entries.len() >= self.limit {
             self.entries.last().map(|e| e.0.primary)
         } else {
             None
-        }
+        };
+        combine_cut(entry_cut, self.score_floor.map(|f| f.primary))
     }
 
     fn nth_top2(&self) -> Option<(i32, i32)> {
-        if self.limit > 0 && self.entries.len() >= self.limit {
+        let entry_cut = if self.limit > 0 && self.entries.len() >= self.limit {
             self.entries.last().map(|e| (e.0.primary, e.0.secondary))
         } else {
             None
-        }
+        };
+        combine_cut(entry_cut, self.score_floor.map(|f| (f.primary, f.secondary)))
     }
 
     fn nth_top3(&self) -> Option<(i32, i32, i32)> {
-        if self.limit > 0 && self.entries.len() >= self.limit {
+        let entry_cut = if self.limit > 0 && self.entries.len() >= self.limit {
             self.entries
                 .last()
                 .map(|e| (e.0.primary, e.0.secondary, e.0.tertiary))
         } else {
             None
-        }
+        };
+        combine_cut(
+            entry_cut,
+            self.score_floor.map(|f| (f.primary, f.secondary, f.tertiary)),
+        )
     }
 
     fn push(&mut self, score: BuildScore, res: BuildResult, offense: OffenseProfile) {
@@ -1339,11 +1358,31 @@ impl<'a> SearchState<'a> {
     }
 }
 
+fn score_of_result(
+    res: &BuildResult,
+    mode: SearchMode,
+    offense: OffenseProfile,
+    c: &BuildConstraints,
+) -> BuildScore {
+    let item_refs: Vec<&ItemSpec> = res.items.iter().collect();
+    let charm_refs: Vec<&CharmSpec> = res.charms.iter().collect();
+    let (gear, all_sk_non_wep) = compute_effective_gear_stats(&item_refs);
+    let hw = equipped_hand_weapon(&item_refs);
+    let sum = eval_build_summary(gear, all_sk_non_wep, hw, &charm_refs, c);
+    let mut score = score_eval_summary(mode, offense, &sum, c);
+    score.locality = item_refs
+        .iter()
+        .map(|it| item_locality_score(&it.loc))
+        .sum();
+    score
+}
+
 fn run_search_pass(
     pool: &SearchPool<'_>,
     c: &BuildConstraints,
     mode: SearchMode,
     offense: OffenseProfile,
+    score_floor: Option<BuildScore>,
 ) -> (Vec<BuildResult>, bool) {
     let charm_solver = CharmSolver::new(pool.raw_pool, c, mode);
     let has_cold_sunder = charm_solver.has_cold_sunder();
@@ -1405,7 +1444,7 @@ fn run_search_pass(
         chosen_hand: 0,
         chosen_slots: Vec::with_capacity(pool.groups.len()),
         evals: 0,
-        top_results: TopResults::new(c.limit),
+        top_results: TopResults::with_floor(c.limit, score_floor),
     };
 
     state.dfs(
@@ -1428,6 +1467,15 @@ pub fn optimize_builds_core(
     items: &[ItemSpec],
     charms: &[CharmSpec],
     c: &BuildConstraints,
+) -> Result<Vec<BuildResult>, String> {
+    optimize_builds_with_baseline(items, charms, c, None)
+}
+
+pub fn optimize_builds_with_baseline(
+    items: &[ItemSpec],
+    charms: &[CharmSpec],
+    c: &BuildConstraints,
+    baseline: Option<&BuildResult>,
 ) -> Result<Vec<BuildResult>, String> {
     let class = CharClass::from_id(c.char_class)?;
     let offense = OffenseProfile::parse(&c.offense, class)?;
@@ -1570,11 +1618,19 @@ pub fn optimize_builds_core(
         global_sets: &global_sets,
         raw_pool: &raw_pool,
     };
-    let (results, has_cold_sunder) = run_search_pass(&pool, c, mode, offense);
-    if results.is_empty() && has_cold_sunder && c.min_cr > RELAXED_MIN_CR {
+    let strict_floor = baseline
+        .filter(|b| b.cr >= c.min_cr)
+        .map(|b| score_of_result(b, mode, offense, c));
+    let (results, has_cold_sunder) = run_search_pass(&pool, c, mode, offense, strict_floor);
+    if results.is_empty()
+        && strict_floor.is_none()
+        && has_cold_sunder
+        && c.min_cr > RELAXED_MIN_CR
+    {
         let mut relaxed = c.clone();
         relaxed.min_cr = RELAXED_MIN_CR;
-        return Ok(run_search_pass(&pool, &relaxed, mode, offense).0);
+        let relaxed_floor = baseline.map(|b| score_of_result(b, mode, offense, &relaxed));
+        return Ok(run_search_pass(&pool, &relaxed, mode, offense, relaxed_floor).0);
     }
     Ok(results)
 }
@@ -1582,14 +1638,18 @@ pub fn optimize_builds_core(
 /// Find top-ranked builds satisfying `constraints` using branch-and-bound DFS in Rust.
 #[cfg(feature = "python")]
 #[pyfunction]
+#[pyo3(signature = (items, charms, constraints, baseline = None))]
 pub fn optimize_builds(
     py: Python<'_>,
     items: Vec<ItemSpec>,
     charms: Vec<CharmSpec>,
     constraints: BuildConstraints,
+    baseline: Option<BuildResult>,
 ) -> PyResult<Vec<BuildResult>> {
-    py.allow_threads(|| optimize_builds_core(&items, &charms, &constraints))
-        .map_err(PyValueError::new_err)
+    py.allow_threads(|| {
+        optimize_builds_with_baseline(&items, &charms, &constraints, baseline.as_ref())
+    })
+    .map_err(PyValueError::new_err)
 }
 
 #[cfg(test)]

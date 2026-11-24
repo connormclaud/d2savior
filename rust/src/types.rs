@@ -606,6 +606,7 @@ impl OffenseProfile {
             )
         };
 
+        let psn_exp = (2.0 * rate).max(1.0);
         let mut fast = FastLeafDps {
             rate,
             ias_bp,
@@ -624,6 +625,11 @@ impl OffenseProfile {
             ow_base_dps,
             pierce_p,
             max_extra_pierce,
+            psn_exp,
+            const_decrep_mult: 1.0,
+            const_pierce_mult: 1.0,
+            const_ow_dps: 0.0,
+            const_psn_prob: 0.0,
             targets,
             splash_fire: hand.splash_fire,
             phys_2x_0: hand.phys_2x + leaf.flat_phys_2x,
@@ -636,6 +642,31 @@ impl OffenseProfile {
             base_aura_pulse_dps: d_aura_pulse * targets,
         };
         fast.cth_is_const = itd_active || eff_dr <= 0.0 || fast.cth_for_add_ar(0) >= 0.95;
+        if fast.cth_is_const {
+            let cth = 0.95_f64;
+            fast.const_decrep_mult = if p_dec > 0.0 {
+                1.0 + 0.5 * (1.0 - (1.0 - p_dec).powf((8.0 * rate * cth).max(1.0)))
+            } else {
+                1.0
+            };
+            fast.const_pierce_mult = if max_extra_pierce > 0 && pierce_p > 0.0 {
+                let mut eff_m = 1.0;
+                let mut eff_pow = 1.0;
+                for _ in 0..max_extra_pierce {
+                    eff_pow *= cth * pierce_p;
+                    eff_m += eff_pow;
+                }
+                eff_m
+            } else {
+                1.0
+            };
+            fast.const_ow_dps = if p_ow > 0.0 {
+                ow_base_dps * (1.0 - (1.0 - p_ow).powf((8.0 * rate * cth).max(1.0)))
+            } else {
+                0.0
+            };
+            fast.const_psn_prob = 1.0 - (1.0 - cth).powf(fast.psn_exp);
+        }
         fast
     }
 
@@ -670,6 +701,11 @@ pub(crate) struct FastLeafDps {
     pub(crate) ow_base_dps: f64,
     pub(crate) pierce_p: f64,
     pub(crate) max_extra_pierce: i32,
+    pub(crate) psn_exp: f64,
+    pub(crate) const_decrep_mult: f64,
+    pub(crate) const_pierce_mult: f64,
+    pub(crate) const_ow_dps: f64,
+    pub(crate) const_psn_prob: f64,
     pub(crate) targets: f64,
     pub(crate) splash_fire: bool,
     pub(crate) phys_2x_0: i32,
@@ -720,15 +756,38 @@ impl FastLeafDps {
         add_fire_2x: i32,
         add_psn_2x: i32,
     ) -> EvalCore {
-        let cth = if self.cth_is_const {
-            0.95
+        let (cth, decrep_mult, pierce_mult, d_ow_dps) = if self.cth_is_const {
+            (
+                0.95,
+                self.const_decrep_mult,
+                self.const_pierce_mult,
+                self.const_ow_dps,
+            )
         } else {
-            self.cth_for_add_ar(add_ar)
-        };
-        let decrep_mult = if self.p_dec > 0.0 {
-            1.0 + 0.5 * (1.0 - (1.0 - self.p_dec).powf((8.0 * self.rate * cth).max(1.0)))
-        } else {
-            1.0
+            let cth = self.cth_for_add_ar(add_ar);
+            let decrep_mult = if self.p_dec > 0.0 {
+                1.0 + 0.5 * (1.0 - (1.0 - self.p_dec).powf((8.0 * self.rate * cth).max(1.0)))
+            } else {
+                1.0
+            };
+            let pierce_mult = if self.max_extra_pierce > 0 && self.pierce_p > 0.0 {
+                let mut eff_m = 1.0;
+                let mut eff_pow = 1.0;
+                for _ in 0..self.max_extra_pierce {
+                    eff_pow *= cth * self.pierce_p;
+                    eff_m += eff_pow;
+                }
+                eff_m
+            } else {
+                1.0
+            };
+            let d_ow_dps = if self.p_ow > 0.0 {
+                self.ow_base_dps
+                    * (1.0 - (1.0 - self.p_ow).powf((8.0 * self.rate * cth).max(1.0)))
+            } else {
+                0.0
+            };
+            (cth, decrep_mult, pierce_mult, d_ow_dps)
         };
         let phys_avg = (self.phys_2x_0 + add_phys_2x).max(0) as f64 / 2.0;
         let d_phys = phys_avg * self.phys_scale * decrep_mult;
@@ -745,25 +804,13 @@ impl FastLeafDps {
                 self.base_auto_hit,
             )
         };
-        let pierce_mult = if self.max_extra_pierce > 0 && self.pierce_p > 0.0 {
-            let mut eff_m = 1.0;
-            let mut eff_pow = 1.0;
-            for _ in 0..self.max_extra_pierce {
-                eff_pow *= cth * self.pierce_p;
-                eff_m += eff_pow;
-            }
-            eff_m
-        } else {
-            1.0
-        };
-        let d_ow_dps = if self.p_ow > 0.0 {
-            self.ow_base_dps * (1.0 - (1.0 - self.p_ow).powf((8.0 * self.rate * cth).max(1.0)))
-        } else {
-            0.0
-        };
         let psn_base = ((self.psn_2x_0 + add_psn_2x).max(0) + self.ctc_venom_2x) as f64 / 2.0;
         let d_psn_dps = if psn_base > 0.0 {
-            psn_base * (1.0 - (1.0 - cth).powf((2.0 * self.rate).max(1.0)))
+            if self.cth_is_const {
+                psn_base * self.const_psn_prob
+            } else {
+                psn_base * (1.0 - (1.0 - cth).powf(self.psn_exp))
+            }
         } else {
             0.0
         };

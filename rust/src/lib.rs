@@ -11,7 +11,7 @@ pub use eval::{class_breakpoints, evaluate_build};
 pub use eval::{blizzard_damage, blizzard_damage_with_base, evaluate_build_core};
 #[cfg(feature = "python")]
 pub use search::optimize_builds;
-pub use search::optimize_builds_core;
+pub use search::{optimize_builds_core, optimize_builds_with_baseline};
 pub use types::{BuildConstraints, BuildResult, CharmSpec, ItemSpec};
 
 #[cfg(feature = "python")]

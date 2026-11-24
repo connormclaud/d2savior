@@ -1,8 +1,11 @@
 """Larzuk Socket Quest optimizer across gear socketing and runeword bases."""
 
+import os
 from collections import Counter
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from operator import attrgetter
 from typing import Any, cast
 
 from d2savior.core.constants import DIFFICULTY_NAMES
@@ -674,40 +677,68 @@ def _collect_eligible_items(
     return sorted(dedup.values(), key=lambda c: (c.locality_rank, c.base_name))
 
 
+_SPEC_STAT_GETTER = attrgetter(*_COMPARE_POS_STATS)
+
+
 def _spec_stat_vec(spec: ItemSpec) -> tuple[int, ...]:
-    return tuple(int(getattr(spec, attr)) for attr in _COMPARE_POS_STATS)
+    return cast(tuple[int, ...], _SPEC_STAT_GETTER(spec))
+
+
+def _vec_dominates(
+    mf_a: bool,
+    va: tuple[int, ...],
+    req_a: tuple[int, int],
+    mf_b: bool,
+    vb: tuple[int, ...],
+    req_b: tuple[int, int],
+) -> bool:
+    if mf_a != mf_b or req_a[0] > req_b[0] or req_a[1] > req_b[1]:
+        return False
+    if va == vb and req_a == req_b:
+        return False
+    return all(x >= y for x, y in zip(va, vb, strict=True))
 
 
 def _spec_dominates(a: ItemSpec, b: ItemSpec) -> bool:
     """Return True if `a` strictly dominates `b` within the same MF-presence bucket."""
-    if (a.mf > 0) != (b.mf > 0):
-        return False
-    if a.req_str > b.req_str or a.req_dex > b.req_dex:
-        return False
-    va = _spec_stat_vec(a)
-    vb = _spec_stat_vec(b)
-    if va == vb and a.req_str == b.req_str and a.req_dex == b.req_dex:
-        return False
-    return all(x >= y for x, y in zip(va, vb, strict=True))
+    return _vec_dominates(
+        a.mf > 0,
+        _spec_stat_vec(a),
+        (a.req_str, a.req_dex),
+        b.mf > 0,
+        _spec_stat_vec(b),
+        (b.req_str, b.req_dex),
+    )
 
 
 def _pareto_prune_variants(variants: list[SocketCandidateVariant]) -> list[SocketCandidateVariant]:
     """Prune strictly dominated variants, keeping owned options ahead of theoretical ties."""
     ordered = sorted(variants, key=lambda v: (not v.owned, v.spec.req_str, v.spec.req_dex))
-    kept: list[SocketCandidateVariant] = []
+    kept: list[tuple[SocketCandidateVariant, bool, tuple[int, ...], tuple[int, int]]] = []
     seen_identical: set[tuple[bool, tuple[int, ...], int, int]] = set()
     for v in ordered:
-        sig = (v.spec.mf > 0, _spec_stat_vec(v.spec), v.spec.req_str, v.spec.req_dex)
+        mf_flag = v.spec.mf > 0
+        vec = _spec_stat_vec(v.spec)
+        reqs = (v.spec.req_str, v.spec.req_dex)
+        sig = (mf_flag, vec, reqs[0], reqs[1])
         if sig in seen_identical:
             continue
         seen_identical.add(sig)
-        if any(_spec_dominates(k.spec, v.spec) and (k.owned or not v.owned) for k in kept):
+        if any(
+            _vec_dominates(kmf, kvec, kreqs, mf_flag, vec, reqs) and (kv.owned or not v.owned)
+            for kv, kmf, kvec, kreqs in kept
+        ):
             continue
         kept = [
-            k for k in kept if not (_spec_dominates(v.spec, k.spec) and (v.owned or not k.owned))
+            entry
+            for entry in kept
+            if not (
+                _vec_dominates(mf_flag, vec, reqs, entry[1], entry[2], entry[3])
+                and (v.owned or not entry[0].owned)
+            )
         ]
-        kept.append(v)
-    return kept
+        kept.append((v, mf_flag, vec, reqs))
+    return [kv for kv, _, _, _ in kept]
 
 
 def _runeword_matches_item(
@@ -1053,6 +1084,44 @@ def _clone_constraints_limit1(c: BuildConstraints) -> BuildConstraints:
     )
 
 
+_EXCLUDED_SLOTS_FOR_CAND: dict[str, frozenset[str]] = {
+    "weapon": frozenset({"weapon", "weapon2h"}),
+    "shield": frozenset({"shield", "weapon2h"}),
+    "weapon2h": frozenset({"weapon", "shield", "weapon2h"}),
+}
+
+
+def _evaluate_candidate_groups(
+    base_items: Sequence[ItemSpec],
+    charms: list[CharmSpec],
+    c1: BuildConstraints,
+    baseline: BuildResult | None,
+    active_groups: Sequence[tuple[_CandidateItem, list[SocketCandidateVariant]]],
+) -> list[list[BuildResult]]:
+    """Run Rust optimization per candidate group, restricting the candidate's slot and sharing threads."""
+    filtered_base_by_slot: dict[str, list[ItemSpec]] = {}
+    for cand, _ in active_groups:
+        if cand.slot not in filtered_base_by_slot:
+            drop = _EXCLUDED_SLOTS_FOR_CAND.get(cand.slot, frozenset({cand.slot}))
+            filtered_base_by_slot[cand.slot] = [it for it in base_items if it.slot not in drop]
+
+    def _eval_group(
+        group: tuple[_CandidateItem, list[SocketCandidateVariant]],
+    ) -> list[BuildResult]:
+        cand_item, group_vars = group
+        trial_items = [
+            *filtered_base_by_slot[cand_item.slot],
+            *(v.spec for v in group_vars),
+        ]
+        return optimize_builds(trial_items, charms, c1, baseline)
+
+    if len(active_groups) <= 1:
+        return [_eval_group(group) for group in active_groups]
+    max_workers = min(len(active_groups), os.cpu_count() or 4)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        return list(executor.map(_eval_group, active_groups))
+
+
 def evaluate_socket_candidates_for_preset(
     title: str,
     constraints: BuildConstraints,
@@ -1065,7 +1134,8 @@ def evaluate_socket_candidates_for_preset(
 ) -> PresetSocketReport:
     """Evaluate every candidate item's socketed variants for a single build preset."""
     c1 = _clone_constraints_limit1(constraints)
-    base_res_list = optimize_builds(list(base_items), list(charms), c1)
+    charms_list = list(charms)
+    base_res_list = optimize_builds(list(base_items), charms_list, c1)
     baseline = base_res_list[0] if base_res_list else None
 
     mode = c1.mode
@@ -1082,14 +1152,13 @@ def evaluate_socket_candidates_for_preset(
     )
     base_extra = _extra_improvement_key(baseline) if baseline is not None else ()
 
+    active_groups = [(cand, variants) for cand, variants in candidate_groups if variants]
+    group_results = _evaluate_candidate_groups(base_items, charms_list, c1, baseline, active_groups)
+
     wins: list[
         tuple[tuple[int, tuple[int, ...], tuple[int, ...], int, int], SocketUpgradeResult]
     ] = []
-    for cand, variants in candidate_groups:
-        if not variants:
-            continue
-        trial_items = [*base_items, *(v.spec for v in variants)]
-        res_list = optimize_builds(trial_items, list(charms), c1)
+    for (cand, variants), res_list in zip(active_groups, group_results, strict=True):
         if not res_list:
             continue
         res = res_list[0]

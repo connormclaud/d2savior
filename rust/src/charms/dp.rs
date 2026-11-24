@@ -336,24 +336,38 @@ pub(super) fn sorted_ub_entries(
     out
 }
 
+#[derive(Clone, Copy, Default)]
+pub(super) struct PureDpsState {
+    pub(super) ar: i32,
+    pub(super) phys_2x: i32,
+    pub(super) elem_2x: i32,
+    pub(super) fire_2x: i32,
+    pub(super) psn_2x: i32,
+    pub(super) picks: u64,
+}
+
 #[derive(Default, Clone)]
-pub(super) struct PureDpsGroup {
+struct PureDpsGroup {
     size: i32,
     flat_phys_2x: i32,
     flat_fire_2x: i32,
     flat_elem_2x: i32,
     psn_dps_2x: i32,
-    pub(super) prefix_ar: Vec<i32>,
-    pub(super) prefix_mask: Vec<u64>,
+    prefix_ar: Vec<i32>,
+    prefix_mask: Vec<u64>,
 }
 
 #[derive(Default, Clone)]
 pub(super) struct PureDpsSolver {
     pub(super) item_indices: Vec<usize>,
-    pub(super) groups: Vec<PureDpsGroup>,
+    pareto_by_slot: Vec<Vec<PureDpsState>>,
 }
 
 impl PureDpsSolver {
+    pub(super) fn is_empty(&self) -> bool {
+        self.item_indices.is_empty()
+    }
+
     pub(super) fn build<'a>(
         pool: &[&'a CharmSpec],
         pure_indices: &[usize],
@@ -420,157 +434,63 @@ impl PureDpsSolver {
                 prefix_mask,
             });
         }
-        (
-            Self {
-                item_indices,
-                groups,
-            },
-            ub_items,
-            overflow,
-        )
-    }
 
-    pub(super) fn solve_for_leaf(&self, fast: &FastLeafDps, max_s: usize) -> Vec<(f64, u64)> {
-        let base_dps = fast.eval_dps(0, 0, 0, 0, 0);
-        if self.groups.is_empty() || max_s == 0 {
-            return vec![(base_dps, 0); max_s + 1];
-        }
+        let pareto_by_slot = if groups.is_empty() || max_slots <= 0 {
+            Vec::new()
+        } else {
+            let cap = max_slots as usize;
+            let mut dp: Vec<Vec<PureDpsState>> = vec![Vec::new(); cap + 1];
+            dp[0].push(PureDpsState::default());
 
-        #[derive(Clone, Copy, Default)]
-        struct PureState {
-            ar: i32,
-            phys_2x: i32,
-            elem_2x: i32,
-            fire_2x: i32,
-            psn_2x: i32,
-            picks: u64,
-            direct: f64,
-            auto: f64,
-        }
-
-        let mut dp: Vec<Vec<PureState>> = vec![Vec::new(); max_s + 1];
-        dp[0].push(PureState::default());
-
-        let direct_of = |phys_2x: i32, elem_2x: i32, fire_2x: i32| -> (f64, f64) {
-            let d = (phys_2x as f64) * 0.5 * fast.phys_scale
-                + (elem_2x as f64) * 0.5
-                + if fast.splash_fire {
-                    0.0
-                } else {
-                    (fire_2x as f64) * 0.5
-                };
-            let a = if fast.splash_fire {
-                (fire_2x as f64) * 0.5 * fast.targets
-            } else {
-                0.0
-            };
-            (d, a)
-        };
-
-        let non_neg_base = fast.phys_2x_0 >= 0
-            && fast.flat_elem_2x_0 >= 0
-            && fast.flat_fire_2x_0 >= 0
-            && fast.psn_2x_0 >= 0;
-
-        for g in &self.groups {
-            let g_sz = g.size as usize;
-            let max_k = g.prefix_ar.len() - 1;
-            let mut touched = vec![false; max_s + 1];
-            for s in (0..=max_s).rev() {
-                if dp[s].is_empty() {
-                    continue;
-                }
-                let src_len = dp[s].len();
-                for k in 1..=max_k {
-                    let ns = s + k * g_sz;
-                    if ns > max_s {
-                        break;
+            for g in &groups {
+                let g_sz = g.size as usize;
+                let max_k = g.prefix_ar.len() - 1;
+                let mut touched = vec![false; cap + 1];
+                for s in (0..=cap).rev() {
+                    if dp[s].is_empty() {
+                        continue;
                     }
-                    touched[ns] = true;
-                    let d_ar = g.prefix_ar[k];
-                    let d_phys = (k as i32) * g.flat_phys_2x;
-                    let d_fire = (k as i32) * g.flat_fire_2x;
-                    let d_elem = (k as i32) * g.flat_elem_2x;
-                    let d_psn = (k as i32) * g.psn_dps_2x;
-                    let mask = g.prefix_mask[k];
-                    let (dd, da) = direct_of(d_phys, d_elem, d_fire);
-                    for i in 0..src_len {
-                        let st = dp[s][i];
-                        dp[ns].push(PureState {
-                            ar: st.ar + d_ar,
-                            phys_2x: st.phys_2x + d_phys,
-                            elem_2x: st.elem_2x + d_elem,
-                            fire_2x: st.fire_2x + d_fire,
-                            psn_2x: st.psn_2x + d_psn,
-                            picks: st.picks | mask,
-                            direct: st.direct + dd,
-                            auto: st.auto + da,
-                        });
-                    }
-                }
-            }
-
-            for (ns, list) in dp.iter_mut().enumerate() {
-                if !touched[ns] || list.len() <= 1 {
-                    continue;
-                }
-                if fast.cth_is_const && non_neg_base {
-                    let mut best_i = 0;
-                    let mut best_v = fast.eval_dps(
-                        list[0].ar,
-                        list[0].phys_2x,
-                        list[0].elem_2x,
-                        list[0].fire_2x,
-                        list[0].psn_2x,
-                    );
-                    for (i, st) in list.iter().enumerate().skip(1) {
-                        let v = fast.eval_dps(st.ar, st.phys_2x, st.elem_2x, st.fire_2x, st.psn_2x);
-                        if v > best_v {
-                            best_v = v;
-                            best_i = i;
+                    let src_len = dp[s].len();
+                    for k in 1..=max_k {
+                        let ns = s + k * g_sz;
+                        if ns > cap {
+                            break;
+                        }
+                        touched[ns] = true;
+                        let d_ar = g.prefix_ar[k];
+                        let d_phys = (k as i32) * g.flat_phys_2x;
+                        let d_fire = (k as i32) * g.flat_fire_2x;
+                        let d_elem = (k as i32) * g.flat_elem_2x;
+                        let d_psn = (k as i32) * g.psn_dps_2x;
+                        let mask = g.prefix_mask[k];
+                        for i in 0..src_len {
+                            let st = dp[s][i];
+                            dp[ns].push(PureDpsState {
+                                ar: st.ar + d_ar,
+                                phys_2x: st.phys_2x + d_phys,
+                                elem_2x: st.elem_2x + d_elem,
+                                fire_2x: st.fire_2x + d_fire,
+                                psn_2x: st.psn_2x + d_psn,
+                                picks: st.picks | mask,
+                            });
                         }
                     }
-                    let best_st = list[best_i];
-                    list.clear();
-                    list.push(best_st);
-                } else if fast.p_dec == 0.0 && non_neg_base {
-                    list.sort_by(|a, b| {
-                        b.ar.cmp(&a.ar)
-                            .then_with(|| b.direct.total_cmp(&a.direct))
-                            .then_with(|| b.auto.total_cmp(&a.auto))
-                            .then_with(|| b.psn_2x.cmp(&a.psn_2x))
-                    });
-                    let mut kept: Vec<PureState> = Vec::with_capacity(list.len());
-                    'outer: for &cand in list.iter() {
-                        for &prev in &kept {
-                            let same_or_better_direct = (prev.phys_2x >= cand.phys_2x
-                                && prev.elem_2x >= cand.elem_2x
-                                && (fast.splash_fire || prev.fire_2x >= cand.fire_2x))
-                                || prev.direct >= cand.direct + 1e-9;
-                            let same_or_better_auto = !fast.splash_fire
-                                || prev.fire_2x >= cand.fire_2x
-                                || prev.auto >= cand.auto + 1e-9;
-                            if prev.ar >= cand.ar
-                                && prev.psn_2x >= cand.psn_2x
-                                && same_or_better_direct
-                                && same_or_better_auto
-                            {
-                                continue 'outer;
-                            }
-                        }
-                        kept.push(cand);
+                }
+
+                for (ns, list) in dp.iter_mut().enumerate() {
+                    if !touched[ns] || list.len() <= 1 {
+                        continue;
                     }
-                    *list = kept;
-                } else {
                     list.sort_by(|a, b| {
                         b.ar.cmp(&a.ar)
                             .then_with(|| b.phys_2x.cmp(&a.phys_2x))
                             .then_with(|| b.elem_2x.cmp(&a.elem_2x))
                             .then_with(|| b.fire_2x.cmp(&a.fire_2x))
                             .then_with(|| b.psn_2x.cmp(&a.psn_2x))
+                            .then_with(|| a.picks.cmp(&b.picks))
                     });
-                    let mut kept: Vec<PureState> = Vec::with_capacity(list.len());
-                    'outer2: for &cand in list.iter() {
+                    let mut kept: Vec<PureDpsState> = Vec::with_capacity(list.len());
+                    'outer: for &cand in list.iter() {
                         for &prev in &kept {
                             if prev.ar >= cand.ar
                                 && prev.phys_2x >= cand.phys_2x
@@ -578,7 +498,7 @@ impl PureDpsSolver {
                                 && prev.fire_2x >= cand.fire_2x
                                 && prev.psn_2x >= cand.psn_2x
                             {
-                                continue 'outer2;
+                                continue 'outer;
                             }
                         }
                         kept.push(cand);
@@ -586,12 +506,59 @@ impl PureDpsSolver {
                     *list = kept;
                 }
             }
-        }
 
-        let mut out = Vec::with_capacity(max_s + 1);
-        for (s, list) in dp.iter().enumerate() {
-            let mut best = if s > 0 { out[s - 1] } else { (base_dps, 0) };
-            for st in list {
+            let mut frontier: Vec<PureDpsState> = vec![PureDpsState::default()];
+            for list in dp.iter_mut().skip(1) {
+                list.retain(|cand| {
+                    !frontier.iter().any(|prev| {
+                        prev.ar >= cand.ar
+                            && prev.phys_2x >= cand.phys_2x
+                            && prev.elem_2x >= cand.elem_2x
+                            && prev.fire_2x >= cand.fire_2x
+                            && prev.psn_2x >= cand.psn_2x
+                    })
+                });
+                for &st in list.iter() {
+                    frontier.retain(|f| {
+                        !(st.ar >= f.ar
+                            && st.phys_2x >= f.phys_2x
+                            && st.elem_2x >= f.elem_2x
+                            && st.fire_2x >= f.fire_2x
+                            && st.psn_2x >= f.psn_2x)
+                    });
+                    frontier.push(st);
+                }
+            }
+            dp
+        };
+
+        (
+            Self {
+                item_indices,
+                pareto_by_slot,
+            },
+            ub_items,
+            overflow,
+        )
+    }
+
+    pub(super) fn solve_for_leaf_into(
+        &self,
+        fast: &FastLeafDps,
+        max_s: usize,
+        out: &mut Vec<(f64, u64)>,
+    ) {
+        out.clear();
+        let base_dps = fast.eval_dps(0, 0, 0, 0, 0);
+        if self.pareto_by_slot.is_empty() || max_s == 0 {
+            out.resize(max_s + 1, (base_dps, 0));
+            return;
+        }
+        out.push((base_dps, 0));
+        let lim = max_s.min(self.pareto_by_slot.len() - 1);
+        for s in 1..=lim {
+            let mut best = out[s - 1];
+            for st in &self.pareto_by_slot[s] {
                 let v = fast.eval_dps(st.ar, st.phys_2x, st.elem_2x, st.fire_2x, st.psn_2x);
                 if v > best.0 {
                     best = (v, st.picks);
@@ -599,6 +566,16 @@ impl PureDpsSolver {
             }
             out.push(best);
         }
+        if max_s > lim {
+            let last = *out.last().unwrap_or(&(base_dps, 0));
+            out.resize(max_s + 1, last);
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn solve_for_leaf(&self, fast: &FastLeafDps, max_s: usize) -> Vec<(f64, u64)> {
+        let mut out = Vec::with_capacity(max_s + 1);
+        self.solve_for_leaf_into(fast, max_s, &mut out);
         out
     }
 }

@@ -462,5 +462,6 @@ def optimize_builds(
     items: list[ItemSpec],
     charms: list[CharmSpec],
     constraints: BuildConstraints,
+    baseline: BuildResult | None = None,
 ) -> list[BuildResult]: ...
 def class_breakpoints(char_class: int) -> tuple[list[int], list[int]]: ...

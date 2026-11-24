@@ -54,7 +54,7 @@ impl<'a> CharmSolver<'a> {
             }
         }
         if self.dps_groups.is_empty()
-            && (self.pure_dps.groups.is_empty() || gear_bucket >= global_ub_bucket)
+            && (self.pure_dps.is_empty() || gear_bucket >= global_ub_bucket)
         {
             return;
         }
@@ -108,6 +108,7 @@ impl<'a> CharmSolver<'a> {
         struct DpsMut<'b, 'a> {
             non_dps_solver: &'b mut CharmSolver<'a>,
             cur_indices: Vec<usize>,
+            pure_buf: Vec<(f64, u64)>,
             best_charms: &'b mut Vec<&'a CharmSpec>,
             best_sum: &'b mut EvalSummary,
             best_score: &'b mut BuildScore,
@@ -153,8 +154,7 @@ impl<'a> CharmSolver<'a> {
             if g_idx < st.groups.len() && rem_slots < st.min_size[g_idx] {
                 g_idx = st.groups.len();
             }
-            let mut sp = st.suf_pos[g_idx];
-            let mut sn = st.suf_neg_res[g_idx];
+            let sp = st.suf_pos[g_idx];
             let rs_idx = (rem_slots.max(0) as usize).min(st.nd_fhr_at.len() - 1);
             let ub_rem_at = |cur_g: usize, sp_v: i32, order: &[UbGroupEntry], slots: i32| {
                 if cur_g >= st.groups.len() || slots <= 0 || sp_v <= 0 {
@@ -280,9 +280,106 @@ impl<'a> CharmSolver<'a> {
             let dps_rem_slots = rem_slots - s_req_res;
             if g_idx < st.groups.len() && dps_rem_slots < st.min_size[g_idx] {
                 g_idx = st.groups.len();
-                sp = st.suf_pos[g_idx];
-                sn = st.suf_neg_res[g_idx];
             }
+
+            if g_idx == st.groups.len() {
+                let leaf_d = leaf_with_cur(leaf, cur, st.class);
+                let fast = st.offense.fast_leaf_dps(st.hw, leaf_d, st.c);
+                let max_pure_s = (dps_rem_slots.max(0) as usize).min(st.max_slots.max(0) as usize);
+                st.pure_dps
+                    .solve_for_leaf_into(&fast, max_pure_s, &mut mut_ctx.pure_buf);
+                let mut prev_tested_bucket: Option<i32> = None;
+                for pure_s in 0..=max_pure_s {
+                    if pure_s > 0 && mut_ctx.pure_buf[pure_s].0 <= mut_ctx.pure_buf[pure_s - 1].0 {
+                        continue;
+                    }
+                    let rem_nd = rem_slots - pure_s as i32;
+                    let nd_idx = (rem_nd.max(0) as usize).min(st.nd_fhr_at.len() - 1);
+                    if leaf_d.fhr + st.nd_fhr_at[nd_idx] < st.c.min_fhr
+                        || leaf_d.frw + st.nd_frw_at[nd_idx] < st.c.min_frw
+                        || leaf_d.mf + st.nd_mf_at[nd_idx] < st.c.min_mf
+                        || leaf_d.fr + st.nd_res_at[nd_idx][0] < st.c.min_fr
+                        || leaf_d.lr + st.nd_res_at[nd_idx][1] < st.c.min_lr
+                        || leaf_d.cr + st.nd_res_at[nd_idx][2] < st.c.min_cr
+                        || leaf_d.pr + st.nd_res_at[nd_idx][3] < st.c.min_pr
+                    {
+                        continue;
+                    }
+                    let cand_res_ub: i32 = [
+                        (leaf_d.fr + st.nd_res_at[nd_idx][0])
+                            .min(st.caps[0])
+                            .min(BASE_MAX_RES),
+                        (leaf_d.lr + st.nd_res_at[nd_idx][1])
+                            .min(st.caps[1])
+                            .min(BASE_MAX_RES),
+                        (leaf_d.cr + st.nd_res_at[nd_idx][2])
+                            .min(st.caps[2])
+                            .min(BASE_MAX_RES),
+                        (leaf_d.pr + st.nd_res_at[nd_idx][3])
+                            .min(st.caps[3])
+                            .min(BASE_MAX_RES),
+                    ]
+                    .iter()
+                    .sum();
+                    let cand_bucket = OffenseProfile::dps_bucket(mut_ctx.pure_buf[pure_s].0);
+                    if prev_tested_bucket == Some(cand_bucket) {
+                        continue;
+                    }
+                    let cand_top3 = match st.mode {
+                        SearchMode::Leveling => (cand_bucket, cand_res_ub, st.cbf_val),
+                        SearchMode::LevelingRes => (cand_res_ub, cand_bucket, st.cbf_val),
+                        _ => continue,
+                    };
+                    if st.cutoff.is_some_and(|cut| cand_top3 < cut)
+                        || (cand_top3.0, cand_top3.1)
+                            < (mut_ctx.best_score.primary, mut_ctx.best_score.secondary)
+                    {
+                        continue;
+                    }
+                    prev_tested_bucket = Some(cand_bucket);
+                    let Some(mut cand_charms) =
+                        mut_ctx
+                            .non_dps_solver
+                            .solve_with_budget(leaf_d, (0, 0), rem_nd, 0)
+                    else {
+                        continue;
+                    };
+                    for &idx in &mut_ctx.cur_indices {
+                        cand_charms.push(st.pool[idx]);
+                    }
+                    let mut mask = mut_ctx.pure_buf[pure_s].1;
+                    while mask != 0 {
+                        let b = mask.trailing_zeros() as usize;
+                        cand_charms.push(st.pool[st.pure_dps.item_indices[b]]);
+                        mask &= mask - 1;
+                    }
+                    let cand_sum =
+                        eval_build_summary(st.gear, st.all_sk_non_wep, st.hw, &cand_charms, st.c);
+                    if (!st.c.allow_mf && cand_sum.mf > 0)
+                        || cand_sum.fhr < st.c.min_fhr
+                        || cand_sum.frw < st.c.min_frw
+                        || cand_sum.mf < st.c.min_mf
+                        || cand_sum.fr < st.c.min_fr
+                        || cand_sum.lr < st.c.min_lr
+                        || cand_sum.cr < st.c.min_cr
+                        || cand_sum.pr < st.c.min_pr
+                    {
+                        continue;
+                    }
+                    let mut cand_score = score_eval_summary(st.mode, st.offense, &cand_sum, st.c);
+                    cand_score.locality = mut_ctx.best_score.locality;
+                    if cand_score > *mut_ctx.best_score {
+                        *mut_ctx.best_charms = cand_charms;
+                        *mut_ctx.best_sum = cand_sum;
+                        *mut_ctx.best_score = cand_score;
+                    }
+                }
+                return;
+            }
+
+            let sp = st.suf_pos[g_idx];
+            // Note: negative res from remaining dps_groups can never exceed `suf_neg_res[g_idx][r]`, which stays <= 0.
+            let _ = st.suf_neg_res[g_idx];
 
             let rem_str = ub_rem_at(g_idx, sp.str_bonus, st.order_str, dps_rem_slots);
             let rem_dex = ub_rem_at(g_idx, sp.dex_bonus, st.order_dex, dps_rem_slots);
@@ -337,102 +434,6 @@ impl<'a> CharmSolver<'a> {
                 || (ub_top3.0, ub_top3.1)
                     < (mut_ctx.best_score.primary, mut_ctx.best_score.secondary)
             {
-                return;
-            }
-            // Note: negative res from remaining dps_groups can never exceed `sn[r]`, which stays <= 0.
-            let _ = sn;
-
-            if g_idx == st.groups.len() {
-                let leaf_d = leaf_with_cur(leaf, cur, st.class);
-                let fast = st.offense.fast_leaf_dps(st.hw, leaf_d, st.c);
-                let max_pure_s = (dps_rem_slots.max(0) as usize).min(st.max_slots.max(0) as usize);
-                let best_pure = st.pure_dps.solve_for_leaf(&fast, max_pure_s);
-                let mut prev_tested_bucket: Option<i32> = None;
-                for pure_s in 0..=max_pure_s {
-                    if pure_s > 0 && best_pure[pure_s].0 <= best_pure[pure_s - 1].0 {
-                        continue;
-                    }
-                    let rem_nd = rem_slots - pure_s as i32;
-                    let nd_idx = (rem_nd.max(0) as usize).min(st.nd_fhr_at.len() - 1);
-                    if leaf_d.fhr + st.nd_fhr_at[nd_idx] < st.c.min_fhr
-                        || leaf_d.frw + st.nd_frw_at[nd_idx] < st.c.min_frw
-                        || leaf_d.mf + st.nd_mf_at[nd_idx] < st.c.min_mf
-                        || leaf_d.fr + st.nd_res_at[nd_idx][0] < st.c.min_fr
-                        || leaf_d.lr + st.nd_res_at[nd_idx][1] < st.c.min_lr
-                        || leaf_d.cr + st.nd_res_at[nd_idx][2] < st.c.min_cr
-                        || leaf_d.pr + st.nd_res_at[nd_idx][3] < st.c.min_pr
-                    {
-                        continue;
-                    }
-                    let cand_res_ub: i32 = [
-                        (leaf_d.fr + st.nd_res_at[nd_idx][0])
-                            .min(st.caps[0])
-                            .min(BASE_MAX_RES),
-                        (leaf_d.lr + st.nd_res_at[nd_idx][1])
-                            .min(st.caps[1])
-                            .min(BASE_MAX_RES),
-                        (leaf_d.cr + st.nd_res_at[nd_idx][2])
-                            .min(st.caps[2])
-                            .min(BASE_MAX_RES),
-                        (leaf_d.pr + st.nd_res_at[nd_idx][3])
-                            .min(st.caps[3])
-                            .min(BASE_MAX_RES),
-                    ]
-                    .iter()
-                    .sum();
-                    let cand_bucket = OffenseProfile::dps_bucket(best_pure[pure_s].0);
-                    if prev_tested_bucket == Some(cand_bucket) {
-                        continue;
-                    }
-                    let cand_top3 = match st.mode {
-                        SearchMode::Leveling => (cand_bucket, cand_res_ub, st.cbf_val),
-                        SearchMode::LevelingRes => (cand_res_ub, cand_bucket, st.cbf_val),
-                        _ => continue,
-                    };
-                    if st.cutoff.is_some_and(|cut| cand_top3 < cut)
-                        || (cand_top3.0, cand_top3.1)
-                            < (mut_ctx.best_score.primary, mut_ctx.best_score.secondary)
-                    {
-                        continue;
-                    }
-                    prev_tested_bucket = Some(cand_bucket);
-                    let Some(mut cand_charms) =
-                        mut_ctx
-                            .non_dps_solver
-                            .solve_with_budget(leaf_d, (0, 0), rem_nd, 0)
-                    else {
-                        continue;
-                    };
-                    for &idx in &mut_ctx.cur_indices {
-                        cand_charms.push(st.pool[idx]);
-                    }
-                    let mut mask = best_pure[pure_s].1;
-                    while mask != 0 {
-                        let b = mask.trailing_zeros() as usize;
-                        cand_charms.push(st.pool[st.pure_dps.item_indices[b]]);
-                        mask &= mask - 1;
-                    }
-                    let cand_sum =
-                        eval_build_summary(st.gear, st.all_sk_non_wep, st.hw, &cand_charms, st.c);
-                    if (!st.c.allow_mf && cand_sum.mf > 0)
-                        || cand_sum.fhr < st.c.min_fhr
-                        || cand_sum.frw < st.c.min_frw
-                        || cand_sum.mf < st.c.min_mf
-                        || cand_sum.fr < st.c.min_fr
-                        || cand_sum.lr < st.c.min_lr
-                        || cand_sum.cr < st.c.min_cr
-                        || cand_sum.pr < st.c.min_pr
-                    {
-                        continue;
-                    }
-                    let mut cand_score = score_eval_summary(st.mode, st.offense, &cand_sum, st.c);
-                    cand_score.locality = mut_ctx.best_score.locality;
-                    if cand_score > *mut_ctx.best_score {
-                        *mut_ctx.best_charms = cand_charms;
-                        *mut_ctx.best_sum = cand_sum;
-                        *mut_ctx.best_score = cand_score;
-                    }
-                }
                 return;
             }
 
@@ -541,6 +542,7 @@ impl<'a> CharmSolver<'a> {
         let mut mut_ctx = DpsMut {
             non_dps_solver,
             cur_indices: Vec::new(),
+            pure_buf: Vec::with_capacity((self.max_slots.max(0) as usize) + 1),
             best_charms,
             best_sum,
             best_score,
