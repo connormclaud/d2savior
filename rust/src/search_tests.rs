@@ -620,7 +620,7 @@ fn test_belt_potion_capacity_and_defense_break_ties_and_prevent_domination() {
     battle.belt_slots = 16;
     battle.req_str = 88;
 
-    let mut heavy_low_def = mk_item("Goldwrap (Heavy Belt) Low", "belt", 0, 0, 0, 0, 30);
+    let mut heavy_low_def = mk_item("Goldwrap (Heavy Belt)", "belt", 0, 0, 0, 0, 30);
     heavy_low_def.defense = 25;
     heavy_low_def.belt_slots = 12;
     heavy_low_def.req_str = 45;
@@ -659,8 +659,9 @@ fn test_belt_potion_capacity_and_defense_break_ties_and_prevent_domination() {
     };
     let res = optimize_builds_core(&items, &[], &c).unwrap();
     assert_eq!(res.len(), 2);
-    // At base_str=156 with limit=2, Battle Belt and Heavy Belt both have MF=30 and fill the top 2,
-    // allowing Tal Belt (MF=15 < 30) to be pruned by nth_main_score while Heavy Belt Low (2 dominators) was pruned upfront.
+    // At base_str=156 with limit=2, Battle Belt (belt_slots=16) and Heavy Belt (belt_slots=12) both
+    // have MF=30 and fill the top 2, while `heavy_low_def` (same name, identical for_mode stats,
+    // lower raw defense) is deduped by `same_name_cap = 1` with `heavy` winning via `raw_def`.
     assert_eq!(res[0].evaluated_candidates, 2);
     assert_eq!(res[0].items[5].name, "Goldwrap (Battle Belt)");
     assert_eq!(res[1].items[5].name, "Goldwrap (Heavy Belt)");
@@ -670,13 +671,53 @@ fn test_belt_potion_capacity_and_defense_break_ties_and_prevent_domination() {
     let c_low_str = BuildConstraints {
         base_str: 45,
         limit: 3,
-        ..c
+        ..c.clone()
     };
     // Swap Spirit Monarch (req_str=156) with a low-str shield so Heavy Belt is feasible while Battle Belt is not.
-    let mut low_str_items = items;
+    let mut low_str_items = items.clone();
     low_str_items[5].req_str = 45;
     let res_low = optimize_builds_core(&low_str_items, &[], &c_low_str).unwrap();
     assert_eq!(res_low[0].items[5].name, "Goldwrap (Heavy Belt)");
+
+    // Higher defense on a distinct belt with strictly worse MF must NOT block Pareto domination.
+    let mut high_def_distinct = mk_item("High Def Sash", "belt", 0, 0, 0, 0, 10);
+    high_def_distinct.defense = 999;
+    high_def_distinct.belt_slots = 12;
+    high_def_distinct.req_str = 0;
+    let mut dom_items = items;
+    dom_items.push(high_def_distinct);
+    let res_dom = optimize_builds_core(&dom_items, &[], &c).unwrap();
+    assert_eq!(res_dom[0].evaluated_candidates, 2);
+
+    // Same-name roll in Stash with higher defense must beat lower-defense Equipped roll because
+    // BuildScore ranks gear_defense ahead of locality.
+    let mut dup_eq = mk_item("Goldwrap (Heavy Belt)", "belt", 0, 0, 0, 0, 30);
+    dup_eq.loc = "Hero Equipped".to_string();
+    dup_eq.defense = 30;
+    dup_eq.belt_slots = 12;
+    dup_eq.req_str = 45;
+    let mut dup_stash = mk_item("Goldwrap (Heavy Belt)", "belt", 0, 0, 0, 0, 30);
+    dup_stash.loc = "Stash Tab 1".to_string();
+    dup_stash.defense = 55;
+    dup_stash.belt_slots = 12;
+    dup_stash.req_str = 45;
+    let mut parity_items: Vec<ItemSpec> = dom_items
+        .into_iter()
+        .filter(|it| it.slot != "belt")
+        .collect();
+    parity_items.push(dup_eq);
+    parity_items.push(dup_stash);
+    let c_parity = BuildConstraints {
+        limit: 1,
+        ..c
+    };
+    let opt_parity = optimize_builds_core(&parity_items, &[], &c_parity).unwrap();
+    let bf_parity = brute_force_top_scores(&parity_items, &[], &c_parity, SearchMode::Mf);
+    let mut opt_score = validate_and_score_result(&opt_parity[0], &c_parity, SearchMode::Mf);
+    opt_score.locality = 0;
+    assert_eq!(opt_score, bf_parity[0]);
+    assert_eq!(opt_parity[0].items[5].loc, "Stash Tab 1");
+    assert_eq!(opt_parity[0].gear_defense, 55);
 }
 
 #[test]
@@ -814,7 +855,10 @@ fn validate_and_score_result(
     assert!(c.base_dex + gear.dex_bonus + charm_dex >= reqs.1);
 
     let hand = equipped_hand_weapon(&item_refs);
-    let sum = eval_build_summary(gear, all_sk_non_wep, hand, &charm_refs, c);
+    let has_shield = item_refs
+        .iter()
+        .any(|it| it.slot == "shield" && it.name != "(empty)");
+    let sum = eval_build_summary(gear, all_sk_non_wep, hand, has_shield, &charm_refs, c);
     assert!(c.allow_mf || sum.mf == 0);
     assert!(sum.fcr >= c.min_fcr);
     assert!(sum.fhr >= c.min_fhr);
@@ -1021,7 +1065,9 @@ fn brute_force_top_scores(
                             continue;
                         }
                         let hand = h1.hand_weapon();
-                        let sum = eval_build_summary(gear, all_sk_non_wep, hand, &chosen, c);
+                        let has_shield = h2.slot == "shield" && h2.name != "(empty)";
+                        let sum =
+                            eval_build_summary(gear, all_sk_non_wep, hand, has_shield, &chosen, c);
                         if (!c.allow_mf && sum.mf > 0)
                             || sum.fhr < c.min_fhr
                             || (c.require_cbf && !sum.cbf)
@@ -2852,11 +2898,15 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
         ..Default::default()
     };
 
-    // 1. Power + Caster DPS (no filler): zeroes mf/fhr/ias/cb/cbf/pdr/ll/frw/off_ed/action/aura/mdr/dr_flat/fire_abs_pct
-    //    when unconstrained, while keeping cold_dmg_pct, cm_skills, mana*, life*, defense, belt_slots.
+    // 1. Power + Caster DPS (no filler): zeroes mf/fhr/ias/cb/cbf/pdr/ll/frw/off_ed/action/aura/mdr/dr_flat/fire_abs_pct/defense/block_pct/fbr/def_skill
+    //    when unconstrained, while keeping cold_dmg_pct, cm_skills, mana*, life*, belt_slots.
     let mut noisy_power = base_item.clone();
     noisy_power.name = "Noisy Power Helm".to_string();
     noisy_power.life = 30;
+    noisy_power.defense = 999;
+    noisy_power.block_pct = 20;
+    noisy_power.fbr = 30;
+    noisy_power.def_skill = 3;
     noisy_power.mf = 50;
     noisy_power.fhr = 20;
     noisy_power.frw = 30;
@@ -2985,11 +3035,15 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
     assert_eq!(pruned_mf.len(), 1);
     assert_eq!(pruned_mf[0].name, "Base Helm");
 
-    // 4. Empty dominator check ignores permanently dead stats like `mdr`.
+    // 4. Empty dominator check ignores dead/pruned stats like `mdr` and `defense`.
     let mdr_only = ItemSpec {
         name: "MDR Only".to_string(),
         slot: "helm".to_string(),
         mdr: 15,
+        defense: 500,
+        block_pct: 20,
+        fbr: 30,
+        def_skill: 2,
         ..Default::default()
     };
     assert_eq!(

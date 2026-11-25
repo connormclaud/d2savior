@@ -18,6 +18,7 @@ _SKILL_COLD_MASTERY = 65
 _SKILL_LIFE_TAP = 82
 _SKILL_DECREPIFY = 87
 _SKILL_ZEAL = 106
+_SKILL_HOLY_SHIELD = 117
 _SKILL_FANATICISM = 122
 _SKILL_CONVICTION = 123
 _SKILL_VENOM = 278
@@ -43,6 +44,7 @@ _SIMPLE_ITEM_STAT_MAP: frozendict[int, str] = frozendict(
         3: "vit",
         7: "life",
         9: "mana",
+        20: "block_pct",
         34: "dr_flat",
         35: "mdr",
         36: "pdr_pct",
@@ -60,6 +62,7 @@ _SIMPLE_ITEM_STAT_MAP: frozendict[int, str] = frozendict(
         91: "req_pct",
         96: "frw",
         99: "fhr",
+        102: "fbr",
         105: "fcr",
         127: "all_skills",
         142: "fire_abs_pct",
@@ -212,6 +215,9 @@ class _PropAcc:
     dex_bonus: int = 0
     req_pct: int = 0
     defense: int = 0
+    block_pct: int = 0
+    fbr: int = 0
+    def_skill: int = 0
     cold_sunder: int = 0
 
     def to_item_spec(
@@ -315,6 +321,9 @@ class _PropAcc:
             ctc_decrep_pct=self.ctc_decrep_pct,
             ctc_lifetap_pct=self.ctc_lifetap_pct,
             ctc_orb_dmg_2x=self.ctc_orb_dmg_2x,
+            block_pct=self.block_pct,
+            fbr=self.fbr,
+            def_skill=self.def_skill,
         )
 
     def to_charm_spec(
@@ -374,6 +383,7 @@ def _apply_sorc_prop(
     *,
     pval: int | None = None,
     sorc_filler_id: int | None = None,
+    sorc_armor_id: int | None = None,
 ) -> None:
     sorc_id = int(CharClass.SORCERESS)
     if pid == 83 and len(params) >= 2 and params[0] == sorc_id:
@@ -387,12 +397,43 @@ def _apply_sorc_prop(
             acc.cm_skills += params[1]
         elif sorc_filler_id is not None and params[0] == sorc_filler_id:
             acc.action_skill_bonus += params[1]
+        if sorc_armor_id is not None and params[0] == sorc_armor_id:
+            acc.def_skill += params[1]
     elif pid == 188 and len(params) >= 3 and params[1] == sorc_id:
         # Sorceress skill tab: 0=Fire, 1=Lightning, 2=Cold
         if params[0] == 1:
             acc.light_skills += params[2]
         elif params[0] == 2:
             acc.sorc_skills += params[2]
+
+
+def _apply_paladin_staffmod(
+    acc: _PropAcc,
+    params: list[int],
+    pal_spec: str,
+    pal_primary_id: int | None,
+    pal_offense: str,
+    pal_aura_id: int | None,
+    split_skills: bool,
+) -> None:
+    if params[0] == _SKILL_HOLY_SHIELD:
+        acc.def_skill += params[1]
+    if not split_skills:
+        if pal_primary_id is not None and params[0] == pal_primary_id:
+            acc.primary_skill += params[1]
+        return
+    eff_aura_id = (
+        (pal_primary_id if pal_spec in _ELEMENTAL_AURA_SPECS else _SUPPORT_AURA_IDS.get(pal_spec))
+        if pal_aura_id == -1
+        else pal_aura_id
+    )
+    is_action = (params[0] == _SKILL_ZEAL and pal_offense == "zeal") or (
+        pal_offense == "melee" and pal_spec in _MELEE_ACTION_SPECS and params[0] == pal_primary_id
+    )
+    if is_action:
+        acc.action_skill_bonus += params[1]
+    if eff_aura_id is not None and params[0] == eff_aura_id:
+        acc.aura_skill_bonus += params[1]
 
 
 def _apply_paladin_skill_prop(
@@ -414,39 +455,27 @@ def _apply_paladin_skill_prop(
         if split_skills:
             if params[0] == 0:
                 acc.action_skill_bonus += params[2]
+                acc.def_skill += params[2]
             elif params[0] == 1:
                 acc.aura_skill_bonus += params[2]
         elif params[0] in pal_tabs:
             acc.pal_skills += params[2]
+            if params[0] != 0:
+                acc.def_skill -= params[2]
+        elif params[0] == 0:
+            acc.def_skill += params[2]
         return True
     if pid == 126 and len(params) >= 2 and params[0] == 1 and pal_spec == "holy-fire":
         if split_skills:
             acc.aura_skill_bonus += params[1]
         else:
             acc.pal_skills += params[1]
+            acc.def_skill -= params[1]
         return True
     if pid == 107 and len(params) >= 2:
-        if split_skills:
-            eff_aura_id = (
-                (
-                    pal_primary_id
-                    if pal_spec in _ELEMENTAL_AURA_SPECS
-                    else _SUPPORT_AURA_IDS.get(pal_spec)
-                )
-                if pal_aura_id == -1
-                else pal_aura_id
-            )
-            is_action = (params[0] == _SKILL_ZEAL and pal_offense == "zeal") or (
-                pal_offense == "melee"
-                and pal_spec in _MELEE_ACTION_SPECS
-                and params[0] == pal_primary_id
-            )
-            if is_action:
-                acc.action_skill_bonus += params[1]
-            if eff_aura_id is not None and params[0] == eff_aura_id:
-                acc.aura_skill_bonus += params[1]
-        elif pal_primary_id is not None and params[0] == pal_primary_id:
-            acc.primary_skill += params[1]
+        _apply_paladin_staffmod(
+            acc, params, pal_spec, pal_primary_id, pal_offense, pal_aura_id, split_skills
+        )
         return True
     return False
 
@@ -583,6 +612,7 @@ def _apply_props_to_acc(
     is_weapon: bool = False,
     include_defense_props: bool = False,
     sorc_filler_id: int | None = None,
+    sorc_armor_id: int | None = None,
     pal_aura_id: int | None = -1,
 ) -> None:
     pal_primary_id, _, pal_tabs = PALADIN_SPEC_INFO.get(pal_spec, (None, None, frozenset({0, 1})))
@@ -603,7 +633,14 @@ def _apply_props_to_acc(
             if isinstance(scaled, int):
                 acc.defense += scaled
         elif char_class == int(CharClass.SORCERESS):
-            _apply_sorc_prop(acc, pid, params, pval=pval, sorc_filler_id=sorc_filler_id)
+            _apply_sorc_prop(
+                acc,
+                pid,
+                params,
+                pval=pval,
+                sorc_filler_id=sorc_filler_id,
+                sorc_armor_id=sorc_armor_id,
+            )
         elif char_class == int(CharClass.PALADIN):
             _apply_paladin_prop(
                 acc,

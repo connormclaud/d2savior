@@ -30,6 +30,22 @@ def _format_res_line(diff_name: str, res: BuildResult, resist_penalty: int | Non
     )
 
 
+def _format_def_line(res: BuildResult) -> str | None:
+    """Format post-skill defense, monster hit %, and passive block / FBR frames."""
+    defense = getattr(res, "defense", 0)
+    enemy_cth = getattr(res, "enemy_cth", 0)
+    has_shield = bool(getattr(res, "has_shield", False))
+    if defense <= 0 and enemy_cth <= 0 and not has_shield:
+        return None
+    def_part = f"Def: {defense} ({enemy_cth}% hit)" if enemy_cth > 0 else f"Def: {defense}"
+    if not has_shield:
+        return f"  {def_part}"
+    block_pct = getattr(res, "block_pct", 0)
+    fbr = getattr(res, "fbr", 0)
+    fbr_frames = getattr(res, "fbr_frames", 0)
+    return f"  {def_part} | Block: {block_pct}% (FBR {fbr}%, {fbr_frames}f)"
+
+
 def _charm_key(c: CharmSpec) -> tuple[object, ...]:
     """Return a hashable value-equality key for CharmSpec (PyO3 class lacks __eq__)."""
     return (
@@ -174,6 +190,8 @@ def _format_paladin_option_lines(
         f"  FHR: {res.fhr}% (BP {res.fhr_bp}%, {fhr_f}f) | FCR: {res.fcr}% (BP {res.fcr_bp}%, {fcr_f}f) | FRW: {res.frw}% | MF: {res.mf}%"
     )
     lines.append(_format_res_line(diff_name, res, resist_penalty))
+    if def_line := _format_def_line(res):
+        lines.append(def_line)
     if res.bo_lvl > 0:
         lines.append(
             f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"
@@ -243,6 +261,8 @@ def format_build_report(
             f"  FCR: {res.fcr}% (BP {res.fcr_bp}%, {fcr_f}f) | FHR: {res.fhr}% (BP {res.fhr_bp}%, {fhr_f}f) | FRW: {res.frw}% | MF: {res.mf}%"
         )
         lines.append(_format_res_line(diff_name, res, resist_penalty))
+        if def_line := _format_def_line(res):
+            lines.append(def_line)
         if res.bo_lvl > 0:
             lines.append(
                 f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"

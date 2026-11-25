@@ -7,8 +7,14 @@ pub(crate) const HARD_MAX_PDR_PCT: i32 = 50;
 
 pub(crate) const SORCERESS_FCR_BPS: &[i32] = &[0, 9, 20, 37, 63, 105, 200];
 pub(crate) const SORCERESS_FHR_BPS: &[i32] = &[0, 5, 9, 14, 20, 30, 42, 60, 86, 142, 280];
+pub(crate) const SORCERESS_FBR_BPS: &[i32] = &[0, 7, 15, 27, 48, 86, 200];
+pub(crate) const SORCERESS_FBR_FRAMES: &[i32] = &[9, 8, 7, 6, 5, 4, 3];
 pub(crate) const PALADIN_FCR_BPS: &[i32] = &[0, 9, 18, 30, 48, 75, 125];
 pub(crate) const PALADIN_FHR_BPS: &[i32] = &[0, 7, 15, 27, 48, 86, 200];
+pub(crate) const PALADIN_FBR_BPS: &[i32] = &[0, 13, 32, 86, 600];
+pub(crate) const PALADIN_FBR_FRAMES: &[i32] = &[5, 4, 3, 2, 1];
+pub(crate) const PALADIN_HS_FBR_BPS: &[i32] = &[0, 86];
+pub(crate) const PALADIN_HS_FBR_FRAMES: &[i32] = &[2, 1];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CharClass {
@@ -69,6 +75,28 @@ impl CharClass {
             Self::Sorceress => SORCERESS_FHR_BPS,
             Self::Paladin => PALADIN_FHR_BPS,
         }
+    }
+
+    pub(crate) fn class_block_bonus(self) -> i32 {
+        match self {
+            Self::Sorceress => 20,
+            Self::Paladin => 30,
+        }
+    }
+
+    pub(crate) fn fbr_bp_and_frames(self, fbr: i32, holy_shield_active: bool) -> (i32, i32) {
+        let (bps, frames) = match self {
+            Self::Sorceress => (SORCERESS_FBR_BPS, SORCERESS_FBR_FRAMES),
+            Self::Paladin if holy_shield_active => (PALADIN_HS_FBR_BPS, PALADIN_HS_FBR_FRAMES),
+            Self::Paladin => (PALADIN_FBR_BPS, PALADIN_FBR_FRAMES),
+        };
+        let mut best = (bps[0], frames[0]);
+        for (&bp, &fr) in bps.iter().zip(frames.iter()) {
+            if fbr >= bp {
+                best = (bp, fr);
+            }
+        }
+        best
     }
 
     pub(crate) fn has_blizzard_calc(self) -> bool {
@@ -1126,6 +1154,9 @@ define_stat_types!(
     dex_bonus => add,
     defense => add,
     belt_slots => add,
+    block_pct => add,
+    fbr => add,
+    def_skill => add,
 );
 
 impl Stats {
@@ -1263,6 +1294,10 @@ impl Stats {
         self.mdr = 0;
         self.dr_flat = 0;
         self.fire_abs_pct = 0;
+        self.defense = 0;
+        self.block_pct = 0;
+        self.fbr = 0;
+        self.def_skill = 0;
         self
     }
 }
@@ -1688,6 +1723,12 @@ pub struct BuildConstraints {
     pub target_type: String,
     pub char_level: i32,
     pub target_hp: i32,
+    pub target_ar: i32,
+    pub target_lvl: i32,
+    pub holy_shield_base_lvl: i32,
+    pub defiance_base_lvl: i32,
+    pub cold_armor_kind: u8,
+    pub cold_armor_base_lvl: i32,
 }
 
 impl Default for BuildConstraints {
@@ -1745,6 +1786,12 @@ impl Default for BuildConstraints {
             target_type: String::from("champion"),
             char_level: 1,
             target_hp: 0,
+            target_ar: 0,
+            target_lvl: 0,
+            holy_shield_base_lvl: 0,
+            defiance_base_lvl: 0,
+            cold_armor_kind: 0,
+            cold_armor_base_lvl: 0,
         }
     }
 }
@@ -1806,6 +1853,12 @@ impl BuildConstraints {
         target_type = String::from("champion"),
         char_level = 1,
         target_hp = 0,
+        target_ar = 0,
+        target_lvl = 0,
+        holy_shield_base_lvl = 0,
+        defiance_base_lvl = 0,
+        cold_armor_kind = 0,
+        cold_armor_base_lvl = 0,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1861,6 +1914,12 @@ impl BuildConstraints {
         target_type: String,
         char_level: i32,
         target_hp: i32,
+        target_ar: i32,
+        target_lvl: i32,
+        holy_shield_base_lvl: i32,
+        defiance_base_lvl: i32,
+        cold_armor_kind: u8,
+        cold_armor_base_lvl: i32,
     ) -> Self {
         Self {
             allow_mf,
@@ -1915,6 +1974,12 @@ impl BuildConstraints {
             target_type,
             char_level,
             target_hp,
+            target_ar,
+            target_lvl,
+            holy_shield_base_lvl,
+            defiance_base_lvl,
+            cold_armor_kind,
+            cold_armor_base_lvl,
         }
     }
 }
@@ -1979,6 +2044,14 @@ pub struct BuildResult {
     pub ar: i32,
     pub cth: i32,
     pub raw_dps: f64,
+    pub gear_defense: i32,
+    pub defense: i32,
+    pub enemy_cth: i32,
+    pub block_pct: i32,
+    pub fbr: i32,
+    pub fbr_bp: i32,
+    pub fbr_frames: i32,
+    pub has_shield: bool,
     pub items: Vec<ItemSpec>,
     pub charms: Vec<CharmSpec>,
     pub evaluated_candidates: usize,

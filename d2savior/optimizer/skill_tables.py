@@ -16,9 +16,12 @@ DEFAULT_MAX_SKILL_BONUS = 40
 _SORC_SKILL_BASE = CLASS_SKILL_BASES[int(CharClass.SORCERESS)]
 _PAL_SKILL_BASE = CLASS_SKILL_BASES[int(CharClass.PALADIN)]
 _SKILL_EXPLODING_ARROW = 16
+_SKILL_FROZEN_ARMOR = 40
 _SKILL_ICE_BLAST = 45
+_SKILL_SHIVER_ARMOR = 50
 _SKILL_GLACIAL_SPIKE = 55
 _SKILL_BLIZZARD = 59
+_SKILL_CHILLING_ARMOR = 60
 _SKILL_FROZEN_ORB = 64
 _SKILL_SACRIFICE = 96
 _SKILL_HOLY_FIRE = 102
@@ -462,6 +465,44 @@ def resolve_sorc_filler_skill(
     if ib_pts > gs_pts:
         return _SKILL_ICE_BLAST
     return _SKILL_GLACIAL_SPIKE if targets > 1 else _SKILL_ICE_BLAST
+
+
+def resolve_sorc_cold_armor(char_data: D2SStruct) -> tuple[int, int, int | None]:
+    """Return `(kind, base_lvl, skill_id)` for the active or strongest Sorceress Cold Armor.
+
+    Kinds: `0 = none`, `1 = Frozen Armor`, `2 = Shiver Armor`, `3 = Chilling Armor`.
+    Prefers an active bound Cold Armor if allocated; when no Cold Armor has hard points, preserves
+    a bound Cold Armor or defaults to Chilling Armor (`base_lvl=0`) so Snowclash/staffmods apply.
+    """
+    armors = (
+        (1, _SKILL_FROZEN_ARMOR, 30, 5),
+        (2, _SKILL_SHIVER_ARMOR, 45, 6),
+        (3, _SKILL_CHILLING_ARMOR, 60, 9),
+    )
+    armor_by_id = {sid: kind for kind, sid, _, _ in armors}
+    skill_levels = char_data.skills.skill_levels if char_data.skills else ()
+    active_left, active_right = active_skill_bindings(char_data)
+    bound_cold: list[tuple[int, int]] = []
+    for sid in (active_right, active_left):
+        if (kind := armor_by_id.get(sid)) is not None:
+            lvl = _sorc_hard_pts(skill_levels, sid)
+            if lvl > 0:
+                return kind, lvl, sid
+            bound_cold.append((kind, sid))
+
+    best: tuple[int, int, int, int] | None = None
+    for kind, sid, base_ed, per_lvl in armors:
+        lvl = _sorc_hard_pts(skill_levels, sid)
+        if lvl > 0:
+            ed = base_ed + (lvl - 1) * per_lvl
+            cand = (ed, kind, lvl, sid)
+            if best is None or cand > best:
+                best = cand
+    if best is not None:
+        return best[1], best[2], best[3]
+    if bound_cold:
+        return bound_cold[0][0], 0, bound_cold[0][1]
+    return 3, 0, _SKILL_CHILLING_ARMOR
 
 
 def _eval_skill_dmg_table(

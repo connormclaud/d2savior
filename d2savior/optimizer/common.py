@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import CharClass, EquipSlot
@@ -206,6 +207,37 @@ def detect_cta_bo_bonus(
     return best if best is not None else default
 
 
+_VALID_TARGET_TYPES: frozenset[str] = frozenset({"trash", "champion", "boss"})
+
+
+def normalize_target_type(target_type: str) -> TargetTypeStr:
+    """Validate and normalize a target type string ('trash', 'champion', or 'boss')."""
+    resolved = target_type.strip().lower()
+    if resolved not in _VALID_TARGET_TYPES:
+        valid = ", ".join(sorted(_VALID_TARGET_TYPES))
+        raise ValueError(f"Unknown target_type '{target_type}'; expected one of: {valid}")
+    return cast(TargetTypeStr, resolved)
+
+
+def synthesize_monster_stats(
+    diff_idx: int, target_type: TargetTypeStr, char_level: int
+) -> tuple[int, int, int, int]:
+    """Synthesize `(target_def, target_ar, target_lvl, target_hp)` for `diff_idx` and `target_type`."""
+    d = min(max(diff_idx, 0), 2)
+    clvl = max(1, char_level)
+    base_def = (6, 12, 20)[d]
+    target_def = (base_def * 3 // 2 if target_type == "boss" else base_def) * clvl
+    eff_lvl = max((1, 36, 67)[d], clvl)
+    mlvl_offset = {"trash": 0, "champion": 2, "boss": 3}[target_type]
+    target_lvl = min(99, eff_lvl + mlvl_offset)
+    base_ar = (16, 30, 52)[d]
+    ar_mult = {"trash": 1.0, "champion": 1.5, "boss": 1.8}[target_type]
+    target_ar = round(base_ar * ar_mult) * eff_lvl
+    hp_mult = {"trash": 1, "champion": 3, "boss": 10}[target_type]
+    target_hp = (15, 45, 100)[d] * clvl * hp_mult
+    return target_def, target_ar, target_lvl, target_hp
+
+
 @dataclass(frozen=True, slots=True)
 class CharacterBaseline:
     """Baseline character stats and limits shared across constraint builders."""
@@ -242,9 +274,15 @@ class CharacterBaseline:
     aura_ar_pct: tuple[int, ...] = ()
     aura_target_def_pct: tuple[int, ...] = ()
     target_def: int = 180
+    target_ar: int = 0
+    target_lvl: int = 0
     target_type: TargetTypeStr = "champion"
     char_level: int = 1
     target_hp: int = 0
+    holy_shield_base_lvl: int = 0
+    defiance_base_lvl: int = 0
+    cold_armor_kind: int = 0
+    cold_armor_base_lvl: int = 0
 
     def build_constraints(
         self,
@@ -317,7 +355,13 @@ class CharacterBaseline:
             aura_ar_pct=list(self.aura_ar_pct),
             aura_target_def_pct=list(self.aura_target_def_pct),
             target_def=self.target_def,
+            target_ar=self.target_ar,
+            target_lvl=self.target_lvl,
             target_type=self.target_type,
             char_level=self.char_level,
             target_hp=self.target_hp,
+            holy_shield_base_lvl=self.holy_shield_base_lvl,
+            defiance_base_lvl=self.defiance_base_lvl,
+            cold_armor_kind=self.cold_armor_kind,
+            cold_armor_base_lvl=self.cold_armor_base_lvl,
         )

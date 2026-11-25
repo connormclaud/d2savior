@@ -6,6 +6,7 @@ Option #1 (evaluated 48 pruned sets):
   DPS: 3725 (Blizz + Glacial Spike) | Skills: +1 | Blizz Avg: 1760 | CM: -120%
   FCR: 105% (BP 105%, 8f) | FHR: 60% (BP 60%, 8f) | FRW: 50% | MF: 77%
   Nightmare Res: F:75%(123) L:75%(117) C:75%(121) P:63%(103)
+  Def: 444 (89% hit) | Block: 5% (FBR 0%, 9f)
   Life: 967 | Mana: 247 | Charm slots: 23
     - weapon  : Suicide Branch (Burnt Wand) (Stash Tab 3)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -25,6 +26,7 @@ Option #2 (evaluated 48 pruned sets):
   DPS: 3725 (Blizz + Glacial Spike) | Skills: +1 | Blizz Avg: 1760 | CM: -120%
   FCR: 105% (BP 105%, 8f) | FHR: 60% (BP 60%, 8f) | FRW: 50% | MF: 77%
   Nightmare Res: F:75%(123) L:75%(117) C:75%(121) P:63%(103)
+  Def: 403 (90% hit) | Block: 5% (FBR 0%, 9f)
   Life: 967 | Mana: 247 | Charm slots: 23
     - weapon  : Suicide Branch (Burnt Wand) (Stash Tab 3)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -44,6 +46,7 @@ Option #3 (evaluated 48 pruned sets):
   DPS: 3725 (Blizz + Glacial Spike) | Skills: +1 | Blizz Avg: 1760 | CM: -120%
   FCR: 105% (BP 105%, 8f) | FHR: 60% (BP 60%, 8f) | FRW: 50% | MF: 77%
   Nightmare Res: F:75%(123) L:75%(117) C:75%(121) P:63%(103)
+  Def: 444 (89% hit) | Block: 5% (FBR 0%, 9f)
   Life: 947 | Mana: 247 | Charm slots: 23
     - weapon  : Suicide Branch (Burnt Wand) (Stash Tab 3)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -65,6 +68,7 @@ Option #1 (evaluated 24 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%, 9f) | FHR: 65% (BP 60%, 8f) | FRW: 50% | MF: 158%
   Nightmare Res: F:75%(115) L:75%(116) C:75%(118) P:75%(117)
+  Def: 468 (89% hit) | Block: 7% (FBR 40%, 6f)
   Life: 958 | Mana: 267 | Charm slots: 19
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Rhyme (Kite Shield) (sork Swap)
@@ -84,6 +88,7 @@ Option #2 (evaluated 24 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%, 9f) | FHR: 65% (BP 60%, 8f) | FRW: 30% | MF: 158%
   Nightmare Res: F:75%(118) L:75%(116) C:75%(126) P:75%(117)
+  Def: 466 (89% hit) | Block: 5% (FBR 40%, 6f)
   Life: 958 | Mana: 267 | Charm slots: 19
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Rhyme (Kite Shield) (sork Swap)
@@ -103,6 +108,7 @@ Option #3 (evaluated 24 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 65% (BP 63%, 9f) | FHR: 65% (BP 60%, 8f) | FRW: 50% | MF: 158%
   Nightmare Res: F:75%(115) L:75%(116) C:75%(115) P:75%(117)
+  Def: 456 (89% hit) | Block: 6% (FBR 40%, 6f)
   Life: 958 | Mana: 267 | Charm slots: 16
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Rhyme (Kite Shield) (sork Swap)
@@ -123,10 +129,11 @@ Option #3 (evaluated 24 pruned sets):
   No loadout found matching all constraints.
 
 === 4. Max Resist (63% FCR, 60% FHR, Max All Res) ===
-Option #1 (evaluated 1083 pruned sets):
+Option #1 (evaluated 963 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 70% (BP 63%, 9f) | FHR: 60% (BP 60%, 8f) | FRW: 15% | MF: 50%
   Nightmare Res: F:75%(119) L:75%(127) C:90%(130) P:75%(117)
+  Def: 578 (86% hit) | Block: 5% (FBR 0%, 9f)
   Life: 1023 | Mana: 249 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -142,10 +149,11 @@ Option #1 (evaluated 1083 pruned sets):
       - remove: Azure Grand Charm, Crimson Grand Charm
       - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life
       - add   : Bronze Small Charm of Balance [Stash Tab 5], Large Charm of Balance [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
-Option #2 (evaluated 1083 pruned sets):
+Option #2 (evaluated 963 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 70% (BP 63%, 9f) | FHR: 60% (BP 60%, 8f) | FRW: 15% | MF: 50%
   Nightmare Res: F:75%(119) L:75%(127) C:90%(130) P:75%(117)
+  Def: 578 (86% hit) | Block: 5% (FBR 0%, 9f)
   Life: 1023 | Mana: 249 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)
@@ -161,10 +169,11 @@ Option #2 (evaluated 1083 pruned sets):
       - remove: Azure Grand Charm, Crimson Grand Charm
       - keep  : Russet Grand Charm, Jade Small Charm, Tangerine Grand Charm, Ocher Small Charm of Sustenance, Ocher Small Charm, Serpent's Large Charm of Inertia, Ocher Large Charm of Life
       - add   : Bronze Small Charm of Balance [Stash Tab 5], Large Charm of Balance [Stash Tab 5], Iron Large Charm of Sustenance [Stash Tab 5]
-Option #3 (evaluated 1083 pruned sets):
+Option #3 (evaluated 963 pruned sets):
   DPS: 4028 (Blizz + Glacial Spike) | Skills: +3 | Blizz Avg: 2038 | CM: -130%
   FCR: 70% (BP 63%, 9f) | FHR: 60% (BP 60%, 8f) | FRW: 15% | MF: 50%
   Nightmare Res: F:75%(119) L:75%(127) C:90%(130) P:75%(117)
+  Def: 546 (87% hit) | Block: 2% (FBR 0%, 9f)
   Life: 1008 | Mana: 249 | Charm slots: 18
     - weapon  : The Oculus (Swirling Crystal) (mule_unique Stash)
     - shield  : Wall of the Eyeless (Bone Shield) (mule_unique Stash)

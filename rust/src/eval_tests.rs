@@ -607,3 +607,142 @@ fn test_cb_ow_poison_venom_ctc_and_exploding_arrow_pierce() {
     assert!((res_kuko.dps - auto_hit * pierce_eff * kuko_rate).abs() < 1e-6);
     assert!((res_kuko.raw_dps - auto_hit * 5.0 * kuko_rate).abs() < 1e-6);
 }
+
+#[test]
+fn test_defense_block_fbr_paladin_holy_shield_and_sorc_cold_armors() {
+    // 1. Paladin with shield + Holy Shield + Defiance + Combat charm/staffmod + FBR.
+    let mut hoz = mk_test_item("Herald of Zakarum", "shield", 0, 0, 2, 0, 0);
+    hoz.defense = 500;
+    hoz.block_pct = 52; // 22 base (Gilded) + 30 HoZ
+    hoz.fbr = 30;
+    hoz.def_skill = 2; // +2 Combat or Holy Shield -> with 2 pal_skills = +4 total
+    let mut armor = mk_test_item("Armor", "armor", 0, 0, 1, 0, 0);
+    armor.defense = 300;
+    armor.fbr = 60; // total fbr = 90 -> BP 86, 1f with Holy Shield
+
+    let c_pal = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        offense: "melee".to_string(),
+        mode: "leveling".to_string(),
+        base_dex: 115,
+        char_level: 85,
+        target_ar: 6630,
+        target_lvl: 87,
+        holy_shield_base_lvl: 1,
+        defiance_base_lvl: 2,
+        ..Default::default()
+    };
+    let combat_gc = CharmSpec {
+        name: "Captain's GC".to_string(),
+        size: 3,
+        action_skills: 1,
+        ..Default::default()
+    };
+    let res_pal = eval_build_core(&[&hoz, &armor], &[&combat_gc], &c_pal, 1);
+    assert!(res_pal.has_shield);
+    // hs_slvl = 1 (base) + 3 (all/pal) + 2 (def_skill) + 1 (charm action) = 7
+    // skill_def_pct = 25 + 15*6 + 15*2 = 145%
+    // base_def = 500 + 300 + 115/4 = 828 -> 828 * 245 / 100 = 2028
+    assert_eq!(res_pal.defense, 2028);
+    // hs_block(7) = 10 + (30 * ((770 / 13) = 59)) / 100 = 27
+    // shield_block = 52 + 30 (Pal) + 27 = 109 -> (109 * 100) / 170 = 64%
+    assert_eq!(res_pal.block_pct, 64);
+    assert_eq!(res_pal.fbr, 90);
+    assert_eq!((res_pal.fbr_bp, res_pal.fbr_frames), (86, 1));
+    // CTH: 2 * (6630 / (6630 + 2028)) * (87 / 172) = 0.7747 -> 77%
+    assert_eq!(res_pal.enemy_cth, 77);
+
+    // Without Holy Shield (0 base): 30% FBR uses standard Paladin table (BP 13, 4f); capped at 75% at high Dex.
+    let c_no_hs = BuildConstraints {
+        holy_shield_base_lvl: 0,
+        base_dex: 200,
+        ..c_pal.clone()
+    };
+    let res_no_hs = eval_build_core(&[&hoz, &armor], &[], &c_no_hs, 1);
+    // Total fbr = 90 -> standard Paladin BP 86, 2f; with Armor excluded (fbr=30): BP 13, 4f
+    assert_eq!((res_no_hs.fbr_bp, res_no_hs.fbr_frames), (86, 2));
+    assert_eq!(res_no_hs.defense, 500 + 300 + 200 / 4);
+    assert_eq!(res_no_hs.block_pct, 75);
+
+    // 2H Bow Paladin: has_shield = false -> Holy Shield inactive, block/FBR = 0.
+    let bow = mk_test_item("Kuko", "weapon2h", 0, 0, 0, 0, 0);
+    let res_bow = eval_build_core(&[&bow, &armor], &[], &c_pal, 1);
+    assert!(!res_bow.has_shield);
+    assert_eq!(res_bow.defense, 300 + 115 / 4);
+    assert_eq!((res_bow.block_pct, res_bow.fbr, res_bow.fbr_bp, res_bow.fbr_frames), (0, 0, 0, 0));
+
+    // 2. Sorceress Cold Armors (Frozen=1, Shiver=2, Chilling=3), FBR table, and enemy_cth clamp [5, 95].
+    let mut storm = mk_test_item("Stormshield", "shield", 0, 0, 0, 0, 0);
+    storm.defense = 400;
+    storm.block_pct = 47; // 22 base + 25 mod -> +20 Sorc = 67%
+    storm.fbr = 35; // Sorc BP 27, 6f
+    let mut orb = mk_test_item("Orb", "weapon", 0, 0, 2, 0, 0);
+    orb.def_skill = 1;
+    let c_sorc = BuildConstraints {
+        char_class: CharClass::SORCERESS_ID,
+        base_dex: 100,
+        char_level: 80,
+        target_ar: 3000,
+        target_lvl: 82,
+        cold_armor_kind: 2, // Shiver: 45 + 6*(lvl-1)
+        cold_armor_base_lvl: 1,
+        ..Default::default()
+    };
+    let res_sorc = eval_build_core(&[&storm, &orb], &[], &c_sorc, 1);
+    // ca_slvl = 1 + 2 + 1 = 4 -> Shiver ED = 45 + 18 = 63%; base = 425 -> 425*163/100 = 692
+    assert_eq!(res_sorc.defense, 692);
+    assert_eq!(res_sorc.block_pct, (67 * 85) / 160);
+    assert_eq!((res_sorc.fbr, res_sorc.fbr_bp, res_sorc.fbr_frames), (35, 27, 6));
+
+    // Clamp checks: huge defense -> 5% hit, tiny defense & huge AR -> 95% hit.
+    let mut huge_armor = armor.clone();
+    huge_armor.defense = 1_000_000;
+    let res_min_cth = eval_build_core(&[&huge_armor], &[], &c_sorc, 1);
+    assert_eq!(res_min_cth.enemy_cth, 5);
+    let res_max_cth = eval_build_core(
+        &[],
+        &[],
+        &BuildConstraints {
+            target_ar: 100_000,
+            ..c_sorc.clone()
+        },
+        1,
+    );
+    assert_eq!(res_max_cth.enemy_cth, 95);
+
+    // Zero hard points in Cold Armor: Snowclash (+2 Chilling Armor via def_skill) unlocks Chilling Armor,
+    // while +all_skills / +sorc_skills alone without def_skill gives 0% Cold Armor ED.
+    let c_zero_ca = BuildConstraints {
+        cold_armor_kind: 3,
+        cold_armor_base_lvl: 0,
+        base_dex: 0,
+        ..c_sorc
+    };
+    let plain_orb = mk_test_item("Plain Orb", "weapon", 0, 0, 2, 0, 0);
+    let mut snowclash = mk_test_item("Snowclash", "belt", 0, 0, 0, 0, 0);
+    snowclash.defense = 100;
+    snowclash.def_skill = 2; // +2 Chilling Armor
+    let res_snow = eval_build_core(&[&snowclash, &plain_orb], &[], &c_zero_ca, 1);
+    // ca_slvl = 0 + 2 (orb sorc_skills) + 2 (Snowclash) = 4 -> Chilling ED = 60 + 9*3 = 87%
+    assert_eq!(res_snow.defense, 187);
+
+    let res_no_snow = eval_build_core(&[&armor, &plain_orb], &[], &c_zero_ca, 1);
+    // No Cold Armor hard pts and gear.def_skill == 0 (Armor's +1 all_skills, Orb's +2 sorc_skills): 0% ED
+    assert_eq!(res_no_snow.defense, 300);
+
+    // gear_defense includes partial set bonuses for score_eval_summary / socket.py parity.
+    let mut set_bonus = ItemSpec::empty("armor");
+    set_bonus.defense = 50;
+    let mut set_helm = mk_test_item("Set Helm", "helm", 0, 0, 0, 0, 0);
+    set_helm.defense = 100;
+    set_helm.set_group = 1;
+    set_helm.set_item_id = 1;
+    set_helm.set_bonuses = vec![(2, set_bonus)];
+    let mut set_gloves = mk_test_item("Set Gloves", "gloves", 0, 0, 0, 0, 0);
+    set_gloves.defense = 20;
+    set_gloves.set_group = 1;
+    set_gloves.set_item_id = 2;
+    let res_set = eval_build_core(&[&set_helm, &set_gloves], &[], &c_zero_ca, 1);
+    assert_eq!(res_set.gear_defense, 170);
+    assert_eq!(res_set.defense, 170);
+}

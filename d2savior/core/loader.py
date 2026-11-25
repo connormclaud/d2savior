@@ -291,6 +291,7 @@ class D2DataLoader:
                 speed=row.get_int("speed"),
                 reqstr=row.get_int("reqstr"),
                 reqdex=row.get_int("reqdex"),
+                block=row.get_int("block"),
                 level=row.get_int("level"),
                 levelreq=row.get_int("levelreq"),
                 cost=row.get_int("cost"),

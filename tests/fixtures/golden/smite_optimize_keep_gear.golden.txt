@@ -3,6 +3,7 @@ Option #1: High Breakpoint (27% FHR, 6f) (evaluated 1 pruned sets):
   DPS: 1059 (Attack) | AR: 841 (82%) | Skills: +2 (Holy Fire lvl 22) | CBF: Yes | IAS: 30% (BP 30%, 12f) | CB: 0% | DR: 0% | LL: 10%
   FHR: 30% (BP 27%, 6f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
   Normal Res: F:71%(71) L:49%(49) C:62%(62) P:69%(69)
+  Def: 557 (58% hit)
   Life: 694 | Mana: 88 | Charm slots: 26
     - weapon2h: Raven Claw (Long Bow) (smite Equipped)
     - shield  : (empty)
@@ -22,6 +23,7 @@ Option #2: Lower FHR BP (15%, 7f) — Better Resists (evaluated 1 pruned sets):
   DPS: 1071 (Attack) | AR: 841 (82%) | Skills: +2 (Holy Fire lvl 22) | CBF: Yes | IAS: 30% (BP 30%, 12f) | CB: 0% | DR: 0% | LL: 10%
   FHR: 18% (BP 15%, 7f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
   Normal Res: F:71%(71) L:49%(49) C:75%(76) P:75%(77)
+  Def: 557 (58% hit)
   Life: 694 | Mana: 88 | Charm slots: 26
     - weapon2h: Raven Claw (Long Bow) (smite Equipped)
     - shield  : (empty)
@@ -41,6 +43,7 @@ Option #3: Lower FHR BP (0%, 9f) — Better Resists (evaluated 1 pruned sets):
   DPS: 1078 (Attack) | AR: 832 (82%) | Skills: +2 (Holy Fire lvl 22) | CBF: Yes | IAS: 30% (BP 30%, 12f) | CB: 0% | DR: 0% | LL: 10%
   FHR: 5% (BP 0%, 9f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
   Normal Res: F:76%(76) L:55%(55) C:75%(75) P:74%(74)
+  Def: 557 (58% hit)
   Life: 694 | Mana: 88 | Charm slots: 26
     - weapon2h: Raven Claw (Long Bow) (smite Equipped)
     - shield  : (empty)

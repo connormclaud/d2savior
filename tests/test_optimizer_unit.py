@@ -103,6 +103,9 @@ class _FakeItemSpec:
     cm_skills: int = 0
     defense: int = 0
     belt_slots: int = 0
+    block_pct: int = 0
+    fbr: int = 0
+    def_skill: int = 0
     pal_skills: int = 0
     primary_skill: int = 0
     ias: int = 0
@@ -230,9 +233,15 @@ class _FakeConstraints:
     aura_ar_pct: list[int] = field(default_factory=list)
     aura_target_def_pct: list[int] = field(default_factory=list)
     target_def: int = 180
+    target_ar: int = 0
+    target_lvl: int = 0
     target_type: str = "champion"
     char_level: int = 1
     target_hp: int = 0
+    holy_shield_base_lvl: int = 0
+    defiance_base_lvl: int = 0
+    cold_armor_kind: int = 0
+    cold_armor_base_lvl: int = 0
 
 
 @dataclass
@@ -278,6 +287,14 @@ class _FakeBuildResult:
     ar: int = 0
     cth: int = 0
     raw_dps: float = 0.0
+    gear_defense: int = 0
+    defense: int = 0
+    enemy_cth: int = 0
+    block_pct: int = 0
+    fbr: int = 0
+    fbr_bp: int = 0
+    fbr_frames: int = 0
+    has_shield: bool = False
 
 
 def _as_result(res: _FakeBuildResult) -> BuildResult:
@@ -1004,6 +1021,31 @@ def test_report_formatting_sorc_paladin_and_charms() -> None:
         resist_penalty=-50,
     )
     assert "Hell Res: F:78%(128) L:75%(126) C:75%(125) P:75%(130)" in hell_report
+
+    shielded_res = _as_result(
+        _FakeBuildResult(
+            defense=4280,
+            enemy_cth=38,
+            block_pct=75,
+            fbr=32,
+            fbr_bp=32,
+            fbr_frames=3,
+            has_shield=True,
+        )
+    )
+    shielded_report = format_build_report("Shielded", [shielded_res], diff_name="Hell")
+    assert "  Def: 4280 (38% hit) | Block: 75% (FBR 32%, 3f)" in shielded_report
+
+    bow_res = _as_result(
+        _FakeBuildResult(
+            defense=620,
+            enemy_cth=74,
+            has_shield=False,
+        )
+    )
+    bow_report = format_build_report("Bow", [bow_res], char_class=int(CharClass.PALADIN))
+    assert "  Def: 620 (74% hit)" in bow_report
+    assert "Block:" not in bow_report
 
 
 def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2034,3 +2076,121 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
         c_spec.flat_elem_2x,
         c_spec.psn_dps_2x,
     ) == (20, 3, 7, 11, 24)
+
+
+def test_defense_block_and_cold_armor_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
+    from d2savior.optimizer.common import synthesize_monster_stats
+    from d2savior.optimizer.skill_tables import resolve_sorc_cold_armor
+
+    resolver = GameDataResolver.load()
+    d2r = resolver.for_version(0x63)
+
+    # Armor.txt shield block + CharStats-independent properties (pid 20, pid 102, Combat/Holy Shield/Armor staffmod)
+    gilded = d2r.data.get_item("pa9")
+    sacred = d2r.data.get_item("pab")
+    monarch = d2r.data.get_item("uit")
+    assert gilded is not None
+    assert gilded.block == 22
+    assert sacred is not None
+    assert sacred.block == 30
+    assert monarch is not None
+    assert monarch.block == 22
+
+    # Pick strongest Cold Armor allocated on Sorceress
+    sork, _ = _load_char("sork.d2s")
+    assert resolve_sorc_cold_armor(sork) == (1, 1, 40)
+    assert sork.skills is not None
+    sork.skills.skill_levels[50 - 36] = 1  # Shiver Armor lvl 1 (45% > 30%)
+    assert resolve_sorc_cold_armor(sork) == (2, 1, 50)
+    sork.skills.skill_levels[60 - 36] = 1  # Chilling Armor lvl 1 (60% > 45%)
+    assert resolve_sorc_cold_armor(sork) == (3, 1, 60)
+
+    # Monster stats scaling across difficulty / target_type
+    n_def, n_ar, n_lvl, n_hp = synthesize_monster_stats(0, "champion", 30)
+    assert (n_def, n_ar, n_lvl, n_hp) == (180, 720, 32, 1350)
+    h_def, h_ar, h_lvl, h_hp = synthesize_monster_stats(2, "boss", 85)
+    assert (h_def, h_ar, h_lvl, h_hp) == (2550, 7990, 88, 85000)
+
+    # Shield + property extraction
+    monkeypatch.setattr("d2savior.optimizer.extract.ItemSpec", _FakeItemSpec)
+    monkeypatch.setattr("d2savior.optimizer.extract_props.ItemSpec", _FakeItemSpec)
+    shield_item = D2Item()
+    shield_item.type_name = b"pa9 "
+    shield_item.item_info = ItemInfo()
+    tp = TypeSpecificInfo()
+    sp = PropertyList()
+    monkeypatch.setattr(
+        sp,
+        "get_parsed_properties",
+        lambda *_a, **_kw: [
+            (20, 30, [30]),
+            (102, 30, [30]),
+            (188, 2, [0, 3, 2]),
+            (107, 1, [117, 1]),
+        ],
+    )
+    tp.property_list = sp
+    shield_item.item_info.type_specific_info = tp
+    spec = _item_to_spec(
+        shield_item,
+        "Stash",
+        d2r,
+        0x63,
+        char_level=85,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="zeal",
+        pal_offense="zeal",
+    )
+    assert isinstance(spec, _FakeItemSpec)
+    assert spec.block_pct == 52  # 22 Armor.txt + 30 toblock
+    assert spec.fbr == 30
+    assert spec.def_skill == 3  # +2 Combat + 1 Holy Shield
+
+    # Zero hard points in all Cold Armors -> Snowclash Chilling Armor fallback, or active binding.
+    sork.skills.skill_levels[40 - 36] = 0
+    sork.skills.skill_levels[50 - 36] = 0
+    sork.skills.skill_levels[60 - 36] = 0
+    assert resolve_sorc_cold_armor(sork) == (3, 0, 60)
+
+    # Flat +Defense (pid 31) is preserved on weapons/amulets without Armor.txt base defence.
+    amul_item = D2Item()
+    amul_item.type_name = b"amu "
+    amul_item.item_info = ItemInfo()
+    amul_tp = TypeSpecificInfo()
+    amul_sp = PropertyList()
+    monkeypatch.setattr(
+        amul_sp,
+        "get_parsed_properties",
+        lambda *_a, **_kw: [(31, 325, [325]), (39, 30, [30])],
+    )
+    amul_tp.property_list = amul_sp
+    amul_item.item_info.type_specific_info = amul_tp
+    amul_spec = _item_to_spec(amul_item, "Stash", d2r, 0x63, char_level=85)
+    assert isinstance(amul_spec, _FakeItemSpec)
+    assert amul_spec.defense == 325
+
+    # Non-split_skills Paladin: +Offensive Auras / +Fire Skills do not inflate def_skill,
+    # while +Combat Skills still credits def_skill when 0 not in pal_tabs.
+    acc_hf = _PropAcc()
+    _apply_paladin_prop(
+        acc_hf, 188, 2, [0, 3, 2], d2r, 85, "holy-fire", 102, frozenset({1}), pal_offense="caster"
+    )
+    _apply_paladin_prop(
+        acc_hf, 126, 3, [1, 3], d2r, 85, "holy-fire", 102, frozenset({1}), pal_offense="caster"
+    )
+    assert (acc_hf.pal_skills, acc_hf.def_skill) == (3, -1)
+
+    acc_lvl = _PropAcc()
+    _apply_paladin_prop(
+        acc_lvl,
+        188,
+        1,
+        [1, 3, 1],
+        d2r,
+        85,
+        "leveling",
+        None,
+        frozenset({0, 1}),
+        pal_offense="caster",
+    )
+    assert (acc_lvl.pal_skills, acc_lvl.def_skill) == (1, -1)

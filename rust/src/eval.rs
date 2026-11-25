@@ -133,7 +133,14 @@ pub(crate) struct EvalSummary {
     pub mana_bo: i32,
     pub bo_lvl: i32,
     pub charm_slots: i32,
+    pub gear_defense: i32,
     pub defense: i32,
+    pub enemy_cth: i32,
+    pub block_pct: i32,
+    pub fbr: i32,
+    pub fbr_bp: i32,
+    pub fbr_frames: i32,
+    pub has_shield: bool,
     pub belt_slots: i32,
     pub ar: i32,
     pub cth: i32,
@@ -190,6 +197,14 @@ impl EvalSummary {
             ar: self.ar,
             cth: self.cth,
             raw_dps: self.raw_dps,
+            gear_defense: self.gear_defense,
+            defense: self.defense,
+            enemy_cth: self.enemy_cth,
+            block_pct: self.block_pct,
+            fbr: self.fbr,
+            fbr_bp: self.fbr_bp,
+            fbr_frames: self.fbr_frames,
+            has_shield: self.has_shield,
             items: items.iter().map(|i| (*i).clone()).collect(),
             charms: charms.iter().map(|c| (*c).clone()).collect(),
             evaluated_candidates,
@@ -201,6 +216,7 @@ pub(crate) fn eval_build_summary(
     gear: Stats,
     all_sk_non_wep: i32,
     hand: HandWeapon,
+    has_shield: bool,
     charms: &[&CharmSpec],
     c: &BuildConstraints,
 ) -> EvalSummary {
@@ -341,6 +357,55 @@ pub(crate) fn eval_build_summary(
             )
         };
 
+    let total_dex = c.base_dex + gear.dex_bonus + charm_dex;
+    let base_def = (gear.defense + total_dex.max(0) / 4).max(0);
+    let hs_bonus =
+        skills + gear.def_skill + if offense.is_melee_dps() { charm_action_skills } else { 0 };
+    let hs_slvl = if class == CharClass::Paladin && has_shield && c.holy_shield_base_lvl > 0 {
+        (c.holy_shield_base_lvl + hs_bonus).max(1)
+    } else {
+        0
+    };
+    let (skill_def_pct, hs_block) = match class {
+        CharClass::Paladin if hs_slvl > 0 => (
+            25 + 15 * (hs_slvl - 1) + 15 * c.defiance_base_lvl.max(0),
+            10 + (30 * ((110 * hs_slvl) / (hs_slvl + 6))) / 100,
+        ),
+        CharClass::Sorceress if c.cold_armor_base_lvl > 0 || gear.def_skill > 0 => {
+            let ca_slvl = (c.cold_armor_base_lvl + skills + gear.def_skill).max(1);
+            let ed = match c.cold_armor_kind {
+                1 => 30 + 5 * (ca_slvl - 1),
+                2 => 45 + 6 * (ca_slvl - 1),
+                3 => 60 + 9 * (ca_slvl - 1),
+                _ => 0,
+            };
+            (ed, 0)
+        }
+        _ => (0, 0),
+    };
+    let defense = ((base_def as i64 * (100 + skill_def_pct as i64)) / 100) as i32;
+    let enemy_cth = if c.target_ar > 0 {
+        let ar_f = c.target_ar as f64;
+        let def_f = defense.max(0) as f64;
+        let mlvl_f = c.target_lvl.max(1) as f64;
+        let clvl_f = c.char_level.max(1) as f64;
+        let raw = 2.0 * (ar_f / (ar_f + def_f)) * (mlvl_f / (mlvl_f + clvl_f));
+        (raw.clamp(0.05, 0.95) * 100.0).round() as i32
+    } else {
+        0
+    };
+    let (block_pct, fbr, fbr_bp, fbr_frames) = if has_shield {
+        let shield_block = (gear.block_pct + class.class_block_bonus() + hs_block).max(0);
+        let eff_dex = (total_dex - 15).max(0);
+        let clvl = c.char_level.max(1);
+        let block = ((shield_block * eff_dex) / (2 * clvl)).clamp(0, 75);
+        let total_fbr = gear.fbr.max(0);
+        let (bp, frames) = class.fbr_bp_and_frames(total_fbr, hs_slvl > 0);
+        (block, total_fbr, bp, frames)
+    } else {
+        (0, 0, 0, 0)
+    };
+
     EvalSummary {
         skills,
         primary_skill_bonus: gear.primary_skill,
@@ -383,7 +448,14 @@ pub(crate) fn eval_build_summary(
         mana_bo,
         bo_lvl,
         charm_slots: charms.iter().map(|ch| ch.size).sum(),
-        defense: gear.defense,
+        gear_defense: gear.defense,
+        defense,
+        enemy_cth,
+        block_pct,
+        fbr,
+        fbr_bp,
+        fbr_frames,
+        has_shield,
         belt_slots: gear.belt_slots,
         ar,
         cth,
@@ -399,7 +471,10 @@ pub(crate) fn eval_build_core(
 ) -> BuildResult {
     let (gear, all_sk_non_wep) = compute_effective_gear_stats(items);
     let hand = equipped_hand_weapon(items);
-    eval_build_summary(gear, all_sk_non_wep, hand, charms, c).into_result(
+    let has_shield = items
+        .iter()
+        .any(|it| it.slot == "shield" && it.name != "(empty)");
+    eval_build_summary(gear, all_sk_non_wep, hand, has_shield, charms, c).into_result(
         items,
         charms,
         evaluated_candidates,

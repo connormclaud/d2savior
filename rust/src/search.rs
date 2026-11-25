@@ -336,7 +336,7 @@ pub(crate) fn score_eval_summary(
             primary: sum.mf,
             secondary: eff_primary,
             tertiary: eff_fcr_bp,
-            tiebreakers: [sum.fhr_bp, sum.pr, sum.life_bo, sum.belt_slots, sum.defense, 0, 0],
+            tiebreakers: [sum.fhr_bp, sum.pr, sum.life_bo, sum.belt_slots, sum.gear_defense, 0, 0],
             locality: 0,
         },
         SearchMode::Power => BuildScore {
@@ -347,7 +347,7 @@ pub(crate) fn score_eval_summary(
             },
             secondary: sum.skills,
             tertiary: i32::from(sum.pr >= BASE_MAX_RES),
-            tiebreakers: [sum.pr, sum.life_bo, sum.mana_bo, sum.belt_slots, sum.defense, 0, 0],
+            tiebreakers: [sum.pr, sum.life_bo, sum.mana_bo, sum.belt_slots, sum.gear_defense, 0, 0],
             locality: 0,
         },
         SearchMode::MaxRes => BuildScore {
@@ -359,7 +359,7 @@ pub(crate) fn score_eval_summary(
                 sum.life_bo,
                 sum.fr_raw + sum.lr_raw + sum.cr_raw + sum.pr_raw,
                 sum.belt_slots,
-                sum.defense,
+                sum.gear_defense,
                 0,
                 0,
             ],
@@ -377,7 +377,7 @@ pub(crate) fn score_eval_summary(
                     sum.fhr_bp,
                     res_sum,
                     sum.belt_slots,
-                    sum.defense,
+                    sum.gear_defense,
                 ]
             } else {
                 [
@@ -387,7 +387,7 @@ pub(crate) fn score_eval_summary(
                     sum.fhr_bp,
                     eff_fcr_bp,
                     sum.belt_slots,
-                    sum.defense,
+                    sum.gear_defense,
                 ]
             },
             locality: 0,
@@ -403,7 +403,7 @@ pub(crate) fn score_eval_summary(
                 eff_fcr_bp,
                 res_sum,
                 sum.belt_slots,
-                sum.defense,
+                sum.gear_defense,
             ],
             locality: 0,
         },
@@ -415,6 +415,7 @@ fn item_sort_key(
     offense: OffenseProfile,
     s: &Stats,
     locality: i32,
+    raw_def: i32,
 ) -> (i32, i32, i32, i32, i32, i32, i32) {
     let eff_fcr = if offense.uses_fcr() { s.fcr } else { 0 };
     match mode {
@@ -424,7 +425,7 @@ fn item_sort_key(
             eff_fcr,
             s.fr + s.lr,
             s.belt_slots,
-            s.defense,
+            raw_def,
             locality,
         ),
         SearchMode::Power => (
@@ -433,7 +434,7 @@ fn item_sort_key(
             eff_fcr,
             s.fhr,
             s.belt_slots,
-            s.defense,
+            raw_def,
             locality,
         ),
         SearchMode::MaxRes => (
@@ -442,7 +443,7 @@ fn item_sort_key(
             s.primary_power_skills(),
             eff_fcr,
             s.belt_slots,
-            s.defense,
+            raw_def,
             locality,
         ),
         SearchMode::Leveling => (
@@ -455,7 +456,7 @@ fn item_sort_key(
                 s.frw
             },
             s.belt_slots,
-            s.defense,
+            raw_def,
             locality,
         ),
         SearchMode::LevelingRes => (
@@ -464,7 +465,7 @@ fn item_sort_key(
             s.cbf,
             s.fhr,
             s.belt_slots,
-            s.defense,
+            raw_def,
             locality,
         ),
     }
@@ -653,27 +654,33 @@ fn build_hands(
     }
 
     weapons_1h.sort_by_key(|it| {
+        let max_s = it.max_total_stats();
         Reverse(item_sort_key(
             mode,
             offense,
-            &it.max_total_stats().for_mode(mode, offense, c),
+            &max_s.for_mode(mode, offense, c),
             item_locality_score(&it.loc),
+            max_s.defense,
         ))
     });
     shields.sort_by_key(|it| {
+        let max_s = it.max_total_stats();
         Reverse(item_sort_key(
             mode,
             offense,
-            &it.max_total_stats().for_mode(mode, offense, c),
+            &max_s.for_mode(mode, offense, c),
             item_locality_score(&it.loc),
+            max_s.defense,
         ))
     });
     weapons_2h.sort_by_key(|it| {
+        let max_s = it.max_total_stats();
         Reverse(item_sort_key(
             mode,
             offense,
-            &it.max_total_stats().for_mode(mode, offense, c),
+            &max_s.for_mode(mode, offense, c),
             item_locality_score(&it.loc),
+            max_s.defense,
         ))
     });
 
@@ -768,6 +775,7 @@ fn build_hands(
             offense,
             &h.max_stats.for_mode(mode, offense, c),
             h.locality,
+            h.max_stats.defense,
         ))
     });
     prune_candidates(hands, c.limit, false, c.base_str, c.base_dex, |h| {
@@ -1249,7 +1257,9 @@ impl<'a> SearchState<'a> {
             ) else {
                 continue;
             };
-            let mut sum = eval_build_summary(gear, all_sk_non_wep, hw, &charms_sel, self.c);
+            let has_shield = hand.second.slot == "shield" && hand.second.name != "(empty)";
+            let mut sum =
+                eval_build_summary(gear, all_sk_non_wep, hw, has_shield, &charms_sel, self.c);
             if (!self.c.allow_mf && sum.mf > 0)
                 || sum.fcr < self.c.min_fcr
                 || sum.fhr < self.c.min_fhr
@@ -1281,6 +1291,7 @@ impl<'a> SearchState<'a> {
                     gear,
                     all_sk_non_wep,
                     hw,
+                    has_shield,
                     leaf,
                     (final_req_str, final_req_dex),
                     self.offense,
@@ -1368,7 +1379,10 @@ fn score_of_result(
     let charm_refs: Vec<&CharmSpec> = res.charms.iter().collect();
     let (gear, all_sk_non_wep) = compute_effective_gear_stats(&item_refs);
     let hw = equipped_hand_weapon(&item_refs);
-    let sum = eval_build_summary(gear, all_sk_non_wep, hw, &charm_refs, c);
+    let has_shield = item_refs
+        .iter()
+        .any(|it| it.slot == "shield" && it.name != "(empty)");
+    let sum = eval_build_summary(gear, all_sk_non_wep, hw, has_shield, &charm_refs, c);
     let mut score = score_eval_summary(mode, offense, &sum, c);
     score.locality = item_refs
         .iter()
@@ -1520,11 +1534,13 @@ pub fn optimize_builds_with_baseline(
             slot_items.push(ItemSpec::empty(slot));
         }
         slot_items.sort_by_key(|it| {
+            let max_s = it.max_total_stats();
             Reverse(item_sort_key(
                 mode,
                 offense,
-                &it.max_total_stats().for_mode(mode, offense, c),
+                &max_s.for_mode(mode, offense, c),
                 item_locality_score(&it.loc),
+                max_s.defense,
             ))
         });
         groups.push(prune_slot_items(slot_items, false, mode, offense, c));
@@ -1544,11 +1560,13 @@ pub fn optimize_builds_with_baseline(
         rngs.push(ItemSpec::empty("ring"));
     }
     rngs.sort_by_key(|it| {
+        let max_s = it.max_total_stats();
         Reverse(item_sort_key(
             mode,
             offense,
-            &it.max_total_stats().for_mode(mode, offense, c),
+            &max_s.for_mode(mode, offense, c),
             item_locality_score(&it.loc),
+            max_s.defense,
         ))
     });
     let rngs = prune_slot_items(rngs, true, mode, offense, c);
@@ -1565,6 +1583,7 @@ pub fn optimize_builds_with_baseline(
             offense,
             &rp.max_stats.for_mode(mode, offense, c),
             rp.locality,
+            rp.max_stats.defense,
         ))
     });
     let mut ring_pairs: Vec<ItemPair> = Vec::with_capacity(all_pairs.len());

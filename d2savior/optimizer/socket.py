@@ -27,6 +27,7 @@ from d2savior.optimizer.common import (
     _item_cta_bo,
     _item_levelreq,
     inactive_weapon_slots,
+    normalize_target_type,
     parse_keep_gear,
 )
 from d2savior.optimizer.extract import (
@@ -52,7 +53,11 @@ from d2savior.optimizer.paladin import (
     paladin_offense_profile,
 )
 from d2savior.optimizer.presets import ConstraintOverrides, resolve_build_expr
-from d2savior.optimizer.skill_tables import resolve_paladin_aura_id, resolve_sorc_filler_skill
+from d2savior.optimizer.skill_tables import (
+    resolve_paladin_aura_id,
+    resolve_sorc_cold_armor,
+    resolve_sorc_filler_skill,
+)
 from d2savior.optimizer.sorc import select_sorc_presets
 
 _SOCKETABLE_SLOTS: frozenset[str] = frozenset({"helm", "armor", "shield", "weapon", "weapon2h"})
@@ -542,6 +547,7 @@ def _consider_candidate_item(
     set_group_ids: dict[str, int],
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     sorc_filler_id: int | None,
+    sorc_armor_id: int | None,
     pal_aura_id: int | None,
     dedup: dict[tuple[object, ...], _CandidateItem],
     ignore_reqs: bool = False,
@@ -579,6 +585,7 @@ def _consider_candidate_item(
         global_set_cache=global_set_cache,
         skip_useful_check=True,
         sorc_filler_id=sorc_filler_id,
+        sorc_armor_id=sorc_armor_id,
         pal_aura_id=pal_aura_id,
         ignore_reqs=ignore_reqs,
     )
@@ -608,6 +615,7 @@ def _collect_eligible_items(
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     sorc_filler_id: int | None,
     pal_aura_id: int | None,
+    sorc_armor_id: int | None = None,
     char_level_override: int | None = None,
     ignore_reqs: bool = False,
 ) -> list[_CandidateItem]:
@@ -632,6 +640,7 @@ def _collect_eligible_items(
         "set_group_ids": set_group_ids,
         "global_set_cache": global_set_cache,
         "sorc_filler_id": sorc_filler_id,
+        "sorc_armor_id": sorc_armor_id,
         "pal_aura_id": pal_aura_id,
         "dedup": dedup,
         "ignore_reqs": ignore_reqs,
@@ -764,6 +773,7 @@ def _build_runeword_variants(
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     sorc_filler_id: int | None,
     pal_aura_id: int | None,
+    sorc_armor_id: int | None = None,
     ignore_reqs: bool = False,
 ) -> list[SocketCandidateVariant]:
     ver_res = cand.resolver
@@ -815,6 +825,7 @@ def _build_runeword_variants(
             global_set_cache=global_set_cache,
             skip_useful_check=True,
             sorc_filler_id=sorc_filler_id,
+            sorc_armor_id=sorc_armor_id,
             pal_aura_id=pal_aura_id,
             extra_props=extra_props,
             extra_levelreq=rw_lvlreq,
@@ -851,6 +862,7 @@ def _build_gear_socket_variants(
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     sorc_filler_id: int | None,
     pal_aura_id: int | None,
+    sorc_armor_id: int | None = None,
     ignore_reqs: bool = False,
 ) -> list[SocketCandidateVariant]:
     ver_res = cand.resolver
@@ -880,6 +892,7 @@ def _build_gear_socket_variants(
             global_set_cache=global_set_cache,
             skip_useful_check=True,
             sorc_filler_id=sorc_filler_id,
+            sorc_armor_id=sorc_armor_id,
             pal_aura_id=pal_aura_id,
             extra_props=s_props,
             extra_levelreq=sock.levelreq,
@@ -954,7 +967,7 @@ def _build_score_key(
     res_base = min(res.fr, 75) + min(res.lr, 75) + min(res.cr, 75) + min(res.pr, 75)
     eff_fcr_bp = res.fcr_bp if offense == "caster" else 0
     belt_slots = sum(it.belt_slots for it in res.items)
-    defense = sum(it.defense for it in res.items)
+    defense = res.gear_defense
 
     if mode == "mf":
         return (
@@ -1023,7 +1036,7 @@ def _extra_improvement_key(res: BuildResult) -> tuple[int, ...]:
         res.fhr,
         res.fcr,
         res.ias,
-        sum(it.defense for it in res.items),
+        res.gear_defense,
     )
 
 
@@ -1078,9 +1091,15 @@ def _clone_constraints_limit1(c: BuildConstraints) -> BuildConstraints:
         aura_ar_pct=c.aura_ar_pct,
         aura_target_def_pct=c.aura_target_def_pct,
         target_def=c.target_def,
+        target_ar=c.target_ar,
+        target_lvl=c.target_lvl,
         target_type=cast(TargetTypeStr, c.target_type),
         char_level=c.char_level,
         target_hp=c.target_hp,
+        holy_shield_base_lvl=c.holy_shield_base_lvl,
+        defiance_base_lvl=c.defiance_base_lvl,
+        cold_armor_kind=c.cold_armor_kind,
+        cold_armor_base_lvl=c.cold_armor_base_lvl,
     )
 
 
@@ -1359,6 +1378,11 @@ def optimize_socket_quests(
         if char_class == int(CharClass.SORCERESS)
         else None
     )
+    _, _, sorc_armor_id = (
+        resolve_sorc_cold_armor(primary_char)
+        if char_class == int(CharClass.SORCERESS)
+        else (0, 0, None)
+    )
     pal_aura_id = (
         resolve_paladin_aura_id(primary_char, pal_spec, right_skill=right_skill)
         if char_class == int(CharClass.PALADIN)
@@ -1398,6 +1422,7 @@ def optimize_socket_quests(
         set_group_ids=set_group_ids,
         global_set_cache=global_set_cache,
         sorc_filler_id=sorc_filler_id,
+        sorc_armor_id=sorc_armor_id,
         pal_aura_id=pal_aura_id,
         char_level_override=level_override,
         ignore_reqs=theoretical,
@@ -1418,6 +1443,7 @@ def optimize_socket_quests(
                 set_group_ids=set_group_ids,
                 global_set_cache=global_set_cache,
                 sorc_filler_id=sorc_filler_id,
+                sorc_armor_id=sorc_armor_id,
                 pal_aura_id=pal_aura_id,
                 ignore_reqs=theoretical,
             )
@@ -1432,6 +1458,7 @@ def optimize_socket_quests(
                 set_group_ids=set_group_ids,
                 global_set_cache=global_set_cache,
                 sorc_filler_id=sorc_filler_id,
+                sorc_armor_id=sorc_armor_id,
                 pal_aura_id=pal_aura_id,
                 ignore_reqs=theoretical,
             )
@@ -1452,6 +1479,7 @@ def optimize_socket_quests(
             resolver=resolver,
             keep_equipped=keep_equipped,
             targets=targets,
+            target_type=normalize_target_type(target_type),
             left_skill=left_skill,
             right_skill=right_skill,
             overrides=overrides,
@@ -1470,7 +1498,7 @@ def optimize_socket_quests(
             resolver=resolver,
             keep_equipped=keep_equipped,
             targets=targets,
-            target_type=target_type,
+            target_type=normalize_target_type(target_type),
             left_skill=left_skill,
             right_skill=right_skill,
             overrides=overrides,

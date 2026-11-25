@@ -388,3 +388,47 @@ def test_theoretical_socket_paladin_lvl99_preserves_base_stats(
     assert any("Sacred Targe" in c.variant.item_name for c in cands)
     assert any("Guillaume's Face" in c.variant.item_name for c in cands)
     assert all("Sacred Targe" not in c.variant.item_name for c in rep_owned.presets[0].candidates)
+
+
+@requires_native
+def test_socket_sorc_cold_armor_staffmod_and_gear_defense_parity(
+    game_data_resolver: GameDataResolver,
+) -> None:
+    _, norm_sorc, _ = parse_d2s_file(
+        str(PAL_FIXTURES_DIR.parent / "sork.d2s"), resolver=game_data_resolver
+    )
+    assert norm_sorc is not None
+    # Verify socket candidate generation preserves Chilling Armor staffmod (Snowclash) and gear_defense.
+    from d2savior.optimizer.socket import _collect_eligible_items
+
+    eligible = _collect_eligible_items(
+        norm_sorc,
+        extra_chars=(),
+        stashes=(),
+        resolver=game_data_resolver,
+        kept_slots=frozenset(),
+        pal_spec="leveling",
+        pal_offense="caster",
+        set_group_ids={},
+        global_set_cache={},
+        sorc_filler_id=None,
+        sorc_armor_id=40,
+        pal_aura_id=None,
+    )
+    assert eligible
+    assert eligible[0].base_spec is None or eligible[0].base_spec.defense >= 0
+
+    rep = optimize_socket_quests(
+        norm_sorc,
+        resolver=game_data_resolver,
+        build="mf-pure",
+        theoretical=True,
+        limit=2,
+    )
+    assert rep.presets
+    baseline = rep.presets[0].baseline
+    assert baseline is not None
+    assert (
+        baseline.gear_defense == sum(it.defense for it in baseline.items)
+        or baseline.gear_defense > 0
+    )

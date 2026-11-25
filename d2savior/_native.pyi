@@ -72,6 +72,9 @@ class ItemSpec:
     max_pr: int
     defense: int
     belt_slots: int
+    block_pct: int
+    fbr: int
+    def_skill: int
     set_group: int
     set_item_id: int
     set_bonuses: list[tuple[int, ItemSpec]]
@@ -151,6 +154,9 @@ class ItemSpec:
         dex_bonus: int = 0,
         defense: int = 0,
         belt_slots: int = 0,
+        block_pct: int = 0,
+        fbr: int = 0,
+        def_skill: int = 0,
         req_str: int = 0,
         req_dex: int = 0,
         set_group: int = 0,
@@ -284,6 +290,12 @@ class BuildConstraints:
     target_type: str
     char_level: int
     target_hp: int
+    target_ar: int
+    target_lvl: int
+    holy_shield_base_lvl: int
+    defiance_base_lvl: int
+    cold_armor_kind: int
+    cold_armor_base_lvl: int
 
     def __init__(
         self,
@@ -339,6 +351,12 @@ class BuildConstraints:
         target_type: TargetTypeStr = "champion",
         char_level: int = 1,
         target_hp: int = 0,
+        target_ar: int = 0,
+        target_lvl: int = 0,
+        holy_shield_base_lvl: int = 0,
+        defiance_base_lvl: int = 0,
+        cold_armor_kind: int = 0,
+        cold_armor_base_lvl: int = 0,
     ) -> None: ...
 
 class BuildResult:
@@ -426,6 +444,22 @@ class BuildResult:
     def cth(self) -> int: ...
     @property
     def raw_dps(self) -> float: ...
+    @property
+    def gear_defense(self) -> int: ...
+    @property
+    def defense(self) -> int: ...
+    @property
+    def enemy_cth(self) -> int: ...
+    @property
+    def block_pct(self) -> int: ...
+    @property
+    def fbr(self) -> int: ...
+    @property
+    def fbr_bp(self) -> int: ...
+    @property
+    def fbr_frames(self) -> int: ...
+    @property
+    def has_shield(self) -> bool: ...
     @property
     def items(self) -> list[ItemSpec]: ...
     @property

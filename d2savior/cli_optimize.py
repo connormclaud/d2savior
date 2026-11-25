@@ -152,6 +152,7 @@ def _run_sorc_optimize(
         resolver=resolver,
         keep_equipped=args.keep_gear,
         targets=args.targets,
+        target_type=args.target_type,
         left_skill=left_skill,
         right_skill=right_skill,
         overrides=overrides,

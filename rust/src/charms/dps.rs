@@ -17,6 +17,7 @@ impl<'a> CharmSolver<'a> {
         gear: Stats,
         all_sk_non_wep: i32,
         hw: HandWeapon,
+        has_shield: bool,
         leaf: Stats,
         reqs: (i32, i32),
         offense: OffenseProfile,
@@ -72,6 +73,7 @@ impl<'a> CharmSolver<'a> {
             gear: Stats,
             all_sk_non_wep: i32,
             hw: HandWeapon,
+            has_shield: bool,
             leaf: Stats,
             reqs: (i32, i32),
             offense: OffenseProfile,
@@ -353,8 +355,14 @@ impl<'a> CharmSolver<'a> {
                         cand_charms.push(st.pool[st.pure_dps.item_indices[b]]);
                         mask &= mask - 1;
                     }
-                    let cand_sum =
-                        eval_build_summary(st.gear, st.all_sk_non_wep, st.hw, &cand_charms, st.c);
+                    let cand_sum = eval_build_summary(
+                        st.gear,
+                        st.all_sk_non_wep,
+                        st.hw,
+                        st.has_shield,
+                        &cand_charms,
+                        st.c,
+                    );
                     if (!st.c.allow_mf && cand_sum.mf > 0)
                         || cand_sum.fhr < st.c.min_fhr
                         || cand_sum.frw < st.c.min_frw
@@ -507,6 +515,7 @@ impl<'a> CharmSolver<'a> {
             gear,
             all_sk_non_wep,
             hw,
+            has_shield,
             leaf,
             reqs,
             offense,

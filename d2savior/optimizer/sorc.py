@@ -15,12 +15,14 @@ from d2savior.core.stats import (
 from d2savior.optimizer.common import (
     CharacterBaseline,
     detect_cta_bo_bonus,
+    normalize_target_type,
     resolve_fixed_gear,
+    synthesize_monster_stats,
     validate_sorceress,
 )
-from d2savior.optimizer.native import BuildConstraints, SearchModeStr
+from d2savior.optimizer.native import BuildConstraints, SearchModeStr, TargetTypeStr
 from d2savior.optimizer.presets import ConstraintOverrides, resolve_build_expr
-from d2savior.optimizer.skill_tables import build_sorc_dps_tables
+from d2savior.optimizer.skill_tables import build_sorc_dps_tables, resolve_sorc_cold_armor
 
 _SKILL_BLIZZARD = 59
 _SKILL_COLD_MASTERY = 65
@@ -135,6 +137,7 @@ def select_sorc_presets(
     bo_base_bonus: int | None = None,
     keep_equipped: bool | str | None = False,
     targets: int = 1,
+    target_type: TargetTypeStr = "champion",
     left_skill: int | None = None,
     right_skill: int | None = None,
     overrides: ConstraintOverrides | None = None,
@@ -142,6 +145,7 @@ def select_sorc_presets(
 ) -> list[tuple[str, BuildConstraints]]:
     """Select one or more Sorceress build preset profiles by name."""
     validate_sorceress(char_data)
+    resolved_target_type = normalize_target_type(target_type)
     # Resolve presets via TOML catalog; raises ValueError for unknown names.
     try:
         resolved_presets = resolve_build_expr(
@@ -174,6 +178,10 @@ def select_sorc_presets(
         right_skill=right_skill,
         targets=eff_targets,
     )
+    cold_armor_kind, cold_armor_base_lvl, _ = resolve_sorc_cold_armor(char_data)
+    target_def, target_ar, target_lvl, target_hp = synthesize_monster_stats(
+        diff_idx, resolved_target_type, char_level
+    )
     fixed_all, fixed_slots = resolve_fixed_gear(keep_equipped)
     baseline = CharacterBaseline(
         char_class=int(CharClass.SORCERESS),
@@ -194,7 +202,14 @@ def select_sorc_presets(
         blizz_dmg=sorc_dps.blizz_dmg,
         filler_dmg=sorc_dps.filler_dmg,
         filler_is_aoe=sorc_dps.filler_is_aoe,
+        target_def=target_def,
+        target_ar=target_ar,
+        target_lvl=target_lvl,
+        target_type=resolved_target_type,
         char_level=char_level,
+        target_hp=target_hp,
+        cold_armor_kind=cold_armor_kind,
+        cold_armor_base_lvl=cold_armor_base_lvl,
     )
 
     out: list[tuple[str, BuildConstraints]] = []

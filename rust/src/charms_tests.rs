@@ -1407,7 +1407,7 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
     let pool_neg = vec![&ruby_sc, &fiery_sc];
     let mut solver_neg = CharmSolver::new(&pool_neg, &c_neg, SearchMode::LevelingRes);
     let best_charms = solver_neg.solve_with_min_main(leaf, (0, 0), 0).unwrap();
-    let best_sum = eval_build_summary(gear, 0, hw, &best_charms, &c_neg);
+    let best_sum = eval_build_summary(gear, 0, hw, false, &best_charms, &c_neg);
     let best_score =
         score_eval_summary(SearchMode::LevelingRes, OffenseProfile::Melee, &best_sum, &c_neg);
     assert!(best_score.primary < 0);
@@ -1417,12 +1417,13 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
     let pool_fire_only = vec![&fiery_sc];
     let mut solver_fire = CharmSolver::new(&pool_fire_only, &c_neg, SearchMode::LevelingRes);
     let mut best_c2: Vec<&CharmSpec> = Vec::new();
-    let mut best_s2 = eval_build_summary(gear, 0, hw, &best_c2, &c_neg);
+    let mut best_s2 = eval_build_summary(gear, 0, hw, false, &best_c2, &c_neg);
     let mut best_sc2 = score_eval_summary(SearchMode::LevelingRes, OffenseProfile::Melee, &best_s2, &c_neg);
     solver_fire.improve_for_dps(
         gear,
         0,
         hw,
+        false,
         leaf,
         (0, 0),
         OffenseProfile::Melee,
@@ -1624,12 +1625,13 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
     assert_eq!(solver_many.pure_dps.item_indices.len(), 64);
     assert_eq!(solver_many.dps_groups.len(), 1);
     let mut best_c3: Vec<&CharmSpec> = Vec::new();
-    let mut best_s3 = eval_build_summary(gear, 0, hw, &best_c3, &c_many);
+    let mut best_s3 = eval_build_summary(gear, 0, hw, false, &best_c3, &c_many);
     let mut best_sc3 = score_eval_summary(SearchMode::Leveling, OffenseProfile::Melee, &best_s3, &c_many);
     solver_many.improve_for_dps(
         gear,
         0,
         hw,
+        false,
         Stats {
             dex_bonus: 50,
             ..Default::default()

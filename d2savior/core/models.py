@@ -400,6 +400,7 @@ class ItemTypeInfo:
     speed: int = 0
     reqstr: int = 0
     reqdex: int = 0
+    block: int = 0
     level: int = 0
     levelreq: int = 0
     cost: int = 0

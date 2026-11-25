@@ -1,7 +1,7 @@
 """Paladin leveling presets, spec detection, and breakpoint trade-off search."""
 
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any
 
 from d2savior.core.constants import CLASS_SKILL_BASES, DIFFICULTY_NAMES
 from d2savior.core.d2s_struct import D2SStruct
@@ -19,7 +19,11 @@ from d2savior.optimizer.common import (
     active_skill_bindings,
     detect_cta_bo_bonus,
     resolve_fixed_gear,
+    synthesize_monster_stats,
     validate_paladin,
+)
+from d2savior.optimizer.common import (
+    normalize_target_type as _normalize_target_type,
 )
 from d2savior.optimizer.native import (
     HAS_NATIVE,
@@ -60,6 +64,7 @@ _PAL_MIGHT = 2
 _PAL_RESIST_FIRE = 4
 _PAL_HOLY_BOLT = 5
 _PAL_HOLY_FIRE = 6
+_PAL_DEFIANCE = 8
 _PAL_RESIST_COLD = 9
 _PAL_ZEAL = 10
 _PAL_CHARGE = 11
@@ -232,17 +237,6 @@ def paladin_primary_skill_info(char_data: D2SStruct, spec: str) -> tuple[str | N
     return skill_name, base_lvl
 
 
-_VALID_TARGET_TYPES: frozenset[str] = frozenset({"trash", "champion", "boss"})
-
-
-def _normalize_target_type(target_type: str) -> TargetTypeStr:
-    resolved = target_type.strip().lower()
-    if resolved not in _VALID_TARGET_TYPES:
-        valid = ", ".join(sorted(_VALID_TARGET_TYPES))
-        raise ValueError(f"Unknown target_type '{target_type}'; expected one of: {valid}")
-    return cast(TargetTypeStr, resolved)
-
-
 def _build_paladin_baseline(
     char_data: D2SStruct,
     *,
@@ -311,11 +305,12 @@ def _build_paladin_baseline(
         action_ar_pct = ()
         aura_ar_pct = ()
         aura_target_def_pct = ()
-    base_def = (6, 12, 20)[min(max(diff_idx, 0), 2)]
-    target_def = (base_def * 3 // 2 if resolved_target_type == "boss" else base_def) * char_level
-    base_hp = (15, 45, 100)[min(max(diff_idx, 0), 2)] * char_level
-    hp_mult = {"trash": 1, "champion": 3, "boss": 10}[resolved_target_type]
-    target_hp = base_hp * hp_mult
+    target_def, target_ar, target_lvl, target_hp = synthesize_monster_stats(
+        diff_idx, resolved_target_type, char_level
+    )
+    pal_skills = char_data.skills.skill_levels if char_data.skills else ()
+    holy_shield_base_lvl = pal_skills[_PAL_HOLY_SHIELD] if len(pal_skills) > _PAL_HOLY_SHIELD else 0
+    defiance_base_lvl = pal_skills[_PAL_DEFIANCE] if len(pal_skills) > _PAL_DEFIANCE else 0
     fixed_all, fixed_slots = resolve_fixed_gear(keep_equipped)
     baseline = CharacterBaseline(
         char_class=int(CharClass.PALADIN),
@@ -343,9 +338,13 @@ def _build_paladin_baseline(
         aura_ar_pct=aura_ar_pct,
         aura_target_def_pct=aura_target_def_pct,
         target_def=target_def,
+        target_ar=target_ar,
+        target_lvl=target_lvl,
         target_type=resolved_target_type,
         char_level=char_level,
         target_hp=target_hp,
+        holy_shield_base_lvl=holy_shield_base_lvl,
+        defiance_base_lvl=defiance_base_lvl,
     )
     return baseline, char_level, diff_name, resolved_spec
 
