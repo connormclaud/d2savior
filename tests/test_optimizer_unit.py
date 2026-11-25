@@ -2194,3 +2194,79 @@ def test_defense_block_and_cold_armor_extraction(monkeypatch: pytest.MonkeyPatch
         pal_offense="caster",
     )
     assert (acc_lvl.pal_skills, acc_lvl.def_skill) == (1, -1)
+
+
+def test_paladin_passive_max_res_cap_in_alternatives_and_socket_score_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from d2savior.optimizer.paladin import _collect_paladin_alternatives
+    from d2savior.optimizer.socket import _build_score_key
+
+    mule, _ = _load_char("mule_unique.d2s")
+    assert mule.skills is not None
+    mule.skills.skill_levels = [0] * 30
+    mule.skills.skill_levels[4] = 10  # Resist Fire -> base_max_fr = 5 (cap 80%)
+    mule.skills.skill_levels[6] = 20  # Holy Fire
+
+    monkeypatch.setattr("d2savior.optimizer.common.BuildConstraints", _FakeConstraints)
+    baseline, _, _, _ = _build_paladin_baseline(
+        mule,
+        spec="holy-fire",
+        max_charm_slots=20,
+        extra_chars=(),
+        stashes=(),
+        resolver=None,
+        bo_base_bonus=0,
+        keep_equipped=False,
+    )
+    assert baseline.base_max_fr == 5
+
+    # Option #1 and #2 reach 75/75/75/75, which is still < 80 passive FR cap,
+    # so `_collect_paladin_alternatives` must probe `leveling-res` at `floor_fhr` (0).
+    opt1 = _as_result(_FakeBuildResult(fhr_bp=48, skills=2, fr=75, lr=75, cr=75, pr=75))
+    opt_48 = _as_result(_FakeBuildResult(fhr_bp=27, skills=2, fr=75, lr=75, cr=75, pr=75))
+    opt_cap = _as_result(_FakeBuildResult(fhr_bp=0, skills=2, fr=80, lr=75, cr=75, pr=75))
+    seen_calls: list[tuple[str, int]] = []
+
+    def _fake_opt(_items: object, _charms: object, c: _FakeConstraints) -> list[BuildResult]:
+        seen_calls.append((c.mode, c.min_fhr))
+        if c.mode == "leveling-res" and c.min_fhr == 27:
+            return [opt_48]
+        if c.mode == "leveling-res" and c.min_fhr == 0:
+            return [opt_cap]
+        return []
+
+    monkeypatch.setattr("d2savior.optimizer.paladin.optimize_builds", _fake_opt)
+    alts = _collect_paladin_alternatives(
+        [],
+        [],
+        baseline,
+        opt1,
+        limit=4,
+        offense="melee",
+        is_caster=False,
+        is_smite=False,
+    )
+    assert ("leveling-res", 0) in seen_calls
+    assert any(r.fr == 80 for _, r in alts)
+
+    # Socket `_build_score_key` uses `base_caps` rather than hardcoded 75.
+    res_75 = _as_result(_FakeBuildResult(fr=75, lr=75, cr=75, pr=75))
+    res_80 = _as_result(_FakeBuildResult(fr=80, lr=75, cr=75, pr=75))
+    key_75 = _build_score_key(
+        res_75,
+        "leveling-res",
+        "melee",
+        has_aura=True,
+        uses_caster_dps=False,
+        base_caps=(80, 75, 75, 75),
+    )
+    key_80 = _build_score_key(
+        res_80,
+        "leveling-res",
+        "melee",
+        has_aura=True,
+        uses_caster_dps=False,
+        base_caps=(80, 75, 75, 75),
+    )
+    assert key_80 > key_75

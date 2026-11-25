@@ -621,7 +621,7 @@ impl<'a> CharmSolver<'a> {
         ];
         let uses_room_in_cache = is_res_mode(self.mode) || self.mode == SearchMode::Leveling;
         let room = if is_res_mode(self.mode) {
-            let opt_caps = res_opt_caps(caps, self.mode);
+            let opt_caps = res_opt_caps(caps, self.mode, self.c);
             [
                 (opt_caps[0] - leaf.fr).max(self.sum_neg[0]),
                 (opt_caps[1] - leaf.lr).max(self.sum_neg[1]),
@@ -839,7 +839,7 @@ impl<'a> CharmSolver<'a> {
             state.pick(idx);
         }
         let res_targets = [self.c.min_fr, self.c.min_lr, self.c.min_cr, self.c.min_pr];
-        greedy_fill_remaining(&mut state, caps, res_targets, self.mode, self.class, true);
+        greedy_fill_remaining(&mut state, self.c, caps, res_targets, self.mode, self.class, true);
         state.chosen_indices
     }
 }

@@ -568,6 +568,58 @@ fn test_leveling_res_caps_at_75_and_paladin_never_forces_sunder() {
     };
     let solver_lvl = CharmSolver::new(&pool, &c_pal_lvl, SearchMode::Leveling);
     assert!(!solver_lvl.has_cold_sunder());
+
+    // With passive `base_max_fr = 10` (cap 85), BOTH LevelingRes and Leveling optimize up to 85 FR:
+    // Ruby SC (+11 FR -> 85) beats Vita SC (+20 life) when FR=75 < 85, and switches to Vita SC once FR=85.
+    let pal_charms = [
+        CharmSpec {
+            name: "Ruby SC".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Vita SC".to_string(),
+            size: 1,
+            life: 20,
+            ..Default::default()
+        },
+    ];
+    let pal_pool: Vec<&CharmSpec> = pal_charms.iter().collect();
+    let c_passive_fr = BuildConstraints {
+        char_class: 3,
+        base_hell_res: 0,
+        base_max_fr: 10,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 1,
+        ..Default::default()
+    };
+    let leaf_75_fr = Stats {
+        fr: 75,
+        lr: 75,
+        cr: 75,
+        pr: 75,
+        ..Default::default()
+    };
+    let leaf_85_fr = Stats {
+        fr: 85,
+        lr: 75,
+        cr: 75,
+        pr: 75,
+        ..Default::default()
+    };
+    for mode in [SearchMode::LevelingRes, SearchMode::Leveling] {
+        let mut s = CharmSolver::new(&pal_pool, &c_passive_fr, mode);
+        let pick_75 = s.solve(&[], leaf_75_fr, (0, 0)).expect("should pick Ruby SC below 85 FR");
+        assert_eq!(pick_75[0].name, "Ruby SC");
+        let pick_85 = s.solve(&[], leaf_85_fr, (0, 0)).expect("should pick Vita SC at 85 FR");
+        assert_eq!(pick_85[0].name, "Vita SC");
+    }
 }
 
 #[test]

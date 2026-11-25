@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashSet};
 
-use crate::eval::res_caps;
-use crate::types::{BASE_MAX_RES, BuildConstraints, CharClass, CharmSpec, SearchMode, Stats};
+use crate::eval::{base_res_caps, res_caps};
+use crate::types::{BuildConstraints, CharClass, CharmSpec, SearchMode, Stats};
 #[cfg(test)]
 use crate::types::{ItemSpec, compute_effective_gear_stats};
 
@@ -9,15 +9,18 @@ pub(super) fn is_res_mode(mode: SearchMode) -> bool {
     matches!(mode, SearchMode::MaxRes | SearchMode::LevelingRes)
 }
 
-pub(super) fn res_opt_caps(caps: [i32; 4], mode: SearchMode) -> [i32; 4] {
+pub(super) fn res_opt_caps(caps: [i32; 4], mode: SearchMode, c: &BuildConstraints) -> [i32; 4] {
     match mode {
         SearchMode::MaxRes => caps,
-        SearchMode::LevelingRes | SearchMode::Leveling => [
-            caps[0].min(BASE_MAX_RES),
-            caps[1].min(BASE_MAX_RES),
-            caps[2].min(BASE_MAX_RES),
-            caps[3].min(BASE_MAX_RES),
-        ],
+        SearchMode::LevelingRes | SearchMode::Leveling => {
+            let bc = base_res_caps(c);
+            [
+                caps[0].min(bc.0),
+                caps[1].min(bc.1),
+                caps[2].min(bc.2),
+                caps[3].min(bc.3),
+            ]
+        }
         _ => [0; 4],
     }
 }
@@ -291,6 +294,7 @@ fn greedy_mf_loop(state: &mut CharmState<'_, '_>, target_mf: i32) {
 
 pub(super) fn greedy_fill_remaining(
     state: &mut CharmState<'_, '_>,
+    c: &BuildConstraints,
     caps: [i32; 4],
     res_targets: [i32; 4],
     mode: SearchMode,
@@ -340,7 +344,7 @@ pub(super) fn greedy_fill_remaining(
         })
     });
 
-    let opt_caps = res_opt_caps(caps, mode);
+    let opt_caps = res_opt_caps(caps, mode, c);
     let pick_ordered = |state: &mut CharmState<'_, '_>, indices: Vec<usize>| {
         for idx in indices {
             if state.can_pick(idx)
@@ -366,7 +370,7 @@ pub(super) fn greedy_fill_remaining(
     if mode == SearchMode::Leveling {
         greedy_res_loop(
             state,
-            res_opt_caps(caps, mode),
+            res_opt_caps(caps, mode, c),
             [1.0, 1.0, 1.0, 1.0],
             0.0,
             0.2,
@@ -514,7 +518,7 @@ fn greedy_charms_pass_indices(
     if is_res_mode(mode) {
         greedy_res_loop(
             &mut state,
-            res_opt_caps(caps, mode),
+            res_opt_caps(caps, mode, c),
             [1.0, 1.0, 1.0, 1.0],
             0.0,
             0.2,
@@ -524,6 +528,7 @@ fn greedy_charms_pass_indices(
 
     greedy_fill_remaining(
         &mut state,
+        c,
         caps,
         res_targets,
         mode,

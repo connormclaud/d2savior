@@ -81,6 +81,15 @@ pub fn blizzard_damage(skills: i32) -> (f64, f64, i32) {
     blizzard_damage_with_base(skills, 20, 54, 20)
 }
 
+pub(crate) fn base_res_caps(c: &BuildConstraints) -> (i32, i32, i32, i32) {
+    (
+        (BASE_MAX_RES + c.base_max_fr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.base_max_lr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.base_max_cr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.base_max_pr).min(HARD_MAX_RES),
+    )
+}
+
 pub(crate) fn res_caps(max_res: Stats, c: &BuildConstraints) -> (i32, i32, i32, i32) {
     (
         (BASE_MAX_RES + c.base_max_fr + max_res.max_fr).min(HARD_MAX_RES),

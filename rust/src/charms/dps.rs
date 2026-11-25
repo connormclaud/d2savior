@@ -3,11 +3,10 @@ use super::dp::{
     min_slots_for_val,
 };
 use super::solver::CharmSolver;
-use crate::eval::{EvalSummary, eval_build_summary, res_caps};
+use crate::eval::{EvalSummary, base_res_caps, eval_build_summary, res_caps};
 use crate::search::{BuildScore, score_eval_summary};
 use crate::types::{
-    BASE_MAX_RES, BuildConstraints, CharClass, CharmSpec, HandWeapon, OffenseProfile, SearchMode,
-    Stats,
+    BuildConstraints, CharClass, CharmSpec, HandWeapon, OffenseProfile, SearchMode, Stats,
 };
 
 impl<'a> CharmSolver<'a> {
@@ -34,14 +33,20 @@ impl<'a> CharmSolver<'a> {
         let global_ub_bucket =
             OffenseProfile::dps_bucket(offense.compute_dps(hw, ub_leaf, self.c).0);
         let caps_t = res_caps(leaf, self.c);
-        let caps = [caps_t.0, caps_t.1, caps_t.2, caps_t.3];
+        let bc_t = base_res_caps(self.c);
+        let base_caps = [
+            caps_t.0.min(bc_t.0),
+            caps_t.1.min(bc_t.1),
+            caps_t.2.min(bc_t.2),
+            caps_t.3.min(bc_t.3),
+        ];
         let cbf_val = i32::from(leaf.cbf > 0);
         if let Some(cut) = cutoff {
             let max_res_base: i32 = [
-                (ub_leaf.fr).min(caps[0]).min(BASE_MAX_RES),
-                (ub_leaf.lr).min(caps[1]).min(BASE_MAX_RES),
-                (ub_leaf.cr).min(caps[2]).min(BASE_MAX_RES),
-                (ub_leaf.pr).min(caps[3]).min(BASE_MAX_RES),
+                (ub_leaf.fr).min(base_caps[0]),
+                (ub_leaf.lr).min(base_caps[1]),
+                (ub_leaf.cr).min(base_caps[2]),
+                (ub_leaf.pr).min(base_caps[3]),
             ]
             .iter()
             .sum();
@@ -104,7 +109,7 @@ impl<'a> CharmSolver<'a> {
             nd_fhr_at: &'b [i32],
             nd_frw_at: &'b [i32],
             nd_mf_at: &'b [i32],
-            caps: [i32; 4],
+            base_caps: [i32; 4],
         }
 
         struct DpsMut<'b, 'a> {
@@ -214,7 +219,7 @@ impl<'a> CharmSolver<'a> {
             let mut rem_r_opt = [None; 4];
             let mut ub_res_base = 0i32;
             for r in 0..4 {
-                let cap_r = st.caps[r].min(BASE_MAX_RES);
+                let cap_r = st.base_caps[r];
                 let base_r = leaf_res[r] + cur.res[r];
                 let cur_plus_nd = base_r + st.nd_res_at[rs_idx][r];
                 if cur_plus_nd >= cap_r.max(min_res[r]) {
@@ -253,7 +258,7 @@ impl<'a> CharmSolver<'a> {
                 }
                 let mut rem_r_full = [0i32; 4];
                 for r in 0..4 {
-                    let cap_r = st.caps[r].min(BASE_MAX_RES);
+                    let cap_r = st.base_caps[r];
                     if leaf_res[r] + cur.res[r] < cap_r {
                         rem_r_full[r] = *rem_r_opt[r].get_or_insert_with(|| {
                             ub_rem_at(g_idx, sp.res[r], &st.order_res[r], rem_slots)
@@ -265,7 +270,7 @@ impl<'a> CharmSolver<'a> {
                 for s in (s_req as usize)..=max_s {
                     let mut sum_r = 0i32;
                     for r in 0..4 {
-                        let cap_r = st.caps[r].min(BASE_MAX_RES);
+                        let cap_r = st.base_caps[r];
                         sum_r += (leaf_res[r] + cur.res[r] + rem_r_full[r] + st.nd_res_at[s][r])
                             .min(cap_r);
                     }
@@ -308,18 +313,10 @@ impl<'a> CharmSolver<'a> {
                         continue;
                     }
                     let cand_res_ub: i32 = [
-                        (leaf_d.fr + st.nd_res_at[nd_idx][0])
-                            .min(st.caps[0])
-                            .min(BASE_MAX_RES),
-                        (leaf_d.lr + st.nd_res_at[nd_idx][1])
-                            .min(st.caps[1])
-                            .min(BASE_MAX_RES),
-                        (leaf_d.cr + st.nd_res_at[nd_idx][2])
-                            .min(st.caps[2])
-                            .min(BASE_MAX_RES),
-                        (leaf_d.pr + st.nd_res_at[nd_idx][3])
-                            .min(st.caps[3])
-                            .min(BASE_MAX_RES),
+                        (leaf_d.fr + st.nd_res_at[nd_idx][0]).min(st.base_caps[0]),
+                        (leaf_d.lr + st.nd_res_at[nd_idx][1]).min(st.base_caps[1]),
+                        (leaf_d.cr + st.nd_res_at[nd_idx][2]).min(st.base_caps[2]),
+                        (leaf_d.pr + st.nd_res_at[nd_idx][3]).min(st.base_caps[3]),
                     ]
                     .iter()
                     .sum();
@@ -546,7 +543,7 @@ impl<'a> CharmSolver<'a> {
             nd_fhr_at: &self.nd_fhr_at,
             nd_frw_at: &self.nd_frw_at,
             nd_mf_at: &self.nd_mf_at,
-            caps,
+            base_caps,
         };
         let mut mut_ctx = DpsMut {
             non_dps_solver,

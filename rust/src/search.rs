@@ -7,12 +7,12 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::charms::CharmSolver;
-use crate::eval::{eval_build_summary, res_caps, EvalSummary};
+use crate::eval::{base_res_caps, eval_build_summary, res_caps, EvalSummary};
 use crate::types::{
     compute_effective_gear_stats, compute_effective_gear_stats_and_reqs, eff_req,
     equipped_hand_weapon, BuildConstraints, BuildResult, CharClass, CharmSpec, HandWeapon,
     ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, TargetType, WeaponClass,
-    BASE_MAX_RES, HARD_MAX_PDR_PCT,
+    HARD_MAX_PDR_PCT,
 };
 
 const SINGLE_SLOTS: [&str; 6] = ["helm", "armor", "amulet", "belt", "gloves", "boots"];
@@ -286,21 +286,22 @@ fn capped_res_sum(fr: i32, lr: i32, cr: i32, pr: i32, caps: (i32, i32, i32, i32)
     fr.min(caps.0) + lr.min(caps.1) + cr.min(caps.2) + pr.min(caps.3)
 }
 
-fn res_base_sum(fr: i32, lr: i32, cr: i32, pr: i32) -> i32 {
-    capped_res_sum(fr, lr, cr, pr, (BASE_MAX_RES, BASE_MAX_RES, BASE_MAX_RES, BASE_MAX_RES))
+fn res_base_sum(fr: i32, lr: i32, cr: i32, pr: i32, c: &BuildConstraints) -> i32 {
+    capped_res_sum(fr, lr, cr, pr, base_res_caps(c))
 }
 
-fn res_base_ub(s: Stats, caps: (i32, i32, i32, i32)) -> i32 {
+fn res_base_ub(s: Stats, caps: (i32, i32, i32, i32), c: &BuildConstraints) -> i32 {
+    let bc = base_res_caps(c);
     capped_res_sum(
         s.fr,
         s.lr,
         s.cr,
         s.pr,
         (
-            caps.0.min(BASE_MAX_RES),
-            caps.1.min(BASE_MAX_RES),
-            caps.2.min(BASE_MAX_RES),
-            caps.3.min(BASE_MAX_RES),
+            caps.0.min(bc.0),
+            caps.1.min(bc.1),
+            caps.2.min(bc.2),
+            caps.3.min(bc.3),
         ),
     )
 }
@@ -324,7 +325,7 @@ pub(crate) fn score_eval_summary(
         sum.skills + sum.blizz_skills + sum.primary_skill_bonus
     };
     let res_sum = sum.fr + sum.lr + sum.cr + sum.pr;
-    let res_base = res_base_sum(sum.fr, sum.lr, sum.cr, sum.pr);
+    let res_base = res_base_sum(sum.fr, sum.lr, sum.cr, sum.pr, c);
     let off = if offense.uses_dps_tables(c) {
         OffenseProfile::dps_bucket(sum.dps)
     } else {
@@ -346,7 +347,7 @@ pub(crate) fn score_eval_summary(
                 eff_primary
             },
             secondary: sum.skills,
-            tertiary: i32::from(sum.pr >= BASE_MAX_RES),
+            tertiary: i32::from(sum.pr >= base_res_caps(c).3),
             tiebreakers: [sum.pr, sum.life_bo, sum.mana_bo, sum.belt_slots, sum.gear_defense, 0, 0],
             locality: 0,
         },
@@ -1080,7 +1081,7 @@ impl<'a> SearchState<'a> {
                 };
                 self.offense.score(eff_primary_ub, ub_ias, ub_ch.cb)
             };
-            let res_base = res_base_ub(ub_ch, caps);
+            let res_base = res_base_ub(ub_ch, caps, self.c);
             let cbf_ub = i32::from(ub_ch.cbf > 0);
             (off_ub, res_base, cbf_ub)
         };
@@ -1216,7 +1217,8 @@ impl<'a> SearchState<'a> {
 
             let min_main_needed = match self.mode {
                 SearchMode::LevelingRes => self.top_results.nth_primary().map_or(0, |cut| {
-                    let cur_sum = res_base_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr);
+                    let caps_l = res_caps(leaf, self.c);
+                    let cur_sum = res_base_ub(leaf, caps_l, self.c);
                     (cut - cur_sum).max(0)
                 }),
                 SearchMode::MaxRes => self.top_results.nth_primary().map_or(0, |cut| {

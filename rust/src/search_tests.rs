@@ -1729,6 +1729,220 @@ fn test_leveling_res_and_smite_modes_and_require_shield() {
 }
 
 #[test]
+fn test_leveling_and_dps_tables_optimize_against_passive_max_res_cap_ignoring_item_max_res() {
+    let mut darkglow = mk_item("Darkglow", "armor", 0, 0, 0, 0, 0);
+    darkglow.max_fr = 5;
+    darkglow.max_lr = 5;
+    darkglow.max_cr = 5;
+    darkglow.max_pr = 5;
+
+    let mut shroud = mk_item("The Spirit Shroud", "armor", 0, 0, 1, 0, 0);
+    shroud.cbf = 1;
+
+    let mut sword = mk_item("Test Sword", "weapon", 0, 0, 0, 0, 0);
+    sword.wclass = "1hs".to_string();
+    sword.wep_phys_2x = 80;
+
+    let mut shield = mk_item("Rondache", "shield", 0, 0, 0, 35, 0);
+    shield.fr = 35;
+    shield.lr = 35;
+    shield.cr = 35;
+    shield.pr = 35;
+
+    let items = vec![
+        darkglow,
+        shroud,
+        sword,
+        shield,
+        mk_item("Amulet", "amulet", 0, 0, 0, 40, 0),
+        mk_item("Belt", "belt", 0, 0, 0, 40, 0),
+    ];
+    let charms = vec![
+        CharmSpec {
+            name: "Ruby SC".to_string(),
+            size: 1,
+            fr: 11,
+            ..Default::default()
+        },
+        CharmSpec {
+            name: "Vita SC".to_string(),
+            size: 1,
+            life: 20,
+            ..Default::default()
+        },
+    ];
+
+    // Base res = -40 (NM) + 35 + 40 + 40 = 75 across all resists.
+    // Passive base_max_fr = 5 raises the fire cap to 80% for both Leveling and LevelingRes
+    // (including DPS-table mode with improve_for_dps), while item +max_res (Darkglow) stays ignored
+    // in res_base so Spirit Shroud (+1 skill, CBF) still beats Darkglow.
+    for mode_str in ["leveling-res", "leveling"] {
+        let mode = if mode_str == "leveling-res" {
+            SearchMode::LevelingRes
+        } else {
+            SearchMode::Leveling
+        };
+        let c = BuildConstraints {
+            char_class: CharClass::PALADIN_ID,
+            use_bo: false,
+            offense: "melee".to_string(),
+            mode: mode_str.to_string(),
+            base_hell_res: -40,
+            base_max_fr: 5,
+            base_str: 50,
+            base_dex: 20,
+            target_def: 400,
+            aura_hit_dmg: vec![100.0, 110.0, 120.0],
+            aura_pulse_dps: vec![20.0, 22.0, 24.0],
+            action_ed: vec![0, 0, 0],
+            action_hits: vec![1, 1, 1],
+            action_ar_pct: vec![0, 0, 0],
+            aura_ar_pct: vec![0, 0, 0],
+            has_aura: true,
+            min_fcr: 0,
+            min_fhr: 0,
+            min_fr: 0,
+            min_lr: 0,
+            min_cr: 0,
+            min_pr: 0,
+            max_charm_slots: 1,
+            limit: 3,
+            ..Default::default()
+        };
+        let opt = optimize_builds_core(&items, &charms, &c).unwrap();
+        let bf = brute_force_top_scores(&items, &charms, &c, mode);
+        assert!(!opt.is_empty());
+        let mut top_sc = validate_and_score_result(&opt[0], &c, mode);
+        top_sc.locality = 0;
+        assert_eq!(top_sc, bf[0]);
+        assert_eq!(opt[0].items[3].name, "The Spirit Shroud");
+        assert_eq!(opt[0].max_fr, 80);
+        assert_eq!(opt[0].fr, 80);
+        assert_eq!(opt[0].charms[0].name, "Ruby SC");
+    }
+}
+
+#[test]
+fn test_exhaustive_brute_force_passive_max_res_modes() {
+    let mut rng = SplitMix64(0x50a5_517e_cafe_1234);
+    let mut mismatches = Vec::new();
+    let slots = ["helm", "armor", "belt", "gloves", "boots", "amulet"];
+    for seed_idx in 0..40 {
+        let mut items = Vec::new();
+        let mut w1 = mk_item(&format!("wep_{seed_idx}"), "weapon", 0, 0, rng.pick(&[0, 1]), 10, 0);
+        w1.wclass = "1hs".to_string();
+        w1.wep_phys_2x = 60;
+        w1.can_zeal = true;
+        w1.ias = rng.pick(&[0, 20]);
+        items.push(w1);
+        let mut s1 = mk_item(&format!("shd_{seed_idx}"), "shield", 10, 0, 0, rng.gen_range(15, 35), 0);
+        s1.max_fr = rng.pick(&[0, 5]);
+        items.push(s1);
+
+        for &slot in &slots {
+            for j in 0..2 {
+                let mut it = mk_item(
+                    &format!("pm_{slot}_{j}_{seed_idx}"),
+                    slot,
+                    rng.pick(&[0, 10]),
+                    rng.pick(&[0, 10, 20]),
+                    rng.pick(&[0, 1]),
+                    rng.gen_range(5, 30),
+                    0,
+                );
+                it.max_fr = rng.pick(&[0, 5]);
+                it.ias = rng.pick(&[0, 10]);
+                it.cb = rng.pick(&[0, 15]);
+                it.cbf = rng.pick(&[0, 1]);
+                it.life = rng.pick(&[0, 20]);
+                items.push(it);
+            }
+        }
+        items.push(mk_item(&format!("pm_r0_{seed_idx}"), "ring", 0, 0, 0, 15, 0));
+        items.push(mk_item(&format!("pm_r1_{seed_idx}"), "ring", 10, 0, 1, 10, 0));
+
+        let include_skill_charm = seed_idx % 2 == 0;
+        let charms: Vec<CharmSpec> = (0..5)
+            .map(|j| CharmSpec {
+                name: format!("pm_ch_{j}_{seed_idx}"),
+                size: rng.pick(&[1, 2, 3]),
+                loc: "inv".to_string(),
+                skills: if include_skill_charm && j == 0 { 1 } else { 0 },
+                fhr: rng.pick(&[0, 5, 12]),
+                fr: rng.gen_range(5, 20),
+                lr: rng.gen_range(5, 20),
+                cr: rng.gen_range(5, 20),
+                pr: rng.gen_range(5, 20),
+                life: rng.pick(&[0, 10, 20]),
+                ar: rng.pick(&[0, 25]),
+                ..Default::default()
+            })
+            .collect();
+
+        let (mode_str, mode, offense_str) = match seed_idx % 4 {
+            0 => ("leveling-res", SearchMode::LevelingRes, "melee"),
+            1 => ("leveling", SearchMode::Leveling, "zeal"),
+            2 => ("leveling-res", SearchMode::LevelingRes, "smite"),
+            _ => ("leveling-res", SearchMode::LevelingRes, "caster"),
+        };
+        let uses_dps = matches!(offense_str, "melee" | "zeal");
+        let c = BuildConstraints {
+            char_class: CharClass::PALADIN_ID,
+            use_bo: false,
+            offense: offense_str.to_string(),
+            base_hell_res: -40,
+            base_max_fr: rng.pick(&[0, 3, 6, 10]),
+            base_max_lr: rng.pick(&[0, 3, 6, 10]),
+            base_max_cr: rng.pick(&[0, 3, 6, 10]),
+            base_max_pr: rng.pick(&[0, 3, 6, 10]),
+            mode: mode_str.to_string(),
+            base_str: 50,
+            base_dex: 20,
+            target_def: 400,
+            aura_hit_dmg: if uses_dps { vec![100.0, 120.0, 140.0] } else { Vec::new() },
+            aura_pulse_dps: if uses_dps { vec![20.0, 25.0, 30.0] } else { Vec::new() },
+            action_ed: if uses_dps { vec![0, 20, 40] } else { Vec::new() },
+            action_hits: if uses_dps { vec![1, 2, 3] } else { Vec::new() },
+            action_ar_pct: if uses_dps { vec![0, 10, 20] } else { Vec::new() },
+            aura_ar_pct: if uses_dps { vec![0, 0, 0] } else { Vec::new() },
+            has_aura: uses_dps,
+            min_fcr: 0,
+            min_fhr: rng.pick(&[0, 15]),
+            min_fr: 0,
+            min_lr: 0,
+            min_cr: 0,
+            min_pr: 0,
+            max_charm_slots: rng.pick(&[3, 4, 5]),
+            limit: rng.gen_range(1, 3) as usize,
+            ..Default::default()
+        };
+        let expected = brute_force_top_scores(&items, &charms, &c, mode);
+        let actual: Vec<BuildScore> = optimize_builds_core(&items, &charms, &c)
+            .unwrap()
+            .iter()
+            .map(|r| validate_and_score_result(r, &c, mode))
+            .collect();
+        let full_parity = uses_dps || mode == SearchMode::Leveling || !include_skill_charm;
+        if full_parity {
+            let top3 = |v: &[BuildScore]| v.iter().map(|s| (s.primary, s.secondary, s.tertiary)).collect::<Vec<_>>();
+            if top3(&actual) != top3(&expected) {
+                mismatches.push(format!("seed={seed_idx} ({mode_str}/{offense_str}): actual={actual:?} expected={expected:?}"));
+            }
+        } else {
+            let prim = |v: &[BuildScore]| v.iter().map(|s| s.primary).collect::<Vec<_>>();
+            if prim(&actual) != prim(&expected) {
+                mismatches.push(format!("seed={seed_idx} ({mode_str}/{offense_str}): actual={actual:?} expected={expected:?}"));
+            }
+        }
+    }
+    assert!(
+        mismatches.is_empty(),
+        "passive max-res parity failed:\n{}",
+        mismatches.join("\n")
+    );
+}
+
+#[test]
 fn test_exhaustive_brute_force_paladin_leveling_modes() {
     let mut rng = SplitMix64(0x9a1a_d100_cafe_babe);
     let mut mismatches = Vec::new();

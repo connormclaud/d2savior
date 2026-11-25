@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from operator import attrgetter
 from typing import Any, cast
 
-from d2savior.core.constants import DIFFICULTY_NAMES
+from d2savior.core.constants import BASE_MAX_RESIST, DIFFICULTY_NAMES, HARD_MAX_RESIST
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import CharClass, ItemLocation, ItemQuality
 from d2savior.core.item import D2Item
@@ -952,7 +952,18 @@ def _offense_score(res: BuildResult, offense: str, *, has_aura: bool) -> int:
 
 
 def _build_score_key(
-    res: BuildResult, mode: str, offense: str, *, has_aura: bool, uses_caster_dps: bool
+    res: BuildResult,
+    mode: str,
+    offense: str,
+    *,
+    has_aura: bool,
+    uses_caster_dps: bool,
+    base_caps: tuple[int, int, int, int] = (
+        BASE_MAX_RESIST,
+        BASE_MAX_RESIST,
+        BASE_MAX_RESIST,
+        BASE_MAX_RESIST,
+    ),
 ) -> tuple[int, ...]:
     """Compute a comparable score tuple matching Rust's `score_eval_summary` (without locality)."""
     eff_primary = res.skills + res.primary_skill_bonus
@@ -964,7 +975,12 @@ def _build_score_key(
         )
         eff_primary += bonus
     res_sum = res.fr + res.lr + res.cr + res.pr
-    res_base = min(res.fr, 75) + min(res.lr, 75) + min(res.cr, 75) + min(res.pr, 75)
+    res_base = (
+        min(res.fr, base_caps[0])
+        + min(res.lr, base_caps[1])
+        + min(res.cr, base_caps[2])
+        + min(res.pr, base_caps[3])
+    )
     eff_fcr_bp = res.fcr_bp if offense == "caster" else 0
     belt_slots = sum(it.belt_slots for it in res.items)
     defense = res.gear_defense
@@ -985,7 +1001,7 @@ def _build_score_key(
         return (
             primary,
             res.skills,
-            int(res.pr >= 75),
+            int(res.pr >= base_caps[3]),
             res.pr,
             res.life_bo,
             res.mana_bo,
@@ -1161,10 +1177,21 @@ def evaluate_socket_candidates_for_preset(
     offense = c1.offense
     has_aura = c1.has_aura
     uses_caster_dps = offense == "caster" and bool(c1.blizz_dmg)
+    base_caps = (
+        min(BASE_MAX_RESIST + c1.base_max_fr, HARD_MAX_RESIST),
+        min(BASE_MAX_RESIST + c1.base_max_lr, HARD_MAX_RESIST),
+        min(BASE_MAX_RESIST + c1.base_max_cr, HARD_MAX_RESIST),
+        min(BASE_MAX_RESIST + c1.base_max_pr, HARD_MAX_RESIST),
+    )
 
     base_score = (
         _build_score_key(
-            baseline, mode, offense, has_aura=has_aura, uses_caster_dps=uses_caster_dps
+            baseline,
+            mode,
+            offense,
+            has_aura=has_aura,
+            uses_caster_dps=uses_caster_dps,
+            base_caps=base_caps,
         )
         if baseline is not None
         else ()
@@ -1191,7 +1218,12 @@ def evaluate_socket_candidates_for_preset(
             continue
 
         cand_score = _build_score_key(
-            res, mode, offense, has_aura=has_aura, uses_caster_dps=uses_caster_dps
+            res,
+            mode,
+            offense,
+            has_aura=has_aura,
+            uses_caster_dps=uses_caster_dps,
+            base_caps=base_caps,
         )
         cand_extra = _extra_improvement_key(res)
         if baseline is not None and (cand_score, cand_extra) <= (base_score, base_extra):
