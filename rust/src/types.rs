@@ -1085,6 +1085,21 @@ pub(crate) enum SearchMode {
     LevelingRes,
 }
 
+impl SearchMode {
+    pub(crate) fn parse(s: &str) -> Result<Self, String> {
+        match s.to_ascii_lowercase().as_str() {
+            "power" => Ok(Self::Power),
+            "mf" => Ok(Self::Mf),
+            "max-res" => Ok(Self::MaxRes),
+            "leveling" => Ok(Self::Leveling),
+            "leveling-res" => Ok(Self::LevelingRes),
+            other => Err(format!(
+                "invalid mode '{other}'; expected 'power', 'mf', 'max-res', 'leveling', or 'leveling-res'"
+            )),
+        }
+    }
+}
+
 macro_rules! stat_combine {
     (add, $a:expr, $b:expr) => {
         $a + $b

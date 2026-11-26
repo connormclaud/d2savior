@@ -13,7 +13,7 @@ def get_config_path() -> Path:
 
 def get_presets_dir() -> Path:
     """Return the platform-specific directory for user preset TOML files."""
-    return platformdirs.user_config_path("d2savior") / "presets"
+    return get_config_path().parent / "presets"
 
 
 def load_save_dir(config_path: Path | None = None) -> Path | None:

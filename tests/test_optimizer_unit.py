@@ -2221,11 +2221,10 @@ def test_defense_block_and_cold_armor_extraction(monkeypatch: pytest.MonkeyPatch
     assert (acc_lvl.pal_skills, acc_lvl.def_skill) == (1, -1)
 
 
-def test_paladin_passive_max_res_cap_in_alternatives_and_socket_score_key(
+def test_paladin_passive_max_res_cap_in_alternatives(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from d2savior.optimizer.paladin import _collect_paladin_alternatives
-    from d2savior.optimizer.socket import _build_score_key
 
     mule, _ = _load_char("mule_unique.d2s")
     assert mule.skills is not None
@@ -2274,24 +2273,3 @@ def test_paladin_passive_max_res_cap_in_alternatives_and_socket_score_key(
     )
     assert ("leveling-res", 0) in seen_calls
     assert any(r.fr == 80 for _, r in alts)
-
-    # Socket `_build_score_key` uses `base_caps` rather than hardcoded 75.
-    res_75 = _as_result(_FakeBuildResult(fr=75, lr=75, cr=75, pr=75))
-    res_80 = _as_result(_FakeBuildResult(fr=80, lr=75, cr=75, pr=75))
-    key_75 = _build_score_key(
-        res_75,
-        "leveling-res",
-        "melee",
-        has_aura=True,
-        uses_caster_dps=False,
-        base_caps=(80, 75, 75, 75),
-    )
-    key_80 = _build_score_key(
-        res_80,
-        "leveling-res",
-        "melee",
-        has_aura=True,
-        uses_caster_dps=False,
-        base_caps=(80, 75, 75, 75),
-    )
-    assert key_80 > key_75

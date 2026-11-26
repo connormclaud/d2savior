@@ -4044,3 +4044,196 @@ fn test_optimize_builds_with_baseline_prunes_and_preserves_ties() {
     assert_eq!(unlock_res.len(), 1);
     assert!(unlock_res[0].cr >= 75);
 }
+
+#[test]
+fn test_score_of_result_core_parity_and_no_locality() {
+    use crate::eval::eval_build_core;
+
+    let mut w_eq = mk_item("Sword", "weapon", 0, 0, 1, 75, 0);
+    w_eq.loc = "Equipped".to_string();
+    w_eq.blizz_skills = 2;
+    let mut w_stash = w_eq.clone();
+    w_stash.loc = "Stash".to_string();
+
+    // 1. Locality is excluded so identical items in different locations produce equal scores.
+    let c_mf = BuildConstraints {
+        mode: "mf".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        ..test_constraints()
+    };
+    let r_eq = eval_build_core(&[&w_eq], &[], &c_mf, 1);
+    let r_stash = eval_build_core(&[&w_stash], &[], &c_mf, 1);
+    let s_eq = score_of_result_core(&r_eq, &c_mf).unwrap();
+    let s_stash = score_of_result_core(&r_stash, &c_mf).unwrap();
+    assert_eq!(s_eq, s_stash);
+
+    // 2. blizz_skills contributes to eff_primary (secondary in MF mode = skills(1) + blizz_skills(2) = 3).
+    assert_eq!(s_eq.1, 3);
+
+    // 3. base_max_fr cap is respected in leveling-res.
+    let mut helm_75 = mk_item("Helm75", "helm", 0, 0, 0, 75, 0);
+    helm_75.fr = 75;
+    let mut helm_80 = mk_item("Helm80", "helm", 0, 0, 0, 75, 0);
+    helm_80.fr = 80;
+    let c_pal_res = BuildConstraints {
+        char_class: 3,
+        offense: "melee".to_string(),
+        mode: "leveling-res".to_string(),
+        base_max_fr: 5,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        ..test_constraints()
+    };
+    let r_75 = eval_build_core(&[&helm_75], &[], &c_pal_res, 1);
+    let r_80 = eval_build_core(&[&helm_80], &[], &c_pal_res, 1);
+    let sc_75 = score_of_result_core(&r_75, &c_pal_res).unwrap();
+    let sc_80 = score_of_result_core(&r_80, &c_pal_res).unwrap();
+    assert_eq!(sc_80.0 - sc_75.0, 5);
+    assert!(sc_80 > sc_75);
+
+    // 4. DPS table mode uses OffenseProfile::dps_bucket, while Smite uses OffenseProfile::score.
+    let mut smite_wep = mk_item("Scepter", "weapon", 0, 0, 1, 0, 0);
+    smite_wep.ias = 20;
+    smite_wep.cb = 25;
+    let shield = mk_item("Shield", "shield", 0, 0, 0, 0, 0);
+    let c_smite = BuildConstraints {
+        char_class: 3,
+        offense: "smite".to_string(),
+        mode: "leveling".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        ..test_constraints()
+    };
+    let r_smite = eval_build_core(&[&smite_wep, &shield], &[], &c_smite, 1);
+    let sc_smite = score_of_result_core(&r_smite, &c_smite).unwrap();
+    assert_eq!(
+        sc_smite.0,
+        OffenseProfile::Smite.score(r_smite.skills, r_smite.ias_bp, r_smite.cb)
+    );
+
+    let mut zeal_wep = mk_item("Phase Blade", "weapon", 0, 0, 0, 0, 0);
+    zeal_wep.wsm = -30;
+    zeal_wep.wep_phys_2x = 66;
+    zeal_wep.can_zeal = true;
+    let c_zeal = BuildConstraints {
+        char_class: 3,
+        offense: "zeal".to_string(),
+        mode: "leveling".to_string(),
+        action_hits: vec![5],
+        action_ed: vec![100],
+        target_def: 0,
+        char_level: 80,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        ..test_constraints()
+    };
+    let r_zeal = eval_build_core(&[&zeal_wep], &[], &c_zeal, 1);
+    let sc_zeal = score_of_result_core(&r_zeal, &c_zeal).unwrap();
+    assert!(r_zeal.dps > 0.0);
+    assert_eq!(sc_zeal.0, OffenseProfile::dps_bucket(r_zeal.dps));
+
+    // 5. Power mode: caster DPS vs non-DPS eff_primary and pr >= base_max_pr tertiary.
+    let mut blizz_orb = mk_item("Orb", "weapon", 37, 0, 1, 75, 0);
+    blizz_orb.blizz_skills = 2;
+    let mut c_power_nodps = BuildConstraints {
+        mode: "power".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        ..test_constraints()
+    };
+    let r_power_nodps = eval_build_core(&[&blizz_orb], &[], &c_power_nodps, 1);
+    let sc_power_nodps = score_of_result_core(&r_power_nodps, &c_power_nodps).unwrap();
+    assert_eq!(sc_power_nodps.0, 3);
+    assert_eq!(sc_power_nodps.1, 1);
+    assert_eq!(sc_power_nodps.2, 1);
+
+    c_power_nodps.blizz_dmg = vec![100.0, 150.0, 200.0, 250.0];
+    let r_power_dps = eval_build_core(&[&blizz_orb], &[], &c_power_nodps, 1);
+    let sc_power_dps = score_of_result_core(&r_power_dps, &c_power_nodps).unwrap();
+    assert!(r_power_dps.dps > 0.0);
+    assert_eq!(sc_power_dps.0, r_power_dps.dps.floor() as i32);
+
+    // 6. Max-res mode uses raw resistance sum as tiebreakers[2] (tuple index 5).
+    let mut over_helm = mk_item("OverHelm", "helm", 0, 0, 0, 75, 0);
+    over_helm.fr = 85;
+    let c_max_res = BuildConstraints {
+        mode: "max-res".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        ..test_constraints()
+    };
+    let r_mr_base = eval_build_core(&[&helm_75], &[], &c_max_res, 1);
+    let r_mr_over = eval_build_core(&[&over_helm], &[], &c_max_res, 1);
+    let sc_mr_base = score_of_result_core(&r_mr_base, &c_max_res).unwrap();
+    let sc_mr_over = score_of_result_core(&r_mr_over, &c_max_res).unwrap();
+    assert_eq!(sc_mr_base.0, 300);
+    assert_eq!(sc_mr_over.0, 300);
+    assert_eq!(sc_mr_over.5 - sc_mr_base.5, 10);
+
+    // 7. Leveling melee without DPS tables uses OffenseProfile::Melee.score and aura_skill_bonus.
+    let mut melee_wep = mk_item("MeleeWep", "weapon", 0, 0, 1, 0, 0);
+    melee_wep.aura_skill_bonus = 2;
+    melee_wep.action_skill_bonus = 5;
+    melee_wep.ias = 20;
+    let c_melee = BuildConstraints {
+        char_class: 3,
+        offense: "melee".to_string(),
+        mode: "leveling".to_string(),
+        has_aura: true,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        ..test_constraints()
+    };
+    let r_melee = eval_build_core(&[&melee_wep], &[], &c_melee, 1);
+    let sc_melee = score_of_result_core(&r_melee, &c_melee).unwrap();
+    assert_eq!(
+        sc_melee.0,
+        OffenseProfile::Melee.score(1 + 2, r_melee.ias_bp, r_melee.cb)
+    );
+
+    // 8. Invalid mode, offense, char_class, or target_type yields an error.
+    for bad in [
+        BuildConstraints { mode: "bogus".to_string(), ..c_mf.clone() },
+        BuildConstraints { offense: "smite".to_string(), ..c_mf.clone() },
+        BuildConstraints { char_class: 99, ..c_mf.clone() },
+        BuildConstraints { target_type: "uber".to_string(), ..c_mf },
+    ] {
+        assert!(score_of_result_core(&r_eq, &bad).is_err());
+    }
+}

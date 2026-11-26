@@ -95,6 +95,25 @@ pub(crate) struct BuildScore {
     pub(crate) locality: i32,
 }
 
+pub type ScoreTuple = (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32);
+
+impl BuildScore {
+    pub(crate) fn without_locality_tuple(self) -> ScoreTuple {
+        (
+            self.primary,
+            self.secondary,
+            self.tertiary,
+            self.tiebreakers[0],
+            self.tiebreakers[1],
+            self.tiebreakers[2],
+            self.tiebreakers[3],
+            self.tiebreakers[4],
+            self.tiebreakers[5],
+            self.tiebreakers[6],
+        )
+    }
+}
+
 type BuildSig = (i32, i32, i32, i32, Vec<String>);
 
 fn build_sig(res: &BuildResult, offense: OffenseProfile) -> BuildSig {
@@ -1378,7 +1397,7 @@ impl<'a> SearchState<'a> {
     }
 }
 
-fn score_of_result(
+fn build_score_of_result(
     res: &BuildResult,
     mode: SearchMode,
     offense: OffenseProfile,
@@ -1398,6 +1417,15 @@ fn score_of_result(
         .map(|it| item_locality_score(&it.loc))
         .sum();
     score
+}
+
+/// Compute the comparable Rust score tuple (without locality) for an evaluated `BuildResult`.
+pub fn score_of_result_core(res: &BuildResult, c: &BuildConstraints) -> Result<ScoreTuple, String> {
+    let class = CharClass::from_id(c.char_class)?;
+    let offense = OffenseProfile::parse(&c.offense, class)?;
+    TargetType::parse(&c.target_type)?;
+    let mode = SearchMode::parse(&c.mode)?;
+    Ok(build_score_of_result(res, mode, offense, c).without_locality_tuple())
 }
 
 fn run_search_pass(
@@ -1503,18 +1531,7 @@ pub fn optimize_builds_with_baseline(
     let class = CharClass::from_id(c.char_class)?;
     let offense = OffenseProfile::parse(&c.offense, class)?;
     TargetType::parse(&c.target_type)?;
-    let mode = match c.mode.to_ascii_lowercase().as_str() {
-        "power" => SearchMode::Power,
-        "mf" => SearchMode::Mf,
-        "max-res" => SearchMode::MaxRes,
-        "leveling" => SearchMode::Leveling,
-        "leveling-res" => SearchMode::LevelingRes,
-        other => {
-            return Err(format!(
-                "invalid mode '{other}'; expected 'power', 'mf', 'max-res', 'leveling', or 'leveling-res'"
-            ))
-        }
-    };
+    let mode = SearchMode::parse(&c.mode)?;
 
     let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;
     let norm_items = normalize_set_items(
@@ -1648,7 +1665,7 @@ pub fn optimize_builds_with_baseline(
     };
     let strict_floor = baseline
         .filter(|b| b.cr >= c.min_cr)
-        .map(|b| score_of_result(b, mode, offense, c));
+        .map(|b| build_score_of_result(b, mode, offense, c));
     let (results, has_cold_sunder) = run_search_pass(&pool, c, mode, offense, strict_floor);
     if results.is_empty()
         && strict_floor.is_none()
@@ -1657,10 +1674,17 @@ pub fn optimize_builds_with_baseline(
     {
         let mut relaxed = c.clone();
         relaxed.min_cr = RELAXED_MIN_CR;
-        let relaxed_floor = baseline.map(|b| score_of_result(b, mode, offense, &relaxed));
+        let relaxed_floor = baseline.map(|b| build_score_of_result(b, mode, offense, &relaxed));
         return Ok(run_search_pass(&pool, &relaxed, mode, offense, relaxed_floor).0);
     }
     Ok(results)
+}
+
+/// Compute the Rust build score tuple (excluding locality) for a `BuildResult`.
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn score_of_result(res: &BuildResult, constraints: &BuildConstraints) -> PyResult<ScoreTuple> {
+    score_of_result_core(res, constraints).map_err(PyValueError::new_err)
 }
 
 /// Find top-ranked builds satisfying `constraints` using branch-and-bound DFS in Rust.

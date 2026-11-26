@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from operator import attrgetter
 from typing import Any, cast
 
-from d2savior.core.constants import BASE_MAX_RESIST, DIFFICULTY_NAMES, HARD_MAX_RESIST
+from d2savior.core.constants import DIFFICULTY_NAMES
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import CharClass, ItemLocation, ItemQuality
 from d2savior.core.item import D2Item
@@ -44,6 +44,7 @@ from d2savior.optimizer.native import (
     ItemSpec,
     TargetTypeStr,
     optimize_builds,
+    score_of_result,
 )
 from d2savior.optimizer.paladin import (
     _build_paladin_baseline,
@@ -926,122 +927,6 @@ def _build_gear_socket_variants(
     return _pareto_prune_variants(variants)
 
 
-def _dps_bucket(dps: float) -> int:
-    if dps <= 0.0:
-        return 0
-    return round(dps / 100.0)
-
-
-def _offense_score(res: BuildResult, offense: str, *, has_aura: bool) -> int:
-    if res.dps > 0.0:
-        return _dps_bucket(res.dps)
-    if offense in ("melee", "zeal") and (
-        has_aura or res.action_skill_bonus != 0 or res.aura_skill_bonus != 0
-    ):
-        bonus = (
-            res.aura_skill_bonus if has_aura else max(res.action_skill_bonus, res.aura_skill_bonus)
-        )
-        eff_primary = res.skills + res.primary_skill_bonus + bonus
-    else:
-        eff_primary = res.skills + res.primary_skill_bonus
-    if offense == "smite":
-        return eff_primary * 5 + res.cb * 4 + res.ias_bp
-    if offense in ("melee", "zeal"):
-        return eff_primary * 8 + res.ias_bp + res.cb
-    return eff_primary
-
-
-def _build_score_key(
-    res: BuildResult,
-    mode: str,
-    offense: str,
-    *,
-    has_aura: bool,
-    uses_caster_dps: bool,
-    base_caps: tuple[int, int, int, int] = (
-        BASE_MAX_RESIST,
-        BASE_MAX_RESIST,
-        BASE_MAX_RESIST,
-        BASE_MAX_RESIST,
-    ),
-) -> tuple[int, ...]:
-    """Compute a comparable score tuple matching Rust's `score_eval_summary` (without locality)."""
-    eff_primary = res.skills + res.primary_skill_bonus
-    if offense in ("melee", "zeal") and (
-        has_aura or res.action_skill_bonus != 0 or res.aura_skill_bonus != 0
-    ):
-        bonus = (
-            res.aura_skill_bonus if has_aura else max(res.action_skill_bonus, res.aura_skill_bonus)
-        )
-        eff_primary += bonus
-    res_sum = res.fr + res.lr + res.cr + res.pr
-    res_base = (
-        min(res.fr, base_caps[0])
-        + min(res.lr, base_caps[1])
-        + min(res.cr, base_caps[2])
-        + min(res.pr, base_caps[3])
-    )
-    eff_fcr_bp = res.fcr_bp if offense == "caster" else 0
-    belt_slots = sum(it.belt_slots for it in res.items)
-    defense = res.gear_defense
-
-    if mode == "mf":
-        return (
-            res.mf,
-            eff_primary,
-            eff_fcr_bp,
-            res.fhr_bp,
-            res.pr,
-            res.life_bo,
-            belt_slots,
-            defense,
-        )
-    if mode == "power":
-        primary = int(res.dps) if uses_caster_dps else eff_primary
-        return (
-            primary,
-            res.skills,
-            int(res.pr >= base_caps[3]),
-            res.pr,
-            res.life_bo,
-            res.mana_bo,
-            belt_slots,
-            defense,
-        )
-    if mode == "max-res":
-        raw_sum = res.fr_raw + res.lr_raw + res.cr_raw + res.pr_raw
-        return (
-            res_sum,
-            eff_primary,
-            eff_fcr_bp,
-            res.fhr_bp,
-            res.life_bo,
-            raw_sum,
-            belt_slots,
-            defense,
-        )
-    off = _offense_score(res, offense, has_aura=has_aura)
-    if mode == "leveling":
-        tie = (
-            (res.life_bo, res.pdr_pct, res.frw, res.fhr_bp, res_sum, belt_slots, defense)
-            if offense == "smite"
-            else (res.life_bo, res.frw, res_sum, res.fhr_bp, eff_fcr_bp, belt_slots, defense)
-        )
-        return (off, res_base, int(res.cbf), *tie)
-    return (
-        res_base,
-        off,
-        int(res.cbf),
-        res.life_bo,
-        res.frw,
-        res.fhr_bp,
-        eff_fcr_bp,
-        res_sum,
-        belt_slots,
-        defense,
-    )
-
-
 def _extra_improvement_key(res: BuildResult) -> tuple[int, ...]:
     return (
         round(res.dps),
@@ -1176,26 +1061,8 @@ def evaluate_socket_candidates_for_preset(
     mode = c1.mode
     offense = c1.offense
     has_aura = c1.has_aura
-    uses_caster_dps = offense == "caster" and bool(c1.blizz_dmg)
-    base_caps = (
-        min(BASE_MAX_RESIST + c1.base_max_fr, HARD_MAX_RESIST),
-        min(BASE_MAX_RESIST + c1.base_max_lr, HARD_MAX_RESIST),
-        min(BASE_MAX_RESIST + c1.base_max_cr, HARD_MAX_RESIST),
-        min(BASE_MAX_RESIST + c1.base_max_pr, HARD_MAX_RESIST),
-    )
 
-    base_score = (
-        _build_score_key(
-            baseline,
-            mode,
-            offense,
-            has_aura=has_aura,
-            uses_caster_dps=uses_caster_dps,
-            base_caps=base_caps,
-        )
-        if baseline is not None
-        else ()
-    )
+    base_score = score_of_result(baseline, c1) if baseline is not None else ()
     base_extra = _extra_improvement_key(baseline) if baseline is not None else ()
 
     active_groups = [(cand, variants) for cand, variants in candidate_groups if variants]
@@ -1217,14 +1084,7 @@ def evaluate_socket_candidates_for_preset(
         if chosen_variant is None:
             continue
 
-        cand_score = _build_score_key(
-            res,
-            mode,
-            offense,
-            has_aura=has_aura,
-            uses_caster_dps=uses_caster_dps,
-            base_caps=base_caps,
-        )
+        cand_score = score_of_result(res, c1)
         cand_extra = _extra_improvement_key(res)
         if baseline is not None and (cand_score, cand_extra) <= (base_score, base_extra):
             continue

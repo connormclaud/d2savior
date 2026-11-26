@@ -22,6 +22,7 @@ from d2savior.optimizer.native import (
     class_breakpoints,
     evaluate_build,
     optimize_builds,
+    score_of_result,
 )
 from d2savior.optimizer.paladin import (
     PALADIN_BUILD_CHOICES,
@@ -107,6 +108,7 @@ __all__ = [
     "paladin_primary_skill_info",
     "parse_keep_gear",
     "resolve_build_expr",
+    "score_of_result",
     "select_paladin_max_res_preset",
     "select_sorc_presets",
     "validate_paladin",

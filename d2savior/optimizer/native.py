@@ -27,6 +27,7 @@ if TYPE_CHECKING:
         class_breakpoints,
         evaluate_build,
         optimize_builds,
+        score_of_result,
     )
 
     HAS_NATIVE: bool = True
@@ -42,6 +43,7 @@ else:
             class_breakpoints,
             evaluate_build,
             optimize_builds,
+            score_of_result,
         )
 
         HAS_NATIVE = True
@@ -56,3 +58,4 @@ else:
         class_breakpoints = _missing_native
         evaluate_build = _missing_native
         optimize_builds = _missing_native
+        score_of_result = _missing_native

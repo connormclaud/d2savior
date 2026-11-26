@@ -28,6 +28,7 @@ from d2savior.optimizer import (
     format_paladin_leveling_report,
     optimize_builds,
     optimize_paladin_leveling,
+    score_of_result,
     select_sorc_presets,
 )
 from d2savior.optimizer.common import _item_levelreq
@@ -2008,3 +2009,207 @@ def test_optimizer_performance_budgets() -> None:
     sorc_elapsed = time.perf_counter() - t1
     assert any(sorc_results)
     assert sorc_elapsed < 2.0, f"Sorc optimize regression: {sorc_elapsed:.3f}s"
+
+
+@requires_native
+def test_score_of_result_matches_rust_rules() -> None:
+    import math
+
+    # 1. base_max_fr cap is respected in leveling-res.
+    c_res = BuildConstraints(
+        char_class=3,
+        offense="melee",
+        mode="leveling-res",
+        base_max_fr=5,
+        base_hell_res=0,
+        min_fcr=0,
+        min_fhr=0,
+        min_fr=0,
+        min_lr=0,
+        min_cr=0,
+        min_pr=0,
+    )
+    r_75 = evaluate_build(
+        [ItemSpec("Helm75", "helm", fr=75, lr=75, cr=75, pr=75)], [], constraints=c_res
+    )
+    r_80 = evaluate_build(
+        [ItemSpec("Helm80", "helm", fr=80, lr=75, cr=75, pr=75)], [], constraints=c_res
+    )
+    s_75 = score_of_result(r_75, c_res)
+    s_80 = score_of_result(r_80, c_res)
+    assert s_80[0] - s_75[0] == 5
+    assert s_80 > s_75
+
+    # 2. blizz_skills contributes to eff_primary, and locality is excluded.
+    c_mf = BuildConstraints(
+        mode="mf",
+        base_hell_res=0,
+        min_fcr=0,
+        min_fhr=0,
+        min_fr=0,
+        min_lr=0,
+        min_cr=0,
+        min_pr=0,
+    )
+    r_eq = evaluate_build(
+        [ItemSpec("Orb", "weapon", loc="Equipped", all_skills=1, blizz_skills=2)],
+        [],
+        constraints=c_mf,
+    )
+    r_st = evaluate_build(
+        [ItemSpec("Orb", "weapon", loc="Stash", all_skills=1, blizz_skills=2)],
+        [],
+        constraints=c_mf,
+    )
+    assert score_of_result(r_eq, c_mf) == score_of_result(r_st, c_mf)
+    assert score_of_result(r_eq, c_mf)[1] == 3
+
+    # 3. Smite offense scoring matches Rust OffenseProfile::score.
+    c_smite = BuildConstraints(
+        char_class=3,
+        offense="smite",
+        mode="leveling",
+        base_hell_res=0,
+        min_fcr=0,
+        min_fhr=0,
+        min_fr=0,
+        min_lr=0,
+        min_cr=0,
+        min_pr=0,
+    )
+    r_smite = evaluate_build(
+        [
+            ItemSpec("Scepter", "weapon", all_skills=1, ias=20, cb=25),
+            ItemSpec("Shield", "shield"),
+        ],
+        [],
+        constraints=c_smite,
+    )
+    expected_smite = min(r_smite.cb, 100) * 4 + min(r_smite.ias_bp, 80) * 2 + r_smite.skills * 10
+    assert score_of_result(r_smite, c_smite)[0] == expected_smite
+
+    # 4. Zeal with DPS tables uses 2% log DPS buckets.
+    c_zeal = BuildConstraints(
+        char_class=3,
+        offense="zeal",
+        mode="leveling",
+        action_hits=[5],
+        action_ed=[100],
+        target_def=0,
+        char_level=80,
+        base_str=100,
+        base_dex=100,
+        base_hell_res=0,
+        min_fcr=0,
+        min_fhr=0,
+        min_fr=0,
+        min_lr=0,
+        min_cr=0,
+        min_pr=0,
+    )
+    r_zeal = evaluate_build(
+        [ItemSpec("Phase Blade", "weapon", wsm=-30, wep_phys_2x=66, can_zeal=True)],
+        [],
+        constraints=c_zeal,
+    )
+    assert r_zeal.dps > 0.0
+    assert score_of_result(r_zeal, c_zeal)[0] == math.floor(math.log(r_zeal.dps) / math.log(1.02))
+
+    # 5. Power mode: caster DPS vs non-DPS eff_primary and pr >= base_max_pr tertiary.
+    orb = ItemSpec(
+        "Orb", "weapon", fcr=37, all_skills=1, blizz_skills=2, fr=75, lr=75, cr=75, pr=75
+    )
+    c_power_nodps = BuildConstraints(
+        mode="power",
+        base_hell_res=0,
+        min_fcr=0,
+        min_fhr=0,
+        min_fr=0,
+        min_lr=0,
+        min_cr=0,
+        min_pr=0,
+    )
+    r_power_nodps = evaluate_build([orb], [], constraints=c_power_nodps)
+    sc_power_nodps = score_of_result(r_power_nodps, c_power_nodps)
+    assert sc_power_nodps[:3] == (3, 1, 1)
+
+    c_power_dps = BuildConstraints(
+        mode="power",
+        blizz_dmg=[100.0, 150.0, 200.0, 250.0],
+        base_hell_res=0,
+        min_fcr=0,
+        min_fhr=0,
+        min_fr=0,
+        min_lr=0,
+        min_cr=0,
+        min_pr=0,
+    )
+    r_power_dps = evaluate_build([orb], [], constraints=c_power_dps)
+    assert r_power_dps.dps > 0.0
+    assert score_of_result(r_power_dps, c_power_dps)[0] == math.floor(r_power_dps.dps)
+
+    # 6. Max-res mode includes raw resistance sum as tiebreaker index 5.
+    c_max_res = BuildConstraints(
+        mode="max-res",
+        base_hell_res=0,
+        min_fcr=0,
+        min_fhr=0,
+        min_fr=0,
+        min_lr=0,
+        min_cr=0,
+        min_pr=0,
+    )
+    r_mr_75 = evaluate_build(
+        [ItemSpec("Helm75", "helm", fr=75, lr=75, cr=75, pr=75)], [], constraints=c_max_res
+    )
+    r_mr_85 = evaluate_build(
+        [ItemSpec("Helm85", "helm", fr=85, lr=75, cr=75, pr=75)], [], constraints=c_max_res
+    )
+    sc_mr_75 = score_of_result(r_mr_75, c_max_res)
+    sc_mr_85 = score_of_result(r_mr_85, c_max_res)
+    assert sc_mr_75[0] == 300
+    assert sc_mr_85[0] == 300
+    assert sc_mr_85[5] - sc_mr_75[5] == 10
+
+    # 7. Leveling melee without DPS tables uses Rust Melee offense formula and aura_skill_bonus.
+    c_melee = BuildConstraints(
+        char_class=3,
+        offense="melee",
+        mode="leveling",
+        has_aura=True,
+        base_hell_res=0,
+        min_fcr=0,
+        min_fhr=0,
+        min_fr=0,
+        min_lr=0,
+        min_cr=0,
+        min_pr=0,
+    )
+    r_melee = evaluate_build(
+        [
+            ItemSpec(
+                "MeleeWep",
+                "weapon",
+                all_skills=1,
+                aura_skill_bonus=2,
+                action_skill_bonus=5,
+                ias=20,
+            )
+        ],
+        [],
+        constraints=c_melee,
+    )
+    expected_melee = (1 + 2) * 20 + (min(r_melee.ias_bp, 80) * 3) // 2
+    assert score_of_result(r_melee, c_melee)[0] == expected_melee
+
+    # 8. Invalid mode, offense, char_class, or target_type raises ValueError.
+    bad_mode: Any = "bogus"
+    bad_target: Any = "uber"
+    for bad_c, err_match in (
+        (BuildConstraints(mode=bad_mode), "invalid mode"),
+        (BuildConstraints(offense="smite"), "offense profile 'smite'"),
+        (BuildConstraints(char_class=99), "unsupported char_class 99"),
+        (BuildConstraints(target_type=bad_target), "invalid target_type"),
+    ):
+        with pytest.raises(ValueError, match=err_match):
+            score_of_result(r_eq, bad_c)

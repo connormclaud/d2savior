@@ -1,12 +1,39 @@
 from pathlib import Path
 
-from d2savior.config import get_config_path, load_save_dir, update_save_dir
+from d2savior.config import get_config_path, get_presets_dir, load_save_dir, update_save_dir
 
 
 def test_get_config_path():
     cfg_path = get_config_path()
     assert isinstance(cfg_path, Path)
     assert cfg_path.name == "config.toml"
+
+
+def test_get_presets_dir_tracks_config_path_and_is_isolated(tmp_path: Path):
+    import d2savior.config as config_mod
+    from d2savior.optimizer.presets import list_presets, resolve_build_expr
+
+    cfg_path = config_mod.get_config_path()
+    presets_dir = get_presets_dir()
+    assert cfg_path.is_relative_to(tmp_path)
+    assert presets_dir == cfg_path.parent / "presets"
+
+    presets_dir.mkdir(parents=True, exist_ok=True)
+    (presets_dir / "custom_test.toml").write_text(
+        'title = "Custom Isolated"\nclass = "paladin"\nmode = "mf"\nmin_mf = 42\n',
+        encoding="utf-8",
+    )
+
+    entries = {e.name: e for e in list_presets()}
+    assert "custom_test" in entries
+    assert entries["custom_test"].source == "user"
+    assert entries["custom_test"].path == presets_dir / "custom_test.toml"
+
+    resolved = resolve_build_expr("custom_test", "paladin")
+    assert len(resolved) == 1
+    assert resolved[0].title == "Custom Isolated"
+    assert resolved[0].mode == "mf"
+    assert resolved[0].min_mf == 42
 
 
 def test_load_save_dir_nonexistent(tmp_path: Path):
