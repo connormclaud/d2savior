@@ -126,6 +126,54 @@ impl<'a> CharmSolver<'a> {
         }
 
         #[inline]
+        fn required_dps_bucket(
+            mode: SearchMode,
+            res_ub: i32,
+            cbf_val: i32,
+            cutoff: Option<(i32, i32, i32)>,
+            best_top2: (i32, i32),
+        ) -> Option<i32> {
+            match mode {
+                SearchMode::Leveling => {
+                    let mut req = if res_ub < best_top2.1 {
+                        best_top2.0 + 1
+                    } else {
+                        best_top2.0
+                    };
+                    if let Some((cut_bkt, cut_res, cut_cbf)) = cutoff {
+                        let c_req = if (res_ub, cbf_val) < (cut_res, cut_cbf) {
+                            cut_bkt + 1
+                        } else {
+                            cut_bkt
+                        };
+                        req = req.max(c_req);
+                    }
+                    Some(req)
+                }
+                SearchMode::LevelingRes => {
+                    if res_ub < best_top2.0 || cutoff.is_some_and(|cut| res_ub < cut.0) {
+                        return None;
+                    }
+                    let mut req = if res_ub == best_top2.0 {
+                        best_top2.1
+                    } else {
+                        0
+                    };
+                    if let Some((cut_res, cut_bkt, cut_cbf)) = cutoff
+                        && res_ub == cut_res
+                    {
+                        req = req.max(if cbf_val < cut_cbf {
+                            cut_bkt + 1
+                        } else {
+                            cut_bkt
+                        });
+                    }
+                    Some(req)
+                }
+                _ => None,
+            }
+        }
+
         fn leaf_with_cur(leaf: Stats, cur: StatTotals, class: CharClass) -> Stats {
             let (cur_sorc, cur_pal) = match class {
                 CharClass::Sorceress => (cur.class_skills, 0),
@@ -331,16 +379,28 @@ impl<'a> CharmSolver<'a> {
                 ]
                 .iter()
                 .sum();
-                let leaf_ub_bucket =
-                    OffenseProfile::dps_bucket(st.pure_dps.max_dps_ub(&fast, max_pure_s));
+                let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
+                let Some(req_bkt) = required_dps_bucket(
+                    st.mode,
+                    leaf_res_ub_0,
+                    st.cbf_val,
+                    st.cutoff,
+                    best_top2,
+                ) else {
+                    return;
+                };
+                let leaf_ub_dps = st.pure_dps.max_dps_ub(&fast, max_pure_s);
+                if req_bkt > 0 && leaf_ub_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt) {
+                    return;
+                }
+                let leaf_ub_bucket = OffenseProfile::dps_bucket(leaf_ub_dps);
                 let leaf_top3 = match st.mode {
                     SearchMode::Leveling => (leaf_ub_bucket, leaf_res_ub_0, st.cbf_val),
                     SearchMode::LevelingRes => (leaf_res_ub_0, leaf_ub_bucket, st.cbf_val),
                     _ => return,
                 };
                 if st.cutoff.is_some_and(|cut| leaf_top3 < cut)
-                    || (leaf_top3.0, leaf_top3.1)
-                        < (mut_ctx.best_score.primary, mut_ctx.best_score.secondary)
+                    || (leaf_top3.0, leaf_top3.1) < best_top2
                 {
                     return;
                 }
@@ -375,7 +435,22 @@ impl<'a> CharmSolver<'a> {
                     ]
                     .iter()
                     .sum();
-                    let cand_bucket = OffenseProfile::dps_bucket(mut_ctx.pure_buf[pure_s].0);
+                    let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
+                    let Some(req_bkt) = required_dps_bucket(
+                        st.mode,
+                        cand_res_ub,
+                        st.cbf_val,
+                        st.cutoff,
+                        best_top2,
+                    ) else {
+                        continue;
+                    };
+                    let cand_dps = mut_ctx.pure_buf[pure_s].0;
+                    if req_bkt > 0 && cand_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt)
+                    {
+                        continue;
+                    }
+                    let cand_bucket = OffenseProfile::dps_bucket(cand_dps);
                     if prev_tested_bucket == Some(cand_bucket) {
                         continue;
                     }
@@ -385,8 +460,7 @@ impl<'a> CharmSolver<'a> {
                         _ => continue,
                     };
                     if st.cutoff.is_some_and(|cut| cand_top3 < cut)
-                        || (cand_top3.0, cand_top3.1)
-                            < (mut_ctx.best_score.primary, mut_ctx.best_score.secondary)
+                        || (cand_top3.0, cand_top3.1) < best_top2
                     {
                         continue;
                     }
@@ -493,16 +567,26 @@ impl<'a> CharmSolver<'a> {
                 };
                 st.offense.compute_eff_dps(st.hw, ub_dps_stats, st.c)
             };
+            let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
+            let Some(req_bkt) = required_dps_bucket(
+                st.mode,
+                ub_res_base,
+                st.cbf_val,
+                st.cutoff,
+                best_top2,
+            ) else {
+                return;
+            };
+            if req_bkt > 0 && ub_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt) {
+                return;
+            }
             let ub_bucket = OffenseProfile::dps_bucket(ub_dps);
             let ub_top3 = match st.mode {
                 SearchMode::Leveling => (ub_bucket, ub_res_base, st.cbf_val),
                 SearchMode::LevelingRes => (ub_res_base, ub_bucket, st.cbf_val),
                 _ => return,
             };
-            if st.cutoff.is_some_and(|cut| ub_top3 < cut)
-                || (ub_top3.0, ub_top3.1)
-                    < (mut_ctx.best_score.primary, mut_ctx.best_score.secondary)
-            {
+            if st.cutoff.is_some_and(|cut| ub_top3 < cut) || (ub_top3.0, ub_top3.1) < best_top2 {
                 return;
             }
 

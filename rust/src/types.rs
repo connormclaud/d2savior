@@ -452,6 +452,15 @@ impl OffenseProfile {
         }
     }
 
+    #[inline]
+    pub(crate) fn dps_bucket_safe_min_dps(bucket: i32) -> f64 {
+        if bucket <= 0 {
+            0.0
+        } else {
+            1.02_f64.powi(bucket) * (1.0 - 1e-12)
+        }
+    }
+
     /// Compute `(eff_dps, raw_dps, total_ar, cth_pct, ias_bp, display_frames, last_frames, used_zeal)`.
     ///
     /// Expects `s.str_bonus` and `s.dex_bonus` to be total character strength/dexterity
