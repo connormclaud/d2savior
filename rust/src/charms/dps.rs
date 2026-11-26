@@ -6,7 +6,8 @@ use super::solver::CharmSolver;
 use crate::eval::{EvalSummary, base_res_caps, eval_build_summary, res_caps};
 use crate::search::{BuildScore, score_eval_summary};
 use crate::types::{
-    BuildConstraints, CharClass, CharmSpec, HandWeapon, OffenseProfile, SearchMode, Stats,
+    BuildConstraints, CharClass, CharmSpec, FastLeafDps, HandWeapon, OffenseProfile, SearchMode,
+    Stats,
 };
 
 impl<'a> CharmSolver<'a> {
@@ -28,10 +29,11 @@ impl<'a> CharmSolver<'a> {
         if self.non_dps_solver.is_none() {
             return;
         }
-        let gear_bucket = OffenseProfile::dps_bucket(offense.compute_dps(hw, leaf, self.c).0);
+        let base_fast = offense.fast_leaf_dps(hw, leaf, self.c);
+        let gear_bucket = OffenseProfile::dps_bucket(base_fast.eval_eff_dps());
         let ub_leaf = leaf.add(self.charm_ub_stats());
         let global_ub_bucket =
-            OffenseProfile::dps_bucket(offense.compute_dps(hw, ub_leaf, self.c).0);
+            OffenseProfile::dps_bucket(offense.compute_eff_dps(hw, ub_leaf, self.c));
         let caps_t = res_caps(leaf, self.c);
         let bc_t = base_res_caps(self.c);
         let base_caps = [
@@ -110,6 +112,7 @@ impl<'a> CharmSolver<'a> {
             nd_frw_at: &'b [i32],
             nd_mf_at: &'b [i32],
             base_caps: [i32; 4],
+            base_fast: FastLeafDps,
         }
 
         struct DpsMut<'b, 'a> {
@@ -291,7 +294,23 @@ impl<'a> CharmSolver<'a> {
 
             if g_idx == st.groups.len() {
                 let leaf_d = leaf_with_cur(leaf, cur, st.class);
-                let fast = st.offense.fast_leaf_dps(st.hw, leaf_d, st.c);
+                let fast = if cur.all_skills == 0
+                    && cur.class_skills == 0
+                    && cur.action_skills == 0
+                    && cur.aura_skills == 0
+                {
+                    st.base_fast.with_non_skill_deltas(
+                        cur.str_bonus,
+                        cur.dex_bonus,
+                        cur.ar,
+                        cur.flat_phys_2x,
+                        cur.flat_fire_2x,
+                        cur.flat_elem_2x,
+                        cur.psn_dps_2x,
+                    )
+                } else {
+                    st.offense.fast_leaf_dps(st.hw, leaf_d, st.c)
+                };
                 let max_pure_s = (dps_rem_slots.max(0) as usize).min(st.max_slots.max(0) as usize);
                 st.pure_dps
                     .solve_for_leaf_into(&fast, max_pure_s, &mut mut_ctx.pure_buf);
@@ -392,44 +411,53 @@ impl<'a> CharmSolver<'a> {
             let rem_all_sk = ub_rem_at(g_idx, sp.all_skills, st.order_all_skills, dps_rem_slots);
             let rem_cls_sk =
                 ub_rem_at(g_idx, sp.class_skills, st.order_class_skills, dps_rem_slots);
-            let (cur_sorc_ub, cur_pal_ub) = match st.class {
-                CharClass::Sorceress => (cur.class_skills + rem_cls_sk, 0),
-                CharClass::Paladin => (0, cur.class_skills + rem_cls_sk),
+            let rem_act_sk =
+                ub_rem_at(g_idx, sp.action_skills, st.order_action_skills, dps_rem_slots);
+            let rem_aura_sk =
+                ub_rem_at(g_idx, sp.aura_skills, st.order_aura_skills, dps_rem_slots);
+            let rem_phys = eval_sorted_ub(st.order_phys, g_idx, dps_rem_slots);
+            let rem_fire = eval_sorted_ub(st.order_fire, g_idx, dps_rem_slots);
+            let rem_elem = eval_sorted_ub(st.order_elem, g_idx, dps_rem_slots);
+            let rem_psn = eval_sorted_ub(st.order_psn, g_idx, dps_rem_slots);
+            let ub_dps = if cur.all_skills + rem_all_sk == 0
+                && cur.class_skills + rem_cls_sk == 0
+                && cur.action_skills + rem_act_sk == 0
+                && cur.aura_skills + rem_aura_sk == 0
+            {
+                st.base_fast
+                    .with_non_skill_deltas(
+                        cur.str_bonus + rem_str,
+                        cur.dex_bonus + rem_dex,
+                        cur.ar + rem_ar,
+                        cur.flat_phys_2x + rem_phys,
+                        cur.flat_fire_2x + rem_fire,
+                        cur.flat_elem_2x + rem_elem,
+                        cur.psn_dps_2x + rem_psn,
+                    )
+                    .eval_eff_dps()
+            } else {
+                let (cur_sorc_ub, cur_pal_ub) = match st.class {
+                    CharClass::Sorceress => (cur.class_skills + rem_cls_sk, 0),
+                    CharClass::Paladin => (0, cur.class_skills + rem_cls_sk),
+                };
+                let ub_dps_stats = Stats {
+                    all_skills: leaf.all_skills + cur.all_skills + rem_all_sk,
+                    sorc_skills: leaf.sorc_skills + cur_sorc_ub,
+                    pal_skills: leaf.pal_skills + cur_pal_ub,
+                    action_skill_bonus: leaf.action_skill_bonus + cur.action_skills + rem_act_sk,
+                    aura_skill_bonus: leaf.aura_skill_bonus + cur.aura_skills + rem_aura_sk,
+                    str_bonus: leaf.str_bonus + cur.str_bonus + rem_str,
+                    dex_bonus: leaf.dex_bonus + cur.dex_bonus + rem_dex,
+                    ar: leaf.ar + cur.ar + rem_ar,
+                    flat_phys_2x: leaf.flat_phys_2x + cur.flat_phys_2x + rem_phys,
+                    flat_fire_2x: leaf.flat_fire_2x + cur.flat_fire_2x + rem_fire,
+                    flat_elem_2x: leaf.flat_elem_2x + cur.flat_elem_2x + rem_elem,
+                    psn_dps_2x: leaf.psn_dps_2x + cur.psn_dps_2x + rem_psn,
+                    ..leaf
+                };
+                st.offense.compute_eff_dps(st.hw, ub_dps_stats, st.c)
             };
-            let ub_dps_stats = Stats {
-                all_skills: leaf.all_skills + cur.all_skills + rem_all_sk,
-                sorc_skills: leaf.sorc_skills + cur_sorc_ub,
-                pal_skills: leaf.pal_skills + cur_pal_ub,
-                action_skill_bonus: leaf.action_skill_bonus
-                    + cur.action_skills
-                    + ub_rem_at(
-                        g_idx,
-                        sp.action_skills,
-                        st.order_action_skills,
-                        dps_rem_slots,
-                    ),
-                aura_skill_bonus: leaf.aura_skill_bonus
-                    + cur.aura_skills
-                    + ub_rem_at(g_idx, sp.aura_skills, st.order_aura_skills, dps_rem_slots),
-                str_bonus: leaf.str_bonus + cur.str_bonus + rem_str,
-                dex_bonus: leaf.dex_bonus + cur.dex_bonus + rem_dex,
-                ar: leaf.ar + cur.ar + rem_ar,
-                flat_phys_2x: leaf.flat_phys_2x
-                    + cur.flat_phys_2x
-                    + eval_sorted_ub(st.order_phys, g_idx, dps_rem_slots),
-                flat_fire_2x: leaf.flat_fire_2x
-                    + cur.flat_fire_2x
-                    + eval_sorted_ub(st.order_fire, g_idx, dps_rem_slots),
-                flat_elem_2x: leaf.flat_elem_2x
-                    + cur.flat_elem_2x
-                    + eval_sorted_ub(st.order_elem, g_idx, dps_rem_slots),
-                psn_dps_2x: leaf.psn_dps_2x
-                    + cur.psn_dps_2x
-                    + eval_sorted_ub(st.order_psn, g_idx, dps_rem_slots),
-                ..leaf
-            };
-            let ub_bucket =
-                OffenseProfile::dps_bucket(st.offense.compute_dps(st.hw, ub_dps_stats, st.c).0);
+            let ub_bucket = OffenseProfile::dps_bucket(ub_dps);
             let ub_top3 = match st.mode {
                 SearchMode::Leveling => (ub_bucket, ub_res_base, st.cbf_val),
                 SearchMode::LevelingRes => (ub_res_base, ub_bucket, st.cbf_val),
@@ -544,6 +572,7 @@ impl<'a> CharmSolver<'a> {
             nd_frw_at: &self.nd_frw_at,
             nd_mf_at: &self.nd_mf_at,
             base_caps,
+            base_fast,
         };
         let mut mut_ctx = DpsMut {
             non_dps_solver,

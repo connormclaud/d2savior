@@ -476,6 +476,10 @@ impl OffenseProfile {
         (eff_dps, ias_bp, display_frames, last_frames, used_zeal)
     }
 
+    pub(crate) fn compute_eff_dps(self, hand: HandWeapon, s: Stats, c: &BuildConstraints) -> f64 {
+        self.fast_leaf_dps(hand, s, c).eval_eff_dps()
+    }
+
     /// Build a fast precomputed DPS evaluator at fixed `leaf` (only pure AR/flat/psn vary).
     pub(crate) fn fast_leaf_dps(
         self,
@@ -509,9 +513,10 @@ impl OffenseProfile {
         } else {
             (1.0 / 3.0, 1.0 / 3.0)
         };
-        let eff_ed = (stat_ed + action_ed + leaf.off_ed).max(0) as f64
-            + leaf.ed_demon.max(0) as f64 * demon_w
-            + leaf.ed_undead.max(0) as f64 * undead_w;
+        let base_ed_int = action_ed + leaf.off_ed;
+        let ed_du =
+            leaf.ed_demon.max(0) as f64 * demon_w + leaf.ed_undead.max(0) as f64 * undead_w;
+        let eff_ed = (stat_ed + base_ed_int).max(0) as f64 + ed_du;
 
         let ds_prob = leaf.ds.clamp(0, 100) as f64 / 100.0;
         let cs_prob = if leaf.cs_oskill > 0 {
@@ -668,33 +673,16 @@ impl OffenseProfile {
             base_direct_non_phys,
             base_auto_hit,
             base_aura_pulse_dps: d_aura_pulse * targets,
+            base_str: leaf.str_bonus,
+            base_dex: leaf.dex_bonus,
+            str_pct: hand.str_pct,
+            dex_pct: hand.dex_pct,
+            base_ed_int,
+            ed_du,
+            crit_mult,
+            class,
         };
-        fast.cth_is_const = itd_active || eff_dr <= 0.0 || fast.cth_for_add_ar(0) >= 0.95;
-        if fast.cth_is_const {
-            let cth = 0.95_f64;
-            fast.const_decrep_mult = if p_dec > 0.0 {
-                1.0 + 0.5 * (1.0 - (1.0 - p_dec).powf((8.0 * rate * cth).max(1.0)))
-            } else {
-                1.0
-            };
-            fast.const_pierce_mult = if max_extra_pierce > 0 && pierce_p > 0.0 {
-                let mut eff_m = 1.0;
-                let mut eff_pow = 1.0;
-                for _ in 0..max_extra_pierce {
-                    eff_pow *= cth * pierce_p;
-                    eff_m += eff_pow;
-                }
-                eff_m
-            } else {
-                1.0
-            };
-            fast.const_ow_dps = if p_ow > 0.0 {
-                ow_base_dps * (1.0 - (1.0 - p_ow).powf((8.0 * rate * cth).max(1.0)))
-            } else {
-                0.0
-            };
-            fast.const_psn_prob = 1.0 - (1.0 - cth).powf(fast.psn_exp);
-        }
+        fast.init_cth_const();
         fast
     }
 
@@ -711,6 +699,7 @@ impl OffenseProfile {
     }
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct FastLeafDps {
     pub(crate) rate: f64,
     pub(crate) ias_bp: i32,
@@ -744,6 +733,14 @@ pub(crate) struct FastLeafDps {
     pub(crate) base_direct_non_phys: f64,
     pub(crate) base_auto_hit: f64,
     pub(crate) base_aura_pulse_dps: f64,
+    pub(crate) base_str: i32,
+    pub(crate) base_dex: i32,
+    pub(crate) str_pct: i32,
+    pub(crate) dex_pct: i32,
+    pub(crate) base_ed_int: i32,
+    pub(crate) ed_du: f64,
+    pub(crate) crit_mult: f64,
+    pub(crate) class: CharClass,
 }
 
 struct EvalCore {
@@ -755,6 +752,71 @@ struct EvalCore {
 }
 
 impl FastLeafDps {
+    fn init_cth_const(&mut self) {
+        self.cth_is_const =
+            self.itd_active || self.eff_dr <= 0.0 || self.cth_for_add_ar(0) >= 0.95;
+        if self.cth_is_const {
+            let cth = 0.95_f64;
+            self.const_decrep_mult = if self.p_dec > 0.0 {
+                1.0 + 0.5 * (1.0 - (1.0 - self.p_dec).powf((8.0 * self.rate * cth).max(1.0)))
+            } else {
+                1.0
+            };
+            self.const_pierce_mult = if self.max_extra_pierce > 0 && self.pierce_p > 0.0 {
+                let mut eff_m = 1.0;
+                let mut eff_pow = 1.0;
+                for _ in 0..self.max_extra_pierce {
+                    eff_pow *= cth * self.pierce_p;
+                    eff_m += eff_pow;
+                }
+                eff_m
+            } else {
+                1.0
+            };
+            self.const_ow_dps = if self.p_ow > 0.0 {
+                self.ow_base_dps
+                    * (1.0 - (1.0 - self.p_ow).powf((8.0 * self.rate * cth).max(1.0)))
+            } else {
+                0.0
+            };
+            self.const_psn_prob = 1.0 - (1.0 - cth).powf(self.psn_exp);
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn with_non_skill_deltas(
+        &self,
+        d_str: i32,
+        d_dex: i32,
+        d_ar: i32,
+        d_phys_2x: i32,
+        d_fire_2x: i32,
+        d_elem_2x: i32,
+        d_psn_2x: i32,
+    ) -> FastLeafDps {
+        let mut out = *self;
+        if d_str != 0 || d_dex != 0 {
+            out.base_str += d_str;
+            out.base_dex += d_dex;
+            let total_str = out.base_str.max(0);
+            let total_dex = out.base_dex.max(0);
+            let stat_ed = (total_str * out.str_pct + total_dex * out.dex_pct) / 100;
+            let eff_ed = (stat_ed + out.base_ed_int).max(0) as f64 + out.ed_du;
+            out.phys_scale = (1.0 + eff_ed / 100.0) * out.crit_mult;
+            if d_dex != 0 {
+                out.dex_base_ar = out.class.base_ar_from_dex(total_dex);
+            }
+        }
+        out.leaf_ar += d_ar;
+        out.phys_2x_0 += d_phys_2x;
+        out.flat_fire_2x_0 += d_fire_2x;
+        out.flat_elem_2x_0 += d_elem_2x;
+        out.psn_2x_0 += d_psn_2x;
+        if (d_dex != 0 || d_ar != 0) && (!self.cth_is_const || d_dex < 0 || d_ar < 0) {
+            out.init_cth_const();
+        }
+        out
+    }
     #[inline]
     pub(crate) fn total_ar_for_add_ar(&self, add_ar: i32) -> i32 {
         let base_ar = (self.dex_base_ar + (self.leaf_ar + add_ar).max(0)).max(0);
@@ -866,6 +928,11 @@ impl FastLeafDps {
     ) -> f64 {
         self.eval_core(add_ar, add_phys_2x, add_elem_2x, add_fire_2x, add_psn_2x)
             .eff_dps
+    }
+
+    #[inline]
+    pub(crate) fn eval_eff_dps(&self) -> f64 {
+        self.eval_core(0, 0, 0, 0, 0).eff_dps
     }
 
     pub(crate) fn eval_detailed(&self) -> (f64, f64, i32, i32, i32, i32, i32, bool) {
