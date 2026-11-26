@@ -607,8 +607,9 @@ fn build_hands(
     c: &BuildConstraints,
 ) -> Vec<ItemPair> {
     let require_shield = offense.requires_shield();
-    let hands_fixed = c.is_hands_fixed();
-    let require_melee = offense.requires_melee() && !hands_fixed;
+    let weapon_fixed = c.is_weapon_fixed();
+    let shield_fixed = c.is_shield_fixed();
+    let require_melee = offense.requires_melee() && !weapon_fixed;
     let mut weapons_1h: Vec<ItemSpec> = items
         .iter()
         .filter(|i| {
@@ -621,7 +622,8 @@ fn build_hands(
         .filter(|i| i.slot == "shield" && valid_item(i))
         .cloned()
         .collect();
-    let mut weapons_2h: Vec<ItemSpec> = if require_shield {
+    let must_keep_shield = shield_fixed && !shields.is_empty();
+    let mut weapons_2h: Vec<ItemSpec> = if require_shield || must_keep_shield {
         Vec::new()
     } else {
         items
@@ -634,24 +636,25 @@ fn build_hands(
             .cloned()
             .collect()
     };
+    let must_keep_2h = weapon_fixed && !weapons_2h.is_empty();
 
-    if hands_fixed {
-        if weapons_1h.is_empty() && !shields.is_empty() {
+    if weapon_fixed {
+        if !must_keep_2h && weapons_1h.is_empty() && !shields.is_empty() {
             weapons_1h.push(ItemSpec::empty("weapon"));
         }
+    } else if !shields.is_empty() && empty_dominators(&weapons_1h, mode, offense, c) == 0 {
+        weapons_1h.push(ItemSpec::empty("weapon"));
+    }
+
+    if shield_fixed {
         if !require_shield && shields.is_empty() && !weapons_1h.is_empty() {
             shields.push(ItemSpec::empty("shield"));
         }
-    } else {
-        if !shields.is_empty() && empty_dominators(&weapons_1h, mode, offense, c) == 0 {
-            weapons_1h.push(ItemSpec::empty("weapon"));
-        }
-        if !require_shield
-            && !weapons_1h.is_empty()
-            && empty_dominators(&shields, mode, offense, c) == 0
-        {
-            shields.push(ItemSpec::empty("shield"));
-        }
+    } else if !require_shield
+        && !weapons_1h.is_empty()
+        && empty_dominators(&shields, mode, offense, c) == 0
+    {
+        shields.push(ItemSpec::empty("shield"));
     }
 
     weapons_1h.sort_by_key(|it| {
@@ -744,29 +747,33 @@ fn build_hands(
         hands.push(ItemPair::single_2h(w2h));
     }
 
-    if hands_fixed {
-        if !require_shield && hands.is_empty() {
-            hands.push(ItemPair::from_pair(
-                &ItemSpec::empty("weapon"),
-                &ItemSpec::empty("shield"),
-                "hands",
-            ));
-        }
-    } else {
-        let has_empty_dom = hands.iter().any(|h| {
-            h.set_sig.is_none()
-                && offense.weapon_anim_key(mode, h.first.hand_weapon()) == empty_anim
-                && dominates_empty(
-                    wep_prune_stats(&h.combined),
-                    normalize_reqs(h.reqs, c.base_str, c.base_dex),
-                )
-        });
-        if !require_shield && !has_empty_dom {
-            hands.push(ItemPair::from_pair(
-                &ItemSpec::empty("weapon"),
-                &ItemSpec::empty("shield"),
-                "hands",
-            ));
+    let has_kept_hand_item =
+        must_keep_shield || must_keep_2h || (weapon_fixed && !weapons_1h.is_empty());
+    if !require_shield && !has_kept_hand_item {
+        if weapon_fixed && shield_fixed {
+            if hands.is_empty() {
+                hands.push(ItemPair::from_pair(
+                    &ItemSpec::empty("weapon"),
+                    &ItemSpec::empty("shield"),
+                    "hands",
+                ));
+            }
+        } else {
+            let has_empty_dom = hands.iter().any(|h| {
+                h.set_sig.is_none()
+                    && offense.weapon_anim_key(mode, h.first.hand_weapon()) == empty_anim
+                    && dominates_empty(
+                        wep_prune_stats(&h.combined),
+                        normalize_reqs(h.reqs, c.base_str, c.base_dex),
+                    )
+            });
+            if !has_empty_dom {
+                hands.push(ItemPair::from_pair(
+                    &ItemSpec::empty("weapon"),
+                    &ItemSpec::empty("shield"),
+                    "hands",
+                ));
+            }
         }
     }
 
@@ -1514,7 +1521,7 @@ pub fn optimize_builds_with_baseline(
         items,
         c.allow_mf,
         offense.requires_shield(),
-        offense.requires_melee() && !c.is_hands_fixed(),
+        offense.requires_melee() && !c.is_weapon_fixed(),
         |slot| c.is_slot_fixed(slot),
     );
 

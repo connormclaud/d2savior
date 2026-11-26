@@ -2160,12 +2160,20 @@ impl BuildConstraints {
         self.fixed_gear || self.fixed_slots.iter().any(|s| s == slot)
     }
 
-    pub fn is_hands_fixed(&self) -> bool {
+    pub fn is_weapon_fixed(&self) -> bool {
         self.fixed_gear
             || self
                 .fixed_slots
                 .iter()
-                .any(|s| matches!(s.as_str(), "weapon" | "weapon2h" | "shield"))
+                .any(|s| matches!(s.as_str(), "weapon" | "weapon2h"))
+    }
+
+    pub fn is_shield_fixed(&self) -> bool {
+        self.fixed_gear || self.fixed_slots.iter().any(|s| s == "shield")
+    }
+
+    pub fn is_hands_fixed(&self) -> bool {
+        self.is_weapon_fixed() || self.is_shield_fixed()
     }
 }
 

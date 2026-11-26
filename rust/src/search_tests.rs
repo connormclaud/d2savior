@@ -3099,6 +3099,79 @@ fn test_partial_fixed_slots_keeps_only_selected_slots() {
 }
 
 #[test]
+fn test_fixed_shield_only_keeps_shield_and_optimizes_melee_weapon() {
+    let plain_shield = mk_item("Plain Shield", "shield", 0, 0, 0, 0, 0);
+    let big_2h = ItemSpec {
+        name: "Big 2H Sword".to_string(),
+        slot: "weapon2h".to_string(),
+        all_skills: 5,
+        wep_phys_2x: 200,
+        wep_str_pct: 100,
+        wclass: "2hs".to_string(),
+        can_zeal: true,
+        ..Default::default()
+    };
+    let caster_wand = ItemSpec {
+        name: "Caster Wand".to_string(),
+        slot: "weapon".to_string(),
+        all_skills: 3,
+        wep_phys_2x: 10,
+        wclass: "1hs".to_string(),
+        can_zeal: false,
+        ..Default::default()
+    };
+    let melee_flail = ItemSpec {
+        name: "Melee Flail".to_string(),
+        slot: "weapon".to_string(),
+        wep_phys_2x: 25,
+        wep_str_pct: 100,
+        wclass: "1hs".to_string(),
+        can_zeal: true,
+        ..Default::default()
+    };
+    let pool = [plain_shield, big_2h, caster_wand, melee_flail];
+
+    let c_zeal = BuildConstraints {
+        char_class: CharClass::PALADIN_ID,
+        mode: "leveling".to_string(),
+        offense: "zeal".to_string(),
+        fixed_slots: vec!["shield".to_string()],
+        aura_hit_dmg: vec![20.0; 21],
+        action_ed: vec![100; 21],
+        action_hits: vec![5; 21],
+        has_aura: true,
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        base_hell_res: 0,
+        use_bo: false,
+        limit: 1,
+        ..Default::default()
+    };
+    let res_zeal = optimize_builds_core(&pool, &[], &c_zeal).unwrap();
+    assert_eq!(res_zeal.len(), 1);
+    let names_zeal: Vec<&str> = res_zeal[0].items.iter().map(|i| i.name.as_str()).collect();
+    assert!(names_zeal.contains(&"Plain Shield"));
+    assert!(names_zeal.contains(&"Melee Flail"));
+    assert!(!names_zeal.contains(&"Big 2H Sword"));
+    assert!(!names_zeal.contains(&"Caster Wand"));
+
+    let c_caster = BuildConstraints {
+        offense: "caster".to_string(),
+        ..c_zeal
+    };
+    let res_caster = optimize_builds_core(&pool, &[], &c_caster).unwrap();
+    assert_eq!(res_caster.len(), 1);
+    let names_caster: Vec<&str> = res_caster[0].items.iter().map(|i| i.name.as_str()).collect();
+    assert!(names_caster.contains(&"Plain Shield"));
+    assert!(names_caster.contains(&"Caster Wand"));
+    assert!(!names_caster.contains(&"Big 2H Sword"));
+}
+
+#[test]
 fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
     let base_item = ItemSpec {
         name: "Base Helm".to_string(),

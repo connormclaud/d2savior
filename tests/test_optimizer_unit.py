@@ -1496,6 +1496,7 @@ def test_parse_keep_gear_and_resolve_fixed_gear() -> None:
     from d2savior.optimizer.common import (
         ALL_GEAR_SLOTS,
         KEEP_GEAR_GROUPS,
+        KEEP_GEAR_SLOTS,
         parse_keep_gear,
         resolve_fixed_gear,
     )
@@ -1517,17 +1518,33 @@ def test_parse_keep_gear_and_resolve_fixed_gear() -> None:
     assert parse_keep_gear("weapon+jewelry+armor") == ALL_GEAR_SLOTS
     assert parse_keep_gear("all+weapon") == ALL_GEAR_SLOTS
 
+    # Individual slots and natural aliases
+    for name, expected in KEEP_GEAR_SLOTS.items():
+        assert parse_keep_gear(name) == expected
+    assert parse_keep_gear("helmet") == frozenset({"helm"})
+    assert parse_keep_gear("chest") == frozenset({"armor"})
+    assert parse_keep_gear("body") == frozenset({"armor"})
+    assert parse_keep_gear("rings") == frozenset({"ring"})
+    assert parse_keep_gear("helm+boots") == frozenset({"helm", "boots"})
+    assert parse_keep_gear("chest+gloves+belt") == frozenset({"armor", "gloves", "belt"})
+    assert parse_keep_gear("weapon+helm+boots") == (
+        KEEP_GEAR_GROUPS["weapon"] | frozenset({"helm", "boots"})
+    )
+    assert parse_keep_gear("jewelry+chest") == (KEEP_GEAR_GROUPS["jewelry"] | frozenset({"armor"}))
+
     assert resolve_fixed_gear(False) == (False, ())
     assert resolve_fixed_gear(True) == (True, ())
     assert resolve_fixed_gear("all") == (True, ())
     assert resolve_fixed_gear("weapon+jewelry+armor") == (True, ())
+    assert resolve_fixed_gear("weapon+jewelry+helm+chest+belt+gloves+boots") == (True, ())
     assert resolve_fixed_gear("jewelry") == (False, ("amulet", "ring"))
+    assert resolve_fixed_gear("helm+boots") == (False, ("boots", "helm"))
     assert resolve_fixed_gear("weapon+jewelry") == (
         False,
         ("amulet", "ring", "shield", "weapon", "weapon2h"),
     )
 
-    for bad in ("", "   ", "weapon+", "+armor", "bogus", "weapon+bogus", "shield"):
+    for bad in ("", "   ", "weapon+", "+armor", "bogus", "weapon+bogus"):
         with pytest.raises(ValueError, match=r"(Empty|Invalid) --keep-gear"):
             parse_keep_gear(bad)
 
@@ -1554,9 +1571,17 @@ def test_normalize_keep_gear_argv_before_positionals() -> None:
         "--keep-gear=all",
         "smite",
     ]
-    # Valid group expression is bound to --keep-gear
+    # Valid group/slot expression is bound to --keep-gear
     assert _normalize_keep_gear_argv(["--keep-gear", "weapon+jewelry", "smite"], parser) == [
         "--keep-gear=weapon+jewelry",
+        "smite",
+    ]
+    assert _normalize_keep_gear_argv(["--keep-gear", "helm+boots", "smite"], parser) == [
+        "--keep-gear=helm+boots",
+        "smite",
+    ]
+    assert _normalize_keep_gear_argv(["--keep-gear", "boots", "smite"], parser) == [
+        "--keep-gear=boots",
         "smite",
     ]
     # .d2s/.d2i path stays positional even when another positional is present

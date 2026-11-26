@@ -27,6 +27,25 @@ KEEP_GEAR_GROUPS: frozendict[str, frozenset[str]] = frozendict(
         "armor": frozenset({"helm", "armor", "belt", "gloves", "boots"}),
     }
 )
+KEEP_GEAR_SLOTS: frozendict[str, frozenset[str]] = frozendict(
+    {
+        "helm": frozenset({"helm"}),
+        "chest": frozenset({"armor"}),
+        "belt": frozenset({"belt"}),
+        "gloves": frozenset({"gloves"}),
+        "boots": frozenset({"boots"}),
+        "amulet": frozenset({"amulet"}),
+        "ring": frozenset({"ring"}),
+        "shield": frozenset({"shield"}),
+    }
+)
+_KEEP_GEAR_ALIASES: frozendict[str, str] = frozendict(
+    {
+        "body": "chest",
+        "helmet": "helm",
+        "rings": "ring",
+    }
+)
 ALL_GEAR_SLOTS: frozenset[str] = frozenset().union(*KEEP_GEAR_GROUPS.values())
 
 
@@ -36,16 +55,18 @@ def parse_keep_gear(value: bool | str | None) -> frozenset[str]:
     Accepts:
       - ``None`` / ``False``: no slots kept.
       - ``True`` / ``"all"``: all active gear slots kept.
-      - ``"weapon"``, ``"jewelry"``, ``"armor"``, or ``'+'`` combinations
-        (e.g. ``"weapon+jewelry"``).
+      - Groups (``"weapon"``, ``"jewelry"``, ``"armor"``), individual slots
+        (``"helm"``, ``"chest"``/``"body"``, ``"belt"``, ``"gloves"``, ``"boots"``,
+        ``"amulet"``, ``"ring"``/``"rings"``, ``"shield"``), or ``'+'`` combinations
+        (e.g. ``"weapon+helm+boots"``).
     """
     if value is None or value is False:
         return frozenset()
     if value is True:
         return ALL_GEAR_SLOTS
     raw = value.strip().lower()
+    valid = ", ".join(("all", *KEEP_GEAR_GROUPS, *KEEP_GEAR_SLOTS))
     if not raw:
-        valid = ", ".join(("all", *KEEP_GEAR_GROUPS))
         raise ValueError(
             f"Empty --keep-gear value; expected one or more of: {valid} (join with '+')"
         )
@@ -57,10 +78,13 @@ def parse_keep_gear(value: bool | str | None) -> frozenset[str]:
         elif token in KEEP_GEAR_GROUPS:
             slots.update(KEEP_GEAR_GROUPS[token])
         else:
-            valid = ", ".join(("all", *KEEP_GEAR_GROUPS))
-            raise ValueError(
-                f"Invalid --keep-gear group '{token}'; expected one or more of: {valid} (join with '+')"
-            )
+            canonical = _KEEP_GEAR_ALIASES.get(token, token)
+            if canonical in KEEP_GEAR_SLOTS:
+                slots.update(KEEP_GEAR_SLOTS[canonical])
+            else:
+                raise ValueError(
+                    f"Invalid --keep-gear group or slot '{token}'; expected one or more of: {valid} (join with '+')"
+                )
     return frozenset(slots)
 
 

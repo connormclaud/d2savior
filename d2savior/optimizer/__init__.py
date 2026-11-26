@@ -2,6 +2,7 @@
 
 from d2savior.optimizer.common import (
     KEEP_GEAR_GROUPS,
+    KEEP_GEAR_SLOTS,
     SUPPORTED_OPTIMIZER_CLASSES,
     detect_cta_bo_bonus,
     parse_keep_gear,
@@ -64,6 +65,7 @@ __all__ = [
     "BUILD_PRESET_ALIASES",
     "HAS_NATIVE",
     "KEEP_GEAR_GROUPS",
+    "KEEP_GEAR_SLOTS",
     "PALADIN_BUILD_CHOICES",
     "PALADIN_FCR_BPS",
     "PALADIN_FCR_FRAMES",

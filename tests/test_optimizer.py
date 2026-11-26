@@ -1583,8 +1583,34 @@ def test_keep_gear_groups_and_combinations(capsys: pytest.CaptureFixture[str]) -
     }
     assert any(it.slot in wj_kept_slots and it.loc != "smite Equipped" for it in arm_items)
 
-    # End-to-end CLI tests for --keep-gear groups & combinations + invalid value error.
-    for expr in ("weapon", "jewelry", "armor", "weapon+jewelry", "all"):
+    # Individual slots (e.g. helm+boots) keep only those equipped slots while still allowing
+    # stash/mule items for armor, belt, gloves, weapons, shields, and jewelry.
+    hb_items, _ = extract_pool(
+        smite, extra_chars=[mule], stashes=[stash], resolver=resolver, keep_equipped="helm+boots"
+    )
+    hb_kept_slots = {"helm", "boots"}
+    assert {(i.name, i.slot, i.loc) for i in hb_items if i.slot in hb_kept_slots} == {
+        x for x in kept_all_by_slot if x[1] in hb_kept_slots
+    }
+    assert {(i.name, i.slot, i.loc) for i in hb_items if i.slot not in hb_kept_slots} == {
+        (i.name, i.slot, i.loc) for i in all_items if i.slot not in hb_kept_slots
+    }
+    assert any(
+        it.slot in {"armor", "belt", "gloves"} and it.loc != "smite Equipped" for it in hb_items
+    )
+
+    # End-to-end CLI tests for --keep-gear groups, individual slots & combinations + invalid value error.
+    for expr in (
+        "weapon",
+        "jewelry",
+        "armor",
+        "weapon+jewelry",
+        "all",
+        "helm",
+        "chest",
+        "helm+boots",
+        "weapon+helm+boots",
+    ):
         main(
             [
                 "optimize",

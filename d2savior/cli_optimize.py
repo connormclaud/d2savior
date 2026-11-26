@@ -394,11 +394,12 @@ def _build_optimize_parser(
         nargs="?",
         const="all",
         default=None,
-        metavar="GROUPS",
+        metavar="SLOTS",
         help=(
-            "Keep currently equipped active gear slots: all (default), weapon (weapon+shield), "
-            "jewelry (amulet+rings), armor (helm/armor/belt/gloves/boots), or '+' combinations "
-            "(e.g. weapon+jewelry)"
+            "Keep currently equipped active gear slots: all (default), groups "
+            "(weapon=weapon+shield, jewelry=amulet+rings, armor=helm/chest/belt/gloves/boots), "
+            "individual slots (helm, chest/body, belt, gloves, boots, amulet, ring/rings, shield), "
+            "or '+' combinations (e.g. weapon+helm+boots)"
         ),
     )
     parser.add_argument(
