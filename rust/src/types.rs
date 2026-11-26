@@ -751,6 +751,15 @@ struct EvalCore {
     eff_dps: f64,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct CthEval {
+    pub(crate) cth: f64,
+    pub(crate) decrep_mult: f64,
+    pub(crate) pierce_mult: f64,
+    pub(crate) d_ow_dps: f64,
+    pub(crate) psn_prob: f64,
+}
+
 impl FastLeafDps {
     fn init_cth_const(&mut self) {
         self.cth_is_const =
@@ -933,6 +942,92 @@ impl FastLeafDps {
     #[inline]
     pub(crate) fn eval_eff_dps(&self) -> f64 {
         self.eval_core(0, 0, 0, 0, 0).eff_dps
+    }
+
+    #[inline]
+    pub(crate) fn const_cth_eval(&self) -> CthEval {
+        CthEval {
+            cth: 0.95,
+            decrep_mult: self.const_decrep_mult,
+            pierce_mult: self.const_pierce_mult,
+            d_ow_dps: self.const_ow_dps,
+            psn_prob: self.const_psn_prob,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn eval_cth_no_psn(&self, add_ar: i32) -> CthEval {
+        if self.cth_is_const {
+            return self.const_cth_eval();
+        }
+        let cth = self.cth_for_add_ar(add_ar);
+        let decrep_mult = if self.p_dec > 0.0 {
+            1.0 + 0.5 * (1.0 - (1.0 - self.p_dec).powf((8.0 * self.rate * cth).max(1.0)))
+        } else {
+            1.0
+        };
+        let pierce_mult = if self.max_extra_pierce > 0 && self.pierce_p > 0.0 {
+            let mut eff_m = 1.0;
+            let mut eff_pow = 1.0;
+            for _ in 0..self.max_extra_pierce {
+                eff_pow *= cth * self.pierce_p;
+                eff_m += eff_pow;
+            }
+            eff_m
+        } else {
+            1.0
+        };
+        let d_ow_dps = if self.p_ow > 0.0 {
+            self.ow_base_dps * (1.0 - (1.0 - self.p_ow).powf((8.0 * self.rate * cth).max(1.0)))
+        } else {
+            0.0
+        };
+        CthEval {
+            cth,
+            decrep_mult,
+            pierce_mult,
+            d_ow_dps,
+            psn_prob: -1.0,
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn eval_dps_with_cth(
+        &self,
+        c: &mut CthEval,
+        add_phys_2x: i32,
+        add_elem_2x: i32,
+        add_fire_2x: i32,
+        add_psn_2x: i32,
+    ) -> f64 {
+        let phys_avg = (self.phys_2x_0 + add_phys_2x).max(0) as f64 / 2.0;
+        let d_phys = phys_avg * self.phys_scale * c.decrep_mult;
+        let d_flat_fire = (self.flat_fire_2x_0 + add_fire_2x).max(0) as f64 / 2.0;
+        let d_elem_other = (self.flat_elem_2x_0 + add_elem_2x).max(0) as f64 / 2.0;
+        let (direct_hit, auto_hit_attack) = if self.splash_fire {
+            (
+                d_phys + d_elem_other + self.base_direct_non_phys,
+                self.base_auto_hit + d_flat_fire * self.targets,
+            )
+        } else {
+            (
+                d_phys + d_flat_fire + d_elem_other + self.base_direct_non_phys,
+                self.base_auto_hit,
+            )
+        };
+        let psn_base = ((self.psn_2x_0 + add_psn_2x).max(0) + self.ctc_venom_2x) as f64 / 2.0;
+        let d_psn_dps = if psn_base > 0.0 {
+            if c.psn_prob < 0.0 {
+                c.psn_prob = 1.0 - (1.0 - c.cth).powf(self.psn_exp);
+            }
+            psn_base * c.psn_prob
+        } else {
+            0.0
+        };
+        (direct_hit * c.cth + auto_hit_attack) * c.pierce_mult * self.rate
+            + self.base_aura_pulse_dps
+            + c.d_ow_dps
+            + d_psn_dps
     }
 
     pub(crate) fn eval_detailed(&self) -> (f64, f64, i32, i32, i32, i32, i32, bool) {

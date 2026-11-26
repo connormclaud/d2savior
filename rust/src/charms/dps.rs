@@ -6,8 +6,8 @@ use super::solver::CharmSolver;
 use crate::eval::{EvalSummary, base_res_caps, eval_build_summary, res_caps};
 use crate::search::{BuildScore, score_eval_summary};
 use crate::types::{
-    BuildConstraints, CharClass, CharmSpec, FastLeafDps, HandWeapon, OffenseProfile, SearchMode,
-    Stats,
+    BuildConstraints, CharClass, CharmSpec, CthEval, FastLeafDps, HandWeapon, OffenseProfile,
+    SearchMode, Stats,
 };
 
 impl<'a> CharmSolver<'a> {
@@ -119,6 +119,7 @@ impl<'a> CharmSolver<'a> {
             non_dps_solver: &'b mut CharmSolver<'a>,
             cur_indices: Vec<usize>,
             pure_buf: Vec<(f64, u64)>,
+            cth_cache: Vec<Option<CthEval>>,
             best_charms: &'b mut Vec<&'a CharmSpec>,
             best_sum: &'b mut EvalSummary,
             best_score: &'b mut BuildScore,
@@ -294,6 +295,16 @@ impl<'a> CharmSolver<'a> {
 
             if g_idx == st.groups.len() {
                 let leaf_d = leaf_with_cur(leaf, cur, st.class);
+                if leaf_d.fhr + st.nd_fhr_at[rs_idx] < st.c.min_fhr
+                    || leaf_d.frw + st.nd_frw_at[rs_idx] < st.c.min_frw
+                    || leaf_d.mf + st.nd_mf_at[rs_idx] < st.c.min_mf
+                    || leaf_d.fr + st.nd_res_at[rs_idx][0] < st.c.min_fr
+                    || leaf_d.lr + st.nd_res_at[rs_idx][1] < st.c.min_lr
+                    || leaf_d.cr + st.nd_res_at[rs_idx][2] < st.c.min_cr
+                    || leaf_d.pr + st.nd_res_at[rs_idx][3] < st.c.min_pr
+                {
+                    return;
+                }
                 let fast = if cur.all_skills == 0
                     && cur.class_skills == 0
                     && cur.action_skills == 0
@@ -312,8 +323,33 @@ impl<'a> CharmSolver<'a> {
                     st.offense.fast_leaf_dps(st.hw, leaf_d, st.c)
                 };
                 let max_pure_s = (dps_rem_slots.max(0) as usize).min(st.max_slots.max(0) as usize);
-                st.pure_dps
-                    .solve_for_leaf_into(&fast, max_pure_s, &mut mut_ctx.pure_buf);
+                let leaf_res_ub_0: i32 = [
+                    (leaf_d.fr + st.nd_res_at[rs_idx][0]).min(st.base_caps[0]),
+                    (leaf_d.lr + st.nd_res_at[rs_idx][1]).min(st.base_caps[1]),
+                    (leaf_d.cr + st.nd_res_at[rs_idx][2]).min(st.base_caps[2]),
+                    (leaf_d.pr + st.nd_res_at[rs_idx][3]).min(st.base_caps[3]),
+                ]
+                .iter()
+                .sum();
+                let leaf_ub_bucket =
+                    OffenseProfile::dps_bucket(st.pure_dps.max_dps_ub(&fast, max_pure_s));
+                let leaf_top3 = match st.mode {
+                    SearchMode::Leveling => (leaf_ub_bucket, leaf_res_ub_0, st.cbf_val),
+                    SearchMode::LevelingRes => (leaf_res_ub_0, leaf_ub_bucket, st.cbf_val),
+                    _ => return,
+                };
+                if st.cutoff.is_some_and(|cut| leaf_top3 < cut)
+                    || (leaf_top3.0, leaf_top3.1)
+                        < (mut_ctx.best_score.primary, mut_ctx.best_score.secondary)
+                {
+                    return;
+                }
+                st.pure_dps.solve_for_leaf_into(
+                    &fast,
+                    max_pure_s,
+                    &mut mut_ctx.cth_cache,
+                    &mut mut_ctx.pure_buf,
+                );
                 let mut prev_tested_bucket: Option<i32> = None;
                 for pure_s in 0..=max_pure_s {
                     if pure_s > 0 && mut_ctx.pure_buf[pure_s].0 <= mut_ctx.pure_buf[pure_s - 1].0 {
@@ -578,6 +614,7 @@ impl<'a> CharmSolver<'a> {
             non_dps_solver,
             cur_indices: Vec::new(),
             pure_buf: Vec::with_capacity((self.max_slots.max(0) as usize) + 1),
+            cth_cache: Vec::new(),
             best_charms,
             best_sum,
             best_score,

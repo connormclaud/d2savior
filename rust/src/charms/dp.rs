@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use super::greedy::{charm_eff_life, charm_eff_mana};
-use crate::types::{CharClass, CharmSpec, FastLeafDps};
+use crate::types::{CharClass, CharmSpec, CthEval, FastLeafDps};
 
 #[derive(Clone, Copy, Default)]
 pub(super) struct StatTotals {
@@ -344,6 +344,7 @@ pub(super) struct PureDpsState {
     pub(super) fire_2x: i32,
     pub(super) psn_2x: i32,
     pub(super) picks: u64,
+    pub(super) ar_idx: u16,
 }
 
 #[derive(Default, Clone)]
@@ -361,6 +362,8 @@ struct PureDpsGroup {
 pub(super) struct PureDpsSolver {
     pub(super) item_indices: Vec<usize>,
     pareto_by_slot: Vec<Vec<PureDpsState>>,
+    unique_ars: Vec<i32>,
+    max_stats_by_slot: Vec<(i32, i32, i32, i32, i32)>,
 }
 
 impl PureDpsSolver {
@@ -472,6 +475,7 @@ impl PureDpsSolver {
                                 fire_2x: st.fire_2x + d_fire,
                                 psn_2x: st.psn_2x + d_psn,
                                 picks: st.picks | mask,
+                                ar_idx: 0,
                             });
                         }
                     }
@@ -532,39 +536,119 @@ impl PureDpsSolver {
             dp
         };
 
+        let mut unique_ars = Vec::new();
+        let mut max_stats_by_slot = Vec::new();
+        let mut pareto_by_slot = pareto_by_slot;
+        if !pareto_by_slot.is_empty() {
+            let mut ar_map: HashMap<i32, u16> = HashMap::new();
+            max_stats_by_slot.reserve(pareto_by_slot.len());
+            let mut run = (0i32, 0i32, 0i32, 0i32, 0i32);
+            for (s, list) in pareto_by_slot.iter_mut().enumerate() {
+                if s > 0 {
+                    for st in list.iter_mut() {
+                        run.0 = run.0.max(st.ar);
+                        run.1 = run.1.max(st.phys_2x);
+                        run.2 = run.2.max(st.elem_2x);
+                        run.3 = run.3.max(st.fire_2x);
+                        run.4 = run.4.max(st.psn_2x);
+                        st.ar_idx = if let Some(&idx) = ar_map.get(&st.ar) {
+                            idx
+                        } else if unique_ars.len() < u16::MAX as usize {
+                            let idx = unique_ars.len() as u16;
+                            unique_ars.push(st.ar);
+                            ar_map.insert(st.ar, idx);
+                            idx
+                        } else {
+                            u16::MAX
+                        };
+                    }
+                }
+                max_stats_by_slot.push(run);
+            }
+        }
+
         (
             Self {
                 item_indices,
                 pareto_by_slot,
+                unique_ars,
+                max_stats_by_slot,
             },
             ub_items,
             overflow,
         )
     }
 
+    #[inline]
+    pub(super) fn max_dps_ub(&self, fast: &FastLeafDps, max_s: usize) -> f64 {
+        if self.max_stats_by_slot.is_empty() || max_s == 0 {
+            return fast.eval_eff_dps();
+        }
+        let lim = max_s.min(self.max_stats_by_slot.len() - 1);
+        let (ar, phys, elem, fire, psn) = self.max_stats_by_slot[lim];
+        fast.eval_dps(ar, phys, elem, fire, psn)
+    }
+
     pub(super) fn solve_for_leaf_into(
         &self,
         fast: &FastLeafDps,
         max_s: usize,
+        cth_cache: &mut Vec<Option<CthEval>>,
         out: &mut Vec<(f64, u64)>,
     ) {
         out.clear();
-        let base_dps = fast.eval_dps(0, 0, 0, 0, 0);
+        let base_dps = fast.eval_eff_dps();
         if self.pareto_by_slot.is_empty() || max_s == 0 {
             out.resize(max_s + 1, (base_dps, 0));
             return;
         }
         out.push((base_dps, 0));
         let lim = max_s.min(self.pareto_by_slot.len() - 1);
-        for s in 1..=lim {
-            let mut best = out[s - 1];
-            for st in &self.pareto_by_slot[s] {
-                let v = fast.eval_dps(st.ar, st.phys_2x, st.elem_2x, st.fire_2x, st.psn_2x);
-                if v > best.0 {
-                    best = (v, st.picks);
+        if fast.cth_is_const {
+            let mut cth = fast.const_cth_eval();
+            for s in 1..=lim {
+                let mut best = out[s - 1];
+                for st in &self.pareto_by_slot[s] {
+                    let v = fast.eval_dps_with_cth(
+                        &mut cth,
+                        st.phys_2x,
+                        st.elem_2x,
+                        st.fire_2x,
+                        st.psn_2x,
+                    );
+                    if v > best.0 {
+                        best = (v, st.picks);
+                    }
                 }
+                out.push(best);
             }
-            out.push(best);
+        } else {
+            cth_cache.clear();
+            cth_cache.resize(self.unique_ars.len(), None);
+            for s in 1..=lim {
+                let mut best = out[s - 1];
+                for st in &self.pareto_by_slot[s] {
+                    let idx = st.ar_idx as usize;
+                    let mut fallback;
+                    let cth_ref = if idx < cth_cache.len() {
+                        cth_cache[idx].get_or_insert_with(|| fast.eval_cth_no_psn(st.ar))
+                    } else {
+                        fallback = fast.eval_cth_no_psn(st.ar);
+                        &mut fallback
+                    };
+                    let v = fast.eval_dps_with_cth(
+                        cth_ref,
+                        st.phys_2x,
+                        st.elem_2x,
+                        st.fire_2x,
+                        st.psn_2x,
+                    );
+                    if v > best.0 {
+                        best = (v, st.picks);
+                    }
+                }
+                out.push(best);
+            }
         }
         if max_s > lim {
             let last = *out.last().unwrap_or(&(base_dps, 0));
@@ -574,8 +658,9 @@ impl PureDpsSolver {
 
     #[cfg(test)]
     pub(super) fn solve_for_leaf(&self, fast: &FastLeafDps, max_s: usize) -> Vec<(f64, u64)> {
+        let mut cth_cache = Vec::new();
         let mut out = Vec::with_capacity(max_s + 1);
-        self.solve_for_leaf_into(fast, max_s, &mut out);
+        self.solve_for_leaf_into(fast, max_s, &mut cth_cache, &mut out);
         out
     }
 }
