@@ -473,6 +473,21 @@ def _is_eth_breakable(
     return not any(pid in _ETH_SAFE_PIDS for pid, _, _ in props)
 
 
+def _apply_shield_base_stats(
+    acc: _PropAcc,
+    slot: str,
+    item_info: object | None,
+    *,
+    char_class: int,
+    resolved_offense: str,
+) -> None:
+    if slot != "shield" or item_info is None:
+        return
+    acc.block_pct += getattr(item_info, "block", 0)
+    if char_class == int(CharClass.PALADIN) and resolved_offense == "smite":
+        acc.flat_phys_2x += getattr(item_info, "mindam", 0) + getattr(item_info, "maxdam", 0)
+
+
 def _item_to_spec(
     item: D2Item,
     loc: str,
@@ -589,8 +604,13 @@ def _item_to_spec(
             return None
         if is_weapon and not allow_eth_melee and resolved_offense in ("zeal", "melee", "smite"):
             return None
-    if slot == "shield" and item_info is not None:
-        acc.block_pct += item_info.block
+    _apply_shield_base_stats(
+        acc,
+        slot,
+        item_info,
+        char_class=char_class,
+        resolved_offense=resolved_offense,
+    )
     belt_slots = resolver.get_belt_rows(code) * 4 if slot == "belt" else 0
     wsm = 0
     wclass = ""

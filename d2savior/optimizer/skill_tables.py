@@ -24,6 +24,7 @@ _SKILL_BLIZZARD = 59
 _SKILL_CHILLING_ARMOR = 60
 _SKILL_FROZEN_ORB = 64
 _SKILL_SACRIFICE = 96
+_SKILL_SMITE = 97
 _SKILL_HOLY_FIRE = 102
 _SKILL_ZEAL = 106
 _SKILL_CHARGE = 107
@@ -98,6 +99,8 @@ class PaladinDpsTables:
     action_ar_pct: tuple[int, ...] = (0,)
     aura_ar_pct: tuple[int, ...] = (0,)
     aura_target_def_pct: tuple[int, ...] = (0,)
+    aura_ed: tuple[int, ...] = (0,)
+    aura_ias: tuple[int, ...] = (0,)
 
 
 def _skill_tohit_pct(sf: _SkillFormula, slvl: int) -> int:
@@ -136,6 +139,7 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
         _SKILL_BLIZZARD,
         _SKILL_FROZEN_ORB,
         _SKILL_SACRIFICE,
+        _SKILL_SMITE,
         _SKILL_HOLY_FIRE,
         _SKILL_ZEAL,
         _SKILL_CHARGE,
@@ -257,7 +261,7 @@ def resolve_paladin_aura_id(
         _pal_hard_pts(skill_levels, eff_right) > 0
     ):
         return eff_right
-    if spec in ("zeal", "sacrifice", "charge", "leveling") and (
+    if spec in ("smite", "zeal", "sacrifice", "charge", "leveling") and (
         _pal_hard_pts(skill_levels, _SKILL_FANATICISM) > 0
     ):
         return _SKILL_FANATICISM
@@ -277,6 +281,45 @@ def build_paladin_dps_tables(
     """Build 1D aura/action DPS lookup tables from skills.txt for a Paladin."""
     formulas, name_to_id = _load_skill_formulas()
     skill_levels = char_data.skills.skill_levels if char_data.skills else ()
+
+    if offense == "smite":
+        support_aura_id = (
+            None
+            if right_skill == -1
+            else resolve_paladin_aura_id(char_data, spec, right_skill=right_skill)
+        )
+        if support_aura_id == _SKILL_FANATICISM and _SKILL_FANATICISM in formulas:
+            ff = formulas[_SKILL_FANATICISM]
+            base_f = _pal_hard_pts(skill_levels, _SKILL_FANATICISM)
+            par3, par4 = ff.params.get(3, 10), ff.params.get(4, 40)
+            par5, par6 = ff.params.get(5, 50), ff.params.get(6, 17)
+            aura_ed_t = tuple(par5 + (base_f + b - 1) * par6 for b in range(max_bonus + 1))
+            aura_ias_t = tuple(
+                _diminishing_returns(par3, par4, base_f + b) for b in range(max_bonus + 1)
+            )
+        else:
+            aura_ed_t = (0,)
+            aura_ias_t = (0,)
+        base_smite = _pal_hard_pts(skill_levels, _SKILL_SMITE)
+        if base_smite > 0 and _SKILL_SMITE in formulas:
+            smf = formulas[_SKILL_SMITE]
+            par3, par4 = smf.params.get(3, 15), smf.params.get(4, 15)
+            action_ed_t = tuple(par3 + (base_smite + b - 1) * par4 for b in range(max_bonus + 1))
+        else:
+            action_ed_t = (0,)
+        return PaladinDpsTables(
+            aura_hit_dmg=(0.0,),
+            aura_pulse_dps=(0.0,),
+            action_ed=action_ed_t,
+            action_hits=(1,),
+            has_aura=False,
+            aura_is_fire=False,
+            action_ar_pct=(0,),
+            aura_ar_pct=(0,),
+            aura_target_def_pct=(0,),
+            aura_ed=aura_ed_t,
+            aura_ias=aura_ias_t,
+        )
 
     # --- Aura tables (Holy Fire / Holy Freeze / Holy Shock) ---
     aura_id = _ELEMENTAL_AURA_SPECS.get(spec)

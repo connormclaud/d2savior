@@ -136,6 +136,38 @@ class TestPaladinDpsTables:
             _make_paladin({11: 2}), "charge", "melee", max_bonus=1
         ).action_ar_pct == (65, 80)
 
+    def test_smite_and_fanaticism_tables_ignore_elemental_aura_pulse(self):
+        # Smite offset = 1, Fanaticism offset = 26 -> 15 * slvl Smite ED, Fanat ED = 50 + 17*(slvl-1),
+        # Fanat IAS = 10 + (30 * ((110 * slvl) // (slvl + 6))) // 100, has_aura=False.
+        c_smite = _make_paladin({1: 1, 26: 20})
+        t_smite = build_paladin_dps_tables(c_smite, "smite", "smite", max_bonus=2)
+        assert t_smite.has_aura is False
+        assert t_smite.aura_is_fire is False
+        assert t_smite.aura_hit_dmg == (0.0,)
+        assert t_smite.aura_pulse_dps == (0.0,)
+        assert t_smite.action_hits == (1,)
+        assert t_smite.action_ed == (15, 30, 45)
+        assert t_smite.aura_ed == (50 + 17 * 19, 50 + 17 * 20, 50 + 17 * 21)
+        assert t_smite.aura_ias[:2] == (35, 35)
+        assert t_smite.action_ar_pct == (0,)
+        assert t_smite.aura_ar_pct == (0,)
+
+        # --right-skill none clears Fanaticism.
+        t_no_aura = build_paladin_dps_tables(c_smite, "smite", "smite", right_skill=-1, max_bonus=1)
+        assert t_no_aura.aura_ed == (0,)
+        assert t_no_aura.aura_ias == (0,)
+
+        # Holy Fire Paladin using --left-skill smite ignores Holy Fire pulse & on-hit damage.
+        c_hf_smite = _make_paladin({1: 1, 6: 20, 4: 10})
+        t_hf_smite = build_paladin_dps_tables(c_hf_smite, "holy-fire", "smite", max_bonus=2)
+        assert t_hf_smite.has_aura is False
+        assert t_hf_smite.aura_is_fire is False
+        assert t_hf_smite.aura_hit_dmg == (0.0,)
+        assert t_hf_smite.aura_pulse_dps == (0.0,)
+        assert t_hf_smite.action_ed == (15, 30, 45)
+        assert t_hf_smite.aura_ed == (0,)
+        assert t_hf_smite.aura_ias == (0,)
+
 
 def _make_sorc(skill_pts: dict[int, int], left: int = 0, right: int = 0) -> D2SStruct:
     char = D2SStruct()

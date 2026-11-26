@@ -1753,6 +1753,119 @@ fn test_leveling_res_and_smite_modes_and_require_shield() {
 }
 
 #[test]
+fn test_smite_dps_drives_search_ranking_and_ignores_weapon_base_and_2h() {
+    let mut big_wep = mk_item("HighDmgSword", "weapon", 0, 0, 0, 0, 0);
+    big_wep.wclass = "1hs".to_string();
+    big_wep.wep_phys_2x = 400; // ignored by Smite
+
+    let mut black = mk_item("Black", "weapon", 0, 0, 0, 0, 0);
+    black.wclass = "1hs".to_string();
+    black.wsm = 0;
+    black.ias = 15;
+    black.cb = 40;
+
+    let mut grief = mk_item("Grief", "weapon", 0, 0, 0, 0, 0);
+    grief.wclass = "1hs".to_string();
+    grief.wsm = -30;
+    grief.ias = 35;
+    grief.flat_phys_2x = 760; // +380 Grief Damage
+
+    let mut kinemil = mk_item("Kinemil's Awl", "weapon2h", 0, 0, 0, 0, 0);
+    kinemil.primary_skill = 6;
+    kinemil.cb = 100;
+
+    let mut rondache = mk_item("Rondache", "shield", 0, 0, 0, 35, 0);
+    rondache.flat_phys_2x = 10; // 5 avg shield smite dmg
+
+    let mut sacred_targe = mk_item("Sacred Targe", "shield", 0, 0, 0, 35, 0);
+    sacred_targe.flat_phys_2x = 92; // 22-70 -> 46 avg shield smite dmg
+
+    let goblin_toe = ItemSpec {
+        name: "Goblin Toe".to_string(),
+        slot: "boots".to_string(),
+        cb: 25,
+        ..Default::default()
+    };
+    let plain_boots = mk_item("Plain Boots", "boots", 0, 0, 0, 0, 0);
+
+    let c_smite_base = BuildConstraints {
+        mode: "leveling".to_string(),
+        offense: "smite".to_string(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        limit: 2,
+        character: CharacterStats {
+            char_class: 3,
+            char_level: 80,
+            base_str: 100,
+            use_bo: false,
+            base_hell_res: 0,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_type: "boss".to_string(),
+            target_hp: 10_000,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![1],
+            action_ed: vec![300],
+            holy_shield_base_lvl: 20,
+            aura_ed: vec![220],
+            aura_ias: vec![30],
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    // Without Grief (Black vs HighDmgSword): CB (Black + Goblin Toe) and elite shield (Sacred Targe) drive highest Smite DPS;
+    // HighDmgSword's wep_phys_2x is ignored, and Kinemil's Awl (weapon2h) is excluded.
+    let items_no_grief = vec![
+        big_wep.clone(),
+        black.clone(),
+        kinemil.clone(),
+        rondache.clone(),
+        sacred_targe.clone(),
+        goblin_toe.clone(),
+        plain_boots.clone(),
+    ];
+    let res_no_grief = optimize_builds_core(&items_no_grief, &[], &c_smite_base).unwrap();
+    assert!(!res_no_grief.is_empty());
+    assert_eq!(res_no_grief[0].items[0].name, "Black");
+    assert_eq!(res_no_grief[0].items[1].name, "Sacred Targe");
+    assert_eq!(res_no_grief[0].items[7].name, "Goblin Toe");
+    assert!(res_no_grief[0].dps > 0.0);
+    assert_eq!(res_no_grief[0].cth, 0);
+    assert_eq!(res_no_grief[0].ar, 0);
+
+    // With Grief (+380 flat_phys_2x): Grief beats Black on higher flat Smite DPS against lower-HP targets.
+    let c_trash_low_hp = BuildConstraints {
+        target: TargetProfile {
+            target_type: "trash".to_string(),
+            target_hp: 200,
+            ..c_smite_base.target.clone()
+        },
+        ..c_smite_base
+    };
+    let items_with_grief = vec![
+        black,
+        grief,
+        kinemil,
+        rondache,
+        sacred_targe,
+        goblin_toe,
+        plain_boots,
+    ];
+    let res_grief = optimize_builds_core(&items_with_grief, &[], &c_trash_low_hp).unwrap();
+    assert_eq!(res_grief[0].items[0].name, "Grief");
+    assert_eq!(res_grief[0].items[1].name, "Sacred Targe");
+}
+
+#[test]
 fn test_leveling_and_dps_tables_optimize_against_passive_max_res_cap_ignoring_item_max_res() {
     let mut darkglow = mk_item("Darkglow", "armor", 0, 0, 0, 0, 0);
     darkglow.max_fr = 5;
@@ -2676,7 +2789,7 @@ fn test_paladin_dps_zeal_vs_bow_fallback_and_brute_force_parity() {
         ..Default::default()
     };
     let (_, bp40, f_roll, f_last, used_zeal) =
-        OffenseProfile::Zeal.attack_rate_and_frames(sword.hand_weapon(), 40, 5);
+        OffenseProfile::Zeal.attack_rate_and_frames(sword.hand_weapon(), 40, 5, 0);
     assert!(used_zeal);
     assert_eq!((bp40, f_roll, f_last), (32, 6, 11));
 }

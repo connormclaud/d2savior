@@ -264,16 +264,53 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
                 psn_dps_2x: -20,
                 ..Default::default()
             },
-            base_c,
+            base_c.clone(),
+        ),
+        // 6. Smite with Holy Shield + Fanaticism + Crushing Blow + OW + Decrep + CtC Orb
+        (
+            OffenseProfile::Smite,
+            sword,
+            Stats {
+                all_skills: 1,
+                action_skill_bonus: 1,
+                def_skill: 1,
+                str_bonus: 100,
+                ias: 35,
+                cb: 50,
+                ow: 25,
+                off_ed: 300,
+                flat_phys_2x: 852,
+                ctc_decrep_pct: 20,
+                ctc_static_pct: 15,
+                ctc_orb_dmg_2x: 100,
+                ..Default::default()
+            },
+            BuildConstraints {
+                offense: "smite".to_string(),
+                skills: SkillModel::Melee(MeleeSkillModel {
+                    action_hits: vec![1],
+                    action_ed: vec![15, 30, 45],
+                    aura_ed: vec![50, 67, 84],
+                    aura_ias: vec![14, 18, 22],
+                    holy_shield_base_lvl: 19,
+                    ..Default::default()
+                }),
+                ..base_c.clone()
+            },
         ),
     ];
 
     for (idx, (offense, hand, leaf, c)) in scenarios.iter().enumerate() {
         let fast = offense.fast_leaf_dps(*hand, *leaf, c);
         for &(add_ar, add_phys, add_elem, add_fire, add_psn) in &deltas {
+            let eff_add_phys = if *offense == OffenseProfile::Smite {
+                0
+            } else {
+                add_phys
+            };
             let s = Stats {
                 ar: leaf.ar + add_ar,
-                flat_phys_2x: leaf.flat_phys_2x + add_phys,
+                flat_phys_2x: leaf.flat_phys_2x + eff_add_phys,
                 flat_elem_2x: leaf.flat_elem_2x + add_elem,
                 flat_fire_2x: leaf.flat_fire_2x + add_fire,
                 psn_dps_2x: leaf.psn_dps_2x + add_psn,
@@ -287,6 +324,14 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
             );
         }
     }
+
+    assert_eq!(holy_shield_smite_dmg_2x(0), 0);
+    assert_eq!(holy_shield_smite_dmg_2x(1), 9);
+    assert_eq!(holy_shield_smite_dmg_2x(8), 37);
+    assert_eq!(holy_shield_smite_dmg_2x(16), 85);
+    assert_eq!(holy_shield_smite_dmg_2x(20), 117);
+    assert_eq!(holy_shield_smite_dmg_2x(22), 133);
+    assert_eq!(holy_shield_smite_dmg_2x(29), 189);
 }
 
 #[test]
@@ -357,7 +402,7 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
     assert!(total_ar > 0);
     assert_eq!(cth_pct, 95);
     let (_, exp_ias, exp_disp, exp_last, exp_zeal) =
-        OffenseProfile::Zeal.attack_rate_and_frames(sword, itd_stats.ias, 3);
+        OffenseProfile::Zeal.attack_rate_and_frames(sword, itd_stats.ias, 3, 0);
     assert_eq!(
         (ias_bp, display_frames, last_frames, used_zeal),
         (exp_ias, exp_disp, exp_last, exp_zeal)

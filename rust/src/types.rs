@@ -228,6 +228,23 @@ impl TargetType {
     }
 }
 
+pub(crate) fn holy_shield_smite_dmg_2x(slvl: i32) -> i32 {
+    if slvl <= 0 {
+        return 0;
+    }
+    let mut bonus = 0;
+    let mut rem = slvl - 1;
+    for (tier_len, inc) in [(7, 2), (8, 3), (6, 4), (6, 4)] {
+        let step = rem.min(tier_len);
+        bonus += step * inc;
+        rem -= step;
+        if rem <= 0 {
+            return 9 + 2 * bonus;
+        }
+    }
+    9 + 2 * (bonus + rem * 4)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum OffenseProfile {
     Caster,
@@ -272,7 +289,7 @@ impl OffenseProfile {
     }
 
     pub(crate) fn is_melee_dps(self) -> bool {
-        matches!(self, Self::Melee | Self::Zeal)
+        matches!(self, Self::Melee | Self::Zeal | Self::Smite)
     }
 
     pub(crate) fn uses_dps_tables(self, c: &BuildConstraints) -> bool {
@@ -367,9 +384,9 @@ impl OffenseProfile {
         }
     }
 
-    fn ias_bp_for_min_speed(min_speed: i32, wsm: i32) -> i32 {
+    fn ias_bp_for_min_speed(min_speed: i32, wsm: i32, skill_eias: i32) -> i32 {
         let min_net_eias = ((100 * min_speed + 255) / 256 - 100).max(-85);
-        let min_eias = (min_net_eias + wsm).max(0);
+        let min_eias = (min_net_eias + wsm - skill_eias).max(0);
         if min_eias <= 0 {
             0
         } else {
@@ -399,7 +416,7 @@ impl OffenseProfile {
             let ms = (256 * fpd + f) / (f + 1);
             (f, ms)
         };
-        (Self::ias_bp_for_min_speed(min_speed, wsm), frames)
+        (Self::ias_bp_for_min_speed(min_speed, wsm, 0), frames)
     }
 
     /// Return `(hits_per_sec, ias_bp, display_frames, last_frames, used_zeal)` using exact D2R rollback frames.
@@ -408,10 +425,11 @@ impl OffenseProfile {
         hand: HandWeapon,
         ias: i32,
         zeal_hits: i32,
+        skill_eias: i32,
     ) -> (f64, i32, i32, i32, bool) {
         let clamped_ias = ias.max(0);
         let eias = (120 * clamped_ias) / (120 + clamped_ias);
-        let net_eias = (eias - hand.wsm).clamp(-85, 75);
+        let net_eias = (eias + skill_eias - hand.wsm).clamp(-85, 75);
         let speed = (256 * (100 + net_eias)) / 100;
 
         if self == Self::Zeal && hand.can_zeal && zeal_hits >= 2 {
@@ -425,7 +443,7 @@ impl OffenseProfile {
             let rate = (25.0 * zeal_hits as f64) / (cycle.max(1) as f64);
             (
                 rate,
-                Self::ias_bp_for_min_speed(ms_rollback.max(ms_last), hand.wsm),
+                Self::ias_bp_for_min_speed(ms_rollback.max(ms_last), hand.wsm, skill_eias),
                 f_rollback,
                 f_last,
                 true,
@@ -441,7 +459,7 @@ impl OffenseProfile {
             let rate = 25.0 / (f_normal.max(1) as f64);
             (
                 rate,
-                Self::ias_bp_for_min_speed(ms, hand.wsm),
+                Self::ias_bp_for_min_speed(ms, hand.wsm, skill_eias),
                 f_normal,
                 0,
                 false,
@@ -502,6 +520,7 @@ impl OffenseProfile {
         leaf: Stats,
         c: &BuildConstraints,
     ) -> FastLeafDps {
+        let is_smite = self == Self::Smite;
         let melee = c.skills.melee();
         let action_hits = melee.map_or(&[][..], |m| m.action_hits.as_slice());
         let action_ed_tbl = melee.map_or(&[][..], |m| m.action_ed.as_slice());
@@ -510,7 +529,10 @@ impl OffenseProfile {
         let aura_target_def_tbl = melee.map_or(&[][..], |m| m.aura_target_def_pct.as_slice());
         let aura_hit_tbl = melee.map_or(&[][..], |m| m.aura_hit_dmg.as_slice());
         let aura_pulse_tbl = melee.map_or(&[][..], |m| m.aura_pulse_dps.as_slice());
-        let aura_is_fire = melee.is_some_and(|m| m.aura_is_fire);
+        let aura_ed_tbl = melee.map_or(&[][..], |m| m.aura_ed.as_slice());
+        let aura_ias_tbl = melee.map_or(&[][..], |m| m.aura_ias.as_slice());
+        let aura_is_fire = !is_smite && melee.is_some_and(|m| m.aura_is_fire);
+        let holy_shield_base_lvl = melee.map_or(0, |m| m.holy_shield_base_lvl);
 
         let eff_action = (leaf.all_skills + leaf.pal_skills + leaf.action_skill_bonus).max(0) as usize;
         let eff_aura = (leaf.all_skills + leaf.pal_skills + leaf.aura_skill_bonus).max(0) as usize;
@@ -520,57 +542,79 @@ impl OffenseProfile {
         } else {
             action_hits[eff_action.min(action_hits.len() - 1)].max(1)
         };
+        let skill_eias = if is_smite && !aura_ias_tbl.is_empty() {
+            aura_ias_tbl[eff_aura.min(aura_ias_tbl.len() - 1)]
+        } else {
+            0
+        };
         let (rate, ias_bp, display_frames, last_frames, used_zeal) =
-            self.attack_rate_and_frames(hand, leaf.ias, hits);
-        let action_ed = if used_zeal && !action_ed_tbl.is_empty() {
+            self.attack_rate_and_frames(hand, leaf.ias, hits, skill_eias);
+        let action_ed = if (used_zeal || is_smite) && !action_ed_tbl.is_empty() {
             action_ed_tbl[eff_action.min(action_ed_tbl.len() - 1)]
         } else {
             0
         };
+        let aura_ed = if is_smite && !aura_ed_tbl.is_empty() {
+            aura_ed_tbl[eff_aura.min(aura_ed_tbl.len() - 1)]
+        } else {
+            0
+        };
 
+        let (str_pct, dex_pct) = if is_smite {
+            (100, 0)
+        } else {
+            (hand.str_pct, hand.dex_pct)
+        };
         let total_str = leaf.str_bonus.max(0);
         let total_dex = leaf.dex_bonus.max(0);
-        let stat_ed = (total_str * hand.str_pct + total_dex * hand.dex_pct) / 100;
+        let stat_ed = (total_str * str_pct + total_dex * dex_pct) / 100;
 
         let target_type = TargetType::parse(&c.target.target_type).unwrap_or_default();
-        let (demon_w, undead_w) = if matches!(target_type, TargetType::Boss) {
+        let (demon_w, undead_w) = if is_smite {
+            (0.0, 0.0)
+        } else if matches!(target_type, TargetType::Boss) {
             (1.0, 0.0)
         } else {
             (1.0 / 3.0, 1.0 / 3.0)
         };
-        let base_ed_int = action_ed + leaf.off_ed;
+        let base_ed_int = action_ed + aura_ed + leaf.off_ed;
         let ed_du =
             leaf.ed_demon.max(0) as f64 * demon_w + leaf.ed_undead.max(0) as f64 * undead_w;
         let eff_ed = (stat_ed + base_ed_int).max(0) as f64 + ed_du;
 
-        let ds_prob = leaf.ds.clamp(0, 100) as f64 / 100.0;
-        let cs_prob = if leaf.cs_oskill > 0 {
-            let slvl = (leaf.cs_oskill + leaf.all_skills).max(1);
-            let pct = 5 + (75 * ((110 * slvl) / (slvl + 6))) / 100;
-            pct.clamp(0, 100) as f64 / 100.0
+        let crit_mult = if is_smite {
+            1.0
         } else {
-            0.0
+            let ds_prob = leaf.ds.clamp(0, 100) as f64 / 100.0;
+            let cs_prob = if leaf.cs_oskill > 0 {
+                let slvl = (leaf.cs_oskill + leaf.all_skills).max(1);
+                let pct = 5 + (75 * ((110 * slvl) / (slvl + 6))) / 100;
+                pct.clamp(0, 100) as f64 / 100.0
+            } else {
+                0.0
+            };
+            1.0 + (1.0 - (1.0 - ds_prob) * (1.0 - cs_prob))
         };
-        let crit_mult = 1.0 + (1.0 - (1.0 - ds_prob) * (1.0 - cs_prob));
         let phys_scale = (1.0 + eff_ed / 100.0) * crit_mult;
 
         let class = CharClass::from_id_or_default(c.character.char_class);
         let dex_base_ar = class.base_ar_from_dex(total_dex);
-        let act_ar_pct = if (used_zeal || (self == Self::Melee && !hand.wclass.is_ranged()))
+        let act_ar_pct = if !is_smite
+            && (used_zeal || (self == Self::Melee && !hand.wclass.is_ranged()))
             && !action_ar_tbl.is_empty()
         {
             action_ar_tbl[eff_action.min(action_ar_tbl.len() - 1)]
         } else {
             0
         };
-        let aura_ar_pct = if !aura_ar_tbl.is_empty() {
+        let aura_ar_pct = if !is_smite && !aura_ar_tbl.is_empty() {
             aura_ar_tbl[eff_aura.min(aura_ar_tbl.len() - 1)]
         } else {
             0
         };
         let total_ar_pct = (leaf.ar_pct + act_ar_pct + aura_ar_pct).max(0);
-        let itd_active = leaf.itd > 0 && target_type.allows_itd();
-        let conv_red = if aura_target_def_tbl.is_empty() {
+        let itd_active = !is_smite && leaf.itd > 0 && target_type.allows_itd();
+        let conv_red = if is_smite || aura_target_def_tbl.is_empty() {
             0
         } else {
             aura_target_def_tbl[eff_aura.min(aura_target_def_tbl.len() - 1)]
@@ -580,27 +624,31 @@ impl OffenseProfile {
         let conv_mult = (100 - conv_red.clamp(0, 100)) as f64 / 100.0;
         let gear_red = target_type.gear_target_def_reduction(leaf.target_def_pct);
         let gear_mult = (100 - gear_red) as f64 / 100.0;
-        let eff_dr = (c.target.target_def.max(0) as f64) * conv_mult * gear_mult;
+        let eff_dr = if is_smite {
+            0.0
+        } else {
+            (c.target.target_def.max(0) as f64) * conv_mult * gear_mult
+        };
 
         let p_dec = leaf.ctc_decrep_pct.clamp(0, 100) as f64 / 100.0;
-        let d_aura_hit = if aura_hit_tbl.is_empty() {
+        let d_aura_hit = if is_smite || aura_hit_tbl.is_empty() {
             0.0
         } else {
             aura_hit_tbl[eff_aura.min(aura_hit_tbl.len() - 1)]
         };
-        let d_aura_pulse = if aura_pulse_tbl.is_empty() {
+        let d_aura_pulse = if is_smite || aura_pulse_tbl.is_empty() {
             0.0
         } else {
             aura_pulse_tbl[eff_aura.min(aura_pulse_tbl.len() - 1)]
         };
         let targets = c.target.targets.max(1) as f64;
-        let d_splash_fire = if hand.splash_fire {
+        let d_splash_fire = if !is_smite && hand.splash_fire {
             (hand.splash_fire_2x.max(0) as f64 / 2.0) * targets
         } else {
             0.0
         };
 
-        let cb_frac = match (target_type, hand.wclass.is_ranged()) {
+        let cb_frac = match (target_type, !is_smite && hand.wclass.is_ranged()) {
             (TargetType::Trash, false) => 0.25,
             (TargetType::Trash, true) | (_, false) => 0.125,
             (_, true) => 0.0625,
@@ -636,7 +684,7 @@ impl OffenseProfile {
         let d_orb_hit = (leaf.ctc_orb_dmg_2x.max(0) as f64 / 2.0) * targets.min(3.0);
 
         let (pierce_p, max_extra_pierce) =
-            if hand.wclass.is_ranged() && c.target.targets > 1 && leaf.pierce > 0 {
+            if !is_smite && hand.wclass.is_ranged() && c.target.targets > 1 && leaf.pierce > 0 {
                 (
                     leaf.pierce.clamp(0, 100) as f64 / 100.0,
                     (c.target.targets - 1).min(4),
@@ -650,7 +698,7 @@ impl OffenseProfile {
         // (`item_explosivearrow`) uses weapon `ar_pct` rather than Amazon skill ToHit%, and
         // `d_aura_hit * targets` is counted once per target in `auto_hit_attack` (keeping prior
         // raw_dps parity rather than double-counting direct arrow + splash on the primary target).
-        let (base_direct_non_phys, base_auto_hit) = if hand.splash_fire {
+        let (base_direct_non_phys, base_auto_hit) = if !is_smite && hand.splash_fire {
             let (direct_aura, auto_aura) = if aura_is_fire {
                 (0.0, d_aura_hit * targets)
             } else {
@@ -667,8 +715,25 @@ impl OffenseProfile {
             )
         };
 
+        let hs_dmg_2x = if is_smite && holy_shield_base_lvl > 0 {
+            let hs_slvl = (holy_shield_base_lvl
+                + leaf.all_skills
+                + leaf.pal_skills
+                + leaf.def_skill)
+                .max(1);
+            holy_shield_smite_dmg_2x(hs_slvl)
+        } else {
+            0
+        };
+        let phys_2x_0 = if is_smite {
+            hs_dmg_2x + leaf.flat_phys_2x
+        } else {
+            hand.phys_2x + leaf.flat_phys_2x
+        };
+
         let psn_exp = (2.0 * rate).max(1.0);
         let mut fast = FastLeafDps {
+            is_smite,
             rate,
             ias_bp,
             display_frames,
@@ -676,7 +741,7 @@ impl OffenseProfile {
             used_zeal,
             phys_scale,
             dex_base_ar,
-            leaf_ar: leaf.ar,
+            leaf_ar: if is_smite { 0 } else { leaf.ar },
             total_ar_pct,
             eff_dr,
             itd_active,
@@ -692,19 +757,19 @@ impl OffenseProfile {
             const_ow_dps: 0.0,
             const_psn_prob: 0.0,
             targets,
-            splash_fire: hand.splash_fire,
-            phys_2x_0: hand.phys_2x + leaf.flat_phys_2x,
-            flat_fire_2x_0: leaf.flat_fire_2x,
-            flat_elem_2x_0: leaf.flat_elem_2x,
-            psn_2x_0: leaf.psn_dps_2x,
-            ctc_venom_2x: leaf.ctc_venom_dps_2x.max(0),
+            splash_fire: !is_smite && hand.splash_fire,
+            phys_2x_0,
+            flat_fire_2x_0: if is_smite { 0 } else { leaf.flat_fire_2x },
+            flat_elem_2x_0: if is_smite { 0 } else { leaf.flat_elem_2x },
+            psn_2x_0: if is_smite { 0 } else { leaf.psn_dps_2x },
+            ctc_venom_2x: if is_smite { 0 } else { leaf.ctc_venom_dps_2x.max(0) },
             base_direct_non_phys,
             base_auto_hit,
             base_aura_pulse_dps: d_aura_pulse * targets,
             base_str: leaf.str_bonus,
             base_dex: leaf.dex_bonus,
-            str_pct: hand.str_pct,
-            dex_pct: hand.dex_pct,
+            str_pct,
+            dex_pct,
             base_ed_int,
             ed_du,
             crit_mult,
@@ -729,6 +794,7 @@ impl OffenseProfile {
 
 #[derive(Clone, Copy)]
 pub(crate) struct FastLeafDps {
+    pub(crate) is_smite: bool,
     pub(crate) rate: f64,
     pub(crate) ias_bp: i32,
     pub(crate) display_frames: i32,
@@ -790,33 +856,40 @@ pub(crate) struct CthEval {
 
 impl FastLeafDps {
     fn init_cth_const(&mut self) {
-        self.cth_is_const =
-            self.itd_active || self.eff_dr <= 0.0 || self.cth_for_add_ar(0) >= 0.95;
+        self.cth_is_const = self.is_smite
+            || self.itd_active
+            || self.eff_dr <= 0.0
+            || self.cth_for_add_ar(0) >= 0.95;
         if self.cth_is_const {
-            let cth = 0.95_f64;
+            let cth = if self.is_smite { 1.0 } else { 0.95_f64 };
             self.const_decrep_mult = if self.p_dec > 0.0 {
                 1.0 + 0.5 * (1.0 - (1.0 - self.p_dec).powf((8.0 * self.rate * cth).max(1.0)))
             } else {
                 1.0
             };
-            self.const_pierce_mult = if self.max_extra_pierce > 0 && self.pierce_p > 0.0 {
-                let mut eff_m = 1.0;
-                let mut eff_pow = 1.0;
-                for _ in 0..self.max_extra_pierce {
-                    eff_pow *= cth * self.pierce_p;
-                    eff_m += eff_pow;
-                }
-                eff_m
-            } else {
-                1.0
-            };
+            self.const_pierce_mult =
+                if !self.is_smite && self.max_extra_pierce > 0 && self.pierce_p > 0.0 {
+                    let mut eff_m = 1.0;
+                    let mut eff_pow = 1.0;
+                    for _ in 0..self.max_extra_pierce {
+                        eff_pow *= cth * self.pierce_p;
+                        eff_m += eff_pow;
+                    }
+                    eff_m
+                } else {
+                    1.0
+                };
             self.const_ow_dps = if self.p_ow > 0.0 {
                 self.ow_base_dps
                     * (1.0 - (1.0 - self.p_ow).powf((8.0 * self.rate * cth).max(1.0)))
             } else {
                 0.0
             };
-            self.const_psn_prob = 1.0 - (1.0 - cth).powf(self.psn_exp);
+            self.const_psn_prob = if self.is_smite {
+                0.0
+            } else {
+                1.0 - (1.0 - cth).powf(self.psn_exp)
+            };
         }
     }
 
@@ -844,13 +917,15 @@ impl FastLeafDps {
                 out.dex_base_ar = out.class.base_ar_from_dex(total_dex);
             }
         }
-        out.leaf_ar += d_ar;
-        out.phys_2x_0 += d_phys_2x;
-        out.flat_fire_2x_0 += d_fire_2x;
-        out.flat_elem_2x_0 += d_elem_2x;
-        out.psn_2x_0 += d_psn_2x;
-        if (d_dex != 0 || d_ar != 0) && (!self.cth_is_const || d_dex < 0 || d_ar < 0) {
-            out.init_cth_const();
+        if !self.is_smite {
+            out.leaf_ar += d_ar;
+            out.phys_2x_0 += d_phys_2x;
+            out.flat_fire_2x_0 += d_fire_2x;
+            out.flat_elem_2x_0 += d_elem_2x;
+            out.psn_2x_0 += d_psn_2x;
+            if (d_dex != 0 || d_ar != 0) && (!self.cth_is_const || d_dex < 0 || d_ar < 0) {
+                out.init_cth_const();
+            }
         }
         out
     }
@@ -883,6 +958,19 @@ impl FastLeafDps {
         add_fire_2x: i32,
         add_psn_2x: i32,
     ) -> EvalCore {
+        if self.is_smite {
+            let phys_avg = self.phys_2x_0.max(0) as f64 / 2.0;
+            let direct_hit = phys_avg * self.phys_scale * self.const_decrep_mult
+                + self.base_direct_non_phys;
+            let eff_dps = direct_hit * self.rate + self.const_ow_dps;
+            return EvalCore {
+                cth: 1.0,
+                direct_hit,
+                auto_hit_attack: 0.0,
+                psn_base: 0.0,
+                eff_dps,
+            };
+        }
         let (cth, decrep_mult, pierce_mult, d_ow_dps) = if self.cth_is_const {
             (
                 0.95,
@@ -975,7 +1063,7 @@ impl FastLeafDps {
     #[inline]
     pub(crate) fn const_cth_eval(&self) -> CthEval {
         CthEval {
-            cth: 0.95,
+            cth: if self.is_smite { 1.0 } else { 0.95 },
             decrep_mult: self.const_decrep_mult,
             pierce_mult: self.const_pierce_mult,
             d_ow_dps: self.const_ow_dps,
@@ -1028,6 +1116,12 @@ impl FastLeafDps {
         add_fire_2x: i32,
         add_psn_2x: i32,
     ) -> f64 {
+        if self.is_smite {
+            let phys_avg = self.phys_2x_0.max(0) as f64 / 2.0;
+            let direct_hit =
+                phys_avg * self.phys_scale * c.decrep_mult + self.base_direct_non_phys;
+            return direct_hit * self.rate + c.d_ow_dps;
+        }
         let phys_avg = (self.phys_2x_0 + add_phys_2x).max(0) as f64 / 2.0;
         let d_phys = phys_avg * self.phys_scale * c.decrep_mult;
         let d_flat_fire = (self.flat_fire_2x_0 + add_fire_2x).max(0) as f64 / 2.0;
@@ -1076,12 +1170,19 @@ impl FastLeafDps {
         } else {
             0.0
         };
+        let (total_ar, cth_pct, psn_raw) = if self.is_smite {
+            (0, 0, 0.0)
+        } else {
+            (
+                self.total_ar_for_add_ar(0),
+                (core.cth * 100.0).round() as i32,
+                core.psn_base,
+            )
+        };
         let raw_dps = (core.direct_hit + core.auto_hit_attack) * raw_pierce_mult * self.rate
             + self.base_aura_pulse_dps
             + d_ow_dps_raw
-            + core.psn_base;
-        let total_ar = self.total_ar_for_add_ar(0);
-        let cth_pct = (core.cth * 100.0).round() as i32;
+            + psn_raw;
         (
             core.eff_dps,
             raw_dps,
@@ -1463,6 +1564,21 @@ impl Stats {
             if c.target.targets <= 1 {
                 self.pierce = 0;
             }
+            if offense == OffenseProfile::Smite {
+                self.flat_fire_2x = 0;
+                self.flat_elem_2x = 0;
+                self.ds = 0;
+                self.cs_oskill = 0;
+                self.ed_demon = 0;
+                self.ed_undead = 0;
+                self.psn_dps_2x = 0;
+                self.pierce = 0;
+                self.ctc_venom_dps_2x = 0;
+                self.ar = 0;
+                self.ar_pct = 0;
+                self.itd = 0;
+                self.target_def_pct = 0;
+            }
         }
         if !(mode == SearchMode::Mf || c.min_mf > 0 || !c.allow_mf) {
             self.mf = 0;
@@ -1502,7 +1618,12 @@ impl Stats {
         self.defense = 0;
         self.block_pct = 0;
         self.fbr = 0;
-        self.def_skill = 0;
+        if !(is_leveling
+            && offense == OffenseProfile::Smite
+            && c.skills.melee().is_some_and(|m| m.holy_shield_base_lvl > 0))
+        {
+            self.def_skill = 0;
+        }
         self
     }
 }
@@ -2102,6 +2223,8 @@ pub struct MeleeSkillModel {
     pub aura_target_def_pct: Vec<i32>,
     pub holy_shield_base_lvl: i32,
     pub defiance_base_lvl: i32,
+    pub aura_ed: Vec<i32>,
+    pub aura_ias: Vec<i32>,
 }
 
 #[cfg(feature = "python")]
@@ -2120,6 +2243,8 @@ impl MeleeSkillModel {
         aura_target_def_pct = Vec::new(),
         holy_shield_base_lvl = 0,
         defiance_base_lvl = 0,
+        aura_ed = Vec::new(),
+        aura_ias = Vec::new(),
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -2134,6 +2259,8 @@ impl MeleeSkillModel {
         aura_target_def_pct: Vec<i32>,
         holy_shield_base_lvl: i32,
         defiance_base_lvl: i32,
+        aura_ed: Vec<i32>,
+        aura_ias: Vec<i32>,
     ) -> Self {
         Self {
             aura_hit_dmg,
@@ -2147,6 +2274,8 @@ impl MeleeSkillModel {
             aura_target_def_pct,
             holy_shield_base_lvl,
             defiance_base_lvl,
+            aura_ed,
+            aura_ias,
         }
     }
 }

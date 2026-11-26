@@ -17,6 +17,7 @@ _SKILL_FROZEN_ORB = 64
 _SKILL_COLD_MASTERY = 65
 _SKILL_LIFE_TAP = 82
 _SKILL_DECREPIFY = 87
+_SKILL_SMITE = 97
 _SKILL_ZEAL = 106
 _SKILL_HOLY_SHIELD = 117
 _SKILL_FANATICISM = 122
@@ -28,6 +29,7 @@ _ELEMENTAL_AURA_SPECS: frozenset[str] = frozenset({"holy-fire", "holy-freeze", "
 _MELEE_ACTION_SPECS: frozenset[str] = frozenset({"sacrifice", "charge", "vengeance"})
 _SUPPORT_AURA_IDS: frozendict[str, int] = frozendict(
     {
+        "smite": _SKILL_FANATICISM,
         "zeal": _SKILL_FANATICISM,
         "sacrifice": _SKILL_FANATICISM,
         "charge": _SKILL_FANATICISM,
@@ -427,8 +429,14 @@ def _apply_paladin_staffmod(
         if pal_aura_id == -1
         else pal_aura_id
     )
-    is_action = (params[0] == _SKILL_ZEAL and pal_offense == "zeal") or (
-        pal_offense == "melee" and pal_spec in _MELEE_ACTION_SPECS and params[0] == pal_primary_id
+    is_action = (
+        (params[0] == _SKILL_ZEAL and pal_offense == "zeal")
+        or (params[0] == _SKILL_SMITE and pal_offense == "smite")
+        or (
+            pal_offense == "melee"
+            and pal_spec in _MELEE_ACTION_SPECS
+            and params[0] == pal_primary_id
+        )
     )
     if is_action:
         acc.action_skill_bonus += params[1]
@@ -447,7 +455,7 @@ def _apply_paladin_skill_prop(
     pal_aura_id: int | None = -1,
 ) -> bool:
     pal_id = int(CharClass.PALADIN)
-    split_skills = pal_offense in ("zeal", "melee")
+    split_skills = pal_offense in ("zeal", "melee", "smite")
     if pid == 83 and len(params) >= 2 and params[0] == pal_id:
         acc.pal_skills += params[1]
         return True
@@ -520,11 +528,11 @@ def _apply_paladin_ctc_prop(acc: _PropAcc, params: list[int], pal_offense: str) 
     if sid == _SKILL_LIFE_TAP:
         acc.ctc_lifetap_pct += chance
         return
-    if pal_offense not in ("zeal", "melee"):
+    if pal_offense not in ("zeal", "melee", "smite"):
         return
     if attr := _PAL_CTC_CHANCE_MAP.get(sid):
         setattr(acc, attr, getattr(acc, attr) + chance)
-    elif sid == _SKILL_VENOM:
+    elif sid == _SKILL_VENOM and pal_offense != "smite":
         acc.ctc_venom_dps_2x = max(acc.ctc_venom_dps_2x, venom_dps_2x(slvl))
     elif sid == _SKILL_FROZEN_ORB:
         acc.ctc_orb_dmg_2x += round((chance / 100.0) * frozen_orb_avg_dmg_2x(slvl))
@@ -598,6 +606,17 @@ def _apply_paladin_prop(
         _apply_paladin_melee_combat_prop(
             acc, pid, pval, params, resolver, char_level, is_weapon=is_weapon
         )
+    elif pal_offense == "smite":
+        if pid == 135:
+            acc.ow += pval
+        elif pid == 248:
+            _apply_scaled_stat(acc, pid, pval, "ow", resolver, char_level)
+        elif not is_weapon and pid in (17, 25):
+            acc.off_ed += pval
+        elif not is_weapon and pid == 219:
+            _apply_scaled_stat(acc, pid, pval, "off_ed", resolver, char_level)
+        elif pid == 111:
+            acc.flat_phys_2x += pval * 2
 
 
 def _apply_props_to_acc(

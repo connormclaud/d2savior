@@ -185,6 +185,7 @@ impl<'a> CharmSolver<'a> {
                 pal_skills: leaf.pal_skills + cur_pal,
                 action_skill_bonus: leaf.action_skill_bonus + cur.action_skills,
                 aura_skill_bonus: leaf.aura_skill_bonus + cur.aura_skills,
+                def_skill: leaf.def_skill + cur.action_skills,
                 str_bonus: leaf.str_bonus + cur.str_bonus,
                 dex_bonus: leaf.dex_bonus + cur.dex_bonus,
                 fhr: leaf.fhr + cur.fhr,
@@ -556,6 +557,7 @@ impl<'a> CharmSolver<'a> {
                     pal_skills: leaf.pal_skills + cur_pal_ub,
                     action_skill_bonus: leaf.action_skill_bonus + cur.action_skills + rem_act_sk,
                     aura_skill_bonus: leaf.aura_skill_bonus + cur.aura_skills + rem_aura_sk,
+                    def_skill: leaf.def_skill + cur.action_skills + rem_act_sk,
                     str_bonus: leaf.str_bonus + cur.str_bonus + rem_str,
                     dex_bonus: leaf.dex_bonus + cur.dex_bonus + rem_dex,
                     ar: leaf.ar + cur.ar + rem_ar,
@@ -628,7 +630,7 @@ impl<'a> CharmSolver<'a> {
                         && stats.psn_dps_2x == 0
                         && !st.group_has_util[g_idx]
                         && (stats.str_bonus <= 0
-                            || (st.hw.str_pct == 0 && leaf.str_bonus + cur.str_bonus >= st.reqs.0))
+                            || (st.base_fast.str_pct == 0 && leaf.str_bonus + cur.str_bonus >= st.reqs.0))
                         && stats.dex_bonus <= 0;
                     if !skip_multi {
                         let max_k = ((dps_rem_slots / size).min(members.len() as i32)).max(0);

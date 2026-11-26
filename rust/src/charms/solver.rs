@@ -146,6 +146,7 @@ impl<'a> CharmSolver<'a> {
             pal_skills: base.pal_skills + ub_pal,
             action_skill_bonus: base.action_skill_bonus + self.ub_action_skills,
             aura_skill_bonus: base.aura_skill_bonus + self.ub_aura_skills,
+            def_skill: base.action_skill_bonus + self.ub_action_skills,
             fhr: base.fhr + self.ub_fhr,
             frw: base.frw + self.ub_frw,
             fr: base.fr + self.ub_res[0],

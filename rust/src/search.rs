@@ -717,8 +717,8 @@ fn build_hands(
 
     let empty_hand = ItemSpec::empty("weapon").hand_weapon();
     let empty_anim = offense.weapon_anim_key(mode, empty_hand);
-    let fold_wep_phys =
-        offense.is_melee_dps() && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes);
+    let fold_wep_phys = matches!(offense, OffenseProfile::Melee | OffenseProfile::Zeal)
+        && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes);
     let wep_prune_stats = |it: &ItemSpec| {
         let mut s = it.stats().for_mode(mode, offense, c);
         if fold_wep_phys {

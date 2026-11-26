@@ -326,6 +326,8 @@ class MeleeSkillModel:
     aura_target_def_pct: list[int]
     holy_shield_base_lvl: int
     defiance_base_lvl: int
+    aura_ed: list[int]
+    aura_ias: list[int]
 
     def __init__(
         self,
@@ -340,6 +342,8 @@ class MeleeSkillModel:
         aura_target_def_pct: Sequence[int] = (),
         holy_shield_base_lvl: int = 0,
         defiance_base_lvl: int = 0,
+        aura_ed: Sequence[int] = (),
+        aura_ias: Sequence[int] = (),
     ) -> None: ...
     def __eq__(self, other: object) -> bool: ...
 

@@ -338,10 +338,20 @@ pub(crate) fn eval_build_summary(
         pal_skills: gear.pal_skills + charm_pal_skills,
         action_skill_bonus,
         aura_skill_bonus,
+        def_skill: gear.def_skill
+            + if offense.is_melee_dps() {
+                charm_action_skills
+            } else {
+                0
+            },
         str_bonus: c.character.base_str + gear.str_bonus + charm_str,
         dex_bonus: c.character.base_dex + gear.dex_bonus + charm_dex,
         ar: gear.ar + charm_ar,
-        flat_phys_2x: gear.flat_phys_2x + charm_flat_phys_2x,
+        flat_phys_2x: if offense == OffenseProfile::Smite {
+            gear.flat_phys_2x
+        } else {
+            gear.flat_phys_2x + charm_flat_phys_2x
+        },
         flat_fire_2x: gear.flat_fire_2x + charm_flat_fire_2x,
         flat_elem_2x: gear.flat_elem_2x + charm_flat_elem_2x,
         psn_dps_2x: gear.psn_dps_2x + charm_psn_dps_2x,

@@ -122,17 +122,17 @@ def _format_paladin_option_lines(
         # Intentionally display unadjusted sheet `raw_dps` alongside AR/CTH while ranking and
         # tradeoff comparisons use CTH-adjusted `res.dps`.
         shown_dps = getattr(res, "raw_dps", 0.0) or dps_val
+        cth_val = getattr(res, "cth", 0)
+        ar_val = getattr(res, "ar", 0)
         atk_label = (
             "Zeal"
             if getattr(res, "used_zeal", False)
             else (
                 primary_skill_name
-                if primary_skill_name in ("Sacrifice", "Charge", "Vengeance")
-                else "Attack"
+                if primary_skill_name in ("Sacrifice", "Charge", "Vengeance", "Smite")
+                else ("Smite" if cth_val == 0 else "Attack")
             )
         )
-        cth_val = getattr(res, "cth", 0)
-        ar_val = getattr(res, "ar", 0)
         ar_part = f"AR: {ar_val} ({cth_val}%) | " if cth_val > 0 else ""
         dps_prefix = f"DPS: {shown_dps:.0f} ({atk_label}) | {ar_part}"
     else:

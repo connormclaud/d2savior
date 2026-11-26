@@ -854,3 +854,107 @@ fn test_defense_block_fbr_paladin_holy_shield_and_sorc_cold_armors() {
     assert_eq!(res_set.gear_defense, 170);
     assert_eq!(res_set.defense, 170);
 }
+
+#[test]
+fn test_smite_dps_and_crushing_blow() {
+    let mut grief = ItemSpec {
+        name: "Grief".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wsm: -30,
+        ias: 35,
+        wep_phys_2x: 999, // ignored by Smite
+        can_zeal: true,
+        flat_phys_2x: 760, // +380 Damage
+        flat_fire_2x: 200, // ignored by Smite
+        ed_demon: 350,     // ignored by Smite
+        ed_undead: 200,    // ignored by Smite
+        ds: 20,            // ignored by Smite
+        ar: 500,           // ignored by Smite
+        itd: 1,            // ignored by Smite
+        ..Default::default()
+    };
+    grief.psn_dps_2x = 100; // ignored by Smite
+    grief.ctc_venom_dps_2x = 300; // ignored by Smite
+
+    let mut shield = mk_test_item("Sacred Targe", "shield", 0, 0, 1, 0, 0);
+    shield.flat_phys_2x = 92; // 22-70 avg 46
+    shield.cb = 50;
+    shield.ow = 50;
+    shield.action_skill_bonus = 1;
+    shield.def_skill = 1;
+
+    let mut armor = mk_test_item("Fortitude", "armor", 0, 0, 0, 0, 0);
+    armor.off_ed = 300;
+    armor.ctc_decrep_pct = 100;
+
+    let combat_gc = CharmSpec {
+        name: "Captain's GC of Maiming".into(),
+        size: 3,
+        action_skills: 1,
+        flat_phys_2x: 40, // +20 MaxDmg ignored by Smite
+        flat_fire_2x: 100, // ignored by Smite
+        ar: 200,           // ignored by Smite
+        ..Default::default()
+    };
+
+    let c_champ = BuildConstraints {
+        offense: "smite".into(),
+        mode: "leveling".into(),
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            char_level: 60,
+            base_str: 100,
+            base_dex: 100,
+            use_bo: false,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_type: "champion".into(),
+            target_hp: 10_000,
+            targets: 1,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![1],
+            action_ed: vec![15, 30, 45, 60],
+            aura_ed: vec![50, 67, 84],
+            aura_ias: vec![14, 18, 22],
+            aura_hit_dmg: vec![999.0, 999.0],   // ignored by Smite
+            aura_pulse_dps: vec![999.0, 999.0], // ignored by Smite
+            holy_shield_base_lvl: 19,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    let res_champ = eval_build_core(&[&grief, &shield, &armor], &[&combat_gc], &c_champ, 1);
+    assert_eq!(res_champ.cth, 0);
+    assert_eq!(res_champ.ar, 0);
+    assert!(!res_champ.used_zeal);
+    assert_eq!((res_champ.ias_bp, res_champ.ias_frames), (30, 6));
+    assert!((res_champ.raw_dps - res_champ.dps).abs() < 1e-6);
+
+    // Base phys avg = (760 + 92 + HS_22(133)) / 2 = 492.5
+    // eff_action = 1 (all_skills) + 1 (shield Combat) + 1 (charm Combat) = 3 -> Smite ED = 60%
+    // ED = 100 (Str) + 60 (Smite@idx3) + 67 (Fanat@idx1) + 300 (Fort) = 527% -> 6.27x
+    // Decrep (100% @ cth=1.0) = 1.5x -> CB(champ) = 0.5*0.125*5000 = 312.5
+    let rate = 25.0 / 6.0;
+    let ow_raw_tick = 36.0 * 60.0 - 770.0;
+    let ow_champ = (25.0 * ow_raw_tick / 256.0 * 0.5) * (1.0 - 0.5_f64.powf(8.0 * rate));
+    let expected_champ = (492.5 * 6.27 * 1.5 + 312.5) * rate + ow_champ;
+    assert!((res_champ.dps - expected_champ).abs() < 1e-6);
+
+    // Trash target doubles CB fraction (0.25) and OW target multiplier (1.0).
+    let c_trash = BuildConstraints {
+        target: TargetProfile {
+            target_type: "trash".into(),
+            ..c_champ.target.clone()
+        },
+        ..c_champ
+    };
+    let res_trash = eval_build_core(&[&grief, &shield, &armor], &[&combat_gc], &c_trash, 1);
+    let ow_trash = (25.0 * ow_raw_tick / 256.0 * 1.0) * (1.0 - 0.5_f64.powf(8.0 * rate));
+    let expected_trash = (492.5 * 6.27 * 1.5 + 625.0) * rate + ow_trash;
+    assert!((res_trash.dps - expected_trash).abs() < 1e-6);
+}

@@ -302,7 +302,7 @@ def _build_paladin_baseline(
     offense = paladin_offense_profile(
         resolved_spec, char_data, left_skill=left_skill, right_skill=right_skill
     )
-    if offense in ("zeal", "melee"):
+    if offense in ("zeal", "melee", "smite"):
         dps_tables = build_paladin_dps_tables(
             char_data, resolved_spec, offense, right_skill=right_skill
         )
@@ -315,6 +315,8 @@ def _build_paladin_baseline(
         action_ar_pct = dps_tables.action_ar_pct
         aura_ar_pct = dps_tables.aura_ar_pct
         aura_target_def_pct = dps_tables.aura_target_def_pct
+        aura_ed = dps_tables.aura_ed
+        aura_ias = dps_tables.aura_ias
     else:
         aura_hit_dmg = ()
         aura_pulse_dps = ()
@@ -325,6 +327,8 @@ def _build_paladin_baseline(
         action_ar_pct = ()
         aura_ar_pct = ()
         aura_target_def_pct = ()
+        aura_ed = ()
+        aura_ias = ()
     target_def, target_ar, target_lvl, target_hp = synthesize_monster_stats(
         diff_idx, resolved_target_type, char_level
     )
@@ -367,6 +371,8 @@ def _build_paladin_baseline(
             aura_target_def_pct=aura_target_def_pct,
             holy_shield_base_lvl=holy_shield_base_lvl,
             defiance_base_lvl=defiance_base_lvl,
+            aura_ed=aura_ed,
+            aura_ias=aura_ias,
         ),
         max_charm_slots=max_charm_slots,
         fixed_gear=fixed_all,

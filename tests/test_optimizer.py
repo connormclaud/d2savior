@@ -1132,10 +1132,11 @@ def test_paladin_prop_extraction_and_detect_spec(monkeypatch: pytest.MonkeyPatch
     assert hf_acc.life_leech == 7
 
     smite_acc = _extract_prop_acc(dummy_item, d2r, 0x63, 29, char_class=3, pal_spec="smite")
-    assert smite_acc.pal_skills == 3  # +2 pal +1 combat (no fire, no off aura)
+    assert smite_acc.pal_skills == 2  # +2 pal only (tabs split for Smite vs Fanaticism)
     assert smite_acc.primary_skill == 0
-    assert smite_acc.action_skill_bonus == 0
-    assert smite_acc.aura_skill_bonus == 0
+    assert smite_acc.action_skill_bonus == 1  # +1 combat tab
+    assert smite_acc.def_skill == 1  # +1 combat tab also boosts Holy Shield
+    assert smite_acc.aura_skill_bonus == 1  # +1 off aura boosts Fanaticism (no fire)
 
 
 @requires_native

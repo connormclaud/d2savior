@@ -234,6 +234,8 @@ class _FakeMeleeSkillModel:
     aura_target_def_pct: Sequence[int] = ()
     holy_shield_base_lvl: int = 0
     defiance_base_lvl: int = 0
+    aura_ed: Sequence[int] = ()
+    aura_ias: Sequence[int] = ()
 
 
 @dataclass(frozen=True)
@@ -1022,6 +1024,42 @@ def test_report_formatting_sorc_paladin_and_charms() -> None:
         primary_skill_base=4,
     )
     assert "DPS: 1000 (Zeal) | AR: 1200 (86%) |" in dps_report
+
+    smite_dps_res = _as_result(
+        _FakeBuildResult(
+            dps=4200.0,
+            raw_dps=4200.0,
+            used_zeal=False,
+            ar=0,
+            cth=0,
+            skills=2,
+            action_skill_bonus=1,
+            ias=35,
+            ias_bp=35,
+            ias_frames=6,
+            cb=65,
+        )
+    )
+    smite_dps_report = format_build_report(
+        "Paladin Smite",
+        [smite_dps_res],
+        char_class=int(CharClass.PALADIN),
+        diff_name="Hell",
+        primary_skill_name="Smite",
+        primary_skill_base=20,
+    )
+    assert "DPS: 4200 (Smite) | Skills: +2 (Smite lvl 23)" in smite_dps_report
+    assert "AR:" not in smite_dps_report
+
+    hf_smite_report = format_build_report(
+        "Paladin Holy Fire",
+        [smite_dps_res],
+        char_class=int(CharClass.PALADIN),
+        diff_name="Nightmare",
+        primary_skill_name="Holy Fire",
+        primary_skill_base=20,
+    )
+    assert "DPS: 4200 (Smite) | Skills: +2 (Holy Fire lvl 22)" in hf_smite_report
 
     assert "No loadout found" in format_paladin_leveling_report("Empty Pal", [])
     pal_res_nm = _as_result(
@@ -2031,19 +2069,51 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
     assert acc.ctc_static_pct == 15
     assert acc.ctc_orb_dmg_2x == round(0.16 * 2106)
 
-    # Life Tap CTC also extracts for Smite Paladin
+    # Smite extracts +Damage (pid 111), off-weapon ED (17/25/219), OW (135/248), CtC Static/Decrep/Orb/LifeTap,
+    # shield mindam+maxdam, Combat/Offensive split, while ignoring +Min/+Max (21/22), AR (19), DS (141), elem, and Venom.
     smite_acc = _PropAcc()
     _apply_props_to_acc(
         smite_acc,
-        [(198, 0, [5, 82, 5]), (141, 15, [15])],
+        [
+            (198, 0, [5, 82, 5]),  # CtC Life Tap
+            (198, 0, [15, 278, 25]),  # CtC Venom (ignored for Smite)
+            (195, 0, [1, 87, 20]),  # CtC Decrepify
+            (195, 0, [1, 42, 15]),  # CtC Static Field
+            (141, 15, [15]),  # Deadly Strike (ignored)
+            (19, 100, [100]),  # AR (ignored)
+            (21, 10, [10]),  # +Min dmg (ignored)
+            (22, 20, [20]),  # +Max dmg (ignored)
+            (48, 50, [50]),  # Fire dmg (ignored)
+            (57, 0, [10, 20]),  # Poison dmg (ignored)
+            (111, 380, [380]),  # Grief +380 Damage -> 760 flat_phys_2x
+            (135, 25, [25]),  # OW
+            (17, 300, [300]),  # Armor off_ed (is_weapon=False)
+            (188, 0, [0, 3, 2]),  # +2 Combat Skills
+            (188, 0, [1, 3, 1]),  # +1 Offensive Auras
+            (107, 0, [117, 3]),  # +3 Holy Shield staffmod
+            (107, 0, [97, 2]),  # +2 Smite staffmod
+        ],
         resolver,
         80,
         char_class=int(CharClass.PALADIN),
         pal_spec="smite",
         pal_offense="smite",
+        is_weapon=False,
     )
     assert smite_acc.ctc_lifetap_pct == 5
+    assert smite_acc.ctc_decrep_pct == 20
+    assert smite_acc.ctc_static_pct == 15
+    assert smite_acc.ctc_venom_dps_2x == 0
     assert smite_acc.ds == 0
+    assert smite_acc.ar == 0
+    assert smite_acc.flat_fire_2x == 0
+    assert smite_acc.psn_dps_2x == 0
+    assert smite_acc.flat_phys_2x == 760
+    assert smite_acc.ow == 25
+    assert smite_acc.off_ed == 300
+    assert smite_acc.action_skill_bonus == 4
+    assert smite_acc.def_skill == 5
+    assert smite_acc.aura_skill_bonus == 1
 
     # 2. 2H weapon with native 21/22 + 23/24 + pid 218 + socketed 21/22 jewel
     twoh_item = D2Item()
@@ -2112,6 +2182,40 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
     )
     assert isinstance(flail_spec, _FakeItemSpec)
     assert flail_spec.ed_undead >= 50
+
+    # Shield mindam + maxdam is extracted for Paladin Smite (Sacred Targe 'pab ': 22-70 -> 92).
+    st_shield = D2Item()
+    st_shield.type_name = b"pab "
+    st_shield.item_info = ItemInfo()
+    st_tp = TypeSpecificInfo()
+    st_pl = PropertyList()
+    monkeypatch.setattr(st_pl, "get_parsed_properties", lambda *_a, **_kw: [(39, 35, [35])])
+    st_tp.property_list = st_pl
+    st_shield.item_info.type_specific_info = st_tp
+    st_spec = _item_to_spec(
+        st_shield,
+        "loc",
+        resolver,
+        0x69,
+        80,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="smite",
+        pal_offense="smite",
+    )
+    assert isinstance(st_spec, _FakeItemSpec)
+    assert st_spec.flat_phys_2x == 22 + 70
+    st_zeal_spec = _item_to_spec(
+        st_shield,
+        "loc",
+        resolver,
+        0x69,
+        80,
+        char_class=int(CharClass.PALADIN),
+        pal_spec="zeal",
+        pal_offense="zeal",
+    )
+    assert isinstance(st_zeal_spec, _FakeItemSpec)
+    assert st_zeal_spec.flat_phys_2x == 0
 
     # 4. Set-weapon local %ED adds to flat_phys_2x instead of off_ed
     set_wep = D2Item()
