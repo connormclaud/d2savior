@@ -179,7 +179,7 @@ impl<'a> CharmSolver<'a> {
         build_dps_refiner: bool,
     ) -> Self {
         let raw_max_slots = c.max_charm_slots.max(0);
-        let class = CharClass::from_id_or_default(c.char_class);
+        let class = CharClass::from_id_or_default(c.character.char_class);
         let (sunder_opts, max_slots, pool) =
             partition_sunder_pool(raw_pool, class, mode, raw_max_slots);
 

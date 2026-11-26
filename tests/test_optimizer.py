@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -15,8 +16,12 @@ from d2savior.optimizer import (
     PALADIN_FCR_BPS,
     PALADIN_FHR_BPS,
     BuildConstraints,
+    CasterSkillModel,
+    CharacterStats,
     CharmSpec,
     ItemSpec,
+    MeleeSkillModel,
+    TargetProfile,
     blizzard_damage,
     blizzard_damage_with_base,
     class_breakpoints,
@@ -97,8 +102,8 @@ def test_evaluate_build_and_constraints_validation() -> None:
             min_lr=75,
             min_cr=75,
             min_pr=75,
-            base_hell_res=-70,
             mode="power",
+            character=CharacterStats(base_hell_res=-70),
         ),
     )
     assert opt[0].skills == 8
@@ -148,10 +153,8 @@ def test_str_dex_requirements_pyo3() -> None:
             allow_mf=True,
             min_fcr=63,
             min_fhr=42,
-            base_str=156,
-            base_dex=25,
-            base_hell_res=-70,
             mode="mf",
+            character=CharacterStats(base_str=156, base_dex=25, base_hell_res=-70),
         ),
     )
     assert res_ok[0].items[0].name == "Ali Baba"
@@ -164,10 +167,8 @@ def test_str_dex_requirements_pyo3() -> None:
             allow_mf=True,
             min_fcr=63,
             min_fhr=42,
-            base_str=156,
-            base_dex=20,
-            base_hell_res=-70,
             mode="mf",
+            character=CharacterStats(base_str=156, base_dex=20, base_hell_res=-70),
         ),
     )
     assert res_low[0].items[0].name == "Spirit Sword"
@@ -218,10 +219,12 @@ def test_optimize_builds_from_fixtures() -> None:
         min_pr=0,
         max_charm_slots=23,
         mode="power",
-        base_life=sork.player_stats.max_life,
-        base_mana=sork.player_stats.max_mana,
-        base_hell_res=-70,
         limit=2,
+        character=CharacterStats(
+            base_life=sork.player_stats.max_life,
+            base_mana=sork.player_stats.max_mana,
+            base_hell_res=-70,
+        ),
     )
     results = optimize_builds(items, charms, relaxed)
     assert len(results) >= 1
@@ -460,18 +463,20 @@ def test_item_to_spec_keeps_frw_mdr_fire_absorb_and_max_res(
         [helm_spec, ring_spec],
         [],
         BuildConstraints(
-            char_class=int(CharClass.SORCERESS),
             min_fcr=0,
             min_fhr=0,
             min_fr=0,
             min_lr=0,
             min_cr=0,
             min_pr=0,
-            base_hell_res=0,
-            base_str=200,
-            base_dex=200,
             require_cbf=True,
             min_pdr=10,
+            character=CharacterStats(
+                char_class=int(CharClass.SORCERESS),
+                base_hell_res=0,
+                base_str=200,
+                base_dex=200,
+            ),
         ),
     )
     assert len(sorc_res) == 1
@@ -510,8 +515,8 @@ def test_max_resistance_cap_in_evaluate_and_optimize() -> None:
             min_lr=85,
             min_cr=75,
             min_pr=0,
-            base_hell_res=-70,
             mode="power",
+            character=CharacterStats(base_hell_res=-70),
         ),
     )
     assert len(opt) == 1
@@ -534,8 +539,8 @@ def test_max_resistance_cap_in_evaluate_and_optimize() -> None:
             min_lr=75,
             min_cr=75,
             min_pr=0,
-            base_hell_res=-70,
             mode="max-res",
+            character=CharacterStats(base_hell_res=-70),
         ),
     )
     assert res_max[0].items[3].name == "Guardian Angel"
@@ -632,8 +637,8 @@ def test_unique_charm_limit_prevents_duplicates() -> None:
             min_lr=75,
             min_cr=75,
             min_pr=75,
-            base_hell_res=-70,
             mode="power",
+            character=CharacterStats(base_hell_res=-70),
         ),
     )
     assert len(res) == 1
@@ -675,8 +680,18 @@ def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyP
 
     presets = select_sorc_presets(sork, build="tz")
     _, c = presets[0]
+    caster_skills = c.skills
+    assert isinstance(caster_skills, CasterSkillModel)
     # sork.d2s has Blizzard=20 (idx 23), Ice Bolt=1 (idx 3), Ice Blast=14 (idx 9), Glacial Spike=20 (idx 19), Cold Mastery=20 (idx 29)
-    assert (c.blizz_base_lvl, c.blizz_syn_pts, c.cm_base_lvl) == (20, 35, 20)
+    assert (
+        caster_skills.blizz_base_lvl,
+        caster_skills.blizz_syn_pts,
+        caster_skills.cm_base_lvl,
+    ) == (
+        20,
+        35,
+        20,
+    )
 
     _, syn_default, _ = blizzard_damage(5)
     _, syn_custom, cm_custom = blizzard_damage_with_base(5, 20, 35, 20)
@@ -684,15 +699,20 @@ def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyP
     assert cm_custom == -(20 + 5 * (25 - 1))
 
     # sork.d2s is Nightmare (diff=1 -> -40) with Normal+NM Anya (+20) => -20, and no CTA
-    assert c.base_hell_res == -20
-    assert c.bo_base_bonus == 0
-    assert c.use_bo is False
+    assert c.character.base_hell_res == -20
+    assert c.character.bo_base_bonus == 0
+    assert c.character.use_bo is False
 
     # When Blizzard has 0 hard points, hard synergy & Cold Mastery points are preserved for staffmod +Blizzard orbs
     assert sork.skills is not None
     sork.skills.skill_levels[23] = 0
     fallback_c = select_sorc_presets(sork, build="tz")[0][1]
-    assert (fallback_c.blizz_base_lvl, fallback_c.blizz_syn_pts, fallback_c.cm_base_lvl) == (
+    assert isinstance(fallback_c.skills, CasterSkillModel)
+    assert (
+        fallback_c.skills.blizz_base_lvl,
+        fallback_c.skills.blizz_syn_pts,
+        fallback_c.skills.cm_base_lvl,
+    ) == (
         0,
         35,
         20,
@@ -703,10 +723,19 @@ def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyP
     assert ok_n
     assert norm_sorc is not None
     norm_c = select_sorc_presets(norm_sorc, build="tz", resolver=resolver)[0][1]
-    assert norm_c.base_hell_res == 0
-    assert (norm_c.blizz_base_lvl, norm_c.blizz_syn_pts, norm_c.cm_base_lvl) == (0, 0, 0)
-    assert norm_c.bo_base_bonus == 0
-    assert norm_c.use_bo is False
+    assert norm_c.character.base_hell_res == 0
+    assert isinstance(norm_c.skills, CasterSkillModel)
+    assert (
+        norm_c.skills.blizz_base_lvl,
+        norm_c.skills.blizz_syn_pts,
+        norm_c.skills.cm_base_lvl,
+    ) == (
+        0,
+        0,
+        0,
+    )
+    assert norm_c.character.bo_base_bonus == 0
+    assert norm_c.character.use_bo is False
 
     # High-level CTA (lvlreq 57) is ignored for lvl 17 Sorc because max_level=char_level
     high_cta = norm_sorc.item_list.items[0]
@@ -719,8 +748,8 @@ def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyP
         lambda it, **_kw: [(127, 1, [1]), (97, 0, [149, 6])] if id(it) == cta_ptr else [],
     )
     norm_cta_c = select_sorc_presets(norm_sorc, build="tz", resolver=resolver)[0][1]
-    assert norm_cta_c.bo_base_bonus == 0
-    assert norm_cta_c.use_bo is False
+    assert norm_cta_c.character.bo_base_bonus == 0
+    assert norm_cta_c.character.use_bo is False
 
 
 @requires_native
@@ -777,7 +806,7 @@ def test_single_skill_blizzard_orb_extraction_and_ranking(monkeypatch: pytest.Mo
     res = optimize_builds(
         items,
         [],
-        BuildConstraints(min_pr=75, base_hell_res=-70, limit=2),
+        BuildConstraints(min_pr=75, limit=2, character=CharacterStats(base_hell_res=-70)),
     )
     assert len(res) == 2
     assert res[0].items[0].name == "Sorc +2/+3 Blizz Orb"
@@ -811,7 +840,7 @@ def test_detect_cta_bo_bonus_and_excludes_swap_cta(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("d2savior.optimizer.extract.collect_item_properties", _fake_props)
     assert detect_cta_bo_bonus([sork], [], resolver) == 7
     presets = select_sorc_presets(sork, build="tz", resolver=resolver)
-    assert presets[0][1].bo_base_bonus == 7
+    assert presets[0][1].character.bo_base_bonus == 7
 
     items, _ = extract_pool(sork, resolver=resolver)
     assert not any("Swap" in it.loc for it in items)
@@ -888,9 +917,8 @@ def test_belt_slots_and_defense_prefer_upped_goldwrap() -> None:
             min_fcr=105,
             min_fhr=60,
             min_pr=0,
-            base_str=156,
-            base_hell_res=-70,
             limit=2,
+            character=CharacterStats(base_str=156, base_hell_res=-70),
         ),
     )
     assert len(res) == 2
@@ -960,8 +988,8 @@ def test_cold_sunder_charm_extraction_and_optimizer_fallback(
             min_lr=75,
             min_cr=75,
             min_pr=75,
-            base_hell_res=-70,
             limit=1,
+            character=CharacterStats(base_hell_res=-70),
         ),
     )
     assert len(res_pow) == 1
@@ -979,8 +1007,8 @@ def test_cold_sunder_charm_extraction_and_optimizer_fallback(
             min_lr=75,
             min_cr=75,
             min_pr=75,
-            base_hell_res=-70,
             limit=1,
+            character=CharacterStats(base_hell_res=-70),
         ),
     )
     assert len(res_max) == 1
@@ -1485,7 +1513,10 @@ def test_paladin_unknown_spec_error_and_native_validation() -> None:
             optimize_builds(
                 [],
                 [],
-                BuildConstraints(char_class=int(CharClass.SORCERESS), offense=bad_offense),
+                BuildConstraints(
+                    offense=bad_offense,
+                    character=CharacterStats(char_class=int(CharClass.SORCERESS)),
+                ),
             )
 
 
@@ -1705,10 +1736,12 @@ def test_torch_and_annihilus_vit_ene_and_bo_all_skills() -> None:
         min_cr=75,
         min_pr=75,
         max_charm_slots=3,
-        base_life=500,
-        base_mana=300,
-        bo_base_bonus=4,
-        use_bo=True,
+        character=CharacterStats(
+            base_life=500,
+            base_mana=300,
+            bo_base_bonus=4,
+            use_bo=True,
+        ),
     )
     res_with = optimize_builds(items, [torch, anni], c_bo)[0]
     res_without = optimize_builds(items, [], c_bo)[0]
@@ -1763,25 +1796,29 @@ def test_angelic_set_and_itd_win_with_ar_cth_model() -> None:
         [plain_sword, eth_sword],
         [],
         BuildConstraints(
-            char_class=int(CharClass.PALADIN),
             offense="zeal",
             mode="leveling",
-            base_str=50,
-            base_dex=20,
-            base_hell_res=75,
             min_fcr=0,
             min_fhr=0,
             min_fr=0,
             min_lr=0,
             min_cr=0,
             min_pr=0,
-            target_def=1000,
-            action_hits=[5],
-            action_ed=[0],
-            action_ar_pct=[10],
-            aura_hit_dmg=[0.0],
-            aura_pulse_dps=[0.0],
-            use_bo=False,
+            character=CharacterStats(
+                char_class=int(CharClass.PALADIN),
+                base_str=50,
+                base_dex=20,
+                base_hell_res=75,
+                use_bo=False,
+            ),
+            target=TargetProfile(target_def=1000),
+            skills=MeleeSkillModel(
+                action_hits=[5],
+                action_ed=[0],
+                action_ar_pct=[10],
+                aura_hit_dmg=[0.0],
+                aura_pulse_dps=[0.0],
+            ),
         ),
     )
     assert len(res) >= 1
@@ -1807,20 +1844,24 @@ def test_evaluate_build_with_constraints_and_melee_action_end_to_end() -> None:
     )
     charm = CharmSpec("Sharp SC", 1, "Inv", ar=40)
     c_zeal = BuildConstraints(
-        char_class=int(CharClass.PALADIN),
         offense="zeal",
         mode="leveling",
-        base_str=50,
-        base_dex=20,
-        base_hell_res=75,
-        target_def=300,
-        action_hits=[5],
-        action_ed=[100],
-        action_ar_pct=[50],
-        aura_ar_pct=[50],
-        aura_hit_dmg=[0.0],
-        aura_pulse_dps=[0.0],
-        use_bo=False,
+        character=CharacterStats(
+            char_class=int(CharClass.PALADIN),
+            base_str=50,
+            base_dex=20,
+            base_hell_res=75,
+            use_bo=False,
+        ),
+        target=TargetProfile(target_def=300),
+        skills=MeleeSkillModel(
+            action_hits=[5],
+            action_ed=[100],
+            action_ar_pct=[50],
+            aura_ar_pct=[50],
+            aura_hit_dmg=[0.0],
+            aura_pulse_dps=[0.0],
+        ),
     )
     ev = evaluate_build([sword], [charm], constraints=c_zeal)
     # base_ar = 85 + 100 + 40 = 225; total_ar_pct = +100% => AR = 450; cth = 450/750 = 60%
@@ -2017,17 +2058,15 @@ def test_score_of_result_matches_rust_rules() -> None:
 
     # 1. base_max_fr cap is respected in leveling-res.
     c_res = BuildConstraints(
-        char_class=3,
         offense="melee",
         mode="leveling-res",
-        base_max_fr=5,
-        base_hell_res=0,
         min_fcr=0,
         min_fhr=0,
         min_fr=0,
         min_lr=0,
         min_cr=0,
         min_pr=0,
+        character=CharacterStats(char_class=3, base_max_fr=5, base_hell_res=0),
     )
     r_75 = evaluate_build(
         [ItemSpec("Helm75", "helm", fr=75, lr=75, cr=75, pr=75)], [], constraints=c_res
@@ -2043,13 +2082,13 @@ def test_score_of_result_matches_rust_rules() -> None:
     # 2. blizz_skills contributes to eff_primary, and locality is excluded.
     c_mf = BuildConstraints(
         mode="mf",
-        base_hell_res=0,
         min_fcr=0,
         min_fhr=0,
         min_fr=0,
         min_lr=0,
         min_cr=0,
         min_pr=0,
+        character=CharacterStats(base_hell_res=0),
     )
     r_eq = evaluate_build(
         [ItemSpec("Orb", "weapon", loc="Equipped", all_skills=1, blizz_skills=2)],
@@ -2066,16 +2105,15 @@ def test_score_of_result_matches_rust_rules() -> None:
 
     # 3. Smite offense scoring matches Rust OffenseProfile::score.
     c_smite = BuildConstraints(
-        char_class=3,
         offense="smite",
         mode="leveling",
-        base_hell_res=0,
         min_fcr=0,
         min_fhr=0,
         min_fr=0,
         min_lr=0,
         min_cr=0,
         min_pr=0,
+        character=CharacterStats(char_class=3, base_hell_res=0),
     )
     r_smite = evaluate_build(
         [
@@ -2090,22 +2128,23 @@ def test_score_of_result_matches_rust_rules() -> None:
 
     # 4. Zeal with DPS tables uses 2% log DPS buckets.
     c_zeal = BuildConstraints(
-        char_class=3,
         offense="zeal",
         mode="leveling",
-        action_hits=[5],
-        action_ed=[100],
-        target_def=0,
-        char_level=80,
-        base_str=100,
-        base_dex=100,
-        base_hell_res=0,
         min_fcr=0,
         min_fhr=0,
         min_fr=0,
         min_lr=0,
         min_cr=0,
         min_pr=0,
+        character=CharacterStats(
+            char_class=3,
+            char_level=80,
+            base_str=100,
+            base_dex=100,
+            base_hell_res=0,
+        ),
+        target=TargetProfile(target_def=0),
+        skills=MeleeSkillModel(action_hits=[5], action_ed=[100]),
     )
     r_zeal = evaluate_build(
         [ItemSpec("Phase Blade", "weapon", wsm=-30, wep_phys_2x=66, can_zeal=True)],
@@ -2121,13 +2160,13 @@ def test_score_of_result_matches_rust_rules() -> None:
     )
     c_power_nodps = BuildConstraints(
         mode="power",
-        base_hell_res=0,
         min_fcr=0,
         min_fhr=0,
         min_fr=0,
         min_lr=0,
         min_cr=0,
         min_pr=0,
+        character=CharacterStats(base_hell_res=0),
     )
     r_power_nodps = evaluate_build([orb], [], constraints=c_power_nodps)
     sc_power_nodps = score_of_result(r_power_nodps, c_power_nodps)
@@ -2135,14 +2174,14 @@ def test_score_of_result_matches_rust_rules() -> None:
 
     c_power_dps = BuildConstraints(
         mode="power",
-        blizz_dmg=[100.0, 150.0, 200.0, 250.0],
-        base_hell_res=0,
         min_fcr=0,
         min_fhr=0,
         min_fr=0,
         min_lr=0,
         min_cr=0,
         min_pr=0,
+        character=CharacterStats(base_hell_res=0),
+        skills=CasterSkillModel(blizz_dmg=[100.0, 150.0, 200.0, 250.0]),
     )
     r_power_dps = evaluate_build([orb], [], constraints=c_power_dps)
     assert r_power_dps.dps > 0.0
@@ -2151,13 +2190,13 @@ def test_score_of_result_matches_rust_rules() -> None:
     # 6. Max-res mode includes raw resistance sum as tiebreaker index 5.
     c_max_res = BuildConstraints(
         mode="max-res",
-        base_hell_res=0,
         min_fcr=0,
         min_fhr=0,
         min_fr=0,
         min_lr=0,
         min_cr=0,
         min_pr=0,
+        character=CharacterStats(base_hell_res=0),
     )
     r_mr_75 = evaluate_build(
         [ItemSpec("Helm75", "helm", fr=75, lr=75, cr=75, pr=75)], [], constraints=c_max_res
@@ -2173,17 +2212,16 @@ def test_score_of_result_matches_rust_rules() -> None:
 
     # 7. Leveling melee without DPS tables uses Rust Melee offense formula and aura_skill_bonus.
     c_melee = BuildConstraints(
-        char_class=3,
         offense="melee",
         mode="leveling",
-        has_aura=True,
-        base_hell_res=0,
         min_fcr=0,
         min_fhr=0,
         min_fr=0,
         min_lr=0,
         min_cr=0,
         min_pr=0,
+        character=CharacterStats(char_class=3, base_hell_res=0),
+        skills=MeleeSkillModel(has_aura=True),
     )
     r_melee = evaluate_build(
         [
@@ -2208,8 +2246,92 @@ def test_score_of_result_matches_rust_rules() -> None:
     for bad_c, err_match in (
         (BuildConstraints(mode=bad_mode), "invalid mode"),
         (BuildConstraints(offense="smite"), "offense profile 'smite'"),
-        (BuildConstraints(char_class=99), "unsupported char_class 99"),
-        (BuildConstraints(target_type=bad_target), "invalid target_type"),
+        (BuildConstraints(character=CharacterStats(char_class=99)), "unsupported char_class 99"),
+        (BuildConstraints(target=TargetProfile(target_type=bad_target)), "invalid target_type"),
     ):
         with pytest.raises(ValueError, match=err_match):
             score_of_result(r_eq, bad_c)
+
+
+@requires_native
+def test_charmspec_eq_hash_frozen_and_constraints_with_limit() -> None:
+    c1 = CharmSpec("Vita SC", 1, "inv", life=20, mana=17, skills=1)
+    c2 = CharmSpec("Vita SC", 1, "inv", life=20, mana=17, skills=1)
+    c3 = CharmSpec("Vita SC", 1, "stash", life=20, mana=17, skills=1)
+    assert c1 == c2
+    assert hash(c1) == hash(c2)
+    assert c1 != c3
+    counts = Counter([c1, c2, c3])
+    assert counts[c1] == 2
+    assert counts[c3] == 1
+    with pytest.raises(AttributeError):
+        c1.life = 25  # type: ignore[misc]
+
+    char = CharacterStats(
+        char_class=3,
+        char_level=85,
+        base_life=500,
+        base_mana=200,
+        base_str=100,
+        base_dex=50,
+        base_hell_res=-40,
+        base_max_fr=5,
+        bo_base_bonus=6,
+        use_bo=True,
+    )
+    target = TargetProfile(targets=3, target_type="trash", target_def=1000, target_hp=5000)
+    skills = MeleeSkillModel(action_hits=[5], action_ed=[100], has_aura=True, aura_is_fire=True)
+    orig = BuildConstraints(
+        allow_mf=False,
+        min_fcr=30,
+        min_fhr=48,
+        min_fr=75,
+        min_lr=75,
+        min_cr=75,
+        min_pr=50,
+        max_charm_slots=20,
+        mode="leveling-res",
+        limit=5,
+        fixed_gear=True,
+        fixed_slots=["weapon"],
+        offense="zeal",
+        require_cbf=True,
+        min_frw=20,
+        min_ias=30,
+        min_cb=35,
+        min_ll=7,
+        min_pdr=15,
+        min_mf=25,
+        character=char,
+        target=target,
+        skills=skills,
+    )
+    cloned = orig.with_limit(1)
+    assert orig.limit == 5
+    assert cloned.limit == 1
+    assert cloned.character == char
+    assert cloned.target == target
+    assert cloned.skills == skills
+    assert cloned.allow_mf is False
+    assert cloned.mode == "leveling-res"
+    assert cloned.offense == "zeal"
+    assert cloned.fixed_gear is True
+    assert cloned.fixed_slots == ["weapon"]
+    assert cloned.require_cbf is True
+    assert (
+        cloned.min_frw,
+        cloned.min_ias,
+        cloned.min_cb,
+        cloned.min_ll,
+        cloned.min_pdr,
+        cloned.min_mf,
+    ) == (
+        20,
+        30,
+        35,
+        7,
+        15,
+        25,
+    )
+    with pytest.raises(AttributeError):
+        orig.limit = 10  # type: ignore[misc]

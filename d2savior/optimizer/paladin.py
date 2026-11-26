@@ -34,10 +34,13 @@ from d2savior.optimizer.native import (
     HAS_NATIVE,
     BuildConstraints,
     BuildResult,
+    CharacterStats,
     CharmSpec,
     ItemSpec,
+    MeleeSkillModel,
     OffenseProfileStr,
     SearchModeStr,
+    TargetProfile,
     TargetTypeStr,
     class_breakpoints,
     optimize_builds,
@@ -318,38 +321,44 @@ def _build_paladin_baseline(
     defiance_base_lvl = pal_skills[_PAL_DEFIANCE] if len(pal_skills) > _PAL_DEFIANCE else 0
     fixed_all, fixed_slots = resolve_fixed_gear(keep_equipped)
     baseline = CharacterBaseline(
-        char_class=int(CharClass.PALADIN),
-        base_life=char_data.player_stats.max_life,
-        base_mana=char_data.player_stats.max_mana,
-        base_hell_res=base_res,
-        base_str=char_data.player_stats.strength,
-        base_dex=char_data.player_stats.dexterity,
+        character=CharacterStats(
+            char_class=int(CharClass.PALADIN),
+            char_level=char_level,
+            base_life=char_data.player_stats.max_life,
+            base_mana=char_data.player_stats.max_mana,
+            base_str=char_data.player_stats.strength,
+            base_dex=char_data.player_stats.dexterity,
+            base_hell_res=base_res,
+            base_max_fr=base_max_fr,
+            base_max_lr=base_max_lr,
+            base_max_cr=base_max_cr,
+            bo_base_bonus=bo_base_bonus,
+            use_bo=bo_base_bonus > 0,
+        ),
+        target=TargetProfile(
+            targets=max(1, targets),
+            target_type=resolved_target_type,
+            target_def=target_def,
+            target_ar=target_ar,
+            target_lvl=target_lvl,
+            target_hp=target_hp,
+        ),
+        skills=MeleeSkillModel(
+            aura_hit_dmg=aura_hit_dmg,
+            aura_pulse_dps=aura_pulse_dps,
+            action_ed=action_ed,
+            action_hits=action_hits,
+            has_aura=has_aura,
+            aura_is_fire=aura_is_fire,
+            action_ar_pct=action_ar_pct,
+            aura_ar_pct=aura_ar_pct,
+            aura_target_def_pct=aura_target_def_pct,
+            holy_shield_base_lvl=holy_shield_base_lvl,
+            defiance_base_lvl=defiance_base_lvl,
+        ),
         max_charm_slots=max_charm_slots,
-        bo_base_bonus=bo_base_bonus,
-        use_bo=bo_base_bonus > 0,
         fixed_gear=fixed_all,
         fixed_slots=fixed_slots,
-        base_max_fr=base_max_fr,
-        base_max_lr=base_max_lr,
-        base_max_cr=base_max_cr,
-        aura_hit_dmg=aura_hit_dmg,
-        aura_pulse_dps=aura_pulse_dps,
-        action_ed=action_ed,
-        action_hits=action_hits,
-        has_aura=has_aura,
-        aura_is_fire=aura_is_fire,
-        targets=max(1, targets),
-        action_ar_pct=action_ar_pct,
-        aura_ar_pct=aura_ar_pct,
-        aura_target_def_pct=aura_target_def_pct,
-        target_def=target_def,
-        target_ar=target_ar,
-        target_lvl=target_lvl,
-        target_type=resolved_target_type,
-        char_level=char_level,
-        target_hp=target_hp,
-        holy_shield_base_lvl=holy_shield_base_lvl,
-        defiance_base_lvl=defiance_base_lvl,
     )
     return baseline, char_level, diff_name, resolved_spec
 
@@ -657,7 +666,7 @@ def _collect_paladin_alternatives(
     is_smite: bool,
     extra_kwargs: dict[str, Any] | None = None,
 ) -> list[tuple[str, BuildResult]]:
-    has_aura = baseline.has_aura
+    has_aura = bool(getattr(baseline.skills, "has_aura", False))
     ek: dict[str, Any] = dict(extra_kwargs or {})
     floor_fcr = int(ek.pop("min_fcr", 0))
     floor_fhr = int(ek.pop("min_fhr", 0))
@@ -713,10 +722,10 @@ def _collect_paladin_alternatives(
     fcr_below = _clamped_below(opt1.fcr_bp, PALADIN_FCR_BPS, floor_fcr) if is_caster else None
     caster_fcr_floor = max(opt1.fcr_bp, floor_fcr) if is_caster else floor_fcr
 
-    cap_fr = min(BASE_MAX_RESIST + baseline.base_max_fr, HARD_MAX_RESIST)
-    cap_lr = min(BASE_MAX_RESIST + baseline.base_max_lr, HARD_MAX_RESIST)
-    cap_cr = min(BASE_MAX_RESIST + baseline.base_max_cr, HARD_MAX_RESIST)
-    cap_pr = min(BASE_MAX_RESIST + baseline.base_max_pr, HARD_MAX_RESIST)
+    cap_fr = min(BASE_MAX_RESIST + baseline.character.base_max_fr, HARD_MAX_RESIST)
+    cap_lr = min(BASE_MAX_RESIST + baseline.character.base_max_lr, HARD_MAX_RESIST)
+    cap_cr = min(BASE_MAX_RESIST + baseline.character.base_max_cr, HARD_MAX_RESIST)
+    cap_pr = min(BASE_MAX_RESIST + baseline.character.base_max_pr, HARD_MAX_RESIST)
 
     if fhr_below is not None:
         try_add(build_c(mode="leveling-res", min_fcr=caster_fcr_floor, min_fhr=fhr_below))

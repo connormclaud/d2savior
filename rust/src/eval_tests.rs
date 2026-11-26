@@ -1,5 +1,5 @@
 use super::*;
-use crate::types::mk_test_item;
+use crate::types::{MeleeSkillModel, TargetProfile, mk_test_item};
 
 #[test]
 fn test_blizzard_damage_scaling() {
@@ -45,13 +45,19 @@ fn test_bo_skips_per_level_life_mana_and_vit_ene() {
     // bo_able_mana = 200 (base) + 40 (flat item) + 17 (charm) = 257 -> * (1 + (50 + 25)/100) = 449.75 -> 449
     // + item_ene * 2 (30) + item_mana_per_lvl (133) = 612
     let c = BuildConstraints {
-        base_life: 500,
-        base_mana: 200,
-        base_hell_res: -70,
-        bo_base_bonus: 4,
-        blizz_base_lvl: 20,
-        blizz_syn_pts: 54,
-        cm_base_lvl: 20,
+        character: CharacterStats {
+            base_life: 500,
+            base_mana: 200,
+            base_hell_res: -70,
+            bo_base_bonus: 4,
+            ..Default::default()
+        },
+        skills: SkillModel::Caster(CasterSkillModel {
+            blizz_base_lvl: 20,
+            blizz_syn_pts: 54,
+            cm_base_lvl: 20,
+            ..Default::default()
+        }),
         ..Default::default()
     };
     let res = eval_build_core(
@@ -82,11 +88,17 @@ fn test_blizzard_damage_with_custom_base_skills() {
 
     // Non-Blizzard Sorc (0, 0, 0) with +3 All Skills gear still evaluates to 0 Blizzard / CM
     let mut c_noblizz = BuildConstraints {
-        blizz_base_lvl: 0,
-        blizz_syn_pts: 0,
-        cm_base_lvl: 0,
-        use_bo: false,
-        bo_base_bonus: 0,
+        character: CharacterStats {
+            use_bo: false,
+            bo_base_bonus: 0,
+            ..Default::default()
+        },
+        skills: SkillModel::Caster(CasterSkillModel {
+            blizz_base_lvl: 0,
+            blizz_syn_pts: 0,
+            cm_base_lvl: 0,
+            ..Default::default()
+        }),
         ..Default::default()
     };
     let circlet = mk_test_item("Circlet", "helm", 20, 0, 3, 0, 0);
@@ -98,7 +110,7 @@ fn test_blizzard_damage_with_custom_base_skills() {
     // Staffmod +2 Blizzard on orb still produces Blizzard damage even with 0 hard points
     let mut orb = mk_test_item("Staffmod Orb", "weapon", 20, 0, 0, 0, 0);
     orb.blizz_skills = 2;
-    c_noblizz.base_hell_res = 0;
+    c_noblizz.character.base_hell_res = 0;
     let res_staff = eval_build_core(&[&circlet, &orb], &[], &c_noblizz, 1);
     assert!(res_staff.blizz_avg > 0.0);
     assert_eq!(res_staff.cm_pierce, 0);
@@ -211,11 +223,14 @@ fn test_charm_vit_ene_and_all_skills_bo_scaling() {
     // vit_life = (20 + 15) * 2 = 70 (not BO-scaled).
     // ene_mana = (20 + 15) * 2 = 70 (not BO-scaled).
     let sorc_c = BuildConstraints {
-        char_class: 1,
-        base_life: 500,
-        base_mana: 300,
-        bo_base_bonus: 4,
-        use_bo: true,
+        character: CharacterStats {
+            char_class: 1,
+            base_life: 500,
+            base_mana: 300,
+            bo_base_bonus: 4,
+            use_bo: true,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res_sorc = eval_build_core(&[], &[&torch, &anni], &sorc_c, 1);
@@ -228,10 +243,13 @@ fn test_charm_vit_ene_and_all_skills_bo_scaling() {
     // Paladin (3 life/vit, 1.5 mana/ene), no BO.
     // vit_life = 35 * 3 = 105; ene_mana = 35 * 3 / 2 = 52.
     let pal_c = BuildConstraints {
-        char_class: 3,
-        base_life: 500,
-        base_mana: 300,
-        use_bo: false,
+        character: CharacterStats {
+            char_class: 3,
+            base_life: 500,
+            base_mana: 300,
+            use_bo: false,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res_pal = eval_build_core(&[], &[&torch, &anni], &pal_c, 1);
@@ -251,10 +269,13 @@ fn test_pct_life_scales_bo_able_life_only() {
     helm.life_per_lvl = 80; // non-BO-able
 
     let c_bo = BuildConstraints {
-        char_class: 1,
-        base_life: 500,
-        bo_base_bonus: 6, // bo_pct = 32 + 18 = 50%
-        use_bo: true,
+        character: CharacterStats {
+            char_class: 1,
+            base_life: 500,
+            bo_base_bonus: 6, // bo_pct = 32 + 18 = 50%
+            use_bo: true,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res_bo = eval_build_core(&[&helm], &[], &c_bo, 1);
@@ -264,7 +285,10 @@ fn test_pct_life_scales_bo_able_life_only() {
     assert_eq!(res_bo.life_bo, 1030);
 
     let c_no_bo = BuildConstraints {
-        use_bo: false,
+        character: CharacterStats {
+            use_bo: false,
+            ..c_bo.character
+        },
         ..c_bo
     };
     let res_no_bo = eval_build_core(&[&helm], &[], &c_no_bo, 1);
@@ -302,20 +326,29 @@ fn test_ar_and_chance_to_hit_scaling() {
     wep_eth.target_def_pct = 50;
 
     let c_base = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         offense: "zeal".into(),
         mode: "leveling".into(),
-        base_str: 0,
-        base_dex: 20,
-        target_def: 300,
-        action_hits: vec![2, 3],
-        action_ed: vec![0, 0],
-        action_ar_pct: vec![10, 50],
-        aura_ar_pct: vec![40, 60],
-        aura_target_def_pct: vec![0, 50],
-        aura_hit_dmg: vec![0.0, 0.0],
-        aura_pulse_dps: vec![0.0, 0.0],
-        use_bo: false,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_str: 0,
+            base_dex: 20,
+            use_bo: false,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_def: 300,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![2, 3],
+            action_ed: vec![0, 0],
+            action_ar_pct: vec![10, 50],
+            aura_ar_pct: vec![40, 60],
+            aura_target_def_pct: vec![0, 50],
+            aura_hit_dmg: vec![0.0, 0.0],
+            aura_pulse_dps: vec![0.0, 0.0],
+            ..Default::default()
+        }),
         ..Default::default()
     };
 
@@ -348,7 +381,10 @@ fn test_ar_and_chance_to_hit_scaling() {
 
     // target_type="boss": same -50% gear Target Def halving as champion.
     let c_boss = BuildConstraints {
-        target_type: "boss".into(),
+        target: TargetProfile {
+            target_type: "boss".into(),
+            ..c_base.target.clone()
+        },
         ..c_base.clone()
     };
     let res_eth_conv_boss = eval_build_core(&[&wep_eth, &ring_sk], &[&charm_ar], &c_boss, 1);
@@ -358,7 +394,10 @@ fn test_ar_and_chance_to_hit_scaling() {
     // target_type="trash": full -50% Target Defense (weapon) * -50% (Conviction) =>
     // eff_dr = 300 * 0.5 * 0.5 = 75 -> CTH = 579 / (579 + 75) = 579 / 654 (~89%).
     let c_trash = BuildConstraints {
-        target_type: "trash".into(),
+        target: TargetProfile {
+            target_type: "trash".into(),
+            ..c_base.target.clone()
+        },
         ..c_base.clone()
     };
     let res_eth_conv = eval_build_core(&[&wep_eth, &ring_sk], &[&charm_ar], &c_trash, 1);
@@ -387,7 +426,10 @@ fn test_ar_and_chance_to_hit_scaling() {
 
     // Explicit target_def=0 honors 0 enemy defense (clamped to 95% CTH) instead of defaulting to 180.
     let c_zero_dr = BuildConstraints {
-        target_def: 0,
+        target: TargetProfile {
+            target_def: 0,
+            ..c_base.target.clone()
+        },
         ..c_base.clone()
     };
     let res_zero_dr = eval_build_core(&[&sword], &[], &c_zero_dr, 1);
@@ -404,19 +446,25 @@ fn test_ar_and_chance_to_hit_scaling() {
         splash_fire_2x: 80, // 40 avg skill splash
         ..Default::default()
     };
-    let mut c_exp = BuildConstraints {
+    let c_exp = BuildConstraints {
         offense: "melee".into(),
-        aura_is_fire: true,
-        targets: 3,
-        action_hits: vec![1],
-        action_ed: vec![0],
-        action_ar_pct: vec![10], // melee action AR% must be ignored on ranged weapons
-        aura_hit_dmg: vec![50.0], // 50 avg Holy Fire on-hit * 3 targets = 150 auto-hit
-        aura_pulse_dps: vec![10.0],
+        target: TargetProfile {
+            targets: 3,
+            ..c_base.target.clone()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            aura_is_fire: true,
+            action_hits: vec![1],
+            action_ed: vec![0],
+            action_ar_pct: vec![10], // melee action AR% must be ignored on ranged weapons
+            aura_hit_dmg: vec![50.0], // 50 avg Holy Fire on-hit * 3 targets = 150 auto-hit
+            aura_pulse_dps: vec![10.0],
+            aura_ar_pct: vec![0],
+            aura_target_def_pct: vec![0],
+            ..Default::default()
+        }),
         ..c_base.clone()
     };
-    c_exp.aura_ar_pct = vec![0];
-    c_exp.aura_target_def_pct = vec![0];
     let res_exp = eval_build_core(&[&bow], &[], &c_exp, 1);
     assert_eq!(res_exp.ar, 85); // base_ar=85 without melee action_ar_pct +10%
     // base_ar = 85 vs target_def = 300 => cth = 85 / 385
@@ -460,20 +508,29 @@ fn test_ds_cs_oskill_torch_vs_anni_and_ed_demon_undead() {
     };
 
     let c_trash = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         offense: "melee".into(),
         mode: "leveling".into(),
-        target_type: "trash".into(),
-        base_str: 0,
-        base_dex: 20,
-        action_hits: vec![1],
-        action_ed: vec![0],
-        action_ar_pct: vec![0],
-        aura_ar_pct: vec![0],
-        aura_target_def_pct: vec![0],
-        aura_hit_dmg: vec![0.0],
-        aura_pulse_dps: vec![0.0],
-        use_bo: false,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_str: 0,
+            base_dex: 20,
+            use_bo: false,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_type: "trash".into(),
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![1],
+            action_ed: vec![0],
+            action_ar_pct: vec![0],
+            aura_ar_pct: vec![0],
+            aura_target_def_pct: vec![0],
+            aura_hit_dmg: vec![0.0],
+            aura_pulse_dps: vec![0.0],
+            ..Default::default()
+        }),
         ..Default::default()
     };
 
@@ -491,7 +548,10 @@ fn test_ds_cs_oskill_torch_vs_anni_and_ed_demon_undead() {
 
     // Boss target_type: ed_demon 100%, ed_undead 0% => eff_ed = 300% (phys mult = 4.0).
     let c_boss = BuildConstraints {
-        target_type: "boss".into(),
+        target: TargetProfile {
+            target_type: "boss".into(),
+            ..c_trash.target.clone()
+        },
         ..c_trash.clone()
     };
     let res_boss = eval_build_core(&[&sword], &[&anni], &c_boss, 1);
@@ -521,22 +581,31 @@ fn test_cb_ow_poison_venom_ctc_and_exploding_arrow_pierce() {
     armor.ctc_venom_dps_2x = 300; // non-stacking max -> stays 400 from wep
 
     let c_trash = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         offense: "melee".into(),
         mode: "leveling".into(),
-        target_type: "trash".into(),
-        char_level: 30,
-        target_hp: 1000,
-        targets: 4,
-        base_dex: 20,
-        action_hits: vec![1],
-        action_ed: vec![0],
-        action_ar_pct: vec![0],
-        aura_ar_pct: vec![0],
-        aura_target_def_pct: vec![0],
-        aura_hit_dmg: vec![0.0],
-        aura_pulse_dps: vec![0.0],
-        use_bo: false,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            char_level: 30,
+            base_dex: 20,
+            use_bo: false,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_type: "trash".into(),
+            target_hp: 1000,
+            targets: 4,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![1],
+            action_ed: vec![0],
+            action_ar_pct: vec![0],
+            aura_ar_pct: vec![0],
+            aura_target_def_pct: vec![0],
+            aura_hit_dmg: vec![0.0],
+            aura_pulse_dps: vec![0.0],
+            ..Default::default()
+        }),
         ..Default::default()
     };
     let res = eval_build_core(&[&wep, &armor], &[], &c_trash, 1);
@@ -553,8 +622,11 @@ fn test_cb_ow_poison_venom_ctc_and_exploding_arrow_pierce() {
 
     // Champion halves CB (12.5%) and halves OW.
     let c_champ = BuildConstraints {
-        target_type: "champion".into(),
-        target_def: 0,
+        target: TargetProfile {
+            target_type: "champion".into(),
+            target_def: 0,
+            ..c_trash.target.clone()
+        },
         ..c_trash.clone()
     };
     let res_champ = eval_build_core(&[&wep, &armor], &[], &c_champ, 1);
@@ -592,7 +664,10 @@ fn test_cb_ow_poison_venom_ctc_and_exploding_arrow_pierce() {
     kuko.flat_fire_2x = 40; // 20 avg gear fire -> * targets
     kuko.pierce = 100;
     let c_ea = BuildConstraints {
-        targets: 10, // capped at 1 + 4 = 5 pierce hits
+        target: TargetProfile {
+            targets: 10, // capped at 1 + 4 = 5 pierce hits
+            ..c_trash.target.clone()
+        },
         ..c_trash
     };
     let res_kuko = eval_build_core(&[&kuko], &[], &c_ea, 1);
@@ -621,15 +696,24 @@ fn test_defense_block_fbr_paladin_holy_shield_and_sorc_cold_armors() {
     armor.fbr = 60; // total fbr = 90 -> BP 86, 1f with Holy Shield
 
     let c_pal = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         offense: "melee".to_string(),
         mode: "leveling".to_string(),
-        base_dex: 115,
-        char_level: 85,
-        target_ar: 6630,
-        target_lvl: 87,
-        holy_shield_base_lvl: 1,
-        defiance_base_lvl: 2,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_dex: 115,
+            char_level: 85,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_ar: 6630,
+            target_lvl: 87,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            holy_shield_base_lvl: 1,
+            defiance_base_lvl: 2,
+            ..Default::default()
+        }),
         ..Default::default()
     };
     let combat_gc = CharmSpec {
@@ -654,8 +738,14 @@ fn test_defense_block_fbr_paladin_holy_shield_and_sorc_cold_armors() {
 
     // Without Holy Shield (0 base): 30% FBR uses standard Paladin table (BP 13, 4f); capped at 75% at high Dex.
     let c_no_hs = BuildConstraints {
-        holy_shield_base_lvl: 0,
-        base_dex: 200,
+        character: CharacterStats {
+            base_dex: 200,
+            ..c_pal.character.clone()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            holy_shield_base_lvl: 0,
+            ..c_pal.skills.melee().cloned().unwrap_or_default()
+        }),
         ..c_pal.clone()
     };
     let res_no_hs = eval_build_core(&[&hoz, &armor], &[], &c_no_hs, 1);
@@ -679,13 +769,22 @@ fn test_defense_block_fbr_paladin_holy_shield_and_sorc_cold_armors() {
     let mut orb = mk_test_item("Orb", "weapon", 0, 0, 2, 0, 0);
     orb.def_skill = 1;
     let c_sorc = BuildConstraints {
-        char_class: CharClass::SORCERESS_ID,
-        base_dex: 100,
-        char_level: 80,
-        target_ar: 3000,
-        target_lvl: 82,
-        cold_armor_kind: 2, // Shiver: 45 + 6*(lvl-1)
-        cold_armor_base_lvl: 1,
+        character: CharacterStats {
+            char_class: CharClass::SORCERESS_ID,
+            base_dex: 100,
+            char_level: 80,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_ar: 3000,
+            target_lvl: 82,
+            ..Default::default()
+        },
+        skills: SkillModel::Caster(CasterSkillModel {
+            cold_armor_kind: 2, // Shiver: 45 + 6*(lvl-1)
+            cold_armor_base_lvl: 1,
+            ..Default::default()
+        }),
         ..Default::default()
     };
     let res_sorc = eval_build_core(&[&storm, &orb], &[], &c_sorc, 1);
@@ -703,7 +802,10 @@ fn test_defense_block_fbr_paladin_holy_shield_and_sorc_cold_armors() {
         &[],
         &[],
         &BuildConstraints {
-            target_ar: 100_000,
+            target: TargetProfile {
+                target_ar: 100_000,
+                ..c_sorc.target.clone()
+            },
             ..c_sorc.clone()
         },
         1,
@@ -713,9 +815,15 @@ fn test_defense_block_fbr_paladin_holy_shield_and_sorc_cold_armors() {
     // Zero hard points in Cold Armor: Snowclash (+2 Chilling Armor via def_skill) unlocks Chilling Armor,
     // while +all_skills / +sorc_skills alone without def_skill gives 0% Cold Armor ED.
     let c_zero_ca = BuildConstraints {
-        cold_armor_kind: 3,
-        cold_armor_base_lvl: 0,
-        base_dex: 0,
+        character: CharacterStats {
+            base_dex: 0,
+            ..c_sorc.character.clone()
+        },
+        skills: SkillModel::Caster(CasterSkillModel {
+            cold_armor_kind: 3,
+            cold_armor_base_lvl: 0,
+            ..c_sorc.skills.caster().cloned().unwrap_or_default()
+        }),
         ..c_sorc
     };
     let plain_orb = mk_test_item("Plain Orb", "weapon", 0, 0, 2, 0, 0);

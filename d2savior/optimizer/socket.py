@@ -941,69 +941,6 @@ def _extra_improvement_key(res: BuildResult) -> tuple[int, ...]:
     )
 
 
-def _clone_constraints_limit1(c: BuildConstraints) -> BuildConstraints:
-    return BuildConstraints(
-        allow_mf=c.allow_mf,
-        min_fcr=c.min_fcr,
-        min_fhr=c.min_fhr,
-        min_fr=c.min_fr,
-        min_lr=c.min_lr,
-        min_cr=c.min_cr,
-        min_pr=c.min_pr,
-        max_charm_slots=c.max_charm_slots,
-        mode=c.mode,
-        base_life=c.base_life,
-        base_mana=c.base_mana,
-        base_hell_res=c.base_hell_res,
-        base_str=c.base_str,
-        base_dex=c.base_dex,
-        bo_base_bonus=c.bo_base_bonus,
-        limit=1,
-        blizz_base_lvl=c.blizz_base_lvl,
-        blizz_syn_pts=c.blizz_syn_pts,
-        cm_base_lvl=c.cm_base_lvl,
-        char_class=c.char_class,
-        base_max_fr=c.base_max_fr,
-        base_max_lr=c.base_max_lr,
-        base_max_cr=c.base_max_cr,
-        base_max_pr=c.base_max_pr,
-        use_bo=c.use_bo,
-        fixed_gear=c.fixed_gear,
-        offense=c.offense,
-        aura_hit_dmg=c.aura_hit_dmg,
-        aura_pulse_dps=c.aura_pulse_dps,
-        action_ed=c.action_ed,
-        action_hits=c.action_hits,
-        has_aura=c.has_aura,
-        aura_is_fire=c.aura_is_fire,
-        targets=c.targets,
-        blizz_dmg=c.blizz_dmg,
-        filler_dmg=c.filler_dmg,
-        filler_is_aoe=c.filler_is_aoe,
-        require_cbf=c.require_cbf,
-        min_frw=c.min_frw,
-        min_ias=c.min_ias,
-        min_cb=c.min_cb,
-        min_ll=c.min_ll,
-        min_pdr=c.min_pdr,
-        min_mf=c.min_mf,
-        fixed_slots=c.fixed_slots,
-        action_ar_pct=c.action_ar_pct,
-        aura_ar_pct=c.aura_ar_pct,
-        aura_target_def_pct=c.aura_target_def_pct,
-        target_def=c.target_def,
-        target_ar=c.target_ar,
-        target_lvl=c.target_lvl,
-        target_type=cast(TargetTypeStr, c.target_type),
-        char_level=c.char_level,
-        target_hp=c.target_hp,
-        holy_shield_base_lvl=c.holy_shield_base_lvl,
-        defiance_base_lvl=c.defiance_base_lvl,
-        cold_armor_kind=c.cold_armor_kind,
-        cold_armor_base_lvl=c.cold_armor_base_lvl,
-    )
-
-
 _EXCLUDED_SLOTS_FOR_CAND: dict[str, frozenset[str]] = {
     "weapon": frozenset({"weapon", "weapon2h"}),
     "shield": frozenset({"shield", "weapon2h"}),
@@ -1053,14 +990,14 @@ def evaluate_socket_candidates_for_preset(
     limit: int = 5,
 ) -> PresetSocketReport:
     """Evaluate every candidate item's socketed variants for a single build preset."""
-    c1 = _clone_constraints_limit1(constraints)
+    c1 = constraints.with_limit(1)
     charms_list = list(charms)
     base_res_list = optimize_builds(list(base_items), charms_list, c1)
     baseline = base_res_list[0] if base_res_list else None
 
     mode = c1.mode
     offense = c1.offense
-    has_aura = c1.has_aura
+    has_aura = bool(getattr(c1.skills, "has_aura", False))
 
     base_score = score_of_result(baseline, c1) if baseline is not None else ()
     base_extra = _extra_improvement_key(baseline) if baseline is not None else ()

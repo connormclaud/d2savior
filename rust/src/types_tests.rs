@@ -9,17 +9,37 @@ fn test_build_constraints_default_matches_expected() {
     assert_eq!((d.min_fr, d.min_lr, d.min_cr, d.min_pr), (75, 75, 75, 0));
     assert_eq!(d.max_charm_slots, 23);
     assert_eq!(d.mode, "power");
-    assert_eq!(d.base_hell_res, -100);
-    assert_eq!(d.bo_base_bonus, 4);
-    assert_eq!((d.blizz_base_lvl, d.blizz_syn_pts, d.cm_base_lvl), (20, 54, 20));
+    assert_eq!(d.character.base_hell_res, -100);
+    assert_eq!(d.character.bo_base_bonus, 4);
+    let caster = d.skills.caster().expect("default skills should be Caster");
+    assert_eq!(
+        (caster.blizz_base_lvl, caster.blizz_syn_pts, caster.cm_base_lvl),
+        (20, 54, 20)
+    );
     assert_eq!(d.limit, 5);
-    assert_eq!((d.base_life, d.base_mana, d.base_str, d.base_dex), (0, 0, 0, 0));
-    assert_eq!(d.char_class, 1);
-    assert_eq!((d.base_max_fr, d.base_max_lr, d.base_max_cr, d.base_max_pr), (0, 0, 0, 0));
-    assert!(d.use_bo);
+    assert_eq!(
+        (
+            d.character.base_life,
+            d.character.base_mana,
+            d.character.base_str,
+            d.character.base_dex
+        ),
+        (0, 0, 0, 0)
+    );
+    assert_eq!(d.character.char_class, 1);
+    assert_eq!(
+        (
+            d.character.base_max_fr,
+            d.character.base_max_lr,
+            d.character.base_max_cr,
+            d.character.base_max_pr
+        ),
+        (0, 0, 0, 0)
+    );
+    assert!(d.character.use_bo);
     assert!(!d.fixed_gear);
     assert_eq!(d.offense, "caster");
-    assert_eq!(d.target_type, "champion");
+    assert_eq!(d.target.target_type, "champion");
 }
 
 #[test]
@@ -79,13 +99,7 @@ fn test_empty_hand_weapon_matches_between_search_and_eval() {
 
 #[test]
 fn test_fast_leaf_dps_matches_compute_dps_detailed() {
-    let base_c = BuildConstraints {
-        char_class: 3,
-        char_level: 85,
-        target_def: 1500,
-        target_hp: 12000,
-        targets: 3,
-        offense: "melee".to_string(),
+    let base_melee = MeleeSkillModel {
         action_hits: vec![1, 2, 3, 4, 5],
         action_ed: vec![0, 50, 100, 150, 200],
         action_ar_pct: vec![0, 20, 40, 60, 80],
@@ -93,6 +107,22 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
         aura_pulse_dps: vec![0.0, 15.0, 30.0],
         aura_ar_pct: vec![0, 10, 20],
         aura_target_def_pct: vec![0, 25, 50],
+        ..Default::default()
+    };
+    let base_c = BuildConstraints {
+        offense: "melee".to_string(),
+        character: CharacterStats {
+            char_class: 3,
+            char_level: 85,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_def: 1500,
+            target_hp: 12000,
+            targets: 3,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(base_melee.clone()),
         ..Default::default()
     };
     let bow = HandWeapon {
@@ -152,8 +182,14 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
                 ..Default::default()
             },
             BuildConstraints {
-                aura_is_fire: true,
-                target_type: "trash".to_string(),
+                target: TargetProfile {
+                    target_type: "trash".to_string(),
+                    ..base_c.target.clone()
+                },
+                skills: SkillModel::Melee(MeleeSkillModel {
+                    aura_is_fire: true,
+                    ..base_melee
+                }),
                 ..base_c.clone()
             },
         ),
@@ -170,7 +206,10 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
                 ..Default::default()
             },
             BuildConstraints {
-                target_type: "trash".to_string(),
+                target: TargetProfile {
+                    target_type: "trash".to_string(),
+                    ..base_c.target.clone()
+                },
                 ..base_c.clone()
             },
         ),
@@ -184,8 +223,11 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
                 ..Default::default()
             },
             BuildConstraints {
-                target_def: 0,
-                target_type: "boss".to_string(),
+                target: TargetProfile {
+                    target_def: 0,
+                    target_type: "boss".to_string(),
+                    ..base_c.target.clone()
+                },
                 ..base_c.clone()
             },
         ),
@@ -200,7 +242,10 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
                 ..Default::default()
             },
             BuildConstraints {
-                target_type: "champion".to_string(),
+                target: TargetProfile {
+                    target_type: "champion".to_string(),
+                    ..base_c.target.clone()
+                },
                 ..base_c.clone()
             },
         ),
@@ -246,17 +291,27 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
 
 #[test]
 fn test_fast_leaf_dps_eval_detailed_fields() {
-    let base_c = BuildConstraints {
-        char_class: 3,
-        char_level: 85,
-        target_def: 1500,
-        target_hp: 12000,
-        targets: 3,
+    let base_melee = MeleeSkillModel {
         action_hits: vec![1, 2, 3, 4, 5],
         action_ed: vec![0, 50, 100, 150, 200],
         action_ar_pct: vec![0, 20, 40, 60, 80],
         aura_hit_dmg: vec![0.0, 40.0, 80.0],
         aura_pulse_dps: vec![0.0, 15.0, 30.0],
+        ..Default::default()
+    };
+    let base_c = BuildConstraints {
+        character: CharacterStats {
+            char_class: 3,
+            char_level: 85,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_def: 1500,
+            target_hp: 12000,
+            targets: 3,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(base_melee.clone()),
         ..Default::default()
     };
     let bow = HandWeapon {
@@ -291,7 +346,10 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
         ..Default::default()
     };
     let trash_c = BuildConstraints {
-        target_type: "trash".to_string(),
+        target: TargetProfile {
+            target_type: "trash".to_string(),
+            ..base_c.target.clone()
+        },
         ..base_c.clone()
     };
     let (_, _, total_ar, cth_pct, ias_bp, display_frames, last_frames, used_zeal) =
@@ -322,8 +380,14 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
         ..Default::default()
     };
     let bow_c = BuildConstraints {
-        aura_is_fire: true,
-        target_type: "trash".to_string(),
+        target: TargetProfile {
+            target_type: "trash".to_string(),
+            ..base_c.target.clone()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            aura_is_fire: true,
+            ..base_melee
+        }),
         ..base_c.clone()
     };
     let fast_bow = OffenseProfile::Melee.fast_leaf_dps(bow, bow_stats, &bow_c);

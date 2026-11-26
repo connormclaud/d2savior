@@ -1,6 +1,7 @@
 """Pure-Python unit tests for optimizer modules that run without d2savior._native."""
 
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -54,7 +55,6 @@ from d2savior.optimizer.paladin import (
     select_paladin_max_res_preset,
 )
 from d2savior.optimizer.report import (
-    _charm_key,
     _format_charm_diff_lines,
     _is_inv_loc,
     format_build_report,
@@ -150,7 +150,7 @@ class _FakeItemSpec:
     target_def_pct: int = 0
 
 
-@dataclass
+@dataclass(frozen=True)
 class _FakeCharmSpec:
     name: str
     size: int
@@ -182,7 +182,61 @@ class _FakeCharmSpec:
     psn_dps_2x: int = 0
 
 
-@dataclass
+@dataclass(frozen=True)
+class _FakeCharacterStats:
+    char_class: int = int(CharClass.SORCERESS)
+    char_level: int = 1
+    base_life: int = 0
+    base_mana: int = 0
+    base_str: int = 0
+    base_dex: int = 0
+    base_hell_res: int = -100
+    base_max_fr: int = 0
+    base_max_lr: int = 0
+    base_max_cr: int = 0
+    base_max_pr: int = 0
+    bo_base_bonus: int = 4
+    use_bo: bool = True
+
+
+@dataclass(frozen=True)
+class _FakeTargetProfile:
+    targets: int = 1
+    target_type: str = "champion"
+    target_def: int = 180
+    target_ar: int = 0
+    target_lvl: int = 0
+    target_hp: int = 0
+
+
+@dataclass(frozen=True)
+class _FakeCasterSkillModel:
+    blizz_base_lvl: int = 20
+    blizz_syn_pts: int = 54
+    cm_base_lvl: int = 20
+    blizz_dmg: Sequence[float] = ()
+    filler_dmg: Sequence[float] = ()
+    filler_is_aoe: bool = False
+    cold_armor_kind: int = 0
+    cold_armor_base_lvl: int = 0
+
+
+@dataclass(frozen=True)
+class _FakeMeleeSkillModel:
+    aura_hit_dmg: Sequence[float] = ()
+    aura_pulse_dps: Sequence[float] = ()
+    action_ed: Sequence[int] = ()
+    action_hits: Sequence[int] = ()
+    has_aura: bool = False
+    aura_is_fire: bool = False
+    action_ar_pct: Sequence[int] = ()
+    aura_ar_pct: Sequence[int] = ()
+    aura_target_def_pct: Sequence[int] = ()
+    holy_shield_base_lvl: int = 0
+    defiance_base_lvl: int = 0
+
+
+@dataclass(frozen=True)
 class _FakeConstraints:
     allow_mf: bool = True
     min_fcr: int = 0
@@ -193,35 +247,10 @@ class _FakeConstraints:
     min_pr: int = 0
     max_charm_slots: int = 23
     mode: str = "power"
-    base_life: int = 0
-    base_mana: int = 0
-    base_hell_res: int = -100
-    base_str: int = 0
-    base_dex: int = 0
-    bo_base_bonus: int = 4
     limit: int = 3
-    blizz_base_lvl: int = 20
-    blizz_syn_pts: int = 54
-    cm_base_lvl: int = 20
-    char_class: int = int(CharClass.SORCERESS)
-    base_max_fr: int = 0
-    base_max_lr: int = 0
-    base_max_cr: int = 0
-    base_max_pr: int = 0
-    use_bo: bool = True
     fixed_gear: bool = False
-    fixed_slots: list[str] = field(default_factory=list)
+    fixed_slots: Sequence[str] = ()
     offense: str = "caster"
-    aura_hit_dmg: list[float] = field(default_factory=list)
-    aura_pulse_dps: list[float] = field(default_factory=list)
-    action_ed: list[int] = field(default_factory=list)
-    action_hits: list[int] = field(default_factory=list)
-    has_aura: bool = False
-    aura_is_fire: bool = False
-    targets: int = 1
-    blizz_dmg: list[float] = field(default_factory=list)
-    filler_dmg: list[float] = field(default_factory=list)
-    filler_is_aoe: bool = False
     require_cbf: bool = False
     min_frw: int = 0
     min_ias: int = 0
@@ -229,19 +258,24 @@ class _FakeConstraints:
     min_ll: int = 0
     min_pdr: int = 0
     min_mf: int = 0
-    action_ar_pct: list[int] = field(default_factory=list)
-    aura_ar_pct: list[int] = field(default_factory=list)
-    aura_target_def_pct: list[int] = field(default_factory=list)
-    target_def: int = 180
-    target_ar: int = 0
-    target_lvl: int = 0
-    target_type: str = "champion"
-    char_level: int = 1
-    target_hp: int = 0
-    holy_shield_base_lvl: int = 0
-    defiance_base_lvl: int = 0
-    cold_armor_kind: int = 0
-    cold_armor_base_lvl: int = 0
+    character: _FakeCharacterStats = field(default_factory=_FakeCharacterStats)
+    target: _FakeTargetProfile = field(default_factory=_FakeTargetProfile)
+    skills: _FakeCasterSkillModel | _FakeMeleeSkillModel = field(
+        default_factory=_FakeCasterSkillModel
+    )
+
+    def with_limit(self, limit: int) -> _FakeConstraints:
+        return replace(self, limit=limit)
+
+
+def _patch_fake_constraints(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("d2savior.optimizer.common.BuildConstraints", _FakeConstraints)
+    monkeypatch.setattr("d2savior.optimizer.sorc.CharacterStats", _FakeCharacterStats)
+    monkeypatch.setattr("d2savior.optimizer.sorc.TargetProfile", _FakeTargetProfile)
+    monkeypatch.setattr("d2savior.optimizer.sorc.CasterSkillModel", _FakeCasterSkillModel)
+    monkeypatch.setattr("d2savior.optimizer.paladin.CharacterStats", _FakeCharacterStats)
+    monkeypatch.setattr("d2savior.optimizer.paladin.TargetProfile", _FakeTargetProfile)
+    monkeypatch.setattr("d2savior.optimizer.paladin.MeleeSkillModel", _FakeMeleeSkillModel)
 
 
 @dataclass
@@ -429,19 +463,20 @@ def test_sorc_presets_and_blizz_base_skills(monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(ValueError, match="Unknown build preset"):
         select_sorc_presets(sork, build="invalid")
 
-    monkeypatch.setattr("d2savior.optimizer.common.BuildConstraints", _FakeConstraints)
+    _patch_fake_constraints(monkeypatch)
     all_presets = select_sorc_presets(sork, build="all", max_charm_slots=20, limit=2)
     assert len(all_presets) == 5
     c_sork = cast(_FakeConstraints, all_presets[0][1])
-    assert c_sork.base_hell_res == -20  # Nightmare (-40) + Normal/NM Anya (+20)
-    assert c_sork.bo_base_bonus == 0
-    assert c_sork.use_bo is False
+    assert c_sork.character.base_hell_res == -20  # Nightmare (-40) + Normal/NM Anya (+20)
+    assert c_sork.character.bo_base_bonus == 0
+    assert c_sork.character.use_bo is False
 
     mf_presets = select_sorc_presets(sork, build="mf", resolver=resolver, bo_base_bonus=6)
     assert len(mf_presets) == 2
-    assert cast(_FakeConstraints, mf_presets[0][1]).bo_base_bonus == 6
-    assert cast(_FakeConstraints, mf_presets[0][1]).use_bo is True
-    assert cast(_FakeConstraints, mf_presets[0][1]).mode == "mf"
+    c_mf = cast(_FakeConstraints, mf_presets[0][1])
+    assert c_mf.character.bo_base_bonus == 6
+    assert c_mf.character.use_bo is True
+    assert c_mf.mode == "mf"
     tz_presets = select_sorc_presets(sork, build="tz", resolver=resolver, bo_base_bonus=4)
     assert len(tz_presets) == 1
     assert cast(_FakeConstraints, tz_presets[0][1]).min_fcr == 105
@@ -705,7 +740,7 @@ def test_paladin_baseline_presets_and_leveling_flow(monkeypatch: pytest.MonkeyPa
     mule.skills.skill_levels = [0] * 30
     mule.skills.skill_levels[6] = 20  # Holy Fire
 
-    monkeypatch.setattr("d2savior.optimizer.common.BuildConstraints", _FakeConstraints)
+    _patch_fake_constraints(monkeypatch)
 
     baseline, lvl, diff, spec = _build_paladin_baseline(
         mule,
@@ -720,7 +755,7 @@ def test_paladin_baseline_presets_and_leveling_flow(monkeypatch: pytest.MonkeyPa
     assert lvl >= 1
     assert diff == "Normal"
     assert spec == "holy-fire"
-    assert baseline.bo_base_bonus == 0
+    assert baseline.character.bo_base_bonus == 0
 
     with pytest.raises(ValueError, match="Unknown Paladin spec"):
         _build_paladin_baseline(
@@ -860,7 +895,8 @@ def test_report_formatting_sorc_paladin_and_charms() -> None:
     c_drop = _as_charm(_FakeCharmSpec("Drop GC", 3, "sork Inv", cr=10))
     c_add = _as_charm(_FakeCharmSpec("Luck SC", 1, "Stash Tab 2", mf=7))
     c_noloc = _as_charm(_FakeCharmSpec("Plain SC", 1, ""))
-    assert _charm_key(c_inv1) == _charm_key(c_inv2)
+    assert c_inv1 == c_inv2
+    assert hash(c_inv1) == hash(c_inv2)
     assert _format_charm_diff_lines([], []) == []
 
     diff_lines = _format_charm_diff_lines(
@@ -1835,7 +1871,7 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
     assert smite is not None
     lvl = smite.player_stats.level or smite.char_level
 
-    monkeypatch.setattr("d2savior.optimizer.common.BuildConstraints", _FakeConstraints)
+    _patch_fake_constraints(monkeypatch)
     b_champ, _, _, _ = _build_paladin_baseline(
         smite,
         spec="holy-fire",
@@ -1868,14 +1904,14 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
         keep_equipped=False,
         target_type="boss",
     )
-    assert b_champ.target_type == "champion"
-    assert b_trash.target_type == "trash"
-    assert b_boss.target_type == "boss"
-    assert b_champ.target_def == 6 * lvl
-    assert b_trash.target_def == 6 * lvl
-    assert b_boss.target_def == 9 * lvl
-    assert b_champ.build_constraints(mode="leveling", limit=1).target_type == "champion"
-    assert b_boss.build_constraints(mode="leveling", limit=1).target_type == "boss"
+    assert b_champ.target.target_type == "champion"
+    assert b_trash.target.target_type == "trash"
+    assert b_boss.target.target_type == "boss"
+    assert b_champ.target.target_def == 6 * lvl
+    assert b_trash.target.target_def == 6 * lvl
+    assert b_boss.target.target_def == 9 * lvl
+    assert b_champ.build_constraints(mode="leveling", limit=1).target.target_type == "champion"
+    assert b_boss.build_constraints(mode="leveling", limit=1).target.target_type == "boss"
 
     bad_target: Any = "uber"
     with pytest.raises(ValueError, match="Unknown target_type"):
@@ -2232,7 +2268,7 @@ def test_paladin_passive_max_res_cap_in_alternatives(
     mule.skills.skill_levels[4] = 10  # Resist Fire -> base_max_fr = 5 (cap 80%)
     mule.skills.skill_levels[6] = 20  # Holy Fire
 
-    monkeypatch.setattr("d2savior.optimizer.common.BuildConstraints", _FakeConstraints)
+    _patch_fake_constraints(monkeypatch)
     baseline, _, _, _ = _build_paladin_baseline(
         mule,
         spec="holy-fire",
@@ -2243,7 +2279,7 @@ def test_paladin_passive_max_res_cap_in_alternatives(
         bo_base_bonus=0,
         keep_equipped=False,
     )
-    assert baseline.base_max_fr == 5
+    assert baseline.character.base_max_fr == 5
 
     # Option #1 and #2 reach 75/75/75/75, which is still < 80 passive FR cap,
     # so `_collect_paladin_alternatives` must probe `leveling-res` at `floor_fhr` (0).

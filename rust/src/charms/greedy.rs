@@ -485,7 +485,7 @@ fn greedy_charms_pass_indices(
         SearchMode::Mf => (0.05, 0.02),
         _ => (0.0, 0.2),
     };
-    let class = CharClass::from_id_or_default(c.char_class);
+    let class = CharClass::from_id_or_default(c.character.char_class);
     let res_targets = [c.min_fr, c.min_lr, c.min_cr, c.min_pr];
     if fhr_first {
         greedy_fhr_loop(&mut state, c.min_fhr);
@@ -561,12 +561,12 @@ pub(super) fn greedy_charms_pass<'a>(
 ) -> Option<Vec<&'a CharmSpec>> {
     let (gear, _) = compute_effective_gear_stats(items);
     let leaf = Stats {
-        fr: gear.fr + c.base_hell_res,
-        lr: gear.lr + c.base_hell_res,
-        cr: gear.cr + c.base_hell_res,
-        pr: gear.pr + c.base_hell_res,
-        str_bonus: gear.str_bonus + c.base_str,
-        dex_bonus: gear.dex_bonus + c.base_dex,
+        fr: gear.fr + c.character.base_hell_res,
+        lr: gear.lr + c.character.base_hell_res,
+        cr: gear.cr + c.character.base_hell_res,
+        pr: gear.pr + c.character.base_hell_res,
+        str_bonus: gear.str_bonus + c.character.base_str,
+        dex_bonus: gear.dex_bonus + c.character.base_dex,
         ..gear
     };
     greedy_charms_pass_indices(

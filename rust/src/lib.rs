@@ -14,13 +14,20 @@ pub use search::{optimize_builds, score_of_result};
 pub use search::{
     ScoreTuple, optimize_builds_core, optimize_builds_with_baseline, score_of_result_core,
 };
-pub use types::{BuildConstraints, BuildResult, CharmSpec, ItemSpec};
+pub use types::{
+    BuildConstraints, BuildResult, CasterSkillModel, CharacterStats, CharmSpec, ItemSpec,
+    MeleeSkillModel, SkillModel, TargetProfile,
+};
 
 #[cfg(feature = "python")]
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ItemSpec>()?;
     m.add_class::<CharmSpec>()?;
+    m.add_class::<CharacterStats>()?;
+    m.add_class::<TargetProfile>()?;
+    m.add_class::<CasterSkillModel>()?;
+    m.add_class::<MeleeSkillModel>()?;
     m.add_class::<BuildConstraints>()?;
     m.add_class::<BuildResult>()?;
     m.add_function(wrap_pyfunction!(evaluate_build, m)?)?;

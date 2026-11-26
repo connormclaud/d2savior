@@ -20,8 +20,13 @@ if TYPE_CHECKING:
     from d2savior._native import (
         BuildConstraints,
         BuildResult,
+        CasterSkillModel,
+        CharacterStats,
         CharmSpec,
         ItemSpec,
+        MeleeSkillModel,
+        SkillModel,
+        TargetProfile,
         blizzard_damage,
         blizzard_damage_with_base,
         class_breakpoints,
@@ -36,8 +41,12 @@ else:
         from d2savior._native import (
             BuildConstraints,
             BuildResult,
+            CasterSkillModel,
+            CharacterStats,
             CharmSpec,
             ItemSpec,
+            MeleeSkillModel,
+            TargetProfile,
             blizzard_damage,
             blizzard_damage_with_base,
             class_breakpoints,
@@ -46,13 +55,19 @@ else:
             score_of_result,
         )
 
+        type SkillModel = CasterSkillModel | MeleeSkillModel
         HAS_NATIVE = True
     except ImportError:
         HAS_NATIVE = False
         BuildConstraints = _missing_native
         BuildResult = _missing_native
+        CasterSkillModel = _missing_native
+        CharacterStats = _missing_native
         CharmSpec = _missing_native
         ItemSpec = _missing_native
+        MeleeSkillModel = _missing_native
+        TargetProfile = _missing_native
+        type SkillModel = object
         blizzard_damage = _missing_native
         blizzard_damage_with_base = _missing_native
         class_breakpoints = _missing_native

@@ -331,10 +331,11 @@ pub(crate) fn score_eval_summary(
     sum: &EvalSummary,
     c: &BuildConstraints,
 ) -> BuildScore {
+    let has_aura = c.skills.has_aura();
     let eff_primary = if offense.is_melee_dps()
-        && (c.has_aura || sum.action_skill_bonus != 0 || sum.aura_skill_bonus != 0)
+        && (has_aura || sum.action_skill_bonus != 0 || sum.aura_skill_bonus != 0)
     {
-        let bonus = if c.has_aura {
+        let bonus = if has_aura {
             sum.aura_skill_bonus
         } else {
             sum.action_skill_bonus.max(sum.aura_skill_bonus)
@@ -588,14 +589,21 @@ fn prune_slot_items(
     offense: OffenseProfile,
     c: &BuildConstraints,
 ) -> Vec<ItemSpec> {
-    prune_candidates(items, c.limit, is_ring, c.base_str, c.base_dex, |it| {
-        (
-            &it.name,
-            it.stats().for_mode(mode, offense, c),
-            item_eff_reqs(it),
-            single_set_sig(it),
-        )
-    })
+    prune_candidates(
+        items,
+        c.limit,
+        is_ring,
+        c.character.base_str,
+        c.character.base_dex,
+        |it| {
+            (
+                &it.name,
+                it.stats().for_mode(mode, offense, c),
+                item_eff_reqs(it),
+                single_set_sig(it),
+            )
+        },
+    )
 }
 
 fn empty_dominators(
@@ -612,7 +620,7 @@ fn empty_dominators(
                 && it.wsm == 0
                 && dominates_empty(
                     it.stats().for_mode(mode, offense, c),
-                    item_prune_reqs(it, c.base_str, c.base_dex),
+                    item_prune_reqs(it, c.character.base_str, c.character.base_dex),
                 )
         })
         .count()
@@ -722,8 +730,8 @@ fn build_hands(
         weapons_1h,
         c.limit,
         false,
-        c.base_str,
-        c.base_dex,
+        c.character.base_str,
+        c.character.base_dex,
         |it| {
             (
                 &it.name,
@@ -741,8 +749,8 @@ fn build_hands(
         weapons_2h,
         c.limit,
         false,
-        c.base_str,
-        c.base_dex,
+        c.character.base_str,
+        c.character.base_dex,
         |it| {
             (
                 &it.name,
@@ -783,7 +791,7 @@ fn build_hands(
                     && offense.weapon_anim_key(mode, h.first.hand_weapon()) == empty_anim
                     && dominates_empty(
                         wep_prune_stats(&h.combined),
-                        normalize_reqs(h.reqs, c.base_str, c.base_dex),
+                        normalize_reqs(h.reqs, c.character.base_str, c.character.base_dex),
                     )
             });
             if !has_empty_dom {
@@ -805,17 +813,24 @@ fn build_hands(
             h.max_stats.defense,
         ))
     });
-    prune_candidates(hands, c.limit, false, c.base_str, c.base_dex, |h| {
-        (
-            &h.combined.name,
-            wep_prune_stats(&h.combined),
-            h.reqs,
+    prune_candidates(
+        hands,
+        c.limit,
+        false,
+        c.character.base_str,
+        c.character.base_dex,
+        |h| {
             (
-                offense.weapon_anim_key(mode, h.first.hand_weapon()),
-                h.set_sig.clone(),
-            ),
-        )
-    })
+                &h.combined.name,
+                wep_prune_stats(&h.combined),
+                h.reqs,
+                (
+                    offense.weapon_anim_key(mode, h.first.hand_weapon()),
+                    h.set_sig.clone(),
+                ),
+            )
+        },
+    )
 }
 
 pub(crate) fn normalize_set_items(
@@ -1091,8 +1106,9 @@ impl<'a> SearchState<'a> {
         hand: Option<HandWeapon>,
         caps: (i32, i32, i32, i32),
     ) -> bool {
+        let has_aura = self.c.skills.has_aura();
         let level_scores = || {
-            let eff_primary_ub = ub_ch.primary_power_skills_for(self.offense, self.c.has_aura);
+            let eff_primary_ub = ub_ch.primary_power_skills_for(self.offense, has_aura);
             let off_ub = if self.offense.uses_dps_tables(self.c) {
                 match hand {
                     Some(hw) => {
@@ -1116,7 +1132,7 @@ impl<'a> SearchState<'a> {
                 let power_ub = if self.offense.uses_caster_dps(self.c) {
                     self.offense.compute_caster_dps(ub_ch, self.c).floor() as i32
                 } else {
-                    ub_ch.primary_power_skills_for(self.offense, self.c.has_aura)
+                    ub_ch.primary_power_skills_for(self.offense, has_aura)
                 };
                 power_ub < cutoff
             }),
@@ -1127,7 +1143,7 @@ impl<'a> SearchState<'a> {
             SearchMode::MaxRes => self.top_results.nth_top2().is_some_and(|cutoff| {
                 (
                     capped_res_sum(ub_ch.fr, ub_ch.lr, ub_ch.cr, ub_ch.pr, caps),
-                    ub_ch.primary_power_skills_for(self.offense, self.c.has_aura),
+                    ub_ch.primary_power_skills_for(self.offense, has_aura),
                 ) < cutoff
             }),
             SearchMode::Leveling => self
@@ -1202,12 +1218,12 @@ impl<'a> SearchState<'a> {
                     let (gear, all_sk_non_wep, reqs_exact) =
                         compute_effective_gear_stats_and_reqs(&items_ref);
                     let leaf = Stats {
-                        fr: gear.fr + self.c.base_hell_res,
-                        lr: gear.lr + self.c.base_hell_res,
-                        cr: gear.cr + self.c.base_hell_res,
-                        pr: gear.pr + self.c.base_hell_res,
-                        str_bonus: gear.str_bonus + self.c.base_str,
-                        dex_bonus: gear.dex_bonus + self.c.base_dex,
+                        fr: gear.fr + self.c.character.base_hell_res,
+                        lr: gear.lr + self.c.character.base_hell_res,
+                        cr: gear.cr + self.c.character.base_hell_res,
+                        pr: gear.pr + self.c.character.base_hell_res,
+                        str_bonus: gear.str_bonus + self.c.character.base_str,
+                        dex_bonus: gear.dex_bonus + self.c.character.base_dex,
                         ..gear
                     };
                     (Some(items_ref), gear, leaf, all_sk_non_wep, reqs_exact)
@@ -1215,12 +1231,12 @@ impl<'a> SearchState<'a> {
                     // With no set pieces anywhere on the leaf, `cur.acc.add(rp.max_stats)` is exact.
                     let leaf = cur.acc.add(rp_max_stats);
                     let gear = Stats {
-                        fr: leaf.fr - self.c.base_hell_res,
-                        lr: leaf.lr - self.c.base_hell_res,
-                        cr: leaf.cr - self.c.base_hell_res,
-                        pr: leaf.pr - self.c.base_hell_res,
-                        str_bonus: leaf.str_bonus - self.c.base_str,
-                        dex_bonus: leaf.dex_bonus - self.c.base_dex,
+                        fr: leaf.fr - self.c.character.base_hell_res,
+                        lr: leaf.lr - self.c.character.base_hell_res,
+                        cr: leaf.cr - self.c.character.base_hell_res,
+                        pr: leaf.pr - self.c.character.base_hell_res,
+                        str_bonus: leaf.str_bonus - self.c.character.base_str,
+                        dex_bonus: leaf.dex_bonus - self.c.character.base_dex,
                         ..leaf
                     };
                     (
@@ -1272,7 +1288,8 @@ impl<'a> SearchState<'a> {
                             })
                             .unwrap_or(max_k + 1)
                     } else {
-                        let cur_sk = leaf.primary_power_skills_for(self.offense, self.c.has_aura);
+                        let cur_sk =
+                            leaf.primary_power_skills_for(self.offense, self.c.skills.has_aura());
                         (cut - cur_sk).max(0)
                     }
                 }),
@@ -1421,9 +1438,9 @@ fn build_score_of_result(
 
 /// Compute the comparable Rust score tuple (without locality) for an evaluated `BuildResult`.
 pub fn score_of_result_core(res: &BuildResult, c: &BuildConstraints) -> Result<ScoreTuple, String> {
-    let class = CharClass::from_id(c.char_class)?;
+    let class = CharClass::from_id(c.character.char_class)?;
     let offense = OffenseProfile::parse(&c.offense, class)?;
-    TargetType::parse(&c.target_type)?;
+    TargetType::parse(&c.target.target_type)?;
     let mode = SearchMode::parse(&c.mode)?;
     Ok(build_score_of_result(res, mode, offense, c).without_locality_tuple())
 }
@@ -1440,12 +1457,12 @@ fn run_search_pass(
     let ch = charm_solver.charm_ub_stats();
 
     let init_acc = Stats {
-        fr: c.base_hell_res,
-        lr: c.base_hell_res,
-        cr: c.base_hell_res,
-        pr: c.base_hell_res,
-        str_bonus: c.base_str,
-        dex_bonus: c.base_dex,
+        fr: c.character.base_hell_res,
+        lr: c.character.base_hell_res,
+        cr: c.character.base_hell_res,
+        pr: c.character.base_hell_res,
+        str_bonus: c.character.base_str,
+        dex_bonus: c.character.base_dex,
         ..Default::default()
     };
 
@@ -1528,9 +1545,9 @@ pub fn optimize_builds_with_baseline(
     c: &BuildConstraints,
     baseline: Option<&BuildResult>,
 ) -> Result<Vec<BuildResult>, String> {
-    let class = CharClass::from_id(c.char_class)?;
+    let class = CharClass::from_id(c.character.char_class)?;
     let offense = OffenseProfile::parse(&c.offense, class)?;
-    TargetType::parse(&c.target_type)?;
+    TargetType::parse(&c.target.target_type)?;
     let mode = SearchMode::parse(&c.mode)?;
 
     let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;

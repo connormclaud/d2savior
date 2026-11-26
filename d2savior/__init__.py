@@ -18,8 +18,12 @@ lazy from d2savior.core.stash_formatter import format_stash_info, format_stash_s
 lazy from d2savior.optimizer import (
     BuildConstraints,
     BuildResult,
+    CasterSkillModel,
+    CharacterStats,
     CharmSpec,
     ItemSpec,
+    MeleeSkillModel,
+    TargetProfile,
     extract_pool,
     optimize_builds,
 )
@@ -29,6 +33,8 @@ __version__ = "0.1.0"
 __all__ = [
     "BuildConstraints",
     "BuildResult",
+    "CasterSkillModel",
+    "CharacterStats",
     "CharmSpec",
     "D2Item",
     "D2SStruct",
@@ -37,9 +43,11 @@ __all__ = [
     "IBitStream",
     "ItemList",
     "ItemSpec",
+    "MeleeSkillModel",
     "OBitStream",
     "SharedStash",
     "StashTab",
+    "TargetProfile",
     "VersionData",
     "__version__",
     "extract_pool",

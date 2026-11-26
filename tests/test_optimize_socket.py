@@ -361,9 +361,9 @@ def test_theoretical_socket_paladin_lvl99_preserves_base_stats(
         resolver=game_data_resolver,
         char_level_override=99,
     )
-    assert constraints_99.char_level == 99
-    assert constraints_99.base_str == smite.player_stats.strength
-    assert constraints_99.base_dex == smite.player_stats.dexterity
+    assert constraints_99.character.char_level == 99
+    assert constraints_99.character.base_str == smite.player_stats.strength
+    assert constraints_99.character.base_dex == smite.player_stats.dexterity
     assert "lvl 99" in title_99
 
     rep_owned = optimize_socket_quests(

@@ -20,7 +20,14 @@ from d2savior.optimizer.common import (
     synthesize_monster_stats,
     validate_sorceress,
 )
-from d2savior.optimizer.native import BuildConstraints, SearchModeStr, TargetTypeStr
+from d2savior.optimizer.native import (
+    BuildConstraints,
+    CasterSkillModel,
+    CharacterStats,
+    SearchModeStr,
+    TargetProfile,
+    TargetTypeStr,
+)
 from d2savior.optimizer.presets import ConstraintOverrides, resolve_build_expr
 from d2savior.optimizer.skill_tables import build_sorc_dps_tables, resolve_sorc_cold_armor
 
@@ -184,32 +191,38 @@ def select_sorc_presets(
     )
     fixed_all, fixed_slots = resolve_fixed_gear(keep_equipped)
     baseline = CharacterBaseline(
-        char_class=int(CharClass.SORCERESS),
-        base_life=char_data.player_stats.max_life,
-        base_mana=char_data.player_stats.max_mana,
-        base_hell_res=base_res,
-        base_str=char_data.player_stats.strength,
-        base_dex=char_data.player_stats.dexterity,
+        character=CharacterStats(
+            char_class=int(CharClass.SORCERESS),
+            char_level=char_level,
+            base_life=char_data.player_stats.max_life,
+            base_mana=char_data.player_stats.max_mana,
+            base_str=char_data.player_stats.strength,
+            base_dex=char_data.player_stats.dexterity,
+            base_hell_res=base_res,
+            bo_base_bonus=bo_base_bonus,
+            use_bo=bo_base_bonus > 0,
+        ),
+        target=TargetProfile(
+            targets=eff_targets,
+            target_type=resolved_target_type,
+            target_def=target_def,
+            target_ar=target_ar,
+            target_lvl=target_lvl,
+            target_hp=target_hp,
+        ),
+        skills=CasterSkillModel(
+            blizz_base_lvl=blizz_base_lvl,
+            blizz_syn_pts=blizz_syn_pts,
+            cm_base_lvl=cm_base_lvl,
+            blizz_dmg=sorc_dps.blizz_dmg,
+            filler_dmg=sorc_dps.filler_dmg,
+            filler_is_aoe=sorc_dps.filler_is_aoe,
+            cold_armor_kind=cold_armor_kind,
+            cold_armor_base_lvl=cold_armor_base_lvl,
+        ),
         max_charm_slots=max_charm_slots,
-        bo_base_bonus=bo_base_bonus,
-        use_bo=bo_base_bonus > 0,
         fixed_gear=fixed_all,
         fixed_slots=fixed_slots,
-        blizz_base_lvl=blizz_base_lvl,
-        blizz_syn_pts=blizz_syn_pts,
-        cm_base_lvl=cm_base_lvl,
-        targets=eff_targets,
-        blizz_dmg=sorc_dps.blizz_dmg,
-        filler_dmg=sorc_dps.filler_dmg,
-        filler_is_aoe=sorc_dps.filler_is_aoe,
-        target_def=target_def,
-        target_ar=target_ar,
-        target_lvl=target_lvl,
-        target_type=resolved_target_type,
-        char_level=char_level,
-        target_hp=target_hp,
-        cold_armor_kind=cold_armor_kind,
-        cold_armor_base_lvl=cold_armor_base_lvl,
     )
 
     out: list[tuple[str, BuildConstraints]] = []

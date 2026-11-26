@@ -4,9 +4,9 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::types::{
-    compute_effective_gear_stats, equipped_hand_weapon, BuildConstraints, BuildResult, CharClass,
-    CharmSpec, HandWeapon, ItemSpec, OffenseProfile, Stats, BASE_MAX_RES, HARD_MAX_PDR_PCT,
-    HARD_MAX_RES,
+    compute_effective_gear_stats, equipped_hand_weapon, BuildConstraints, BuildResult,
+    CasterSkillModel, CharClass, CharacterStats, CharmSpec, HandWeapon, ItemSpec, OffenseProfile,
+    SkillModel, Stats, BASE_MAX_RES, HARD_MAX_PDR_PCT, HARD_MAX_RES,
 };
 #[cfg(feature = "python")]
 use crate::types::TargetType;
@@ -83,19 +83,19 @@ pub fn blizzard_damage(skills: i32) -> (f64, f64, i32) {
 
 pub(crate) fn base_res_caps(c: &BuildConstraints) -> (i32, i32, i32, i32) {
     (
-        (BASE_MAX_RES + c.base_max_fr).min(HARD_MAX_RES),
-        (BASE_MAX_RES + c.base_max_lr).min(HARD_MAX_RES),
-        (BASE_MAX_RES + c.base_max_cr).min(HARD_MAX_RES),
-        (BASE_MAX_RES + c.base_max_pr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.character.base_max_fr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.character.base_max_lr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.character.base_max_cr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.character.base_max_pr).min(HARD_MAX_RES),
     )
 }
 
 pub(crate) fn res_caps(max_res: Stats, c: &BuildConstraints) -> (i32, i32, i32, i32) {
     (
-        (BASE_MAX_RES + c.base_max_fr + max_res.max_fr).min(HARD_MAX_RES),
-        (BASE_MAX_RES + c.base_max_lr + max_res.max_lr).min(HARD_MAX_RES),
-        (BASE_MAX_RES + c.base_max_cr + max_res.max_cr).min(HARD_MAX_RES),
-        (BASE_MAX_RES + c.base_max_pr + max_res.max_pr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.character.base_max_fr + max_res.max_fr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.character.base_max_lr + max_res.max_lr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.character.base_max_cr + max_res.max_cr).min(HARD_MAX_RES),
+        (BASE_MAX_RES + c.character.base_max_pr + max_res.max_pr).min(HARD_MAX_RES),
     )
 }
 
@@ -259,22 +259,22 @@ pub(crate) fn eval_build_summary(
     let frw = gear.frw + charm_frw;
     let mf = gear.mf + charm_mf;
 
-    let fr_raw = c.base_hell_res + gear.fr + charm_fr;
-    let lr_raw = c.base_hell_res + gear.lr + charm_lr;
-    let cr_raw = c.base_hell_res + gear.cr + charm_cr;
-    let pr_raw = c.base_hell_res + gear.pr + charm_pr;
+    let fr_raw = c.character.base_hell_res + gear.fr + charm_fr;
+    let lr_raw = c.character.base_hell_res + gear.lr + charm_lr;
+    let cr_raw = c.character.base_hell_res + gear.cr + charm_cr;
+    let pr_raw = c.character.base_hell_res + gear.pr + charm_pr;
 
-    let class = CharClass::from_id_or_default(c.char_class);
+    let class = CharClass::from_id_or_default(c.character.char_class);
     let vit_life = class.life_per_vit(gear.vit + charm_vit);
     let ene_mana = class.mana_per_ene(gear.ene + charm_ene);
 
-    let bo_able_life = c.base_life + gear.life + charm_life;
-    let bo_able_mana = c.base_mana + gear.mana + charm_mana;
+    let bo_able_life = c.character.base_life + gear.life + charm_life;
+    let bo_able_mana = c.character.base_mana + gear.mana + charm_mana;
     let life_no_bo = (bo_able_life as f64 * (1.0 + gear.pct_life as f64 / 100.0)) as i32
         + vit_life
         + gear.life_per_lvl;
-    let (bo_lvl, life_bo, mana_bo) = if c.use_bo {
-        let bo_lvl = c.bo_base_bonus + all_sk_non_wep + charm_all_skills;
+    let (bo_lvl, life_bo, mana_bo) = if c.character.use_bo {
+        let bo_lvl = c.character.bo_base_bonus + all_sk_non_wep + charm_all_skills;
         let bo_pct = 32 + 3 * bo_lvl;
         let life_bo = (bo_able_life as f64 * (1.0 + (bo_pct + gear.pct_life) as f64 / 100.0))
             as i32
@@ -292,24 +292,34 @@ pub(crate) fn eval_build_summary(
         (0, life_no_bo, mana_no_bo)
     };
 
+    let (blizz_base_lvl, blizz_syn_pts, cm_base_lvl, cold_armor_kind, cold_armor_base_lvl) =
+        match c.skills.caster() {
+            Some(caster) => (
+                caster.blizz_base_lvl,
+                caster.blizz_syn_pts,
+                caster.cm_base_lvl,
+                caster.cold_armor_kind,
+                caster.cold_armor_base_lvl,
+            ),
+            None => (0, 0, 0, 0, 0),
+        };
+    let (holy_shield_base_lvl, defiance_base_lvl) = match c.skills.melee() {
+        Some(melee) => (melee.holy_shield_base_lvl, melee.defiance_base_lvl),
+        None => (0, 0),
+    };
+
     let (_, blizz_avg_base, cm_pierce) = if class.has_blizzard_calc() {
-        let blizz_eff = if c.blizz_base_lvl > 0 || gear.blizz_skills > 0 {
+        let blizz_eff = if blizz_base_lvl > 0 || gear.blizz_skills > 0 {
             skills + gear.blizz_skills
         } else {
             0
         };
-        let cm_eff = if c.cm_base_lvl > 0 || gear.cm_skills > 0 {
+        let cm_eff = if cm_base_lvl > 0 || gear.cm_skills > 0 {
             skills + gear.cm_skills
         } else {
             0
         };
-        blizzard_damage_split(
-            blizz_eff,
-            c.blizz_base_lvl,
-            c.blizz_syn_pts,
-            cm_eff,
-            c.cm_base_lvl,
-        )
+        blizzard_damage_split(blizz_eff, blizz_base_lvl, blizz_syn_pts, cm_eff, cm_base_lvl)
     } else {
         (0.0, 0.0, 0)
     };
@@ -328,8 +338,8 @@ pub(crate) fn eval_build_summary(
         pal_skills: gear.pal_skills + charm_pal_skills,
         action_skill_bonus,
         aura_skill_bonus,
-        str_bonus: c.base_str + gear.str_bonus + charm_str,
-        dex_bonus: c.base_dex + gear.dex_bonus + charm_dex,
+        str_bonus: c.character.base_str + gear.str_bonus + charm_str,
+        dex_bonus: c.character.base_dex + gear.dex_bonus + charm_dex,
         ar: gear.ar + charm_ar,
         flat_phys_2x: gear.flat_phys_2x + charm_flat_phys_2x,
         flat_fire_2x: gear.flat_fire_2x + charm_flat_fire_2x,
@@ -366,23 +376,23 @@ pub(crate) fn eval_build_summary(
             )
         };
 
-    let total_dex = c.base_dex + gear.dex_bonus + charm_dex;
+    let total_dex = c.character.base_dex + gear.dex_bonus + charm_dex;
     let base_def = (gear.defense + total_dex.max(0) / 4).max(0);
     let hs_bonus =
         skills + gear.def_skill + if offense.is_melee_dps() { charm_action_skills } else { 0 };
-    let hs_slvl = if class == CharClass::Paladin && has_shield && c.holy_shield_base_lvl > 0 {
-        (c.holy_shield_base_lvl + hs_bonus).max(1)
+    let hs_slvl = if class == CharClass::Paladin && has_shield && holy_shield_base_lvl > 0 {
+        (holy_shield_base_lvl + hs_bonus).max(1)
     } else {
         0
     };
     let (skill_def_pct, hs_block) = match class {
         CharClass::Paladin if hs_slvl > 0 => (
-            25 + 15 * (hs_slvl - 1) + 15 * c.defiance_base_lvl.max(0),
+            25 + 15 * (hs_slvl - 1) + 15 * defiance_base_lvl.max(0),
             10 + (30 * ((110 * hs_slvl) / (hs_slvl + 6))) / 100,
         ),
-        CharClass::Sorceress if c.cold_armor_base_lvl > 0 || gear.def_skill > 0 => {
-            let ca_slvl = (c.cold_armor_base_lvl + skills + gear.def_skill).max(1);
-            let ed = match c.cold_armor_kind {
+        CharClass::Sorceress if cold_armor_base_lvl > 0 || gear.def_skill > 0 => {
+            let ca_slvl = (cold_armor_base_lvl + skills + gear.def_skill).max(1);
+            let ed = match cold_armor_kind {
                 1 => 30 + 5 * (ca_slvl - 1),
                 2 => 45 + 6 * (ca_slvl - 1),
                 3 => 60 + 9 * (ca_slvl - 1),
@@ -393,11 +403,11 @@ pub(crate) fn eval_build_summary(
         _ => (0, 0),
     };
     let defense = ((base_def as i64 * (100 + skill_def_pct as i64)) / 100) as i32;
-    let enemy_cth = if c.target_ar > 0 {
-        let ar_f = c.target_ar as f64;
+    let enemy_cth = if c.target.target_ar > 0 {
+        let ar_f = c.target.target_ar as f64;
         let def_f = defense.max(0) as f64;
-        let mlvl_f = c.target_lvl.max(1) as f64;
-        let clvl_f = c.char_level.max(1) as f64;
+        let mlvl_f = c.target.target_lvl.max(1) as f64;
+        let clvl_f = c.character.char_level.max(1) as f64;
         let raw = 2.0 * (ar_f / (ar_f + def_f)) * (mlvl_f / (mlvl_f + clvl_f));
         (raw.clamp(0.05, 0.95) * 100.0).round() as i32
     } else {
@@ -406,7 +416,7 @@ pub(crate) fn eval_build_summary(
     let (block_pct, fbr, fbr_bp, fbr_frames) = if has_shield {
         let shield_block = (gear.block_pct + class.class_block_bonus() + hs_block).max(0);
         let eff_dex = (total_dex - 15).max(0);
-        let clvl = c.char_level.max(1);
+        let clvl = c.character.char_level.max(1);
         let block = ((shield_block * eff_dex) / (2 * clvl)).clamp(0, 75);
         let total_fbr = gear.fbr.max(0);
         let (bp, frames) = class.fbr_bp_and_frames(total_fbr, hs_slvl > 0);
@@ -512,19 +522,25 @@ pub fn evaluate_build_core(
     let item_refs: Vec<&ItemSpec> = items.iter().collect();
     let charm_refs: Vec<&CharmSpec> = charms.iter().collect();
     let c = BuildConstraints {
-        base_life,
-        base_mana,
-        base_hell_res,
-        bo_base_bonus,
-        blizz_base_lvl,
-        blizz_syn_pts,
-        cm_base_lvl,
-        char_class,
-        use_bo,
-        base_max_fr,
-        base_max_lr,
-        base_max_cr,
-        base_max_pr,
+        character: CharacterStats {
+            char_class,
+            base_life,
+            base_mana,
+            base_hell_res,
+            base_max_fr,
+            base_max_lr,
+            base_max_cr,
+            base_max_pr,
+            bo_base_bonus,
+            use_bo,
+            ..Default::default()
+        },
+        skills: SkillModel::Caster(CasterSkillModel {
+            blizz_base_lvl,
+            blizz_syn_pts,
+            cm_base_lvl,
+            ..Default::default()
+        }),
         ..Default::default()
     };
     Ok(eval_build_core(&item_refs, &charm_refs, &c, 1))
@@ -571,8 +587,8 @@ pub fn evaluate_build(
     constraints: Option<BuildConstraints>,
 ) -> PyResult<BuildResult> {
     if let Some(c) = constraints.as_ref() {
-        CharClass::from_id(c.char_class).map_err(PyValueError::new_err)?;
-        TargetType::parse(&c.target_type).map_err(PyValueError::new_err)?;
+        CharClass::from_id(c.character.char_class).map_err(PyValueError::new_err)?;
+        TargetType::parse(&c.target.target_type).map_err(PyValueError::new_err)?;
         let item_refs: Vec<&ItemSpec> = items.iter().collect();
         let charm_refs: Vec<&CharmSpec> = charms.iter().collect();
         return Ok(eval_build_core(&item_refs, &charm_refs, c, 1));

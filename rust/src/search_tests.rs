@@ -1,5 +1,8 @@
 use super::*;
-use crate::types::{equipped_hand_weapon, mk_test_item as mk_item, test_constraints};
+use crate::types::{
+    equipped_hand_weapon, mk_test_item as mk_item, test_constraints, CasterSkillModel,
+    CharacterStats, MeleeSkillModel, SkillModel, TargetProfile,
+};
 
 #[test]
 fn test_optimize_builds_basic() {
@@ -86,7 +89,10 @@ fn test_str_dex_requirements() {
 
     // With base_dex = 20 (20 + 20 = 40 < 42), High Dex Blade CANNOT be equipped -> falls back to Low Dex Wand.
     let c_low = BuildConstraints {
-        base_dex: 20,
+        character: CharacterStats {
+            base_dex: 20,
+            ..c_ok.character.clone()
+        },
         ..c_ok
     };
     let res_low = optimize_builds_core(&items, &[], &c_low).unwrap();
@@ -669,7 +675,10 @@ fn test_belt_potion_capacity_and_defense_break_ties_and_prevent_domination() {
     // When base_str=45, Battle Belt (req_str=88) no longer dominates Heavy Belt (req_str=45 -> 0),
     // and only Heavy Belt is equippable without extra Str.
     let c_low_str = BuildConstraints {
-        base_str: 45,
+        character: CharacterStats {
+            base_str: 45,
+            ..c.character.clone()
+        },
         limit: 3,
         ..c.clone()
     };
@@ -832,7 +841,7 @@ fn validate_and_score_result(
     c: &BuildConstraints,
     mode: SearchMode,
 ) -> BuildScore {
-    let class = CharClass::from_id(c.char_class).unwrap();
+    let class = CharClass::from_id(c.character.char_class).unwrap();
     let offense = OffenseProfile::parse(&c.offense, class).unwrap();
     let item_refs: Vec<&ItemSpec> = res.items.iter().collect();
     let (gear, all_sk_non_wep, reqs) = compute_effective_gear_stats_and_reqs(&item_refs);
@@ -851,8 +860,8 @@ fn validate_and_score_result(
         charm_dex += ch.dex_bonus;
     }
 
-    assert!(c.base_str + gear.str_bonus + charm_str >= reqs.0);
-    assert!(c.base_dex + gear.dex_bonus + charm_dex >= reqs.1);
+    assert!(c.character.base_str + gear.str_bonus + charm_str >= reqs.0);
+    assert!(c.character.base_dex + gear.dex_bonus + charm_dex >= reqs.1);
 
     let hand = equipped_hand_weapon(&item_refs);
     let has_shield = item_refs
@@ -883,7 +892,7 @@ fn brute_force_top_scores(
     c: &BuildConstraints,
     mode: SearchMode,
 ) -> Vec<BuildScore> {
-    let class = CharClass::from_id(c.char_class).unwrap();
+    let class = CharClass::from_id(c.character.char_class).unwrap();
     let offense = OffenseProfile::parse(&c.offense, class).unwrap();
     let require_shield = offense.requires_shield();
     let require_melee = offense.requires_melee() && !c.is_hands_fixed();
@@ -948,8 +957,8 @@ fn brute_force_top_scores(
             let comb = a.stats().add(b.stats()).for_mode(mode, offense, c);
             let reqs = normalize_reqs(
                 merge_reqs(item_eff_reqs(a), item_eff_reqs(b)),
-                c.base_str,
-                c.base_dex,
+                c.character.base_str,
+                c.character.base_dex,
             );
             a.set_group == 0
                 && b.set_group == 0
@@ -1059,8 +1068,8 @@ fn brute_force_top_scores(
                         if !valid_subset {
                             continue;
                         }
-                        if c.base_str + gear.str_bonus + c_str < reqs.0
-                            || c.base_dex + gear.dex_bonus + c_dex < reqs.1
+                        if c.character.base_str + gear.str_bonus + c_str < reqs.0
+                            || c.character.base_dex + gear.dex_bonus + c_dex < reqs.1
                         {
                             continue;
                         }
@@ -1223,9 +1232,12 @@ fn gen_random_case(rng: &mut SplitMix64, seed_idx: usize) -> (Vec<ItemSpec>, Vec
         min_pr: rng.pick(&[0, 20, 50]),
         max_charm_slots: rng.pick(&[3, 4, 5, 6, 8]),
         allow_mf: rng.gen_range(0, 3) != 0,
-        base_str: rng.pick(&[60, 80, 110]),
-        base_dex: rng.pick(&[0, 15, 30]),
         limit: rng.gen_range(1, 3) as usize,
+        character: CharacterStats {
+            base_str: rng.pick(&[60, 80, 110]),
+            base_dex: rng.pick(&[0, 15, 30]),
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     (items, charms, c, mode)
@@ -1308,7 +1320,10 @@ fn test_empty_slot_fallback_allows_missing_shield_belt_and_rings() {
     let mut with_heavy_shield = items;
     with_heavy_shield.push(monarch);
     let c_low_str = BuildConstraints {
-        base_str: 60,
+        character: CharacterStats {
+            base_str: 60,
+            ..c.character.clone()
+        },
         ..c
     };
     let res_low = optimize_builds_core(&with_heavy_shield, &[], &c_low_str).unwrap();
@@ -1458,11 +1473,14 @@ fn test_exhaustive_brute_force_max_res_negative_res_overcap() {
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
-        base_str: 0,
-        base_dex: 0,
         max_charm_slots: 2,
         limit: 2,
+        character: CharacterStats {
+            base_hell_res: 0,
+            base_str: 0,
+            base_dex: 0,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
 
@@ -1526,10 +1544,13 @@ fn test_exhaustive_brute_force_max_res_negative_res_overcap() {
             min_lr: 0,
             min_cr: rng.pick(&[0, 20]),
             min_pr: 0,
-            base_hell_res: 0,
-            base_str: 0,
             max_charm_slots: rng.pick(&[2, 3, 4]),
             limit: rng.gen_range(1, 3) as usize,
+            character: CharacterStats {
+                base_hell_res: 0,
+                base_str: 0,
+                ..test_constraints().character
+            },
             ..test_constraints()
         };
         let exp: Vec<i32> = brute_force_top_scores(&items, &fuzz_charms, &fc, SearchMode::MaxRes)
@@ -1691,9 +1712,6 @@ fn test_leveling_res_and_smite_modes_and_require_shield() {
     // LevelingRes caps res score at 75, so once 75/75/75/75 is achieved via Rondache + Amulet + Belt (124 res -> capped 75 in Normal),
     // Spirit Shroud (+1 all_skills, CBF) beats Darkglow (+5 max_res).
     let c_lvl_res = BuildConstraints {
-        char_class: 3,
-        use_bo: false,
-        base_hell_res: 0,
         mode: "leveling-res".to_string(),
         min_fcr: 0,
         min_fhr: 0,
@@ -1702,6 +1720,12 @@ fn test_leveling_res_and_smite_modes_and_require_shield() {
         min_cr: 0,
         min_pr: 0,
         limit: 3,
+        character: CharacterStats {
+            char_class: 3,
+            use_bo: false,
+            base_hell_res: 0,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res_lvl = optimize_builds_core(&items, &[], &c_lvl_res).unwrap();
@@ -1783,22 +1807,8 @@ fn test_leveling_and_dps_tables_optimize_against_passive_max_res_cap_ignoring_it
             SearchMode::Leveling
         };
         let c = BuildConstraints {
-            char_class: CharClass::PALADIN_ID,
-            use_bo: false,
             offense: "melee".to_string(),
             mode: mode_str.to_string(),
-            base_hell_res: -40,
-            base_max_fr: 5,
-            base_str: 50,
-            base_dex: 20,
-            target_def: 400,
-            aura_hit_dmg: vec![100.0, 110.0, 120.0],
-            aura_pulse_dps: vec![20.0, 22.0, 24.0],
-            action_ed: vec![0, 0, 0],
-            action_hits: vec![1, 1, 1],
-            action_ar_pct: vec![0, 0, 0],
-            aura_ar_pct: vec![0, 0, 0],
-            has_aura: true,
             min_fcr: 0,
             min_fhr: 0,
             min_fr: 0,
@@ -1807,6 +1817,29 @@ fn test_leveling_and_dps_tables_optimize_against_passive_max_res_cap_ignoring_it
             min_pr: 0,
             max_charm_slots: 1,
             limit: 3,
+            character: CharacterStats {
+                char_class: CharClass::PALADIN_ID,
+                use_bo: false,
+                base_hell_res: -40,
+                base_max_fr: 5,
+                base_str: 50,
+                base_dex: 20,
+                ..Default::default()
+            },
+            target: TargetProfile {
+                target_def: 400,
+                ..Default::default()
+            },
+            skills: SkillModel::Melee(MeleeSkillModel {
+                aura_hit_dmg: vec![100.0, 110.0, 120.0],
+                aura_pulse_dps: vec![20.0, 22.0, 24.0],
+                action_ed: vec![0, 0, 0],
+                action_hits: vec![1, 1, 1],
+                action_ar_pct: vec![0, 0, 0],
+                aura_ar_pct: vec![0, 0, 0],
+                has_aura: true,
+                ..Default::default()
+            }),
             ..Default::default()
         };
         let opt = optimize_builds_core(&items, &charms, &c).unwrap();
@@ -1887,25 +1920,8 @@ fn test_exhaustive_brute_force_passive_max_res_modes() {
         };
         let uses_dps = matches!(offense_str, "melee" | "zeal");
         let c = BuildConstraints {
-            char_class: CharClass::PALADIN_ID,
-            use_bo: false,
             offense: offense_str.to_string(),
-            base_hell_res: -40,
-            base_max_fr: rng.pick(&[0, 3, 6, 10]),
-            base_max_lr: rng.pick(&[0, 3, 6, 10]),
-            base_max_cr: rng.pick(&[0, 3, 6, 10]),
-            base_max_pr: rng.pick(&[0, 3, 6, 10]),
             mode: mode_str.to_string(),
-            base_str: 50,
-            base_dex: 20,
-            target_def: 400,
-            aura_hit_dmg: if uses_dps { vec![100.0, 120.0, 140.0] } else { Vec::new() },
-            aura_pulse_dps: if uses_dps { vec![20.0, 25.0, 30.0] } else { Vec::new() },
-            action_ed: if uses_dps { vec![0, 20, 40] } else { Vec::new() },
-            action_hits: if uses_dps { vec![1, 2, 3] } else { Vec::new() },
-            action_ar_pct: if uses_dps { vec![0, 10, 20] } else { Vec::new() },
-            aura_ar_pct: if uses_dps { vec![0, 0, 0] } else { Vec::new() },
-            has_aura: uses_dps,
             min_fcr: 0,
             min_fhr: rng.pick(&[0, 15]),
             min_fr: 0,
@@ -1914,6 +1930,32 @@ fn test_exhaustive_brute_force_passive_max_res_modes() {
             min_pr: 0,
             max_charm_slots: rng.pick(&[3, 4, 5]),
             limit: rng.gen_range(1, 3) as usize,
+            character: CharacterStats {
+                char_class: CharClass::PALADIN_ID,
+                use_bo: false,
+                base_hell_res: -40,
+                base_max_fr: rng.pick(&[0, 3, 6, 10]),
+                base_max_lr: rng.pick(&[0, 3, 6, 10]),
+                base_max_cr: rng.pick(&[0, 3, 6, 10]),
+                base_max_pr: rng.pick(&[0, 3, 6, 10]),
+                base_str: 50,
+                base_dex: 20,
+                ..Default::default()
+            },
+            target: TargetProfile {
+                target_def: 400,
+                ..Default::default()
+            },
+            skills: SkillModel::Melee(MeleeSkillModel {
+                aura_hit_dmg: if uses_dps { vec![100.0, 120.0, 140.0] } else { Vec::new() },
+                aura_pulse_dps: if uses_dps { vec![20.0, 25.0, 30.0] } else { Vec::new() },
+                action_ed: if uses_dps { vec![0, 20, 40] } else { Vec::new() },
+                action_hits: if uses_dps { vec![1, 2, 3] } else { Vec::new() },
+                action_ar_pct: if uses_dps { vec![0, 10, 20] } else { Vec::new() },
+                aura_ar_pct: if uses_dps { vec![0, 0, 0] } else { Vec::new() },
+                has_aura: uses_dps,
+                ..Default::default()
+            }),
             ..Default::default()
         };
         let expected = brute_force_top_scores(&items, &charms, &c, mode);
@@ -2031,10 +2073,7 @@ fn test_exhaustive_brute_force_paladin_leveling_modes() {
             _ => ("max-res", SearchMode::MaxRes, "caster"),
         };
         let c = BuildConstraints {
-            char_class: CharClass::PALADIN_ID,
-            use_bo: false,
             offense: offense_str.to_string(),
-            base_hell_res: 0,
             mode: mode_str.to_string(),
             min_fcr: rng.pick(&[0, 9]),
             min_fhr: rng.pick(&[0, 7, 15, 27]),
@@ -2043,9 +2082,15 @@ fn test_exhaustive_brute_force_paladin_leveling_modes() {
             min_cr: rng.pick(&[0, 30]),
             min_pr: 0,
             max_charm_slots: rng.pick(&[3, 4, 6]),
-            base_str: rng.pick(&[50, 70]),
-            base_dex: rng.pick(&[20, 35]),
             limit: rng.gen_range(1, 3) as usize,
+            character: CharacterStats {
+                char_class: CharClass::PALADIN_ID,
+                use_bo: false,
+                base_hell_res: 0,
+                base_str: rng.pick(&[50, 70]),
+                base_dex: rng.pick(&[20, 35]),
+                ..Default::default()
+            },
             ..Default::default()
         };
         let expected: Vec<BuildScore> = brute_force_top_scores(&items, &charms, &c, mode);
@@ -2090,9 +2135,6 @@ fn test_fixed_gear_keeps_zero_stat_equipped_items() {
 
     let items = vec![bow, helm, armor, amulet, belt, gloves, boots, ring1, ring2];
     let c_fixed = BuildConstraints {
-        char_class: 3,
-        use_bo: false,
-        base_hell_res: 0,
         mode: "leveling-res".to_string(),
         min_fcr: 0,
         min_fhr: 15,
@@ -2102,6 +2144,12 @@ fn test_fixed_gear_keeps_zero_stat_equipped_items() {
         min_pr: 0,
         limit: 3,
         fixed_gear: true,
+        character: CharacterStats {
+            char_class: 3,
+            use_bo: false,
+            base_hell_res: 0,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res = optimize_builds_core(&items, &[], &c_fixed).unwrap();
@@ -2177,11 +2225,8 @@ fn test_set_bonus_2pc_unlocks_ias_and_ignores_duplicate_rings() {
         halo_2.clone(),
     ];
     let c_ias = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
-        use_bo: false,
         offense: "melee".to_string(),
         allow_mf: false,
-        base_hell_res: 0,
         mode: "leveling-res".to_string(),
         min_fcr: 0,
         min_fhr: 0,
@@ -2190,6 +2235,12 @@ fn test_set_bonus_2pc_unlocks_ias_and_ignores_duplicate_rings() {
         min_cr: 75,
         min_pr: 75,
         limit: 3,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            use_bo: false,
+            base_hell_res: 0,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res = optimize_builds_core(&items, &[], &c_ias).unwrap();
@@ -2255,9 +2306,6 @@ fn test_power_mode_pruning_respects_primary_skill_bonus() {
     w_str.str_bonus = 50;
 
     let c = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
-        use_bo: false,
-        base_hell_res: 0,
         mode: "power".to_string(),
         min_fcr: 0,
         min_fhr: 0,
@@ -2266,6 +2314,12 @@ fn test_power_mode_pruning_respects_primary_skill_bonus() {
         min_cr: 0,
         min_pr: 0,
         limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            use_bo: false,
+            base_hell_res: 0,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res = optimize_builds_core(
@@ -2295,7 +2349,6 @@ fn test_prune_candidates_does_not_crowd_out_distinct_names_with_duplicate_rolls(
     tarnhelm.defense = 10;
 
     let c = BuildConstraints {
-        base_hell_res: 0,
         mode: "mf".to_string(),
         min_fcr: 0,
         min_fhr: 0,
@@ -2304,6 +2357,10 @@ fn test_prune_candidates_does_not_crowd_out_distinct_names_with_duplicate_rolls(
         min_cr: 0,
         min_pr: 0,
         limit: 2,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res = optimize_builds_core(&[shako_a, shako_b, tarnhelm], &[], &c).unwrap();
@@ -2331,10 +2388,7 @@ fn test_non_caster_offense_zeroes_fcr_weight_against_manald_heal() {
     angelic_halo.life = 20;
 
     let c = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
-        use_bo: false,
         offense: "melee".to_string(),
-        base_hell_res: 0,
         mode: "leveling".to_string(),
         min_fcr: 0,
         min_fhr: 0,
@@ -2343,6 +2397,12 @@ fn test_non_caster_offense_zeroes_fcr_weight_against_manald_heal() {
         min_cr: 0,
         min_pr: 0,
         limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            use_bo: false,
+            base_hell_res: 0,
+            ..Default::default()
+        },
         ..Default::default()
     };
     // 1. Beast Gyre (+29 LR, +16 CR) + Angelic Halo (+20 Life) beats double Manald Heal
@@ -2385,10 +2445,7 @@ fn test_locality_tiebreaker_order_equipped_inv_stash_shared_mule() {
     let r_eq = mk_ring("Ring Equipped", "smite Equipped");
 
     let c = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
-        use_bo: false,
         offense: "melee".to_string(),
-        base_hell_res: 75,
         mode: "leveling".to_string(),
         min_fcr: 0,
         min_fhr: 0,
@@ -2397,6 +2454,12 @@ fn test_locality_tiebreaker_order_equipped_inv_stash_shared_mule() {
         min_cr: 75,
         min_pr: 75,
         limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            use_bo: false,
+            base_hell_res: 75,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -2538,12 +2601,8 @@ fn test_paladin_dps_zeal_vs_bow_fallback_and_brute_force_parity() {
         helm_sk,
     ];
     let mut c = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         offense: "zeal".to_string(),
         mode: "leveling".to_string(),
-        base_hell_res: 0,
-        base_str: 60,
-        base_dex: 20,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -2552,12 +2611,22 @@ fn test_paladin_dps_zeal_vs_bow_fallback_and_brute_force_parity() {
         min_pr: 0,
         max_charm_slots: 6,
         limit: 3,
-        use_bo: false,
-        aura_hit_dmg: (0..=15).map(|b| 350.0 + b as f64 * 40.0).collect(),
-        aura_pulse_dps: (0..=15).map(|b| 30.0 + b as f64 * 3.5).collect(),
-        action_ed: vec![12; 16],
-        action_hits: (0..=15).map(|b| (2 + b).min(5)).collect(),
-        has_aura: true,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_hell_res: 0,
+            base_str: 60,
+            base_dex: 20,
+            use_bo: false,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            aura_hit_dmg: (0..=15).map(|b| 350.0 + b as f64 * 40.0).collect(),
+            aura_pulse_dps: (0..=15).map(|b| 30.0 + b as f64 * 3.5).collect(),
+            action_ed: vec![12; 16],
+            action_hits: (0..=15).map(|b| (2 + b).min(5)).collect(),
+            has_aura: true,
+            ..Default::default()
+        }),
         ..Default::default()
     };
 
@@ -2645,12 +2714,8 @@ fn paladin_explosive_arrow_splash_targets_and_brute_force_parity() {
     };
     let items = vec![spirit, shield, raven_claw];
     let mut c = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         offense: "melee".to_string(),
         mode: "leveling".to_string(),
-        base_hell_res: 0,
-        base_str: 50,
-        base_dex: 50,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -2659,14 +2724,27 @@ fn paladin_explosive_arrow_splash_targets_and_brute_force_parity() {
         min_pr: 0,
         max_charm_slots: 0,
         limit: 2,
-        use_bo: false,
-        aura_hit_dmg: (0..=10).map(|b| 400.0 + b as f64 * 45.0).collect(),
-        aura_pulse_dps: (0..=10).map(|b| 35.0 + b as f64 * 4.0).collect(),
-        action_ed: vec![0],
-        action_hits: vec![1],
-        has_aura: true,
-        aura_is_fire: true,
-        targets: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_hell_res: 0,
+            base_str: 50,
+            base_dex: 50,
+            use_bo: false,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            targets: 1,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            aura_hit_dmg: (0..=10).map(|b| 400.0 + b as f64 * 45.0).collect(),
+            aura_pulse_dps: (0..=10).map(|b| 35.0 + b as f64 * 4.0).collect(),
+            action_ed: vec![0],
+            action_hits: vec![1],
+            has_aura: true,
+            aura_is_fire: true,
+            ..Default::default()
+        }),
         ..Default::default()
     };
 
@@ -2675,12 +2753,12 @@ fn paladin_explosive_arrow_splash_targets_and_brute_force_parity() {
     assert_eq!(res1_low_ar[0].items[0].name, "Raven Claw");
 
     // High AR (base_dex=500 => ~93% melee CTH): 1H + shield (+3 skills) beats Raven Claw on single target.
-    c.base_dex = 500;
+    c.character.base_dex = 500;
     let res1 = optimize_builds_core(&items, &[], &c).unwrap();
     assert_eq!(res1[0].items[0].name, "Spirit");
 
     // 3 targets with Holy Fire: Raven Claw fire splash wins and matches brute force.
-    c.targets = 3;
+    c.target.targets = 3;
     let res3 = optimize_builds_core(&items, &[], &c).unwrap();
     assert_eq!(res3[0].items[0].name, "Raven Claw");
     let bf3 = brute_force_top_scores(&items, &[], &c, SearchMode::Leveling);
@@ -2689,14 +2767,18 @@ fn paladin_explosive_arrow_splash_targets_and_brute_force_parity() {
     assert_eq!(sc3, bf3[0]);
 
     // 3 targets with non-fire aura (Holy Freeze/Shock): aura on-hit does NOT splash, Spirit wins.
-    c.aura_is_fire = false;
+    if let SkillModel::Melee(ref mut m) = c.skills {
+        m.aura_is_fire = false;
+    }
     let res_cold = optimize_builds_core(&items, &[], &c).unwrap();
     assert_eq!(res_cold[0].items[0].name, "Spirit");
 
     // 3 targets with Holy Fire in Zeal mode: ranged weapons (Raven Claw) are excluded; Spirit Zeals.
-    c.aura_is_fire = true;
     c.offense = "zeal".to_string();
-    c.action_hits = vec![5; 11];
+    if let SkillModel::Melee(ref mut m) = c.skills {
+        m.aura_is_fire = true;
+        m.action_hits = vec![5; 11];
+    }
     let res_zeal = optimize_builds_core(&items, &[], &c).unwrap();
     assert_eq!(res_zeal[0].items[0].name, "Spirit");
     assert!(res_zeal[0].used_zeal);
@@ -2718,10 +2800,8 @@ fn sorc_blizzard_caster_dps_cold_pct_fcr_and_brute_force_parity() {
     let items = vec![fathom, hoto, nightwing, shako, spirit, viper, arach, trang];
 
     let mut c = BuildConstraints {
-        char_class: CharClass::SORCERESS_ID,
         offense: "caster".to_string(),
         mode: "power".to_string(),
-        base_hell_res: 0,
         min_fcr: 105,
         min_fhr: 0,
         min_fr: 0,
@@ -2730,11 +2810,22 @@ fn sorc_blizzard_caster_dps_cold_pct_fcr_and_brute_force_parity() {
         min_pr: 0,
         max_charm_slots: 0,
         limit: 2,
-        use_bo: false,
-        blizz_dmg: (0..=20).map(|b| 2200.0 + b as f64 * 260.0).collect(),
-        filler_dmg: (0..=20).map(|b| 1400.0 + b as f64 * 160.0).collect(),
-        filler_is_aoe: false,
-        targets: 1,
+        character: CharacterStats {
+            char_class: CharClass::SORCERESS_ID,
+            base_hell_res: 0,
+            use_bo: false,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            targets: 1,
+            ..Default::default()
+        },
+        skills: SkillModel::Caster(CasterSkillModel {
+            blizz_dmg: (0..=20).map(|b| 2200.0 + b as f64 * 260.0).collect(),
+            filler_dmg: (0..=20).map(|b| 1400.0 + b as f64 * 160.0).collect(),
+            filler_is_aoe: false,
+            ..Default::default()
+        }),
         ..Default::default()
     };
 
@@ -2757,9 +2848,11 @@ fn sorc_blizzard_caster_dps_cold_pct_fcr_and_brute_force_parity() {
         ..Default::default()
     };
     let dps_ib_1 = OffenseProfile::Caster.compute_caster_dps(s, &c);
-    c.targets = 3;
+    c.target.targets = 3;
     let dps_ib_3 = OffenseProfile::Caster.compute_caster_dps(s, &c);
-    c.filler_is_aoe = true;
+    if let SkillModel::Caster(ref mut m) = c.skills {
+        m.filler_is_aoe = true;
+    }
     let dps_gs_3 = OffenseProfile::Caster.compute_caster_dps(s, &c);
     assert!(dps_ib_3 > dps_ib_1);
     assert!(dps_gs_3 > dps_ib_3);
@@ -2856,11 +2949,8 @@ fn test_hard_constraint_floors_and_brute_force_parity() {
     let charms = vec![ch_frw_1, ch_frw_2, ch_mf_1, ch_mf_2, ch_sk];
 
     let base_c = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         offense: "melee".to_string(),
         mode: "leveling".to_string(),
-        use_bo: false,
-        base_hell_res: 75,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -2869,6 +2959,12 @@ fn test_hard_constraint_floors_and_brute_force_parity() {
         min_pr: 0,
         max_charm_slots: 5,
         limit: 3,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            use_bo: false,
+            base_hell_res: 75,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -2954,11 +3050,8 @@ fn test_global_set_bonuses_applied_once_and_respect_constraints() {
 
     // 1. 2pc Sigon's (Guard + Gage) + Bloodletter (8% LL) => 18% LL (NOT 28%!).
     let c_2pc = BuildConstraints {
-        char_class: 3,
         mode: "leveling".to_string(),
         offense: "melee".to_string(),
-        use_bo: false,
-        base_hell_res: 0,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -2967,6 +3060,12 @@ fn test_global_set_bonuses_applied_once_and_respect_constraints() {
         min_pr: 0,
         min_ll: 18,
         limit: 3,
+        character: CharacterStats {
+            char_class: 3,
+            use_bo: false,
+            base_hell_res: 0,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let items_2pc = vec![
@@ -3033,7 +3132,6 @@ fn test_partial_fixed_slots_keeps_only_selected_slots() {
     // 1. Fixed weapon/hands: keeps non-melee Raven Claw even under zeal offense,
     //    while still optimizing helm and rings.
     let c_wep = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         mode: "leveling".to_string(),
         offense: "zeal".to_string(),
         fixed_slots: vec![
@@ -3047,9 +3145,13 @@ fn test_partial_fixed_slots_keeps_only_selected_slots() {
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
-        use_bo: false,
         limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_hell_res: 0,
+            use_bo: false,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res_wep = optimize_builds_core(
@@ -3075,7 +3177,6 @@ fn test_partial_fixed_slots_keeps_only_selected_slots() {
     let mut ring_plain_req = ring_plain;
     ring_plain_req.req_str = 10;
     let c_jew = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         mode: "leveling".to_string(),
         offense: "caster".to_string(),
         fixed_slots: vec!["amulet".to_string(), "ring".to_string()],
@@ -3085,10 +3186,14 @@ fn test_partial_fixed_slots_keeps_only_selected_slots() {
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
-        base_str: 20,
-        use_bo: false,
         limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_hell_res: 0,
+            base_str: 20,
+            use_bo: false,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let res_jew = optimize_builds_core(&[helm_plain, helm_good, ring_plain_req], &[], &c_jew).unwrap();
@@ -3132,23 +3237,29 @@ fn test_fixed_shield_only_keeps_shield_and_optimizes_melee_weapon() {
     let pool = [plain_shield, big_2h, caster_wand, melee_flail];
 
     let c_zeal = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         mode: "leveling".to_string(),
         offense: "zeal".to_string(),
         fixed_slots: vec!["shield".to_string()],
-        aura_hit_dmg: vec![20.0; 21],
-        action_ed: vec![100; 21],
-        action_hits: vec![5; 21],
-        has_aura: true,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
-        use_bo: false,
         limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_hell_res: 0,
+            use_bo: false,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            aura_hit_dmg: vec![20.0; 21],
+            action_ed: vec![100; 21],
+            action_hits: vec![5; 21],
+            has_aura: true,
+            ..Default::default()
+        }),
         ..Default::default()
     };
     let res_zeal = optimize_builds_core(&pool, &[], &c_zeal).unwrap();
@@ -3217,8 +3328,11 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
         min_fhr: 0,
         min_mf: 0,
         allow_mf: true,
-        blizz_dmg: vec![100.0; 5],
         limit: 1,
+        skills: SkillModel::Caster(CasterSkillModel {
+            blizz_dmg: vec![100.0; 5],
+            ..Default::default()
+        }),
         ..test_constraints()
     };
     let pruned_pow = prune_slot_items(
@@ -3236,7 +3350,13 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
         BuildConstraints { min_mf: 10, ..c_power.clone() },
         BuildConstraints { min_fhr: 10, ..c_power.clone() },
         BuildConstraints { require_cbf: true, ..c_power.clone() },
-        BuildConstraints { filler_dmg: vec![50.0; 5], ..c_power.clone() },
+        BuildConstraints {
+            skills: SkillModel::Caster(CasterSkillModel {
+                filler_dmg: vec![50.0; 5],
+                ..c_power.skills.caster().cloned().unwrap_or_default()
+            }),
+            ..c_power.clone()
+        },
     ] {
         c_keep.limit = 1;
         let kept = prune_slot_items(
@@ -3344,10 +3464,13 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
     smite_extra.life = 30;
     smite_extra.pdr_pct = 8;
     let c_smite = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         mode: "leveling".to_string(),
         offense: "smite".to_string(),
         limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     assert_eq!(
@@ -3378,10 +3501,8 @@ fn test_item_sort_key_uses_for_mode_so_higher_locality_duplicate_wins() {
     ring_eq.loc = "Equipped".to_string();
 
     let c = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         mode: "power".to_string(),
         offense: "melee".to_string(),
-        base_hell_res: 75,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -3389,6 +3510,11 @@ fn test_item_sort_key_uses_for_mode_so_higher_locality_duplicate_wins() {
         min_cr: 0,
         min_pr: 0,
         limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_hell_res: 75,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     let res = optimize_builds_core(&[belt_mule, belt_eq, ring_mule, ring_eq], &[], &c).unwrap();
@@ -3411,18 +3537,21 @@ fn test_smite_pdr_cap_at_50_ties_and_breaks_on_frw() {
     belt_capped_frw.frw = 20;
 
     let mut c = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         mode: "leveling".to_string(),
         offense: "smite".to_string(),
-        base_hell_res: 75,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        use_bo: false,
         limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_hell_res: 75,
+            use_bo: false,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     let items = vec![shield, belt_overcap, belt_capped_frw];
@@ -3449,16 +3578,19 @@ fn test_pct_life_breaks_life_bo_tie_and_is_not_pareto_pruned() {
 
     let c = BuildConstraints {
         mode: "power".to_string(),
-        base_hell_res: 75,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_life: 1000,
-        use_bo: false,
         limit: 1,
+        character: CharacterStats {
+            base_hell_res: 75,
+            base_life: 1000,
+            use_bo: false,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     let items = vec![helm_plain, helm_jah];
@@ -3523,13 +3655,8 @@ fn test_ar_cth_angelic_itd_target_def_and_brute_force_parity() {
     ];
 
     let c = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         offense: "zeal".into(),
         mode: "leveling".into(),
-        base_hell_res: 75,
-        base_str: 50,
-        base_dex: 20, // base AR = 85
-        target_def: 1200, // Hell-scale target defense -> low hit rate without AR/ITD
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -3538,20 +3665,37 @@ fn test_ar_cth_angelic_itd_target_def_and_brute_force_parity() {
         min_pr: 0,
         max_charm_slots: 2,
         limit: 3,
-        use_bo: false,
-        aura_hit_dmg: vec![0.0, 0.0],
-        aura_pulse_dps: vec![0.0, 0.0],
-        action_ed: vec![0, 0],
-        action_hits: vec![5, 5],
-        action_ar_pct: vec![10, 20],
-        aura_ar_pct: vec![0, 0],
-        has_aura: false,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_hell_res: 75,
+            base_str: 50,
+            base_dex: 20, // base AR = 85
+            use_bo: false,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_def: 1200, // Hell-scale target defense -> low hit rate without AR/ITD
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            aura_hit_dmg: vec![0.0, 0.0],
+            aura_pulse_dps: vec![0.0, 0.0],
+            action_ed: vec![0, 0],
+            action_hits: vec![5, 5],
+            action_ar_pct: vec![10, 20],
+            aura_ar_pct: vec![0, 0],
+            has_aura: false,
+            ..Default::default()
+        }),
         ..Default::default()
     };
 
     // 1. Against trash, Plain Sword CTH is terrible (85 / (85+1200) ~ 6.6%) so ITD Sword wins easily!
     let c_trash = BuildConstraints {
-        target_type: "trash".into(),
+        target: TargetProfile {
+            target_type: "trash".into(),
+            ..c.target.clone()
+        },
         ..c.clone()
     };
     let res_wep_trash = optimize_builds_core(
@@ -3623,13 +3767,8 @@ fn test_ar_charms_brute_force_parity_all_cases() {
         ..Default::default()
     };
     let c_base = BuildConstraints {
-        char_class: CharClass::PALADIN_ID,
         offense: "zeal".into(),
         mode: "leveling".into(),
-        base_hell_res: 75,
-        base_str: 50,
-        base_dex: 20,
-        target_def: 1200,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -3638,14 +3777,28 @@ fn test_ar_charms_brute_force_parity_all_cases() {
         min_pr: 0,
         max_charm_slots: 3,
         limit: 3,
-        use_bo: false,
-        aura_hit_dmg: vec![0.0, 0.0],
-        aura_pulse_dps: vec![0.0, 0.0],
-        action_ed: vec![0, 20],
-        action_hits: vec![5, 5],
-        action_ar_pct: vec![10, 20],
-        aura_ar_pct: vec![0, 0],
-        has_aura: false,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            base_hell_res: 75,
+            base_str: 50,
+            base_dex: 20,
+            use_bo: false,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_def: 1200,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            aura_hit_dmg: vec![0.0, 0.0],
+            aura_pulse_dps: vec![0.0, 0.0],
+            action_ed: vec![0, 20],
+            action_hits: vec![5, 5],
+            action_ar_pct: vec![10, 20],
+            aura_ar_pct: vec![0, 0],
+            has_aura: false,
+            ..Default::default()
+        }),
         ..Default::default()
     };
 
@@ -3676,8 +3829,11 @@ fn test_ar_charms_brute_force_parity_all_cases() {
 
     // 2. Uncapped res in SearchMode::Leveling: +AR charm beats +Res charm on primary `dps_bucket`.
     let c_uncapped = BuildConstraints {
-        base_hell_res: 20,
         max_charm_slots: 1,
+        character: CharacterStats {
+            base_hell_res: 20,
+            ..c_base.character.clone()
+        },
         ..c_base.clone()
     };
     let charms_case2 = vec![
@@ -3753,7 +3909,10 @@ fn test_ar_charms_brute_force_parity_all_cases() {
         std::slice::from_ref(&sword_itd),
         &charms_case4,
         &BuildConstraints {
-            target_type: "trash".into(),
+            target: TargetProfile {
+                target_type: "trash".into(),
+                ..c_1slot.target.clone()
+            },
             ..c_1slot.clone()
         },
         SearchMode::Leveling,
@@ -3767,7 +3926,10 @@ fn test_ar_charms_brute_force_parity_all_cases() {
     let mut sword_high_ar = sword.clone();
     sword_high_ar.ar = 1000;
     let c_high_ar = BuildConstraints {
-        target_def: 100,
+        target: TargetProfile {
+            target_def: 100,
+            ..c_1slot.target.clone()
+        },
         ..c_1slot.clone()
     };
     let opt4_same = assert_bf_parity(&[sword_high_ar], &charms_case4, &c_high_ar, SearchMode::Leveling);
@@ -3887,15 +4049,8 @@ fn test_damage_charms_and_combat_stats_brute_force_parity() {
             SearchMode::LevelingRes
         };
         let c = BuildConstraints {
-            char_class: CharClass::PALADIN_ID,
             offense: "zeal".into(),
             mode: mode_str.into(),
-            char_level: 60,
-            target_hp: 5000,
-            base_hell_res: 40,
-            base_str: 50,
-            base_dex: 50,
-            target_def: 400,
             min_fcr: 0,
             min_fhr: 0,
             min_fr: 50,
@@ -3905,14 +4060,30 @@ fn test_damage_charms_and_combat_stats_brute_force_parity() {
             min_ll: 5, // satisfied only by Dracul's 10% CTC Life Tap -> 5% effective
             max_charm_slots: 4,
             limit: 2,
-            use_bo: false,
-            aura_hit_dmg: vec![0.0, 0.0, 0.0, 0.0, 0.0],
-            aura_pulse_dps: vec![0.0, 0.0, 0.0, 0.0, 0.0],
-            action_ed: vec![0, 0, 0, 0, 0],
-            action_hits: vec![5, 5, 5, 5, 5],
-            action_ar_pct: vec![10, 20, 30, 40, 50],
-            aura_ar_pct: vec![0, 0, 0, 0, 0],
-            has_aura: false,
+            character: CharacterStats {
+                char_class: CharClass::PALADIN_ID,
+                char_level: 60,
+                base_hell_res: 40,
+                base_str: 50,
+                base_dex: 50,
+                use_bo: false,
+                ..Default::default()
+            },
+            target: TargetProfile {
+                target_hp: 5000,
+                target_def: 400,
+                ..Default::default()
+            },
+            skills: SkillModel::Melee(MeleeSkillModel {
+                aura_hit_dmg: vec![0.0, 0.0, 0.0, 0.0, 0.0],
+                aura_pulse_dps: vec![0.0, 0.0, 0.0, 0.0, 0.0],
+                action_ed: vec![0, 0, 0, 0, 0],
+                action_hits: vec![5, 5, 5, 5, 5],
+                action_ar_pct: vec![10, 20, 30, 40, 50],
+                aura_ar_pct: vec![0, 0, 0, 0, 0],
+                has_aura: false,
+                ..Default::default()
+            }),
             ..Default::default()
         };
         let items = vec![sword.clone(), plain_gloves.clone(), lifetap_gloves.clone()];
@@ -3993,10 +4164,13 @@ fn test_optimize_builds_with_baseline_prunes_and_preserves_ties() {
         ..Default::default()
     };
     let c_cold = BuildConstraints {
-        base_hell_res: -100,
         min_cr: 75,
         min_pr: 75,
         limit: 1,
+        character: CharacterStats {
+            base_hell_res: -100,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     // Baseline CR = 285 - 100 - 120 = 65 < 75, so it falls back to relaxed CR.
@@ -4064,7 +4238,10 @@ fn test_score_of_result_core_parity_and_no_locality() {
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     let r_eq = eval_build_core(&[&w_eq], &[], &c_mf, 1);
@@ -4082,17 +4259,20 @@ fn test_score_of_result_core_parity_and_no_locality() {
     let mut helm_80 = mk_item("Helm80", "helm", 0, 0, 0, 75, 0);
     helm_80.fr = 80;
     let c_pal_res = BuildConstraints {
-        char_class: 3,
         offense: "melee".to_string(),
         mode: "leveling-res".to_string(),
-        base_max_fr: 5,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
+        character: CharacterStats {
+            char_class: 3,
+            base_max_fr: 5,
+            base_hell_res: 0,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     let r_75 = eval_build_core(&[&helm_75], &[], &c_pal_res, 1);
@@ -4108,7 +4288,6 @@ fn test_score_of_result_core_parity_and_no_locality() {
     smite_wep.cb = 25;
     let shield = mk_item("Shield", "shield", 0, 0, 0, 0, 0);
     let c_smite = BuildConstraints {
-        char_class: 3,
         offense: "smite".to_string(),
         mode: "leveling".to_string(),
         min_fcr: 0,
@@ -4117,7 +4296,11 @@ fn test_score_of_result_core_parity_and_no_locality() {
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
+        character: CharacterStats {
+            char_class: 3,
+            base_hell_res: 0,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     let r_smite = eval_build_core(&[&smite_wep, &shield], &[], &c_smite, 1);
@@ -4132,20 +4315,29 @@ fn test_score_of_result_core_parity_and_no_locality() {
     zeal_wep.wep_phys_2x = 66;
     zeal_wep.can_zeal = true;
     let c_zeal = BuildConstraints {
-        char_class: 3,
         offense: "zeal".to_string(),
         mode: "leveling".to_string(),
-        action_hits: vec![5],
-        action_ed: vec![100],
-        target_def: 0,
-        char_level: 80,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
+        character: CharacterStats {
+            char_class: 3,
+            char_level: 80,
+            base_hell_res: 0,
+            ..test_constraints().character
+        },
+        target: TargetProfile {
+            target_def: 0,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![5],
+            action_ed: vec![100],
+            ..Default::default()
+        }),
         ..test_constraints()
     };
     let r_zeal = eval_build_core(&[&zeal_wep], &[], &c_zeal, 1);
@@ -4164,7 +4356,10 @@ fn test_score_of_result_core_parity_and_no_locality() {
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     let r_power_nodps = eval_build_core(&[&blizz_orb], &[], &c_power_nodps, 1);
@@ -4173,7 +4368,10 @@ fn test_score_of_result_core_parity_and_no_locality() {
     assert_eq!(sc_power_nodps.1, 1);
     assert_eq!(sc_power_nodps.2, 1);
 
-    c_power_nodps.blizz_dmg = vec![100.0, 150.0, 200.0, 250.0];
+    c_power_nodps.skills = SkillModel::Caster(CasterSkillModel {
+        blizz_dmg: vec![100.0, 150.0, 200.0, 250.0],
+        ..Default::default()
+    });
     let r_power_dps = eval_build_core(&[&blizz_orb], &[], &c_power_nodps, 1);
     let sc_power_dps = score_of_result_core(&r_power_dps, &c_power_nodps).unwrap();
     assert!(r_power_dps.dps > 0.0);
@@ -4190,7 +4388,10 @@ fn test_score_of_result_core_parity_and_no_locality() {
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..test_constraints().character
+        },
         ..test_constraints()
     };
     let r_mr_base = eval_build_core(&[&helm_75], &[], &c_max_res, 1);
@@ -4207,17 +4408,23 @@ fn test_score_of_result_core_parity_and_no_locality() {
     melee_wep.action_skill_bonus = 5;
     melee_wep.ias = 20;
     let c_melee = BuildConstraints {
-        char_class: 3,
         offense: "melee".to_string(),
         mode: "leveling".to_string(),
-        has_aura: true,
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
-        base_hell_res: 0,
+        character: CharacterStats {
+            char_class: 3,
+            base_hell_res: 0,
+            ..test_constraints().character
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            has_aura: true,
+            ..Default::default()
+        }),
         ..test_constraints()
     };
     let r_melee = eval_build_core(&[&melee_wep], &[], &c_melee, 1);
@@ -4231,8 +4438,20 @@ fn test_score_of_result_core_parity_and_no_locality() {
     for bad in [
         BuildConstraints { mode: "bogus".to_string(), ..c_mf.clone() },
         BuildConstraints { offense: "smite".to_string(), ..c_mf.clone() },
-        BuildConstraints { char_class: 99, ..c_mf.clone() },
-        BuildConstraints { target_type: "uber".to_string(), ..c_mf },
+        BuildConstraints {
+            character: CharacterStats {
+                char_class: 99,
+                ..c_mf.character.clone()
+            },
+            ..c_mf.clone()
+        },
+        BuildConstraints {
+            target: TargetProfile {
+                target_type: "uber".to_string(),
+                ..c_mf.target.clone()
+            },
+            ..c_mf
+        },
     ] {
         assert!(score_of_result_core(&r_eq, &bad).is_err());
     }

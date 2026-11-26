@@ -1,5 +1,5 @@
 use super::*;
-use crate::types::WeaponClass;
+use crate::types::{CharacterStats, MeleeSkillModel, SkillModel, TargetProfile, WeaponClass};
 
 #[test]
 fn test_charm_stat_ub_respects_max_slots_and_rounds_up_partial() {
@@ -72,7 +72,10 @@ fn test_greedy_charms_falls_back_to_res_first_on_tight_slots() {
     let pool: Vec<&CharmSpec> = charms.iter().collect();
 
     let c = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 5,
         min_fr: 25,
         min_lr: 0,
@@ -131,7 +134,10 @@ fn test_greedy_charms_skips_negative_res_filler_breaking_target() {
     // Base hell res = 70 + 11 from Ruby SC = 81 >= min_fr 75.
     // Picking Toxic Sunder (-70 FR) in MF/skill/life pass would drop FR to 11 < 75.
     let c = BuildConstraints {
-        base_hell_res: 70,
+        character: CharacterStats {
+            base_hell_res: 70,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: 75,
         min_lr: 0,
@@ -223,7 +229,10 @@ fn test_charm_solver_recovers_when_greedy_misses_feasibility_or_main_score() {
     ];
     let pool_feas: Vec<&CharmSpec> = charms_feas.iter().collect();
     let c_feas = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 5,
         min_fr: 15,
         min_lr: 0,
@@ -279,7 +288,10 @@ fn test_charm_solver_recovers_when_greedy_misses_feasibility_or_main_score() {
     ];
     let pool_sk: Vec<&CharmSpec> = charms_sk.iter().collect();
     let c_skill = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 5,
         min_fr: 15,
         min_lr: 0,
@@ -325,7 +337,10 @@ fn test_charm_solver_max_res_negative_res_overcap_and_cache_isolation() {
     ];
     let pool: Vec<&CharmSpec> = charms.iter().collect();
     let c = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
@@ -396,7 +411,10 @@ fn test_charm_solver_max_res_multi_offsets_later_negative_res_charm() {
     ];
     let pool: Vec<&CharmSpec> = charms.iter().collect();
     let c = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
@@ -471,7 +489,10 @@ fn test_charm_solver_forces_best_cold_sunder_in_power_and_mf_only() {
     // Power mode: picks -72 Cold Rupture (3 slots) + Skill GC (3 slots) in 6 slots -> cr = 68 < 75 fails,
     // while with min_cr = 60 it picks -72 Cold Rupture + Sapphire SC (cr = 79) or Skill GC (cr = 68).
     let c_pow_strict = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: 75,
         min_lr: 75,
@@ -534,8 +555,11 @@ fn test_leveling_res_caps_at_75_and_paladin_never_forces_sunder() {
     // Even with max_fr=10 (cap 85), LevelingRes optimizes only up to 75, so at FR=75 and LR=65
     // it prefers Amber SC (+10 effective LR up to 75) over Ruby SC (+10 over 75).
     let c_lvl_res = BuildConstraints {
-        char_class: 3,
-        base_hell_res: 0,
+        character: CharacterStats {
+            char_class: 3,
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -587,9 +611,12 @@ fn test_leveling_res_caps_at_75_and_paladin_never_forces_sunder() {
     ];
     let pal_pool: Vec<&CharmSpec> = pal_charms.iter().collect();
     let c_passive_fr = BuildConstraints {
-        char_class: 3,
-        base_hell_res: 0,
-        base_max_fr: 10,
+        character: CharacterStats {
+            char_class: 3,
+            base_hell_res: 0,
+            base_max_fr: 10,
+            ..Default::default()
+        },
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -652,8 +679,11 @@ fn test_leveling_charm_cache_does_not_collide_across_res_deficits_and_prioritize
     ];
     let pool: Vec<&CharmSpec> = charms.iter().collect();
     let c = BuildConstraints {
-        char_class: 3,
-        base_hell_res: 0,
+        character: CharacterStats {
+            char_class: 3,
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fcr: 0,
         min_fhr: 0,
         min_fr: 0,
@@ -735,7 +765,10 @@ fn test_sunder_forwards_min_main_needed_and_non_res_cache_tailors_filler() {
     ];
     let single_pool: Vec<&CharmSpec> = single_pool_charms.iter().collect();
     let c_single = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
@@ -823,7 +856,10 @@ fn test_sunder_forwards_min_main_needed_and_non_res_cache_tailors_filler() {
     ];
     let filler_pool: Vec<&CharmSpec> = filler_charms.iter().collect();
     let c_filler = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: 75,
         min_lr: 75,
@@ -910,7 +946,10 @@ fn test_pure_axis_dp_completes_multi_stat_deficits_and_prunes_joint_slot_exhaust
     // Exact 5 slots: all pure charms move into 1D DP (`groups` is empty), solver completes
     // all 5 deficits and picks the +20 life Ruby SC via DP tie-breaking.
     let c_fit = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 5,
         min_fr: 75,
         min_lr: 75,
@@ -979,7 +1018,10 @@ fn test_mixed_hybrid_and_pure_charms_requires_hybrid_to_fit_slots() {
     // Case 1: Feasibility requires the hybrid charm + pure DP charms within 3 slots
     // (pure alone would need 2 + 1 + 1 = 4 slots).
     let c_tight = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 5,
         min_fr: 75,
         min_lr: 75,
@@ -1069,7 +1111,10 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
     ];
     let sunder_pool: Vec<&CharmSpec> = sunder_charms.iter().collect();
     let c_sunder = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: 75,
         min_lr: 75,
@@ -1149,7 +1194,10 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
     ];
     let res_pool: Vec<&CharmSpec> = res_charms.iter().collect();
     let c_res = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 5,
         min_frw: 3,
         min_mf: 7,
@@ -1201,7 +1249,10 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
     ];
     let fhr_skill_pool: Vec<&CharmSpec> = fhr_skill_charms.iter().collect();
     let c_fhr_skill = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 12,
         min_fr: 0,
         min_lr: 0,
@@ -1230,7 +1281,10 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
     }];
     let fr_mf_pool: Vec<&CharmSpec> = fr_mf_charm.iter().collect();
     let c_pow_no_mf = BuildConstraints {
-        base_hell_res: 0,
+        character: CharacterStats {
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_mf: 0,
         min_fr: 75,
@@ -1287,7 +1341,10 @@ fn test_ub_main_counts_action_and_aura_skills_total() {
         ];
         let pool: Vec<&CharmSpec> = charms.iter().collect();
         let c = BuildConstraints {
-            base_hell_res: 0,
+            character: CharacterStats {
+                base_hell_res: 0,
+                ..Default::default()
+            },
             min_fhr: 0,
             min_fr: 75,
             min_lr: 75,
@@ -1380,8 +1437,11 @@ fn test_charm_solver_handles_all_skills_and_vit_ene_tiebreak() {
 
     let pool = vec![&torch_low, &torch_high, &anni];
     let c = BuildConstraints {
-        char_class: 3,
-        base_hell_res: 45,
+        character: CharacterStats {
+            char_class: 3,
+            base_hell_res: 45,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: 75,
         min_lr: 75,
@@ -1425,9 +1485,12 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
         ..Default::default()
     };
     let c_neg = BuildConstraints {
-        char_class: 3,
-        char_level: 80,
-        base_hell_res: -100,
+        character: CharacterStats {
+            char_class: 3,
+            char_level: 80,
+            base_hell_res: -100,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: -100,
         min_lr: -100,
@@ -1435,9 +1498,15 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
         min_pr: -100,
         max_charm_slots: 1,
         offense: "melee".to_string(),
-        action_hits: vec![1],
-        target_def: 1000,
         mode: "leveling-res".to_string(),
+        target: TargetProfile {
+            target_def: 1000,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![1],
+            ..Default::default()
+        }),
         ..Default::default()
     };
     let gear = Stats {
@@ -1531,27 +1600,39 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
     ];
     let pure_pool: Vec<&CharmSpec> = pure_items.iter().collect();
     let base_c = BuildConstraints {
-        char_class: 3,
-        char_level: 80,
-        base_hell_res: 0,
+        character: CharacterStats {
+            char_class: 3,
+            char_level: 80,
+            base_hell_res: 0,
+            ..Default::default()
+        },
         min_fhr: 0,
         min_fr: 0,
         min_lr: 0,
         min_cr: 0,
         min_pr: 0,
         max_charm_slots: 5,
-        targets: 2,
-        target_def: 1500,
         offense: "melee".to_string(),
-        action_hits: vec![1],
         mode: "leveling".to_string(),
+        target: TargetProfile {
+            targets: 2,
+            target_def: 1500,
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![1],
+            ..Default::default()
+        }),
         ..Default::default()
     };
     let cases = [
         // (cth_is_const via target_def=0, splash_fire=false, p_dec=0, non_neg_base=true)
         (
             BuildConstraints {
-                target_def: 0,
+                target: TargetProfile {
+                    target_def: 0,
+                    ..base_c.target.clone()
+                },
                 ..base_c.clone()
             },
             HandWeapon {
@@ -1599,7 +1680,10 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
         // (cth_is_const + negative base damage -> !non_neg_base fallback)
         (
             BuildConstraints {
-                target_def: 0,
+                target: TargetProfile {
+                    target_def: 0,
+                    ..base_c.target.clone()
+                },
                 ..base_c.clone()
             },
             HandWeapon {

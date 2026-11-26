@@ -13,8 +13,11 @@ from d2savior.core.stash import SharedStash
 from d2savior.core.stats import collect_item_properties
 from d2savior.optimizer.native import (
     BuildConstraints,
+    CharacterStats,
     OffenseProfileStr,
     SearchModeStr,
+    SkillModel,
+    TargetProfile,
     TargetTypeStr,
 )
 
@@ -266,47 +269,12 @@ def synthesize_monster_stats(
 class CharacterBaseline:
     """Baseline character stats and limits shared across constraint builders."""
 
-    char_class: int
-    base_life: int
-    base_mana: int
-    base_hell_res: int
-    base_str: int
-    base_dex: int
+    character: CharacterStats
+    target: TargetProfile
+    skills: SkillModel
     max_charm_slots: int
-    bo_base_bonus: int
-    use_bo: bool = True
     fixed_gear: bool = False
     fixed_slots: tuple[str, ...] = ()
-    blizz_base_lvl: int = 20
-    blizz_syn_pts: int = 54
-    cm_base_lvl: int = 20
-    base_max_fr: int = 0
-    base_max_lr: int = 0
-    base_max_cr: int = 0
-    base_max_pr: int = 0
-    aura_hit_dmg: tuple[float, ...] = ()
-    aura_pulse_dps: tuple[float, ...] = ()
-    action_ed: tuple[int, ...] = ()
-    action_hits: tuple[int, ...] = ()
-    has_aura: bool = False
-    aura_is_fire: bool = False
-    targets: int = 1
-    blizz_dmg: tuple[float, ...] = ()
-    filler_dmg: tuple[float, ...] = ()
-    filler_is_aoe: bool = False
-    action_ar_pct: tuple[int, ...] = ()
-    aura_ar_pct: tuple[int, ...] = ()
-    aura_target_def_pct: tuple[int, ...] = ()
-    target_def: int = 180
-    target_ar: int = 0
-    target_lvl: int = 0
-    target_type: TargetTypeStr = "champion"
-    char_level: int = 1
-    target_hp: int = 0
-    holy_shield_base_lvl: int = 0
-    defiance_base_lvl: int = 0
-    cold_armor_kind: int = 0
-    cold_armor_base_lvl: int = 0
 
     def build_constraints(
         self,
@@ -339,35 +307,10 @@ class CharacterBaseline:
             min_pr=min_pr,
             max_charm_slots=self.max_charm_slots,
             mode=mode,
-            base_life=self.base_life,
-            base_mana=self.base_mana,
-            base_hell_res=self.base_hell_res,
-            base_str=self.base_str,
-            base_dex=self.base_dex,
-            bo_base_bonus=self.bo_base_bonus,
             limit=limit,
-            blizz_base_lvl=self.blizz_base_lvl,
-            blizz_syn_pts=self.blizz_syn_pts,
-            cm_base_lvl=self.cm_base_lvl,
-            char_class=self.char_class,
-            base_max_fr=self.base_max_fr,
-            base_max_lr=self.base_max_lr,
-            base_max_cr=self.base_max_cr,
-            base_max_pr=self.base_max_pr,
-            use_bo=self.use_bo,
             fixed_gear=self.fixed_gear,
             fixed_slots=list(self.fixed_slots),
             offense=offense,
-            aura_hit_dmg=list(self.aura_hit_dmg),
-            aura_pulse_dps=list(self.aura_pulse_dps),
-            action_ed=list(self.action_ed),
-            action_hits=list(self.action_hits),
-            has_aura=self.has_aura,
-            aura_is_fire=self.aura_is_fire,
-            targets=self.targets,
-            blizz_dmg=list(self.blizz_dmg),
-            filler_dmg=list(self.filler_dmg),
-            filler_is_aoe=self.filler_is_aoe,
             require_cbf=require_cbf,
             min_frw=min_frw,
             min_ias=min_ias,
@@ -375,17 +318,7 @@ class CharacterBaseline:
             min_ll=min_ll,
             min_pdr=min_pdr,
             min_mf=min_mf,
-            action_ar_pct=list(self.action_ar_pct),
-            aura_ar_pct=list(self.aura_ar_pct),
-            aura_target_def_pct=list(self.aura_target_def_pct),
-            target_def=self.target_def,
-            target_ar=self.target_ar,
-            target_lvl=self.target_lvl,
-            target_type=self.target_type,
-            char_level=self.char_level,
-            target_hp=self.target_hp,
-            holy_shield_base_lvl=self.holy_shield_base_lvl,
-            defiance_base_lvl=self.defiance_base_lvl,
-            cold_armor_kind=self.cold_armor_kind,
-            cold_armor_base_lvl=self.cold_armor_base_lvl,
+            character=self.character,
+            target=self.target,
+            skills=self.skills,
         )

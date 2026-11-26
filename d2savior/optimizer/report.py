@@ -46,40 +46,6 @@ def _format_def_line(res: BuildResult) -> str | None:
     return f"  {def_part} | Block: {block_pct}% (FBR {fbr}%, {fbr_frames}f)"
 
 
-def _charm_key(c: CharmSpec) -> tuple[object, ...]:
-    """Return a hashable value-equality key for CharmSpec (PyO3 class lacks __eq__)."""
-    return (
-        c.name,
-        c.size,
-        c.loc,
-        c.fhr,
-        c.fr,
-        c.lr,
-        c.cr,
-        c.pr,
-        c.mf,
-        c.life,
-        c.mana,
-        c.frw,
-        c.light_skills,
-        c.str_bonus,
-        c.dex_bonus,
-        c.skills,
-        getattr(c, "action_skills", 0),
-        getattr(c, "aura_skills", 0),
-        getattr(c, "all_skills", 0),
-        getattr(c, "vit", 0),
-        getattr(c, "ene", 0),
-        getattr(c, "ar", 0),
-        getattr(c, "flat_phys_2x", 0),
-        getattr(c, "flat_fire_2x", 0),
-        getattr(c, "flat_elem_2x", 0),
-        getattr(c, "psn_dps_2x", 0),
-        c.unique_id,
-        c.cold_sunder,
-    )
-
-
 def _is_inv_loc(loc: str) -> bool:
     """Return True when loc refers to a character's inventory."""
     return loc == "inv" or loc.endswith(" Inv")
@@ -99,24 +65,19 @@ def _format_charm_diff_lines(
     if not res_charms and not inv_charms:
         return []
 
-    kept_counts = Counter(
-        _charm_key(c) for c in res_charms if inv_loc is not None and c.loc == inv_loc
-    )
+    kept_counts = Counter(c for c in res_charms if inv_loc is not None and c.loc == inv_loc)
     remove: list[CharmSpec] = []
     keep: list[CharmSpec] = []
     for c in inv_charms:
-        key = _charm_key(c)
-        if kept_counts[key] > 0:
-            kept_counts[key] -= 1
+        if kept_counts[c] > 0:
+            kept_counts[c] -= 1
             keep.append(c)
         else:
             remove.append(c)
     for c in res_charms:
-        if inv_loc is not None and c.loc == inv_loc:
-            key = _charm_key(c)
-            if kept_counts[key] > 0:
-                kept_counts[key] -= 1
-                keep.append(c)
+        if inv_loc is not None and c.loc == inv_loc and kept_counts[c] > 0:
+            kept_counts[c] -= 1
+            keep.append(c)
     add = [c for c in res_charms if c.loc != inv_loc]
     remove_str = ", ".join(c.name for c in remove) if remove else "none"
     keep_str = ", ".join(c.name for c in keep) if keep else "none"

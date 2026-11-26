@@ -236,6 +236,114 @@ class CharmSpec:
         flat_elem_2x: int = 0,
         psn_dps_2x: int = 0,
     ) -> None: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __hash__(self) -> int: ...
+
+class CharacterStats:
+    char_class: int
+    char_level: int
+    base_life: int
+    base_mana: int
+    base_str: int
+    base_dex: int
+    base_hell_res: int
+    base_max_fr: int
+    base_max_lr: int
+    base_max_cr: int
+    base_max_pr: int
+    bo_base_bonus: int
+    use_bo: bool
+
+    def __init__(
+        self,
+        char_class: int = 1,
+        char_level: int = 1,
+        base_life: int = 0,
+        base_mana: int = 0,
+        base_str: int = 0,
+        base_dex: int = 0,
+        base_hell_res: int = -100,
+        base_max_fr: int = 0,
+        base_max_lr: int = 0,
+        base_max_cr: int = 0,
+        base_max_pr: int = 0,
+        bo_base_bonus: int = 4,
+        use_bo: bool = True,
+    ) -> None: ...
+    def __eq__(self, other: object) -> bool: ...
+
+class TargetProfile:
+    targets: int
+    target_type: str
+    target_def: int
+    target_ar: int
+    target_lvl: int
+    target_hp: int
+
+    def __init__(
+        self,
+        targets: int = 1,
+        target_type: TargetTypeStr = "champion",
+        target_def: int = 180,
+        target_ar: int = 0,
+        target_lvl: int = 0,
+        target_hp: int = 0,
+    ) -> None: ...
+    def __eq__(self, other: object) -> bool: ...
+
+class CasterSkillModel:
+    blizz_base_lvl: int
+    blizz_syn_pts: int
+    cm_base_lvl: int
+    blizz_dmg: list[float]
+    filler_dmg: list[float]
+    filler_is_aoe: bool
+    cold_armor_kind: int
+    cold_armor_base_lvl: int
+
+    def __init__(
+        self,
+        blizz_base_lvl: int = 20,
+        blizz_syn_pts: int = 54,
+        cm_base_lvl: int = 20,
+        blizz_dmg: Sequence[float] = (),
+        filler_dmg: Sequence[float] = (),
+        filler_is_aoe: bool = False,
+        cold_armor_kind: int = 0,
+        cold_armor_base_lvl: int = 0,
+    ) -> None: ...
+    def __eq__(self, other: object) -> bool: ...
+
+class MeleeSkillModel:
+    aura_hit_dmg: list[float]
+    aura_pulse_dps: list[float]
+    action_ed: list[int]
+    action_hits: list[int]
+    has_aura: bool
+    aura_is_fire: bool
+    action_ar_pct: list[int]
+    aura_ar_pct: list[int]
+    aura_target_def_pct: list[int]
+    holy_shield_base_lvl: int
+    defiance_base_lvl: int
+
+    def __init__(
+        self,
+        aura_hit_dmg: Sequence[float] = (),
+        aura_pulse_dps: Sequence[float] = (),
+        action_ed: Sequence[int] = (),
+        action_hits: Sequence[int] = (),
+        has_aura: bool = False,
+        aura_is_fire: bool = False,
+        action_ar_pct: Sequence[int] = (),
+        aura_ar_pct: Sequence[int] = (),
+        aura_target_def_pct: Sequence[int] = (),
+        holy_shield_base_lvl: int = 0,
+        defiance_base_lvl: int = 0,
+    ) -> None: ...
+    def __eq__(self, other: object) -> bool: ...
+
+type SkillModel = CasterSkillModel | MeleeSkillModel
 
 class BuildConstraints:
     allow_mf: bool
@@ -247,35 +355,10 @@ class BuildConstraints:
     min_pr: int
     max_charm_slots: int
     mode: SearchModeStr
-    base_life: int
-    base_mana: int
-    base_hell_res: int
-    base_str: int
-    base_dex: int
-    bo_base_bonus: int
-    blizz_base_lvl: int
-    blizz_syn_pts: int
-    cm_base_lvl: int
     limit: int
-    char_class: int
-    base_max_fr: int
-    base_max_lr: int
-    base_max_cr: int
-    base_max_pr: int
-    use_bo: bool
     fixed_gear: bool
     fixed_slots: list[str]
     offense: OffenseProfileStr
-    aura_hit_dmg: list[float]
-    aura_pulse_dps: list[float]
-    action_ed: list[int]
-    action_hits: list[int]
-    has_aura: bool
-    aura_is_fire: bool
-    targets: int
-    blizz_dmg: list[float]
-    filler_dmg: list[float]
-    filler_is_aoe: bool
     require_cbf: bool
     min_frw: int
     min_ias: int
@@ -283,19 +366,9 @@ class BuildConstraints:
     min_ll: int
     min_pdr: int
     min_mf: int
-    action_ar_pct: list[int]
-    aura_ar_pct: list[int]
-    aura_target_def_pct: list[int]
-    target_def: int
-    target_type: str
-    char_level: int
-    target_hp: int
-    target_ar: int
-    target_lvl: int
-    holy_shield_base_lvl: int
-    defiance_base_lvl: int
-    cold_armor_kind: int
-    cold_armor_base_lvl: int
+    character: CharacterStats
+    target: TargetProfile
+    skills: SkillModel
 
     def __init__(
         self,
@@ -308,34 +381,10 @@ class BuildConstraints:
         min_pr: int = 0,
         max_charm_slots: int = 23,
         mode: SearchModeStr = "power",
-        base_life: int = 0,
-        base_mana: int = 0,
-        base_hell_res: int = -100,
-        base_str: int = 0,
-        base_dex: int = 0,
-        bo_base_bonus: int = 4,
         limit: int = 5,
-        blizz_base_lvl: int = 20,
-        blizz_syn_pts: int = 54,
-        cm_base_lvl: int = 20,
-        char_class: int = 1,
-        base_max_fr: int = 0,
-        base_max_lr: int = 0,
-        base_max_cr: int = 0,
-        base_max_pr: int = 0,
-        use_bo: bool = True,
         fixed_gear: bool = False,
+        fixed_slots: Sequence[str] = (),
         offense: OffenseProfileStr = "caster",
-        aura_hit_dmg: Sequence[float] = (),
-        aura_pulse_dps: Sequence[float] = (),
-        action_ed: Sequence[int] = (),
-        action_hits: Sequence[int] = (),
-        has_aura: bool = False,
-        aura_is_fire: bool = False,
-        targets: int = 1,
-        blizz_dmg: Sequence[float] = (),
-        filler_dmg: Sequence[float] = (),
-        filler_is_aoe: bool = False,
         require_cbf: bool = False,
         min_frw: int = 0,
         min_ias: int = 0,
@@ -343,21 +392,11 @@ class BuildConstraints:
         min_ll: int = 0,
         min_pdr: int = 0,
         min_mf: int = 0,
-        fixed_slots: Sequence[str] = (),
-        action_ar_pct: Sequence[int] = (),
-        aura_ar_pct: Sequence[int] = (),
-        aura_target_def_pct: Sequence[int] = (),
-        target_def: int = 180,
-        target_type: TargetTypeStr = "champion",
-        char_level: int = 1,
-        target_hp: int = 0,
-        target_ar: int = 0,
-        target_lvl: int = 0,
-        holy_shield_base_lvl: int = 0,
-        defiance_base_lvl: int = 0,
-        cold_armor_kind: int = 0,
-        cold_armor_base_lvl: int = 0,
+        character: CharacterStats | None = None,
+        target: TargetProfile | None = None,
+        skills: SkillModel | None = None,
     ) -> None: ...
+    def with_limit(self, limit: int) -> BuildConstraints: ...
 
 class BuildResult:
     @property

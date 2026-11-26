@@ -276,11 +276,11 @@ impl OffenseProfile {
     }
 
     pub(crate) fn uses_dps_tables(self, c: &BuildConstraints) -> bool {
-        self.is_melee_dps() && !c.action_hits.is_empty()
+        self.is_melee_dps() && c.skills.melee().is_some_and(|m| !m.action_hits.is_empty())
     }
 
     pub(crate) fn uses_caster_dps(self, c: &BuildConstraints) -> bool {
-        self == Self::Caster && !c.blizz_dmg.is_empty()
+        self == Self::Caster && c.skills.caster().is_some_and(|m| !m.blizz_dmg.is_empty())
     }
 
     /// Return `(cast_frames, action_frame)` for Sorceress standard cast (`SC`, FPD=14, AF=7).
@@ -303,26 +303,32 @@ impl OffenseProfile {
     }
 
     pub(crate) fn compute_caster_dps(self, s: Stats, c: &BuildConstraints) -> f64 {
-        if c.blizz_dmg.is_empty() {
+        let Some(caster) = c.skills.caster() else {
+            return 0.0;
+        };
+        if caster.blizz_dmg.is_empty() {
             return 0.0;
         }
-        let targets = c.targets.max(1) as f64;
+        let targets = c.target.targets.max(1) as f64;
         let cold_mult = 1.0 + s.cold_dmg_pct.max(0) as f64 / 100.0;
         let eff_blizz = (s.all_skills + s.sorc_skills + s.blizz_skills).max(0) as usize;
-        let blizz_per_cast =
-            c.blizz_dmg[eff_blizz.min(c.blizz_dmg.len() - 1)] * cold_mult * 3.0 * targets;
+        let blizz_per_cast = caster.blizz_dmg[eff_blizz.min(caster.blizz_dmg.len() - 1)]
+            * cold_mult
+            * 3.0
+            * targets;
 
         let (cast_f, action_f) = Self::sorc_cast_and_action_frames(s.fcr);
         let cd_ready = action_f + 45;
 
-        if c.filler_dmg.is_empty() {
+        if caster.filler_dmg.is_empty() {
             return blizz_per_cast * (25.0 / cd_ready as f64);
         }
 
         let eff_filler = (s.all_skills + s.sorc_skills + s.action_skill_bonus).max(0) as usize;
-        let filler_mult = if c.filler_is_aoe { targets } else { 1.0 };
-        let filler_per_cast =
-            c.filler_dmg[eff_filler.min(c.filler_dmg.len() - 1)] * cold_mult * filler_mult;
+        let filler_mult = if caster.filler_is_aoe { targets } else { 1.0 };
+        let filler_per_cast = caster.filler_dmg[eff_filler.min(caster.filler_dmg.len() - 1)]
+            * cold_mult
+            * filler_mult;
 
         // Discrete Blizzard + filler cycle: compare idle (k_idle fillers, cycle = cd_ready)
         // vs over-cast (k_over fillers, cycle = (1 + k_over) * cast_f). Strictly monotone in FCR.
@@ -464,7 +470,7 @@ impl OffenseProfile {
     /// Compute `(eff_dps, raw_dps, total_ar, cth_pct, ias_bp, display_frames, last_frames, used_zeal)`.
     ///
     /// Expects `s.str_bonus` and `s.dex_bonus` to be total character strength/dexterity
-    /// (`c.base_str + gear + charms`), matching `ub_ch` in `search.rs`.
+    /// (`c.character.base_str + gear + charms`), matching `ub_ch` in `search.rs`.
     pub(crate) fn compute_dps_detailed(
         self,
         hand: HandWeapon,
@@ -496,18 +502,28 @@ impl OffenseProfile {
         leaf: Stats,
         c: &BuildConstraints,
     ) -> FastLeafDps {
+        let melee = c.skills.melee();
+        let action_hits = melee.map_or(&[][..], |m| m.action_hits.as_slice());
+        let action_ed_tbl = melee.map_or(&[][..], |m| m.action_ed.as_slice());
+        let action_ar_tbl = melee.map_or(&[][..], |m| m.action_ar_pct.as_slice());
+        let aura_ar_tbl = melee.map_or(&[][..], |m| m.aura_ar_pct.as_slice());
+        let aura_target_def_tbl = melee.map_or(&[][..], |m| m.aura_target_def_pct.as_slice());
+        let aura_hit_tbl = melee.map_or(&[][..], |m| m.aura_hit_dmg.as_slice());
+        let aura_pulse_tbl = melee.map_or(&[][..], |m| m.aura_pulse_dps.as_slice());
+        let aura_is_fire = melee.is_some_and(|m| m.aura_is_fire);
+
         let eff_action = (leaf.all_skills + leaf.pal_skills + leaf.action_skill_bonus).max(0) as usize;
         let eff_aura = (leaf.all_skills + leaf.pal_skills + leaf.aura_skill_bonus).max(0) as usize;
 
-        let hits = if c.action_hits.is_empty() {
+        let hits = if action_hits.is_empty() {
             1
         } else {
-            c.action_hits[eff_action.min(c.action_hits.len() - 1)].max(1)
+            action_hits[eff_action.min(action_hits.len() - 1)].max(1)
         };
         let (rate, ias_bp, display_frames, last_frames, used_zeal) =
             self.attack_rate_and_frames(hand, leaf.ias, hits);
-        let action_ed = if used_zeal && !c.action_ed.is_empty() {
-            c.action_ed[eff_action.min(c.action_ed.len() - 1)]
+        let action_ed = if used_zeal && !action_ed_tbl.is_empty() {
+            action_ed_tbl[eff_action.min(action_ed_tbl.len() - 1)]
         } else {
             0
         };
@@ -516,7 +532,7 @@ impl OffenseProfile {
         let total_dex = leaf.dex_bonus.max(0);
         let stat_ed = (total_str * hand.str_pct + total_dex * hand.dex_pct) / 100;
 
-        let target_type = TargetType::parse(&c.target_type).unwrap_or_default();
+        let target_type = TargetType::parse(&c.target.target_type).unwrap_or_default();
         let (demon_w, undead_w) = if matches!(target_type, TargetType::Boss) {
             (1.0, 0.0)
         } else {
@@ -538,46 +554,46 @@ impl OffenseProfile {
         let crit_mult = 1.0 + (1.0 - (1.0 - ds_prob) * (1.0 - cs_prob));
         let phys_scale = (1.0 + eff_ed / 100.0) * crit_mult;
 
-        let class = CharClass::from_id_or_default(c.char_class);
+        let class = CharClass::from_id_or_default(c.character.char_class);
         let dex_base_ar = class.base_ar_from_dex(total_dex);
         let act_ar_pct = if (used_zeal || (self == Self::Melee && !hand.wclass.is_ranged()))
-            && !c.action_ar_pct.is_empty()
+            && !action_ar_tbl.is_empty()
         {
-            c.action_ar_pct[eff_action.min(c.action_ar_pct.len() - 1)]
+            action_ar_tbl[eff_action.min(action_ar_tbl.len() - 1)]
         } else {
             0
         };
-        let aura_ar_pct = if !c.aura_ar_pct.is_empty() {
-            c.aura_ar_pct[eff_aura.min(c.aura_ar_pct.len() - 1)]
+        let aura_ar_pct = if !aura_ar_tbl.is_empty() {
+            aura_ar_tbl[eff_aura.min(aura_ar_tbl.len() - 1)]
         } else {
             0
         };
         let total_ar_pct = (leaf.ar_pct + act_ar_pct + aura_ar_pct).max(0);
         let itd_active = leaf.itd > 0 && target_type.allows_itd();
-        let conv_red = if c.aura_target_def_pct.is_empty() {
+        let conv_red = if aura_target_def_tbl.is_empty() {
             0
         } else {
-            c.aura_target_def_pct[eff_aura.min(c.aura_target_def_pct.len() - 1)]
+            aura_target_def_tbl[eff_aura.min(aura_target_def_tbl.len() - 1)]
         };
         // In D2R, Conviction's defense reduction and gear -% Target Defense stack multiplicatively,
         // and gear -% Target Defense is halved against Champions, Uniques, and Bosses.
         let conv_mult = (100 - conv_red.clamp(0, 100)) as f64 / 100.0;
         let gear_red = target_type.gear_target_def_reduction(leaf.target_def_pct);
         let gear_mult = (100 - gear_red) as f64 / 100.0;
-        let eff_dr = (c.target_def.max(0) as f64) * conv_mult * gear_mult;
+        let eff_dr = (c.target.target_def.max(0) as f64) * conv_mult * gear_mult;
 
         let p_dec = leaf.ctc_decrep_pct.clamp(0, 100) as f64 / 100.0;
-        let d_aura_hit = if c.aura_hit_dmg.is_empty() {
+        let d_aura_hit = if aura_hit_tbl.is_empty() {
             0.0
         } else {
-            c.aura_hit_dmg[eff_aura.min(c.aura_hit_dmg.len() - 1)]
+            aura_hit_tbl[eff_aura.min(aura_hit_tbl.len() - 1)]
         };
-        let d_aura_pulse = if c.aura_pulse_dps.is_empty() {
+        let d_aura_pulse = if aura_pulse_tbl.is_empty() {
             0.0
         } else {
-            c.aura_pulse_dps[eff_aura.min(c.aura_pulse_dps.len() - 1)]
+            aura_pulse_tbl[eff_aura.min(aura_pulse_tbl.len() - 1)]
         };
-        let targets = c.targets.max(1) as f64;
+        let targets = c.target.targets.max(1) as f64;
         let d_splash_fire = if hand.splash_fire {
             (hand.splash_fire_2x.max(0) as f64 / 2.0) * targets
         } else {
@@ -590,7 +606,7 @@ impl OffenseProfile {
             (_, true) => 0.0625,
         };
         let d_cb_hit =
-            (leaf.cb.clamp(0, 100) as f64 / 100.0) * cb_frac * (0.5 * c.target_hp.max(0) as f64);
+            (leaf.cb.clamp(0, 100) as f64 / 100.0) * cb_frac * (0.5 * c.target.target_hp.max(0) as f64);
 
         let p_ow = leaf.ow.clamp(0, 100) as f64 / 100.0;
         let ow_target_mult = if matches!(target_type, TargetType::Trash) {
@@ -598,7 +614,7 @@ impl OffenseProfile {
         } else {
             0.5
         };
-        let clvl_i = c.char_level.max(1);
+        let clvl_i = c.character.char_level.max(1);
         let clvl = clvl_i as f64;
         let ow_raw_tick = if clvl_i <= 15 {
             9.0 * clvl + 40.0
@@ -615,13 +631,16 @@ impl OffenseProfile {
 
         let d_static_hit = (leaf.ctc_static_pct.clamp(0, 100) as f64 / 100.0)
             * 0.25
-            * (0.25 * c.target_hp.max(0) as f64)
+            * (0.25 * c.target.target_hp.max(0) as f64)
             * targets;
         let d_orb_hit = (leaf.ctc_orb_dmg_2x.max(0) as f64 / 2.0) * targets.min(3.0);
 
         let (pierce_p, max_extra_pierce) =
-            if hand.wclass.is_ranged() && c.targets > 1 && leaf.pierce > 0 {
-                (leaf.pierce.clamp(0, 100) as f64 / 100.0, (c.targets - 1).min(4))
+            if hand.wclass.is_ranged() && c.target.targets > 1 && leaf.pierce > 0 {
+                (
+                    leaf.pierce.clamp(0, 100) as f64 / 100.0,
+                    (c.target.targets - 1).min(4),
+                )
             } else {
                 (0.0, 0)
             };
@@ -632,7 +651,7 @@ impl OffenseProfile {
         // `d_aura_hit * targets` is counted once per target in `auto_hit_attack` (keeping prior
         // raw_dps parity rather than double-counting direct arrow + splash on the primary target).
         let (base_direct_non_phys, base_auto_hit) = if hand.splash_fire {
-            let (direct_aura, auto_aura) = if c.aura_is_fire {
+            let (direct_aura, auto_aura) = if aura_is_fire {
                 (0.0, d_aura_hit * targets)
             } else {
                 (d_aura_hit, 0.0)
@@ -1401,7 +1420,9 @@ impl Stats {
             self.cm_skills = 0;
         }
         if !(offense.is_melee_dps()
-            || (mode == SearchMode::Power && caster_dps && !c.filler_dmg.is_empty()))
+            || (mode == SearchMode::Power
+                && caster_dps
+                && c.skills.caster().is_some_and(|m| !m.filler_dmg.is_empty())))
         {
             self.action_skill_bonus = 0;
         }
@@ -1429,19 +1450,17 @@ impl Stats {
             self.itd = 0;
             self.target_def_pct = 0;
         } else {
-            if !TargetType::parse(&c.target_type).unwrap_or_default().allows_itd() {
+            let target_type = TargetType::parse(&c.target.target_type).unwrap_or_default();
+            if !target_type.allows_itd() {
                 self.itd = 0;
             }
-            if c.target_hp <= 0 {
+            if c.target.target_hp <= 0 {
                 self.ctc_static_pct = 0;
             }
-            if matches!(
-                TargetType::parse(&c.target_type).unwrap_or_default(),
-                TargetType::Boss
-            ) {
+            if matches!(target_type, TargetType::Boss) {
                 self.ed_undead = 0;
             }
-            if c.targets <= 1 {
+            if c.target.targets <= 1 {
                 self.pierce = 0;
             }
         }
@@ -1462,7 +1481,7 @@ impl Stats {
         }
         if !((is_leveling
             && (offense == OffenseProfile::Smite
-                || (offense.uses_dps_tables(c) && c.target_hp > 0)))
+                || (offense.uses_dps_tables(c) && c.target.target_hp > 0)))
             || c.min_cb > 0)
         {
             self.cb = 0;
@@ -1700,8 +1719,8 @@ impl ItemSpec {
 }
 
 /// Charm specification passed between Python (`d2savior`) and Rust.
-#[cfg_attr(feature = "python", pyclass(get_all, set_all))]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "python", pyclass(get_all, eq, hash, frozen))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct CharmSpec {
     pub name: String,
     pub size: i32,
@@ -1853,9 +1872,322 @@ impl CharmSpec {
     }
 }
 
-/// Search constraints and character baseline stats.
-#[cfg_attr(feature = "python", pyclass(get_all, set_all))]
-#[derive(Clone, Debug)]
+/// Character baseline stats and passive modifiers.
+#[cfg_attr(feature = "python", pyclass(get_all, eq, frozen))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CharacterStats {
+    pub char_class: u8,
+    pub char_level: i32,
+    pub base_life: i32,
+    pub base_mana: i32,
+    pub base_str: i32,
+    pub base_dex: i32,
+    pub base_hell_res: i32,
+    pub base_max_fr: i32,
+    pub base_max_lr: i32,
+    pub base_max_cr: i32,
+    pub base_max_pr: i32,
+    pub bo_base_bonus: i32,
+    pub use_bo: bool,
+}
+
+impl Default for CharacterStats {
+    fn default() -> Self {
+        Self {
+            char_class: CharClass::SORCERESS_ID,
+            char_level: 1,
+            base_life: 0,
+            base_mana: 0,
+            base_str: 0,
+            base_dex: 0,
+            base_hell_res: -100,
+            base_max_fr: 0,
+            base_max_lr: 0,
+            base_max_cr: 0,
+            base_max_pr: 0,
+            bo_base_bonus: 4,
+            use_bo: true,
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl CharacterStats {
+    #[new]
+    #[pyo3(signature = (
+        char_class = 1,
+        char_level = 1,
+        base_life = 0,
+        base_mana = 0,
+        base_str = 0,
+        base_dex = 0,
+        base_hell_res = -100,
+        base_max_fr = 0,
+        base_max_lr = 0,
+        base_max_cr = 0,
+        base_max_pr = 0,
+        bo_base_bonus = 4,
+        use_bo = true,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        char_class: u8,
+        char_level: i32,
+        base_life: i32,
+        base_mana: i32,
+        base_str: i32,
+        base_dex: i32,
+        base_hell_res: i32,
+        base_max_fr: i32,
+        base_max_lr: i32,
+        base_max_cr: i32,
+        base_max_pr: i32,
+        bo_base_bonus: i32,
+        use_bo: bool,
+    ) -> Self {
+        Self {
+            char_class,
+            char_level,
+            base_life,
+            base_mana,
+            base_str,
+            base_dex,
+            base_hell_res,
+            base_max_fr,
+            base_max_lr,
+            base_max_cr,
+            base_max_pr,
+            bo_base_bonus,
+            use_bo,
+        }
+    }
+}
+
+/// Target monster stats for hit, damage, and survivability calculations.
+#[cfg_attr(feature = "python", pyclass(get_all, eq, frozen))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TargetProfile {
+    pub targets: i32,
+    pub target_type: String,
+    pub target_def: i32,
+    pub target_ar: i32,
+    pub target_lvl: i32,
+    pub target_hp: i32,
+}
+
+impl Default for TargetProfile {
+    fn default() -> Self {
+        Self {
+            targets: 1,
+            target_type: String::from("champion"),
+            target_def: 180,
+            target_ar: 0,
+            target_lvl: 0,
+            target_hp: 0,
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl TargetProfile {
+    #[new]
+    #[pyo3(signature = (
+        targets = 1,
+        target_type = String::from("champion"),
+        target_def = 180,
+        target_ar = 0,
+        target_lvl = 0,
+        target_hp = 0,
+    ))]
+    pub fn new(
+        targets: i32,
+        target_type: String,
+        target_def: i32,
+        target_ar: i32,
+        target_lvl: i32,
+        target_hp: i32,
+    ) -> Self {
+        Self {
+            targets,
+            target_type,
+            target_def,
+            target_ar,
+            target_lvl,
+            target_hp,
+        }
+    }
+}
+
+/// Sorceress / caster skill progression tables and cold-armor baseline.
+#[cfg_attr(feature = "python", pyclass(get_all, eq, frozen))]
+#[derive(Clone, Debug, PartialEq)]
+pub struct CasterSkillModel {
+    pub blizz_base_lvl: i32,
+    pub blizz_syn_pts: i32,
+    pub cm_base_lvl: i32,
+    pub blizz_dmg: Vec<f64>,
+    pub filler_dmg: Vec<f64>,
+    pub filler_is_aoe: bool,
+    pub cold_armor_kind: u8,
+    pub cold_armor_base_lvl: i32,
+}
+
+impl Default for CasterSkillModel {
+    fn default() -> Self {
+        Self {
+            blizz_base_lvl: 20,
+            blizz_syn_pts: 54,
+            cm_base_lvl: 20,
+            blizz_dmg: Vec::new(),
+            filler_dmg: Vec::new(),
+            filler_is_aoe: false,
+            cold_armor_kind: 0,
+            cold_armor_base_lvl: 0,
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl CasterSkillModel {
+    #[new]
+    #[pyo3(signature = (
+        blizz_base_lvl = 20,
+        blizz_syn_pts = 54,
+        cm_base_lvl = 20,
+        blizz_dmg = Vec::new(),
+        filler_dmg = Vec::new(),
+        filler_is_aoe = false,
+        cold_armor_kind = 0,
+        cold_armor_base_lvl = 0,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        blizz_base_lvl: i32,
+        blizz_syn_pts: i32,
+        cm_base_lvl: i32,
+        blizz_dmg: Vec<f64>,
+        filler_dmg: Vec<f64>,
+        filler_is_aoe: bool,
+        cold_armor_kind: u8,
+        cold_armor_base_lvl: i32,
+    ) -> Self {
+        Self {
+            blizz_base_lvl,
+            blizz_syn_pts,
+            cm_base_lvl,
+            blizz_dmg,
+            filler_dmg,
+            filler_is_aoe,
+            cold_armor_kind,
+            cold_armor_base_lvl,
+        }
+    }
+}
+
+/// Paladin / melee-aura skill progression tables and shield-defense baseline.
+#[cfg_attr(feature = "python", pyclass(get_all, eq, frozen))]
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MeleeSkillModel {
+    pub aura_hit_dmg: Vec<f64>,
+    pub aura_pulse_dps: Vec<f64>,
+    pub action_ed: Vec<i32>,
+    pub action_hits: Vec<i32>,
+    pub has_aura: bool,
+    pub aura_is_fire: bool,
+    pub action_ar_pct: Vec<i32>,
+    pub aura_ar_pct: Vec<i32>,
+    pub aura_target_def_pct: Vec<i32>,
+    pub holy_shield_base_lvl: i32,
+    pub defiance_base_lvl: i32,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl MeleeSkillModel {
+    #[new]
+    #[pyo3(signature = (
+        aura_hit_dmg = Vec::new(),
+        aura_pulse_dps = Vec::new(),
+        action_ed = Vec::new(),
+        action_hits = Vec::new(),
+        has_aura = false,
+        aura_is_fire = false,
+        action_ar_pct = Vec::new(),
+        aura_ar_pct = Vec::new(),
+        aura_target_def_pct = Vec::new(),
+        holy_shield_base_lvl = 0,
+        defiance_base_lvl = 0,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        aura_hit_dmg: Vec<f64>,
+        aura_pulse_dps: Vec<f64>,
+        action_ed: Vec<i32>,
+        action_hits: Vec<i32>,
+        has_aura: bool,
+        aura_is_fire: bool,
+        action_ar_pct: Vec<i32>,
+        aura_ar_pct: Vec<i32>,
+        aura_target_def_pct: Vec<i32>,
+        holy_shield_base_lvl: i32,
+        defiance_base_lvl: i32,
+    ) -> Self {
+        Self {
+            aura_hit_dmg,
+            aura_pulse_dps,
+            action_ed,
+            action_hits,
+            has_aura,
+            aura_is_fire,
+            action_ar_pct,
+            aura_ar_pct,
+            aura_target_def_pct,
+            holy_shield_base_lvl,
+            defiance_base_lvl,
+        }
+    }
+}
+
+/// Class-specific skill model attached to `BuildConstraints`.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "python", derive(FromPyObject, IntoPyObject))]
+pub enum SkillModel {
+    Caster(CasterSkillModel),
+    Melee(MeleeSkillModel),
+}
+
+impl Default for SkillModel {
+    fn default() -> Self {
+        Self::Caster(CasterSkillModel::default())
+    }
+}
+
+impl SkillModel {
+    pub fn caster(&self) -> Option<&CasterSkillModel> {
+        match self {
+            Self::Caster(m) => Some(m),
+            Self::Melee(_) => None,
+        }
+    }
+
+    pub fn melee(&self) -> Option<&MeleeSkillModel> {
+        match self {
+            Self::Melee(m) => Some(m),
+            Self::Caster(_) => None,
+        }
+    }
+
+    pub fn has_aura(&self) -> bool {
+        self.melee().is_some_and(|m| m.has_aura)
+    }
+}
+
+/// Search constraints, character baseline, target profile, and skill model.
+#[cfg_attr(feature = "python", pyclass(get_all, frozen))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BuildConstraints {
     pub allow_mf: bool,
     pub min_fcr: i32,
@@ -1866,35 +2198,10 @@ pub struct BuildConstraints {
     pub min_pr: i32,
     pub max_charm_slots: i32,
     pub mode: String,
-    pub base_life: i32,
-    pub base_mana: i32,
-    pub base_hell_res: i32,
-    pub base_str: i32,
-    pub base_dex: i32,
-    pub bo_base_bonus: i32,
-    pub blizz_base_lvl: i32,
-    pub blizz_syn_pts: i32,
-    pub cm_base_lvl: i32,
     pub limit: usize,
-    pub char_class: u8,
-    pub base_max_fr: i32,
-    pub base_max_lr: i32,
-    pub base_max_cr: i32,
-    pub base_max_pr: i32,
-    pub use_bo: bool,
     pub fixed_gear: bool,
     pub fixed_slots: Vec<String>,
     pub offense: String,
-    pub aura_hit_dmg: Vec<f64>,
-    pub aura_pulse_dps: Vec<f64>,
-    pub action_ed: Vec<i32>,
-    pub action_hits: Vec<i32>,
-    pub has_aura: bool,
-    pub aura_is_fire: bool,
-    pub targets: i32,
-    pub blizz_dmg: Vec<f64>,
-    pub filler_dmg: Vec<f64>,
-    pub filler_is_aoe: bool,
     pub require_cbf: bool,
     pub min_frw: i32,
     pub min_ias: i32,
@@ -1902,19 +2209,9 @@ pub struct BuildConstraints {
     pub min_ll: i32,
     pub min_pdr: i32,
     pub min_mf: i32,
-    pub action_ar_pct: Vec<i32>,
-    pub aura_ar_pct: Vec<i32>,
-    pub aura_target_def_pct: Vec<i32>,
-    pub target_def: i32,
-    pub target_type: String,
-    pub char_level: i32,
-    pub target_hp: i32,
-    pub target_ar: i32,
-    pub target_lvl: i32,
-    pub holy_shield_base_lvl: i32,
-    pub defiance_base_lvl: i32,
-    pub cold_armor_kind: u8,
-    pub cold_armor_base_lvl: i32,
+    pub character: CharacterStats,
+    pub target: TargetProfile,
+    pub skills: SkillModel,
 }
 
 impl Default for BuildConstraints {
@@ -1929,35 +2226,10 @@ impl Default for BuildConstraints {
             min_pr: 0,
             max_charm_slots: 23,
             mode: String::from("power"),
-            base_life: 0,
-            base_mana: 0,
-            base_hell_res: -100,
-            base_str: 0,
-            base_dex: 0,
-            bo_base_bonus: 4,
-            blizz_base_lvl: 20,
-            blizz_syn_pts: 54,
-            cm_base_lvl: 20,
             limit: 5,
-            char_class: CharClass::SORCERESS_ID,
-            base_max_fr: 0,
-            base_max_lr: 0,
-            base_max_cr: 0,
-            base_max_pr: 0,
-            use_bo: true,
             fixed_gear: false,
             fixed_slots: Vec::new(),
             offense: String::from("caster"),
-            aura_hit_dmg: Vec::new(),
-            aura_pulse_dps: Vec::new(),
-            action_ed: Vec::new(),
-            action_hits: Vec::new(),
-            has_aura: false,
-            aura_is_fire: false,
-            targets: 1,
-            blizz_dmg: Vec::new(),
-            filler_dmg: Vec::new(),
-            filler_is_aoe: false,
             require_cbf: false,
             min_frw: 0,
             min_ias: 0,
@@ -1965,19 +2237,9 @@ impl Default for BuildConstraints {
             min_ll: 0,
             min_pdr: 0,
             min_mf: 0,
-            action_ar_pct: Vec::new(),
-            aura_ar_pct: Vec::new(),
-            aura_target_def_pct: Vec::new(),
-            target_def: 180,
-            target_type: String::from("champion"),
-            char_level: 1,
-            target_hp: 0,
-            target_ar: 0,
-            target_lvl: 0,
-            holy_shield_base_lvl: 0,
-            defiance_base_lvl: 0,
-            cold_armor_kind: 0,
-            cold_armor_base_lvl: 0,
+            character: CharacterStats::default(),
+            target: TargetProfile::default(),
+            skills: SkillModel::default(),
         }
     }
 }
@@ -1996,34 +2258,10 @@ impl BuildConstraints {
         min_pr = 0,
         max_charm_slots = 23,
         mode = String::from("power"),
-        base_life = 0,
-        base_mana = 0,
-        base_hell_res = -100,
-        base_str = 0,
-        base_dex = 0,
-        bo_base_bonus = 4,
         limit = 5,
-        blizz_base_lvl = 20,
-        blizz_syn_pts = 54,
-        cm_base_lvl = 20,
-        char_class = 1,
-        base_max_fr = 0,
-        base_max_lr = 0,
-        base_max_cr = 0,
-        base_max_pr = 0,
-        use_bo = true,
         fixed_gear = false,
+        fixed_slots = Vec::new(),
         offense = String::from("caster"),
-        aura_hit_dmg = Vec::new(),
-        aura_pulse_dps = Vec::new(),
-        action_ed = Vec::new(),
-        action_hits = Vec::new(),
-        has_aura = false,
-        aura_is_fire = false,
-        targets = 1,
-        blizz_dmg = Vec::new(),
-        filler_dmg = Vec::new(),
-        filler_is_aoe = false,
         require_cbf = false,
         min_frw = 0,
         min_ias = 0,
@@ -2031,20 +2269,9 @@ impl BuildConstraints {
         min_ll = 0,
         min_pdr = 0,
         min_mf = 0,
-        fixed_slots = Vec::new(),
-        action_ar_pct = Vec::new(),
-        aura_ar_pct = Vec::new(),
-        aura_target_def_pct = Vec::new(),
-        target_def = 180,
-        target_type = String::from("champion"),
-        char_level = 1,
-        target_hp = 0,
-        target_ar = 0,
-        target_lvl = 0,
-        holy_shield_base_lvl = 0,
-        defiance_base_lvl = 0,
-        cold_armor_kind = 0,
-        cold_armor_base_lvl = 0,
+        character = None,
+        target = None,
+        skills = None,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -2057,34 +2284,10 @@ impl BuildConstraints {
         min_pr: i32,
         max_charm_slots: i32,
         mode: String,
-        base_life: i32,
-        base_mana: i32,
-        base_hell_res: i32,
-        base_str: i32,
-        base_dex: i32,
-        bo_base_bonus: i32,
         limit: usize,
-        blizz_base_lvl: i32,
-        blizz_syn_pts: i32,
-        cm_base_lvl: i32,
-        char_class: u8,
-        base_max_fr: i32,
-        base_max_lr: i32,
-        base_max_cr: i32,
-        base_max_pr: i32,
-        use_bo: bool,
         fixed_gear: bool,
+        fixed_slots: Vec<String>,
         offense: String,
-        aura_hit_dmg: Vec<f64>,
-        aura_pulse_dps: Vec<f64>,
-        action_ed: Vec<i32>,
-        action_hits: Vec<i32>,
-        has_aura: bool,
-        aura_is_fire: bool,
-        targets: i32,
-        blizz_dmg: Vec<f64>,
-        filler_dmg: Vec<f64>,
-        filler_is_aoe: bool,
         require_cbf: bool,
         min_frw: i32,
         min_ias: i32,
@@ -2092,20 +2295,9 @@ impl BuildConstraints {
         min_ll: i32,
         min_pdr: i32,
         min_mf: i32,
-        fixed_slots: Vec<String>,
-        action_ar_pct: Vec<i32>,
-        aura_ar_pct: Vec<i32>,
-        aura_target_def_pct: Vec<i32>,
-        target_def: i32,
-        target_type: String,
-        char_level: i32,
-        target_hp: i32,
-        target_ar: i32,
-        target_lvl: i32,
-        holy_shield_base_lvl: i32,
-        defiance_base_lvl: i32,
-        cold_armor_kind: u8,
-        cold_armor_base_lvl: i32,
+        character: Option<CharacterStats>,
+        target: Option<TargetProfile>,
+        skills: Option<SkillModel>,
     ) -> Self {
         Self {
             allow_mf,
@@ -2117,35 +2309,10 @@ impl BuildConstraints {
             min_pr,
             max_charm_slots,
             mode,
-            base_life,
-            base_mana,
-            base_hell_res,
-            base_str,
-            base_dex,
-            bo_base_bonus,
-            blizz_base_lvl,
-            blizz_syn_pts,
-            cm_base_lvl,
             limit,
-            char_class,
-            base_max_fr,
-            base_max_lr,
-            base_max_cr,
-            base_max_pr,
-            use_bo,
             fixed_gear,
             fixed_slots,
             offense,
-            aura_hit_dmg,
-            aura_pulse_dps,
-            action_ed,
-            action_hits,
-            has_aura,
-            aura_is_fire,
-            targets,
-            blizz_dmg,
-            filler_dmg,
-            filler_is_aoe,
             require_cbf,
             min_frw,
             min_ias,
@@ -2153,20 +2320,16 @@ impl BuildConstraints {
             min_ll,
             min_pdr,
             min_mf,
-            action_ar_pct,
-            aura_ar_pct,
-            aura_target_def_pct,
-            target_def,
-            target_type,
-            char_level,
-            target_hp,
-            target_ar,
-            target_lvl,
-            holy_shield_base_lvl,
-            defiance_base_lvl,
-            cold_armor_kind,
-            cold_armor_base_lvl,
+            character: character.unwrap_or_default(),
+            target: target.unwrap_or_default(),
+            skills: skills.unwrap_or_default(),
         }
+    }
+
+    pub fn with_limit(&self, limit: usize) -> Self {
+        let mut cloned = self.clone();
+        cloned.limit = limit;
+        cloned
     }
 }
 
@@ -2301,11 +2464,14 @@ pub(crate) fn mk_test_item(
 #[cfg(test)]
 pub(crate) fn test_constraints() -> BuildConstraints {
     BuildConstraints {
-        base_life: 806,
-        base_mana: 211,
-        base_hell_res: -70,
-        base_str: 156,
-        base_dex: 25,
+        character: CharacterStats {
+            base_life: 806,
+            base_mana: 211,
+            base_hell_res: -70,
+            base_str: 156,
+            base_dex: 25,
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
