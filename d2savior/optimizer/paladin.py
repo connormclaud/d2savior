@@ -107,7 +107,9 @@ PALADIN_SPEC_INFO: frozendict[str, tuple[int | None, str | None, frozenset[int]]
 _PALADIN_CASTER_SPECS: frozenset[str] = frozenset({"hammer", "foh", "holy-bolt"})
 
 
+_SKILL_ID_SMITE = 97
 _SKILL_ID_ZEAL = 106
+_ELEMENTAL_AURA_SKILL_IDS: frozenset[int] = frozenset({102, 114, 118})
 
 
 def paladin_offense_profile(
@@ -120,9 +122,12 @@ def paladin_offense_profile(
     """Return Rust OffenseProfile name ('smite', 'caster', 'zeal', or 'melee') for a Paladin spec.
 
     For aura/leveling specs, locks to the active bound skills in the save file (or CLI overrides)
-    when present (e.g. normal Attack + Holy Fire -> 'melee', Zeal + Holy Fire -> 'zeal'), falling
-    back to hard skill points only when no active bindings are populated.
+    when present (e.g. normal Attack + Holy Fire -> 'melee', Zeal + Holy Fire -> 'zeal',
+    Smite + Holy Fire -> 'smite'), falling back to hard skill points only when no active
+    bindings are populated.
     """
+    if left_skill == _SKILL_ID_SMITE:
+        return "smite"
     if spec == "smite":
         return "smite"
     if spec in _PALADIN_CASTER_SPECS:
@@ -131,6 +136,7 @@ def paladin_offense_profile(
         return "zeal"
     if spec in ("holy-fire", "holy-freeze", "holy-shock", "leveling") and char_data is not None:
         skills = char_data.skills.skill_levels if char_data.skills else ()
+        has_smite = len(skills) > _PAL_SMITE and skills[_PAL_SMITE] > 0
         has_zeal = len(skills) > _PAL_ZEAL and skills[_PAL_ZEAL] > 0
         active_left, active_right = active_skill_bindings(char_data)
         eff_left = left_skill if left_skill is not None else active_left
@@ -139,6 +145,8 @@ def paladin_offense_profile(
             left_skill is not None or right_skill is not None or eff_left != 0 or eff_right != 0
         )
         if has_bindings:
+            if has_smite and _SKILL_ID_SMITE in (eff_left, eff_right):
+                return "smite"
             if has_zeal and _SKILL_ID_ZEAL in (eff_left, eff_right):
                 return "zeal"
             return "melee"
@@ -158,8 +166,12 @@ def detect_paladin_spec(
     if len(skills) < 30:
         return "leveling"
     active_left, active_right = active_skill_bindings(char_data)
+    if left_skill == _SKILL_ID_SMITE and right_skill not in _ELEMENTAL_AURA_SKILL_IDS:
+        return "smite"
     if right_skill == -1:
         eff_left = left_skill if left_skill is not None else active_left
+        if eff_left == _SKILL_ID_SMITE:
+            return "smite"
         return "zeal" if eff_left == _SKILL_ID_ZEAL else "leveling"
     if right_skill is not None and right_skill > 0:
         for spec_name in ("holy-fire", "holy-freeze", "holy-shock"):

@@ -1527,6 +1527,26 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     pal.right_skill_2 = 114  # Active swap binding selects Holy Freeze
     assert detect_paladin_spec(pal) == "holy-freeze"
 
+    # Explicit --left-skill smite (97) selects 'smite' spec & offense even with 0 hard points in Smite.
+    assert detect_paladin_spec(pal, left_skill=97) == "smite"
+    assert paladin_offense_profile("holy-fire", pal, left_skill=97) == "smite"
+    assert detect_paladin_spec(pal, left_skill=97, right_skill=-1) == "smite"
+    assert detect_paladin_spec(pal, left_skill=97, right_skill=102) == "holy-fire"
+    assert paladin_offense_profile("holy-fire", pal, left_skill=97, right_skill=102) == "smite"
+
+    # Active save-file Smite binding selects 'smite' when Smite has hard points.
+    pal.skills.skill_levels[1] = 1  # Smite (Holy Shield prerequisite)
+    pal.left_skill_2 = 97
+    pal.right_skill_2 = 102
+    assert paladin_offense_profile("holy-fire", pal) == "smite"
+
+    # No active bindings (0, 0) with 1-point Smite and 0-point Zeal must NOT default to 'smite'.
+    pal.weapon_set = 0
+    pal.left_skill_1 = 0
+    pal.right_skill_1 = 0
+    pal.skills.skill_levels[10] = 0  # No Zeal
+    assert paladin_offense_profile("holy-fire", pal) == "melee"
+
 
 def test_parse_keep_gear_and_resolve_fixed_gear() -> None:
     from d2savior.optimizer.common import (
