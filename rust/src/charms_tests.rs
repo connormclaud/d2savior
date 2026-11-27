@@ -1,5 +1,19 @@
 use super::*;
-use crate::types::{CharacterStats, MeleeSkillModel, SkillModel, TargetProfile, WeaponClass};
+use crate::dps::WeaponClass;
+use crate::types::{CharacterStats, MeleeSkillModel, SkillModel, TargetProfile};
+
+fn new_solver<'a>(
+    pool: &[&'a CharmSpec],
+    c: &'a BuildConstraints,
+    mode: SearchMode,
+) -> CharmSolver<'a> {
+    super::CharmSolver::new(
+        pool,
+        ResolvedConstraints::resolve(c)
+            .expect("valid test constraints")
+            .with_mode(mode),
+    )
+}
 
 #[test]
 fn test_charm_stat_ub_respects_max_slots_and_rounds_up_partial() {
@@ -243,7 +257,7 @@ fn test_charm_solver_recovers_when_greedy_misses_feasibility_or_main_score() {
     };
     let leaf = Stats::default();
     assert!(greedy_charms(&[], &pool_feas, &c_feas, (6, 0), SearchMode::Power).is_none());
-    let mut solver_feas = CharmSolver::new(&pool_feas, &c_feas, SearchMode::Power);
+    let mut solver_feas = new_solver(&pool_feas, &c_feas, SearchMode::Power);
     let exact = solver_feas
         .solve(&[], leaf, (6, 0))
         .expect("exact charm solver should find Str/FHR SC + Str/Res LC");
@@ -304,7 +318,7 @@ fn test_charm_solver_recovers_when_greedy_misses_feasibility_or_main_score() {
         .expect("greedy should still find a feasible 0-skill set");
     assert_eq!(g_sk.iter().map(|c| c.skills).sum::<i32>(), 0);
 
-    let mut solver_skill = CharmSolver::new(&pool_sk, &c_skill, SearchMode::Power);
+    let mut solver_skill = new_solver(&pool_sk, &c_skill, SearchMode::Power);
     let best_sk = solver_skill
         .solve(&[], leaf, (0, 0))
         .expect("exact should find Hybrid LC + Skill GC");
@@ -361,7 +375,7 @@ fn test_charm_solver_max_res_negative_res_overcap_and_cache_isolation() {
         r.into_iter().map(|v| v.min(75)).sum()
     };
 
-    let mut solver = CharmSolver::new(&pool, &c, SearchMode::MaxRes);
+    let mut solver = new_solver(&pool, &c, SearchMode::MaxRes);
 
     // At CR = 75 (0 overcap), Sunder + CR SC yields 55 + 75 + 60 + 75 = 265 > 260.
     let leaf_at_cap = Stats {
@@ -431,7 +445,7 @@ fn test_charm_solver_max_res_multi_offsets_later_negative_res_charm() {
         ..Default::default()
     };
 
-    let mut solver = CharmSolver::new(&pool, &c, SearchMode::MaxRes);
+    let mut solver = new_solver(&pool, &c, SearchMode::MaxRes);
     let chosen = solver
         .solve(&[], leaf, (10, 0))
         .expect("should solve with sunder + CR SC");
@@ -501,7 +515,7 @@ fn test_charm_solver_forces_best_cold_sunder_in_power_and_mf_only() {
         max_charm_slots: 6,
         ..Default::default()
     };
-    let mut solver_strict = CharmSolver::new(&pool, &c_pow_strict, SearchMode::Power);
+    let mut solver_strict = new_solver(&pool, &c_pow_strict, SearchMode::Power);
     let chosen_strict = solver_strict
         .solve(&[], leaf, (0, 0))
         .expect("should pick Cold Rupture -72 + Sapphire SC to hit 75 CR");
@@ -510,7 +524,7 @@ fn test_charm_solver_forces_best_cold_sunder_in_power_and_mf_only() {
     assert!(chosen_strict.iter().any(|ch| ch.name == "Sapphire SC"));
 
     // Mf mode: still forces Cold Rupture -72 and uses remaining 3 slots for MF SCs (up to cap).
-    let mut solver_mf = CharmSolver::new(&pool, &c_pow_strict, SearchMode::Mf);
+    let mut solver_mf = new_solver(&pool, &c_pow_strict, SearchMode::Mf);
     let chosen_mf = solver_mf
         .solve(&[], leaf, (0, 0))
         .expect("MF should also force Cold Rupture -72 and Sapphire SC");
@@ -518,7 +532,7 @@ fn test_charm_solver_forces_best_cold_sunder_in_power_and_mf_only() {
     assert!(chosen_mf.iter().any(|ch| ch.name == "Sapphire SC"));
 
     // MaxRes mode: Cold Rupture is optional, so it is skipped and CR stays at 75.
-    let mut solver_max = CharmSolver::new(&pool, &c_pow_strict, SearchMode::MaxRes);
+    let mut solver_max = new_solver(&pool, &c_pow_strict, SearchMode::MaxRes);
     let chosen_max = solver_max
         .solve(&[], leaf, (0, 0))
         .expect("MaxRes should solve without Cold Rupture");
@@ -577,7 +591,7 @@ fn test_leveling_res_caps_at_75_and_paladin_never_forces_sunder() {
         max_fr: 10,
         ..Default::default()
     };
-    let mut solver_res = CharmSolver::new(&pool, &c_lvl_res, SearchMode::LevelingRes);
+    let mut solver_res = new_solver(&pool, &c_lvl_res, SearchMode::LevelingRes);
     assert!(!solver_res.has_cold_sunder());
     let chosen_res = solver_res
         .solve(&[], leaf, (0, 0))
@@ -590,7 +604,7 @@ fn test_leveling_res_caps_at_75_and_paladin_never_forces_sunder() {
         max_charm_slots: 3,
         ..c_lvl_res
     };
-    let solver_lvl = CharmSolver::new(&pool, &c_pal_lvl, SearchMode::Leveling);
+    let solver_lvl = new_solver(&pool, &c_pal_lvl, SearchMode::Leveling);
     assert!(!solver_lvl.has_cold_sunder());
 
     // With passive `base_max_fr = 10` (cap 85), BOTH LevelingRes and Leveling optimize up to 85 FR:
@@ -641,7 +655,7 @@ fn test_leveling_res_caps_at_75_and_paladin_never_forces_sunder() {
         ..Default::default()
     };
     for mode in [SearchMode::LevelingRes, SearchMode::Leveling] {
-        let mut s = CharmSolver::new(&pal_pool, &c_passive_fr, mode);
+        let mut s = new_solver(&pal_pool, &c_passive_fr, mode);
         let pick_75 = s.solve(&[], leaf_75_fr, (0, 0)).expect("should pick Ruby SC below 85 FR");
         assert_eq!(pick_75[0].name, "Ruby SC");
         let pick_85 = s.solve(&[], leaf_85_fr, (0, 0)).expect("should pick Vita SC at 85 FR");
@@ -693,7 +707,7 @@ fn test_leveling_charm_cache_does_not_collide_across_res_deficits_and_prioritize
         max_charm_slots: 1,
         ..Default::default()
     };
-    let mut solver = CharmSolver::new(&pool, &c, SearchMode::Leveling);
+    let mut solver = new_solver(&pool, &c, SearchMode::Leveling);
 
     // Loadout A: needs Fire Res (FR=64, LR=75, CR=75, PR=75) -> must pick Ruby SC (+11 FR -> 75),
     // not Vita SC (+20 Life).
@@ -784,7 +798,7 @@ fn test_sunder_forwards_min_main_needed_and_non_res_cache_tailors_filler() {
         pr: 75,
         ..Default::default()
     };
-    let mut single_solver = CharmSolver::new(&single_pool, &c_single, SearchMode::Mf);
+    let mut single_solver = new_solver(&single_pool, &c_single, SearchMode::Mf);
     assert!(single_solver
         .solve_with_min_main(leaf_ok, (0, 0), 13)
         .is_none());
@@ -822,7 +836,7 @@ fn test_sunder_forwards_min_main_needed_and_non_res_cache_tailors_filler() {
         },
     ];
     let multi_pool: Vec<&CharmSpec> = multi_pool_charms.iter().collect();
-    let mut multi_solver = CharmSolver::new(&multi_pool, &c_single, SearchMode::Mf);
+    let mut multi_solver = new_solver(&multi_pool, &c_single, SearchMode::Mf);
     assert!(multi_solver
         .solve_with_min_main(leaf_ok, (0, 0), 13)
         .is_none());
@@ -868,7 +882,7 @@ fn test_sunder_forwards_min_main_needed_and_non_res_cache_tailors_filler() {
         max_charm_slots: 2,
         ..Default::default()
     };
-    let mut mf_solver = CharmSolver::new(&filler_pool, &c_filler, SearchMode::Mf);
+    let mut mf_solver = new_solver(&filler_pool, &c_filler, SearchMode::Mf);
 
     let leaf_pr_capped = Stats {
         fr: 75,
@@ -958,7 +972,7 @@ fn test_pure_axis_dp_completes_multi_stat_deficits_and_prunes_joint_slot_exhaust
         max_charm_slots: 5,
         ..Default::default()
     };
-    let mut solver_fit = CharmSolver::new(&pool, &c_fit, SearchMode::Power);
+    let mut solver_fit = new_solver(&pool, &c_fit, SearchMode::Power);
     assert!(solver_fit.groups.is_empty());
     let chosen = solver_fit.solve_with_min_main(leaf, (100, 0), 0).unwrap();
     assert_eq!(chosen.len(), 5);
@@ -967,7 +981,7 @@ fn test_pure_axis_dp_completes_multi_stat_deficits_and_prunes_joint_slot_exhaust
     // 4 slots: each single-axis deficit fits in <=1 slot on its own, but jointly requires 5 > 4.
     let mut c_tight = c_fit.clone();
     c_tight.max_charm_slots = 4;
-    let mut solver_tight = CharmSolver::new(&pool, &c_tight, SearchMode::Power);
+    let mut solver_tight = new_solver(&pool, &c_tight, SearchMode::Power);
     assert!(solver_tight.groups.is_empty());
     assert!(solver_tight.solve_with_min_main(leaf, (100, 0), 0).is_none());
 }
@@ -1035,7 +1049,7 @@ fn test_mixed_hybrid_and_pure_charms_requires_hybrid_to_fit_slots() {
         lr: 64,
         ..Default::default()
     };
-    let mut solver_tight = CharmSolver::new(&pool, &c_tight, SearchMode::Power);
+    let mut solver_tight = new_solver(&pool, &c_tight, SearchMode::Power);
     let chosen_tight = solver_tight.solve_with_min_main(leaf_tight, (0, 0), 0).unwrap();
     assert!(chosen_tight.iter().any(|ch| ch.name == "Hybrid FR/LR SC"));
     assert!(chosen_tight.iter().any(|ch| ch.name == "Balance SC"));
@@ -1050,7 +1064,7 @@ fn test_mixed_hybrid_and_pure_charms_requires_hybrid_to_fit_slots() {
         lr: 64,
         ..Default::default()
     };
-    let mut solver_skill = CharmSolver::new(&pool, &c_skill, SearchMode::Power);
+    let mut solver_skill = new_solver(&pool, &c_skill, SearchMode::Power);
     let chosen_skill = solver_skill.solve_with_min_main(leaf_skill, (0, 0), 0).unwrap();
     assert_eq!(chosen_skill.iter().map(|ch| ch.skills_total()).sum::<i32>(), 1);
     assert!(chosen_skill.iter().any(|ch| ch.name == "Cold Skiller GC"));
@@ -1123,7 +1137,7 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
         max_charm_slots: 6,
         ..Default::default()
     };
-    let mut sunder_solver = CharmSolver::new(&sunder_pool, &c_sunder, SearchMode::Mf);
+    let mut sunder_solver = new_solver(&sunder_pool, &c_sunder, SearchMode::Mf);
     assert_eq!(sunder_solver.max_slots, 4);
 
     // Leaf CR=110: -70 (3x1, budget=3) needs 35 CR (impossible in 3 slots);
@@ -1209,7 +1223,7 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
         ..Default::default()
     };
     for mode in [SearchMode::MaxRes, SearchMode::LevelingRes] {
-        let mut solver = CharmSolver::new(&res_pool, &c_res, mode);
+        let mut solver = new_solver(&res_pool, &c_res, mode);
         assert_eq!(solver.pure_axes[0].max_gain, 2);
         assert_eq!(solver.pure_axes[2].max_gain, 5);
         assert_eq!(solver.pure_axes[3].max_gain, 0);
@@ -1262,7 +1276,7 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
         ..Default::default()
     };
     for mode in [SearchMode::MaxRes, SearchMode::LevelingRes] {
-        let mut solver = CharmSolver::new(&fhr_skill_pool, &c_fhr_skill, mode);
+        let mut solver = new_solver(&fhr_skill_pool, &c_fhr_skill, mode);
         assert!(solver.groups.is_empty());
         let chosen = solver
             .solve_with_min_main(Stats::default(), (0, 0), 0)
@@ -1295,17 +1309,17 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
         max_charm_slots: 2,
         ..Default::default()
     };
-    let s_pure_fr = CharmSolver::new(&fr_mf_pool, &c_pow_no_mf, SearchMode::Power);
+    let s_pure_fr = new_solver(&fr_mf_pool, &c_pow_no_mf, SearchMode::Power);
     assert!(s_pure_fr.groups.is_empty());
     assert_eq!(s_pure_fr.pure_axes[3].max_gain, 11);
 
     let mut c_pow_min_mf = c_pow_no_mf.clone();
     c_pow_min_mf.min_mf = 7;
-    let s_multi_pow = CharmSolver::new(&fr_mf_pool, &c_pow_min_mf, SearchMode::Power);
+    let s_multi_pow = new_solver(&fr_mf_pool, &c_pow_min_mf, SearchMode::Power);
     assert_eq!(s_multi_pow.groups.len(), 1);
     assert_eq!(s_multi_pow.pure_axes[3].max_gain, 0);
 
-    let s_multi_mf = CharmSolver::new(&fr_mf_pool, &c_pow_no_mf, SearchMode::Mf);
+    let s_multi_mf = new_solver(&fr_mf_pool, &c_pow_no_mf, SearchMode::Mf);
     assert_eq!(s_multi_mf.groups.len(), 1);
     assert_eq!(s_multi_mf.pure_axes[3].max_gain, 0);
 }
@@ -1358,7 +1372,7 @@ fn test_ub_main_counts_action_and_aura_skills_total() {
             lr: 64,
             ..Default::default()
         };
-        let mut solver = CharmSolver::new(&pool, &c, SearchMode::Power);
+        let mut solver = new_solver(&pool, &c, SearchMode::Power);
 
         // 1. Greedy takes Ruby + Amber (2 slots, g_main=0); ub_main must still see skills_total=1
         //    so solve_exact runs instead of short-circuiting on 0 >= 0.
@@ -1373,7 +1387,7 @@ fn test_ub_main_counts_action_and_aura_skills_total() {
         assert!(picked_unconstrained.iter().any(|ch| ch.name == name));
 
         // 2. With min_main_needed=1, ub_main must not falsely prune or poison failed_floor.
-        let mut fresh_solver = CharmSolver::new(&pool, &c, SearchMode::Power);
+        let mut fresh_solver = new_solver(&pool, &c, SearchMode::Power);
         assert!(fresh_solver.solve_with_min_main(leaf, (0, 0), 2).is_none());
         let picked_min1 = fresh_solver.solve_with_min_main(leaf, (0, 0), 1).unwrap();
         assert_eq!(
@@ -1450,7 +1464,7 @@ fn test_charm_solver_handles_all_skills_and_vit_ene_tiebreak() {
         max_charm_slots: 3,
         ..Default::default()
     };
-    let mut solver = CharmSolver::new(&pool, &c, SearchMode::Power);
+    let mut solver = new_solver(&pool, &c, SearchMode::Power);
     assert_eq!(solver.charm_ub_stats().total_skills(), 4);
     assert_eq!(solver.charm_ub_stats().all_skills, 1);
 
@@ -1526,20 +1540,20 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
         ..Default::default()
     };
     let pool_neg = vec![&ruby_sc, &fiery_sc];
-    let mut solver_neg = CharmSolver::new(&pool_neg, &c_neg, SearchMode::LevelingRes);
+    let rc_neg = ResolvedConstraints::resolve(&c_neg).unwrap();
+    let mut solver_neg = new_solver(&pool_neg, &c_neg, SearchMode::LevelingRes);
     let best_charms = solver_neg.solve_with_min_main(leaf, (0, 0), 0).unwrap();
-    let best_sum = eval_build_summary(gear, 0, hw, false, &best_charms, &c_neg);
-    let best_score =
-        score_eval_summary(SearchMode::LevelingRes, OffenseProfile::Melee, &best_sum, &c_neg);
+    let best_sum = eval_build_summary(gear, 0, hw, false, &best_charms, &rc_neg);
+    let best_score = score_eval_summary(&best_sum, &rc_neg);
     assert!(best_score.primary < 0);
 
     // Without ruby_sc (only fiery_sc in pool), res_base stays -400 (< 0), so improve_for_dps
     // must NOT falsely prune on `cutoff.map_or(0, ...)`!
     let pool_fire_only = vec![&fiery_sc];
-    let mut solver_fire = CharmSolver::new(&pool_fire_only, &c_neg, SearchMode::LevelingRes);
+    let mut solver_fire = new_solver(&pool_fire_only, &c_neg, SearchMode::LevelingRes);
     let mut best_c2: Vec<&CharmSpec> = Vec::new();
-    let mut best_s2 = eval_build_summary(gear, 0, hw, false, &best_c2, &c_neg);
-    let mut best_sc2 = score_eval_summary(SearchMode::LevelingRes, OffenseProfile::Melee, &best_s2, &c_neg);
+    let mut best_s2 = eval_build_summary(gear, 0, hw, false, &best_c2, &rc_neg);
+    let mut best_sc2 = score_eval_summary(&best_s2, &rc_neg);
     solver_fire.improve_for_dps(
         gear,
         0,
@@ -1547,7 +1561,6 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
         false,
         leaf,
         (0, 0),
-        OffenseProfile::Melee,
         None,
         &mut best_c2,
         &mut best_s2,
@@ -1700,8 +1713,9 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
     ];
 
     for (idx, (c_case, hw_case, leaf_case)) in cases.iter().enumerate() {
-        let solver = CharmSolver::new(&pure_pool, c_case, SearchMode::Leveling);
-        let fast = OffenseProfile::Melee.fast_leaf_dps(*hw_case, *leaf_case, c_case);
+        let rc_case = ResolvedConstraints::resolve(c_case).unwrap();
+        let solver = super::CharmSolver::new(&pure_pool, rc_case);
+        let fast = OffenseProfile::Melee.fast_leaf_dps(*hw_case, *leaf_case, &rc_case);
         let dp_res = solver
             .pure_dps
             .solve_for_leaf(&fast, c_case.max_charm_slots as usize);
@@ -1729,7 +1743,7 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
                     + picks.iter().map(|ch| ch.psn_dps_2x).sum::<i32>(),
                 ..*leaf_case
             };
-            let dps = OffenseProfile::Melee.compute_dps(*hw_case, s, c_case).0;
+            let dps = OffenseProfile::Melee.compute_dps(*hw_case, s, &rc_case).0;
             bf_best_dps = bf_best_dps.max(dps);
         }
         assert!(
@@ -1757,12 +1771,13 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
     let many_pool: Vec<&CharmSpec> = many_pure.iter().collect();
     let mut c_many = base_c;
     c_many.max_charm_slots = 1;
-    let mut solver_many = CharmSolver::new(&many_pool, &c_many, SearchMode::Leveling);
+    let rc_many = ResolvedConstraints::resolve(&c_many).unwrap();
+    let mut solver_many = super::CharmSolver::new(&many_pool, rc_many);
     assert_eq!(solver_many.pure_dps.item_indices.len(), 64);
     assert_eq!(solver_many.dps_groups.len(), 1);
     let mut best_c3: Vec<&CharmSpec> = Vec::new();
-    let mut best_s3 = eval_build_summary(gear, 0, hw, false, &best_c3, &c_many);
-    let mut best_sc3 = score_eval_summary(SearchMode::Leveling, OffenseProfile::Melee, &best_s3, &c_many);
+    let mut best_s3 = eval_build_summary(gear, 0, hw, false, &best_c3, &rc_many);
+    let mut best_sc3 = score_eval_summary(&best_s3, &rc_many);
     solver_many.improve_for_dps(
         gear,
         0,
@@ -1773,7 +1788,6 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
             ..Default::default()
         },
         (0, 0),
-        OffenseProfile::Melee,
         None,
         &mut best_c3,
         &mut best_s3,

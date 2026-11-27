@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use super::greedy::{charm_eff_life, charm_eff_mana};
-use crate::types::{CharClass, CharmSpec, CthEval, FastLeafDps};
+use crate::dps::{CthEval, FastLeafDps};
+use crate::types::{CharClass, CharmSpec};
 
 #[derive(Clone, Copy, Default)]
 pub(super) struct StatTotals {

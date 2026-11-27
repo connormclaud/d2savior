@@ -7,13 +7,14 @@ use super::greedy::{
 };
 use super::solver::CharmSolver;
 use crate::eval::res_caps;
+use crate::stats::Stats;
 #[cfg(test)]
 use crate::types::ItemSpec;
-use crate::types::{CharmSpec, SearchMode, Stats};
+use crate::types::{CharmSpec, SearchMode};
 
 impl<'a> CharmSolver<'a> {
     fn main_score_of_indices(&self, idxs: &[usize], room: [i32; 4]) -> i32 {
-        match self.mode {
+        match self.c.mode {
             SearchMode::Power | SearchMode::Leveling => {
                 idxs.iter().map(|&i| self.pool[i].skills_total()).sum()
             }
@@ -127,7 +128,7 @@ impl<'a> CharmSolver<'a> {
         incumbent: Option<(i32, Vec<usize>)>,
         min_main_needed: i32,
     ) -> Option<Vec<usize>> {
-        if is_res_mode(self.mode) && min_main_needed > 0 {
+        if is_res_mode(self.c.mode) && min_main_needed > 0 {
             let room_sum: i32 = (0..4).map(|r| room[r].max(0)).sum();
             let slack = room_sum - min_main_needed;
             if slack < 0 {
@@ -160,7 +161,7 @@ impl<'a> CharmSolver<'a> {
             cur_mf: i32,
         ) {
             let s = ctx.solver;
-            let cur_main = match s.mode {
+            let cur_main = match s.c.mode {
                 SearchMode::Power | SearchMode::Leveling => cur_skills,
                 SearchMode::Mf => cur_mf,
                 SearchMode::MaxRes | SearchMode::LevelingRes => (0..4)
@@ -239,7 +240,7 @@ impl<'a> CharmSolver<'a> {
             // Objective upper-bound pruning once an incumbent or floor exists.
             let rem_dfs_slots = rem_slots - must_pure_slots as i32;
             if let Some(best) = ctx.best_main {
-                let can_beat = match s.mode {
+                let can_beat = match s.c.mode {
                     SearchMode::Power | SearchMode::Leveling => {
                         cur_skills + eval_sorted_ub(&s.order_skills, g_idx, rem_dfs_slots) > best
                     }
@@ -351,7 +352,7 @@ impl<'a> CharmSolver<'a> {
                     stats,
                 } => {
                     let max_k = ((rem_slots / *size).min(members.len() as i32)).max(0);
-                    let has_main = match s.mode {
+                    let has_main = match s.c.mode {
                         SearchMode::Power | SearchMode::Leveling => stats.skills > 0,
                         SearchMode::Mf => stats.mf > 0,
                         SearchMode::MaxRes | SearchMode::LevelingRes => {
@@ -484,7 +485,7 @@ impl<'a> CharmSolver<'a> {
         slot_budget: i32,
         min_main_needed: i32,
     ) -> Option<Vec<&'a CharmSpec>> {
-        let caps_t = res_caps(leaf, self.c);
+        let caps_t = res_caps(leaf, &self.c);
         let caps = [caps_t.0, caps_t.1, caps_t.2, caps_t.3];
         if self.c.min_fr > caps[0]
             || self.c.min_lr > caps[1]
@@ -508,7 +509,7 @@ impl<'a> CharmSolver<'a> {
                 .map(|idxs| idxs.into_iter().map(|i| self.pool[i]).collect());
         }
 
-        let mode = self.mode;
+        let mode = self.c.mode;
         let sunder_main = |ch: &CharmSpec| -> i32 {
             match mode {
                 SearchMode::Power | SearchMode::Leveling => ch.skills_total(),
@@ -559,15 +560,15 @@ impl<'a> CharmSolver<'a> {
             };
             let rem_main = self.main_score_of_indices(&idxs, [0; 4]);
             let total_cr = leaf_s.cr + idxs.iter().map(|&i| self.pool[i].cr).sum::<i32>();
-            let total_life = charm_eff_life(sunder, self.class)
+            let total_life = charm_eff_life(sunder, self.c.class)
                 + idxs
                     .iter()
-                    .map(|&i| charm_eff_life(self.pool[i], self.class))
+                    .map(|&i| charm_eff_life(self.pool[i], self.c.class))
                     .sum::<i32>();
-            let total_mana = charm_eff_mana(sunder, self.class)
+            let total_mana = charm_eff_mana(sunder, self.c.class)
                 + idxs
                     .iter()
-                    .map(|&i| charm_eff_mana(self.pool[i], self.class))
+                    .map(|&i| charm_eff_mana(self.pool[i], self.c.class))
                     .sum::<i32>();
             let total_fhr = leaf_s.fhr + idxs.iter().map(|&i| self.pool[i].fhr).sum::<i32>();
             let total_slots = sunder.size + idxs.iter().map(|&i| self.pool[i].size).sum::<i32>();
@@ -619,16 +620,17 @@ impl<'a> CharmSolver<'a> {
             leaf_res[2].saturating_sub(mins[2]).min(-self.sum_neg[2]),
             leaf_res[3].saturating_sub(mins[3]).min(-self.sum_neg[3]),
         ];
-        let uses_room_in_cache = is_res_mode(self.mode) || self.mode == SearchMode::Leveling;
-        let room = if is_res_mode(self.mode) {
-            let opt_caps = res_opt_caps(caps, self.mode, self.c);
+        let uses_room_in_cache =
+            is_res_mode(self.c.mode) || self.c.mode == SearchMode::Leveling;
+        let room = if is_res_mode(self.c.mode) {
+            let opt_caps = res_opt_caps(caps, self.c.mode, &self.c);
             [
                 (opt_caps[0] - leaf.fr).max(self.sum_neg[0]),
                 (opt_caps[1] - leaf.lr).max(self.sum_neg[1]),
                 (opt_caps[2] - leaf.cr).max(self.sum_neg[2]),
                 (opt_caps[3] - leaf.pr).max(self.sum_neg[3]),
             ]
-        } else if self.mode == SearchMode::Leveling {
+        } else if self.c.mode == SearchMode::Leveling {
             [
                 (caps[0] - leaf.fr).max(0),
                 (caps[1] - leaf.lr).max(0),
@@ -695,7 +697,7 @@ impl<'a> CharmSolver<'a> {
                 .or_insert(min_main_needed);
         };
 
-        let ub_main = match self.mode {
+        let ub_main = match self.c.mode {
             SearchMode::Power | SearchMode::Leveling => {
                 eval_sorted_ub(&self.order_skills, 0, slot_budget)
             }
@@ -709,7 +711,7 @@ impl<'a> CharmSolver<'a> {
             return None;
         }
 
-        if is_res_mode(self.mode) && min_main_needed > 0 {
+        if is_res_mode(self.c.mode) && min_main_needed > 0 {
             let rem_room_init = [
                 room[0].max(0),
                 room[1].max(0),
@@ -728,9 +730,8 @@ impl<'a> CharmSolver<'a> {
         let greedy_scored = greedy_charms_indices(
             leaf,
             &self.pool,
-            self.c,
+            &self.c,
             reqs,
-            self.mode,
             slot_budget,
             forbidden_uid,
             uses_room_in_cache,
@@ -839,7 +840,15 @@ impl<'a> CharmSolver<'a> {
             state.pick(idx);
         }
         let res_targets = [self.c.min_fr, self.c.min_lr, self.c.min_cr, self.c.min_pr];
-        greedy_fill_remaining(&mut state, self.c, caps, res_targets, self.mode, self.class, true);
+        greedy_fill_remaining(
+            &mut state,
+            &self.c,
+            caps,
+            res_targets,
+            self.c.mode,
+            self.c.class,
+            true,
+        );
         state.chosen_indices
     }
 }

@@ -1,5 +1,15 @@
 use super::*;
-use crate::types::{MeleeSkillModel, TargetProfile, mk_test_item};
+use crate::types::{MeleeSkillModel, ResolvedConstraints, TargetProfile, mk_test_item};
+
+fn eval_build_core(
+    items: &[&ItemSpec],
+    charms: &[&CharmSpec],
+    c: &BuildConstraints,
+    evaluated_candidates: usize,
+) -> BuildResult {
+    let rc = ResolvedConstraints::resolve(c).expect("valid test constraints");
+    super::eval_build_core(items, charms, &rc, evaluated_candidates)
+}
 
 #[test]
 fn test_blizzard_damage_scaling() {

@@ -3,13 +3,12 @@ use pyo3::exceptions::PyValueError;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
+use crate::dps::{HandWeapon, OffenseProfile};
+use crate::stats::{compute_effective_gear_stats, equipped_hand_weapon, Stats};
 use crate::types::{
-    compute_effective_gear_stats, equipped_hand_weapon, BuildConstraints, BuildResult,
-    CasterSkillModel, CharClass, CharacterStats, CharmSpec, HandWeapon, ItemSpec, OffenseProfile,
-    SkillModel, Stats, BASE_MAX_RES, HARD_MAX_PDR_PCT, HARD_MAX_RES,
+    BuildConstraints, BuildResult, CasterSkillModel, CharClass, CharacterStats, CharmSpec,
+    ItemSpec, ResolvedConstraints, SkillModel, BASE_MAX_RES, HARD_MAX_PDR_PCT, HARD_MAX_RES,
 };
-#[cfg(feature = "python")]
-use crate::types::TargetType;
 
 #[cfg(feature = "python")]
 #[pyfunction]
@@ -227,7 +226,7 @@ pub(crate) fn eval_build_summary(
     hand: HandWeapon,
     has_shield: bool,
     charms: &[&CharmSpec],
-    c: &BuildConstraints,
+    c: &ResolvedConstraints<'_>,
 ) -> EvalSummary {
     let charm_all_skills: i32 = charms.iter().map(|ch| ch.all_skills).sum();
     let charm_skills: i32 = charms.iter().map(|ch| ch.general_skills()).sum();
@@ -264,7 +263,7 @@ pub(crate) fn eval_build_summary(
     let cr_raw = c.character.base_hell_res + gear.cr + charm_cr;
     let pr_raw = c.character.base_hell_res + gear.pr + charm_pr;
 
-    let class = CharClass::from_id_or_default(c.character.char_class);
+    let class = c.class;
     let vit_life = class.life_per_vit(gear.vit + charm_vit);
     let ene_mana = class.mana_per_ene(gear.ene + charm_ene);
 
@@ -325,7 +324,7 @@ pub(crate) fn eval_build_summary(
     };
     let blizz_avg = blizz_avg_base * (1.0 + gear.cold_dmg_pct.max(0) as f64 / 100.0);
     let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(gear, c);
-    let offense = OffenseProfile::parse(&c.offense, class).unwrap_or(OffenseProfile::Caster);
+    let offense = c.offense;
     let action_skill_bonus = gear.action_skill_bonus + charm_action_skills;
     let aura_skill_bonus = gear.aura_skill_bonus + charm_aura_skills;
     let (charm_sorc_skills, charm_pal_skills) = match class {
@@ -495,7 +494,7 @@ pub(crate) fn eval_build_summary(
 pub(crate) fn eval_build_core(
     items: &[&ItemSpec],
     charms: &[&CharmSpec],
-    c: &BuildConstraints,
+    c: &ResolvedConstraints<'_>,
     evaluated_candidates: usize,
 ) -> BuildResult {
     let (gear, all_sk_non_wep) = compute_effective_gear_stats(items);
@@ -528,7 +527,6 @@ pub fn evaluate_build_core(
     base_max_cr: i32,
     base_max_pr: i32,
 ) -> Result<BuildResult, String> {
-    CharClass::from_id(char_class)?;
     let item_refs: Vec<&ItemSpec> = items.iter().collect();
     let charm_refs: Vec<&CharmSpec> = charms.iter().collect();
     let c = BuildConstraints {
@@ -553,7 +551,8 @@ pub fn evaluate_build_core(
         }),
         ..Default::default()
     };
-    Ok(eval_build_core(&item_refs, &charm_refs, &c, 1))
+    let rc = ResolvedConstraints::resolve(&c)?;
+    Ok(eval_build_core(&item_refs, &charm_refs, &rc, 1))
 }
 
 /// Evaluate a concrete list of equipped items and inventory charms.
@@ -597,11 +596,10 @@ pub fn evaluate_build(
     constraints: Option<BuildConstraints>,
 ) -> PyResult<BuildResult> {
     if let Some(c) = constraints.as_ref() {
-        CharClass::from_id(c.character.char_class).map_err(PyValueError::new_err)?;
-        TargetType::parse(&c.target.target_type).map_err(PyValueError::new_err)?;
+        let rc = ResolvedConstraints::resolve(c).map_err(PyValueError::new_err)?;
         let item_refs: Vec<&ItemSpec> = items.iter().collect();
         let charm_refs: Vec<&CharmSpec> = charms.iter().collect();
-        return Ok(eval_build_core(&item_refs, &charm_refs, c, 1));
+        return Ok(eval_build_core(&item_refs, &charm_refs, &rc, 1));
     }
     evaluate_build_core(
         &items,

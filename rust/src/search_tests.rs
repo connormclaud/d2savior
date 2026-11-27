@@ -1,7 +1,8 @@
 use super::*;
+use crate::stats::equipped_hand_weapon;
 use crate::types::{
-    equipped_hand_weapon, mk_test_item as mk_item, test_constraints, CasterSkillModel,
-    CharacterStats, MeleeSkillModel, SkillModel, TargetProfile,
+    mk_test_item as mk_item, test_constraints, CasterSkillModel, CharClass, CharacterStats,
+    MeleeSkillModel, SkillModel, TargetProfile,
 };
 
 #[test]
@@ -785,13 +786,8 @@ fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated()
         limit: 1,
         ..test_constraints()
     };
-    let pruned1 = prune_slot_items(
-        rings_only.clone(),
-        true,
-        SearchMode::Power,
-        OffenseProfile::Caster,
-        &c_ring_1,
-    );
+    let rc_ring_1 = ResolvedConstraints::resolve(&c_ring_1).unwrap();
+    let pruned1 = prune_slot_items(rings_only.clone(), true, &rc_ring_1);
     let names1: HashSet<&str> = pruned1.iter().map(|i| i.name.as_str()).collect();
     assert!(names1.contains("Ring A") && names1.contains("Ring B"));
     assert!(names1.contains("Ring FR") && names1.contains("Ring LR"));
@@ -802,13 +798,8 @@ fn test_ring_pruning_keeps_single_dominated_partner_and_drops_double_dominated()
         limit: 2,
         ..c_ring_1
     };
-    let pruned2 = prune_slot_items(
-        rings_only,
-        true,
-        SearchMode::Power,
-        OffenseProfile::Caster,
-        &c_ring_2,
-    );
+    let rc_ring_2 = ResolvedConstraints::resolve(&c_ring_2).unwrap();
+    let pruned2 = prune_slot_items(rings_only, true, &rc_ring_2);
     let names2: HashSet<&str> = pruned2.iter().map(|i| i.name.as_str()).collect();
     assert!(names2.contains("Ring C"));
     assert!(!names2.contains("Ring D"));
@@ -841,8 +832,9 @@ fn validate_and_score_result(
     c: &BuildConstraints,
     mode: SearchMode,
 ) -> BuildScore {
-    let class = CharClass::from_id(c.character.char_class).unwrap();
-    let offense = OffenseProfile::parse(&c.offense, class).unwrap();
+    let rc = ResolvedConstraints::resolve(c)
+        .expect("valid test constraints")
+        .with_mode(mode);
     let item_refs: Vec<&ItemSpec> = res.items.iter().collect();
     let (gear, all_sk_non_wep, reqs) = compute_effective_gear_stats_and_reqs(&item_refs);
     let charm_refs: Vec<&CharmSpec> = res.charms.iter().collect();
@@ -867,7 +859,7 @@ fn validate_and_score_result(
     let has_shield = item_refs
         .iter()
         .any(|it| it.slot == "shield" && it.name != "(empty)");
-    let sum = eval_build_summary(gear, all_sk_non_wep, hand, has_shield, &charm_refs, c);
+    let sum = eval_build_summary(gear, all_sk_non_wep, hand, has_shield, &charm_refs, &rc);
     assert!(c.allow_mf || sum.mf == 0);
     assert!(sum.fcr >= c.min_fcr);
     assert!(sum.fhr >= c.min_fhr);
@@ -879,7 +871,7 @@ fn validate_and_score_result(
     assert!(sum.pdr_pct >= c.min_pdr);
     assert!(sum.mf >= c.min_mf);
     assert!(sum.fr >= c.min_fr && sum.lr >= c.min_lr && sum.cr >= c.min_cr && sum.pr >= c.min_pr);
-    score_eval_summary(mode, offense, &sum, c)
+    score_eval_summary(&sum, &rc)
 }
 
 const TEST_EQUIP_SLOTS: &[&str] = &[
@@ -892,8 +884,11 @@ fn brute_force_top_scores(
     c: &BuildConstraints,
     mode: SearchMode,
 ) -> Vec<BuildScore> {
-    let class = CharClass::from_id(c.character.char_class).unwrap();
-    let offense = OffenseProfile::parse(&c.offense, class).unwrap();
+    let rc = ResolvedConstraints::resolve(c)
+        .expect("valid test constraints")
+        .with_mode(mode);
+    let class = rc.class;
+    let offense = rc.offense;
     let require_shield = offense.requires_shield();
     let require_melee = offense.requires_melee() && !c.is_hands_fixed();
     let norm = normalize_set_items(
@@ -934,13 +929,10 @@ fn brute_force_top_scores(
             .cloned()
             .collect()
     };
-    if !shs.is_empty() && empty_dominators(&w1h, mode, offense, c) == 0 {
+    if !shs.is_empty() && empty_dominators(&w1h, &rc) == 0 {
         w1h.push(empty_weapon.clone());
     }
-    if !require_shield
-        && !w1h.is_empty()
-        && empty_dominators(&shs, mode, offense, c) == 0
-    {
+    if !require_shield && !w1h.is_empty() && empty_dominators(&shs, &rc) == 0 {
         shs.push(empty_shield.clone());
     }
     let mut hand_pairs: Vec<(ItemSpec, ItemSpec)> = Vec::new();
@@ -954,7 +946,7 @@ fn brute_force_top_scores(
     }
     if !require_shield
         && !hand_pairs.iter().any(|(a, b)| {
-            let comb = a.stats().add(b.stats()).for_mode(mode, offense, c);
+            let comb = a.stats().add(b.stats()).for_mode(&rc);
             let reqs = normalize_reqs(
                 merge_reqs(item_eff_reqs(a), item_eff_reqs(b)),
                 c.character.base_str,
@@ -980,7 +972,7 @@ fn brute_force_top_scores(
                 .filter(|i| i.slot == slot && valid_item(i))
                 .cloned()
                 .collect();
-            if empty_dominators(&v, mode, offense, c) == 0 {
+            if empty_dominators(&v, &rc) == 0 {
                 v.push(empty_singles[idx].clone());
             }
             v
@@ -991,7 +983,7 @@ fn brute_force_top_scores(
         .filter(|i| i.slot == "ring" && valid_item(i))
         .cloned()
         .collect();
-    let ring_dom = empty_dominators(&rings, mode, offense, c);
+    let ring_dom = empty_dominators(&rings, &rc);
     for _ in 0..2usize.saturating_sub(ring_dom) {
         rings.push(empty_ring.clone());
     }
@@ -1075,8 +1067,14 @@ fn brute_force_top_scores(
                         }
                         let hand = h1.hand_weapon();
                         let has_shield = h2.slot == "shield" && h2.name != "(empty)";
-                        let sum =
-                            eval_build_summary(gear, all_sk_non_wep, hand, has_shield, &chosen, c);
+                        let sum = eval_build_summary(
+                            gear,
+                            all_sk_non_wep,
+                            hand,
+                            has_shield,
+                            &chosen,
+                            &rc,
+                        );
                         if (!c.allow_mf && sum.mf > 0)
                             || sum.fhr < c.min_fhr
                             || (c.require_cbf && !sum.cbf)
@@ -1093,7 +1091,7 @@ fn brute_force_top_scores(
                         {
                             continue;
                         }
-                        let score = score_eval_summary(mode, offense, &sum, c);
+                        let score = score_eval_summary(&sum, &rc);
                         let eff_fcr_bp = if offense.uses_fcr() { sum.fcr_bp } else { 0 };
                         let sig = (sum.skills, eff_fcr_bp, sum.fhr_bp, sum.mf, item_names.clone());
                         if best_for_gear
@@ -2769,11 +2767,13 @@ fn test_paladin_dps_zeal_vs_bow_fallback_and_brute_force_parity() {
         ias: 20,
         ..Default::default()
     };
-    let (bow_dps, _, _, _, bow_zeal) = OffenseProfile::Zeal.compute_dps(bow.hand_weapon(), s, &c);
+    let rc = ResolvedConstraints::resolve(&c).unwrap();
+    let (bow_dps, _, _, _, bow_zeal) =
+        OffenseProfile::Zeal.compute_dps(bow.hand_weapon(), s, &rc);
     let (flail_dps, _, _, _, flail_zeal) =
-        OffenseProfile::Zeal.compute_dps(fast_1h.hand_weapon(), s, &c);
+        OffenseProfile::Zeal.compute_dps(fast_1h.hand_weapon(), s, &rc);
     let (thrust_dps, _, _, _, thrust_zeal) =
-        OffenseProfile::Zeal.compute_dps(thrust_1h.hand_weapon(), s, &c);
+        OffenseProfile::Zeal.compute_dps(thrust_1h.hand_weapon(), s, &rc);
     assert!(!bow_zeal);
     assert!(flail_zeal && thrust_zeal);
     assert!(flail_dps > thrust_dps, "1hs F_last=15 must out-DPS 1ht F_last=17");
@@ -3448,13 +3448,8 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
         }),
         ..test_constraints()
     };
-    let pruned_pow = prune_slot_items(
-        vec![base_item.clone(), noisy_power.clone()],
-        false,
-        SearchMode::Power,
-        OffenseProfile::Caster,
-        &c_power,
-    );
+    let rc_power = ResolvedConstraints::resolve(&c_power).unwrap();
+    let pruned_pow = prune_slot_items(vec![base_item.clone(), noisy_power.clone()], false, &rc_power);
     assert_eq!(pruned_pow.len(), 1);
     assert_eq!(pruned_pow[0].name, "Base Helm");
 
@@ -3472,13 +3467,8 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
         },
     ] {
         c_keep.limit = 1;
-        let kept = prune_slot_items(
-            vec![base_item.clone(), noisy_power.clone()],
-            false,
-            SearchMode::Power,
-            OffenseProfile::Caster,
-            &c_keep,
-        );
+        let rc_keep = ResolvedConstraints::resolve(&c_keep).unwrap();
+        let kept = prune_slot_items(vec![base_item.clone(), noisy_power.clone()], false, &rc_keep);
         assert_eq!(kept.len(), 2);
     }
     let mut cold_helm = base_item.clone();
@@ -3486,14 +3476,7 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
     cold_helm.life = 30;
     cold_helm.cold_dmg_pct = 15;
     assert_eq!(
-        prune_slot_items(
-            vec![base_item.clone(), cold_helm],
-            false,
-            SearchMode::Power,
-            OffenseProfile::Caster,
-            &c_power,
-        )
-        .len(),
+        prune_slot_items(vec![base_item.clone(), cold_helm], false, &rc_power).len(),
         2
     );
 
@@ -3518,13 +3501,8 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
         limit: 1,
         ..test_constraints()
     };
-    let pruned_res = prune_slot_items(
-        vec![base_item.clone(), noisy_res],
-        false,
-        SearchMode::MaxRes,
-        OffenseProfile::Caster,
-        &c_max_res,
-    );
+    let rc_max_res = ResolvedConstraints::resolve(&c_max_res).unwrap();
+    let pruned_res = prune_slot_items(vec![base_item.clone(), noisy_res], false, &rc_max_res);
     assert_eq!(pruned_res.len(), 1);
     assert_eq!(pruned_res[0].name, "Base Helm");
 
@@ -3545,13 +3523,8 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
         limit: 1,
         ..test_constraints()
     };
-    let pruned_mf = prune_slot_items(
-        vec![base_item.clone(), noisy_mf],
-        false,
-        SearchMode::Mf,
-        OffenseProfile::Caster,
-        &c_mf,
-    );
+    let rc_mf = ResolvedConstraints::resolve(&c_mf).unwrap();
+    let pruned_mf = prune_slot_items(vec![base_item.clone(), noisy_mf], false, &rc_mf);
     assert_eq!(pruned_mf.len(), 1);
     assert_eq!(pruned_mf[0].name, "Base Helm");
 
@@ -3566,10 +3539,7 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
         def_skill: 2,
         ..Default::default()
     };
-    assert_eq!(
-        empty_dominators(&[mdr_only], SearchMode::Power, OffenseProfile::Caster, &c_power),
-        0
-    );
+    assert_eq!(empty_dominators(&[mdr_only], &rc_power), 0);
 
     // 5. Leveling + Smite preserves pdr_pct, cb, ias, cbf, frw.
     let mut smite_extra = base_item.clone();
@@ -3586,15 +3556,9 @@ fn test_stats_for_mode_prunes_irrelevant_stats_and_preserves_tiebreakers() {
         },
         ..test_constraints()
     };
+    let rc_smite = ResolvedConstraints::resolve(&c_smite).unwrap();
     assert_eq!(
-        prune_slot_items(
-            vec![base_item, smite_extra],
-            false,
-            SearchMode::Leveling,
-            OffenseProfile::Smite,
-            &c_smite,
-        )
-        .len(),
+        prune_slot_items(vec![base_item, smite_extra], false, &rc_smite).len(),
         2
     );
 }
@@ -4334,7 +4298,9 @@ fn test_optimize_builds_with_baseline_prunes_and_preserves_ties() {
 
 #[test]
 fn test_score_of_result_core_parity_and_no_locality() {
-    use crate::eval::eval_build_core;
+    let eval = |items: &[&ItemSpec], c: &BuildConstraints| {
+        crate::eval::eval_build_core(items, &[], &ResolvedConstraints::resolve(c).unwrap(), 1)
+    };
 
     let mut w_eq = mk_item("Sword", "weapon", 0, 0, 1, 75, 0);
     w_eq.loc = "Equipped".to_string();
@@ -4357,8 +4323,8 @@ fn test_score_of_result_core_parity_and_no_locality() {
         },
         ..test_constraints()
     };
-    let r_eq = eval_build_core(&[&w_eq], &[], &c_mf, 1);
-    let r_stash = eval_build_core(&[&w_stash], &[], &c_mf, 1);
+    let r_eq = eval(&[&w_eq], &c_mf);
+    let r_stash = eval(&[&w_stash], &c_mf);
     let s_eq = score_of_result_core(&r_eq, &c_mf).unwrap();
     let s_stash = score_of_result_core(&r_stash, &c_mf).unwrap();
     assert_eq!(s_eq, s_stash);
@@ -4388,8 +4354,8 @@ fn test_score_of_result_core_parity_and_no_locality() {
         },
         ..test_constraints()
     };
-    let r_75 = eval_build_core(&[&helm_75], &[], &c_pal_res, 1);
-    let r_80 = eval_build_core(&[&helm_80], &[], &c_pal_res, 1);
+    let r_75 = eval(&[&helm_75], &c_pal_res);
+    let r_80 = eval(&[&helm_80], &c_pal_res);
     let sc_75 = score_of_result_core(&r_75, &c_pal_res).unwrap();
     let sc_80 = score_of_result_core(&r_80, &c_pal_res).unwrap();
     assert_eq!(sc_80.0 - sc_75.0, 5);
@@ -4416,7 +4382,7 @@ fn test_score_of_result_core_parity_and_no_locality() {
         },
         ..test_constraints()
     };
-    let r_smite = eval_build_core(&[&smite_wep, &shield], &[], &c_smite, 1);
+    let r_smite = eval(&[&smite_wep, &shield], &c_smite);
     let sc_smite = score_of_result_core(&r_smite, &c_smite).unwrap();
     assert_eq!(
         sc_smite.0,
@@ -4453,7 +4419,7 @@ fn test_score_of_result_core_parity_and_no_locality() {
         }),
         ..test_constraints()
     };
-    let r_zeal = eval_build_core(&[&zeal_wep], &[], &c_zeal, 1);
+    let r_zeal = eval(&[&zeal_wep], &c_zeal);
     let sc_zeal = score_of_result_core(&r_zeal, &c_zeal).unwrap();
     assert!(r_zeal.dps > 0.0);
     assert_eq!(sc_zeal.0, OffenseProfile::dps_bucket(r_zeal.dps));
@@ -4475,7 +4441,7 @@ fn test_score_of_result_core_parity_and_no_locality() {
         },
         ..test_constraints()
     };
-    let r_power_nodps = eval_build_core(&[&blizz_orb], &[], &c_power_nodps, 1);
+    let r_power_nodps = eval(&[&blizz_orb], &c_power_nodps);
     let sc_power_nodps = score_of_result_core(&r_power_nodps, &c_power_nodps).unwrap();
     assert_eq!(sc_power_nodps.0, 3);
     assert_eq!(sc_power_nodps.1, 1);
@@ -4485,7 +4451,7 @@ fn test_score_of_result_core_parity_and_no_locality() {
         blizz_dmg: vec![100.0, 150.0, 200.0, 250.0],
         ..Default::default()
     });
-    let r_power_dps = eval_build_core(&[&blizz_orb], &[], &c_power_nodps, 1);
+    let r_power_dps = eval(&[&blizz_orb], &c_power_nodps);
     let sc_power_dps = score_of_result_core(&r_power_dps, &c_power_nodps).unwrap();
     assert!(r_power_dps.dps > 0.0);
     assert_eq!(sc_power_dps.0, r_power_dps.dps.floor() as i32);
@@ -4507,8 +4473,8 @@ fn test_score_of_result_core_parity_and_no_locality() {
         },
         ..test_constraints()
     };
-    let r_mr_base = eval_build_core(&[&helm_75], &[], &c_max_res, 1);
-    let r_mr_over = eval_build_core(&[&over_helm], &[], &c_max_res, 1);
+    let r_mr_base = eval(&[&helm_75], &c_max_res);
+    let r_mr_over = eval(&[&over_helm], &c_max_res);
     let sc_mr_base = score_of_result_core(&r_mr_base, &c_max_res).unwrap();
     let sc_mr_over = score_of_result_core(&r_mr_over, &c_max_res).unwrap();
     assert_eq!(sc_mr_base.0, 300);
@@ -4540,7 +4506,7 @@ fn test_score_of_result_core_parity_and_no_locality() {
         }),
         ..test_constraints()
     };
-    let r_melee = eval_build_core(&[&melee_wep], &[], &c_melee, 1);
+    let r_melee = eval(&[&melee_wep], &c_melee);
     let sc_melee = score_of_result_core(&r_melee, &c_melee).unwrap();
     assert_eq!(
         sc_melee.0,

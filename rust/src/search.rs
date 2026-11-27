@@ -7,11 +7,14 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::charms::CharmSolver;
+use crate::dps::{HandWeapon, OffenseProfile, WeaponClass};
 use crate::eval::{base_res_caps, eval_build_summary, res_caps, EvalSummary};
-use crate::types::{
+use crate::stats::{
     compute_effective_gear_stats, compute_effective_gear_stats_and_reqs, eff_req,
-    equipped_hand_weapon, BuildConstraints, BuildResult, CharClass, CharmSpec, HandWeapon,
-    ItemSpec, OffenseProfile, SearchMode, SetBonusSig, Stats, TargetType, WeaponClass,
+    equipped_hand_weapon, SetBonusSig, Stats,
+};
+use crate::types::{
+    BuildConstraints, BuildResult, CharmSpec, ItemSpec, ResolvedConstraints, SearchMode,
     HARD_MAX_PDR_PCT,
 };
 
@@ -325,12 +328,9 @@ fn res_base_ub(s: Stats, caps: (i32, i32, i32, i32), c: &BuildConstraints) -> i3
     )
 }
 
-pub(crate) fn score_eval_summary(
-    mode: SearchMode,
-    offense: OffenseProfile,
-    sum: &EvalSummary,
-    c: &BuildConstraints,
-) -> BuildScore {
+pub(crate) fn score_eval_summary(sum: &EvalSummary, c: &ResolvedConstraints<'_>) -> BuildScore {
+    let mode = c.mode;
+    let offense = c.offense;
     let has_aura = c.skills.has_aura();
     let eff_primary = if offense.is_melee_dps()
         && (has_aura || sum.action_skill_bonus != 0 || sum.aura_skill_bonus != 0)
@@ -585,9 +585,7 @@ fn prune_candidates<T, S: Eq + std::hash::Hash + Clone>(
 fn prune_slot_items(
     items: Vec<ItemSpec>,
     is_ring: bool,
-    mode: SearchMode,
-    offense: OffenseProfile,
-    c: &BuildConstraints,
+    c: &ResolvedConstraints<'_>,
 ) -> Vec<ItemSpec> {
     prune_candidates(
         items,
@@ -598,7 +596,7 @@ fn prune_slot_items(
         |it| {
             (
                 &it.name,
-                it.stats().for_mode(mode, offense, c),
+                it.stats().for_mode(c),
                 item_eff_reqs(it),
                 single_set_sig(it),
             )
@@ -606,12 +604,7 @@ fn prune_slot_items(
     )
 }
 
-fn empty_dominators(
-    items: &[ItemSpec],
-    mode: SearchMode,
-    offense: OffenseProfile,
-    c: &BuildConstraints,
-) -> usize {
+fn empty_dominators(items: &[ItemSpec], c: &ResolvedConstraints<'_>) -> usize {
     items
         .iter()
         .filter(|it| {
@@ -619,7 +612,7 @@ fn empty_dominators(
                 && it.weapon_class() == WeaponClass::OneHandSwing
                 && it.wsm == 0
                 && dominates_empty(
-                    it.stats().for_mode(mode, offense, c),
+                    it.stats().for_mode(c),
                     item_prune_reqs(it, c.character.base_str, c.character.base_dex),
                 )
         })
@@ -629,10 +622,10 @@ fn empty_dominators(
 fn build_hands(
     items: &[ItemSpec],
     valid_item: &impl Fn(&ItemSpec) -> bool,
-    mode: SearchMode,
-    offense: OffenseProfile,
-    c: &BuildConstraints,
+    c: &ResolvedConstraints<'_>,
 ) -> Vec<ItemPair> {
+    let mode = c.mode;
+    let offense = c.offense;
     let require_shield = offense.requires_shield();
     let weapon_fixed = c.is_weapon_fixed();
     let shield_fixed = c.is_shield_fixed();
@@ -669,7 +662,7 @@ fn build_hands(
         if !must_keep_2h && weapons_1h.is_empty() && !shields.is_empty() {
             weapons_1h.push(ItemSpec::empty("weapon"));
         }
-    } else if !shields.is_empty() && empty_dominators(&weapons_1h, mode, offense, c) == 0 {
+    } else if !shields.is_empty() && empty_dominators(&weapons_1h, c) == 0 {
         weapons_1h.push(ItemSpec::empty("weapon"));
     }
 
@@ -677,10 +670,7 @@ fn build_hands(
         if !require_shield && shields.is_empty() && !weapons_1h.is_empty() {
             shields.push(ItemSpec::empty("shield"));
         }
-    } else if !require_shield
-        && !weapons_1h.is_empty()
-        && empty_dominators(&shields, mode, offense, c) == 0
-    {
+    } else if !require_shield && !weapons_1h.is_empty() && empty_dominators(&shields, c) == 0 {
         shields.push(ItemSpec::empty("shield"));
     }
 
@@ -689,7 +679,7 @@ fn build_hands(
         Reverse(item_sort_key(
             mode,
             offense,
-            &max_s.for_mode(mode, offense, c),
+            &max_s.for_mode(c),
             item_locality_score(&it.loc),
             max_s.defense,
         ))
@@ -699,7 +689,7 @@ fn build_hands(
         Reverse(item_sort_key(
             mode,
             offense,
-            &max_s.for_mode(mode, offense, c),
+            &max_s.for_mode(c),
             item_locality_score(&it.loc),
             max_s.defense,
         ))
@@ -709,7 +699,7 @@ fn build_hands(
         Reverse(item_sort_key(
             mode,
             offense,
-            &max_s.for_mode(mode, offense, c),
+            &max_s.for_mode(c),
             item_locality_score(&it.loc),
             max_s.defense,
         ))
@@ -720,7 +710,7 @@ fn build_hands(
     let fold_wep_phys = matches!(offense, OffenseProfile::Melee | OffenseProfile::Zeal)
         && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes);
     let wep_prune_stats = |it: &ItemSpec| {
-        let mut s = it.stats().for_mode(mode, offense, c);
+        let mut s = it.stats().for_mode(c);
         if fold_wep_phys {
             s.flat_phys_2x += it.wep_phys_2x;
         }
@@ -744,7 +734,7 @@ fn build_hands(
             )
         },
     );
-    let shields = prune_slot_items(shields, false, mode, offense, c);
+    let shields = prune_slot_items(shields, false, c);
     let weapons_2h = prune_candidates(
         weapons_2h,
         c.limit,
@@ -808,7 +798,7 @@ fn build_hands(
         Reverse(item_sort_key(
             mode,
             offense,
-            &h.max_stats.for_mode(mode, offense, c),
+            &h.max_stats.for_mode(c),
             h.locality,
             h.max_stats.defense,
         ))
@@ -1090,9 +1080,7 @@ struct SearchState<'a> {
     has_overflow_set_ub: bool,
     ch: Stats,
     charm_solver: CharmSolver<'a>,
-    c: &'a BuildConstraints,
-    mode: SearchMode,
-    offense: OffenseProfile,
+    c: ResolvedConstraints<'a>,
     chosen_hand: usize,
     chosen_slots: Vec<usize>,
     evals: usize,
@@ -1106,33 +1094,34 @@ impl<'a> SearchState<'a> {
         hand: Option<HandWeapon>,
         caps: (i32, i32, i32, i32),
     ) -> bool {
+        let offense = self.c.offense;
         let has_aura = self.c.skills.has_aura();
         let level_scores = || {
-            let eff_primary_ub = ub_ch.primary_power_skills_for(self.offense, has_aura);
-            let off_ub = if self.offense.uses_dps_tables(self.c) {
+            let eff_primary_ub = ub_ch.primary_power_skills_for(offense, has_aura);
+            let off_ub = if offense.uses_dps_tables(&self.c) {
                 match hand {
                     Some(hw) => {
-                        OffenseProfile::dps_bucket(self.offense.compute_dps(hw, ub_ch, self.c).0)
+                        OffenseProfile::dps_bucket(offense.compute_dps(hw, ub_ch, &self.c).0)
                     }
                     None => self.max_hand_ub_dps,
                 }
             } else {
                 let ub_ias = match hand {
-                    Some(hw) => self.offense.attack_speed(hw.wclass, hw.wsm, ub_ch.ias).0,
+                    Some(hw) => offense.attack_speed(hw.wclass, hw.wsm, ub_ch.ias).0,
                     None => ub_ch.ias,
                 };
-                self.offense.score(eff_primary_ub, ub_ias, ub_ch.cb)
+                offense.score(eff_primary_ub, ub_ias, ub_ch.cb)
             };
-            let res_base = res_base_ub(ub_ch, caps, self.c);
+            let res_base = res_base_ub(ub_ch, caps, &self.c);
             let cbf_ub = i32::from(ub_ch.cbf > 0);
             (off_ub, res_base, cbf_ub)
         };
-        match self.mode {
+        match self.c.mode {
             SearchMode::Power => self.top_results.nth_primary().is_some_and(|cutoff| {
-                let power_ub = if self.offense.uses_caster_dps(self.c) {
-                    self.offense.compute_caster_dps(ub_ch, self.c).floor() as i32
+                let power_ub = if offense.uses_caster_dps(&self.c) {
+                    offense.compute_caster_dps(ub_ch, &self.c).floor() as i32
                 } else {
-                    ub_ch.primary_power_skills_for(self.offense, has_aura)
+                    ub_ch.primary_power_skills_for(offense, has_aura)
                 };
                 power_ub < cutoff
             }),
@@ -1143,7 +1132,7 @@ impl<'a> SearchState<'a> {
             SearchMode::MaxRes => self.top_results.nth_top2().is_some_and(|cutoff| {
                 (
                     capped_res_sum(ub_ch.fr, ub_ch.lr, ub_ch.cr, ub_ch.pr, caps),
-                    ub_ch.primary_power_skills_for(self.offense, has_aura),
+                    ub_ch.primary_power_skills_for(offense, has_aura),
                 ) < cutoff
             }),
             SearchMode::Leveling => self
@@ -1179,7 +1168,7 @@ impl<'a> SearchState<'a> {
         {
             return true;
         }
-        let caps_ub = res_caps(ub, self.c);
+        let caps_ub = res_caps(ub, &self.c);
         if caps_ub.0 < self.c.min_fr
             || caps_ub.1 < self.c.min_lr
             || caps_ub.2 < self.c.min_cr
@@ -1194,6 +1183,8 @@ impl<'a> SearchState<'a> {
     }
 
     fn eval_ring_pairs(&mut self, cur: DfsNode) {
+        let offense = self.c.offense;
+        let mode = self.c.mode;
         let hand = &self.hands[self.chosen_hand];
         let hw = hand.first.hand_weapon();
         for rp_idx in 0..self.ring_pairs.len() {
@@ -1257,14 +1248,14 @@ impl<'a> SearchState<'a> {
             }
             self.evals += 1;
 
-            let min_main_needed = match self.mode {
+            let min_main_needed = match mode {
                 SearchMode::LevelingRes => self.top_results.nth_primary().map_or(0, |cut| {
-                    let caps_l = res_caps(leaf, self.c);
-                    let cur_sum = res_base_ub(leaf, caps_l, self.c);
+                    let caps_l = res_caps(leaf, &self.c);
+                    let cur_sum = res_base_ub(leaf, caps_l, &self.c);
                     (cut - cur_sum).max(0)
                 }),
                 SearchMode::MaxRes => self.top_results.nth_primary().map_or(0, |cut| {
-                    let caps_l = res_caps(leaf, self.c);
+                    let caps_l = res_caps(leaf, &self.c);
                     let cur_sum = capped_res_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr, caps_l);
                     (cut - cur_sum).max(0)
                 }),
@@ -1273,7 +1264,7 @@ impl<'a> SearchState<'a> {
                     .nth_primary()
                     .map_or(0, |cut| (cut - leaf.mf).max(0)),
                 SearchMode::Power => self.top_results.nth_primary().map_or(0, |cut| {
-                    if self.offense.uses_caster_dps(self.c) {
+                    if offense.uses_caster_dps(&self.c) {
                         let max_k = (self.ch.all_skills
                             + self.ch.action_skill_bonus
                             + self.ch.aura_skill_bonus)
@@ -1284,12 +1275,12 @@ impl<'a> SearchState<'a> {
                                     all_skills: leaf.all_skills + k,
                                     ..leaf
                                 };
-                                self.offense.compute_caster_dps(s, self.c).floor() as i32 >= cut
+                                offense.compute_caster_dps(s, &self.c).floor() as i32 >= cut
                             })
                             .unwrap_or(max_k + 1)
                     } else {
                         let cur_sk =
-                            leaf.primary_power_skills_for(self.offense, self.c.skills.has_aura());
+                            leaf.primary_power_skills_for(offense, self.c.skills.has_aura());
                         (cut - cur_sk).max(0)
                     }
                 }),
@@ -1304,7 +1295,7 @@ impl<'a> SearchState<'a> {
             };
             let has_shield = hand.second.slot == "shield" && hand.second.name != "(empty)";
             let mut sum =
-                eval_build_summary(gear, all_sk_non_wep, hw, has_shield, &charms_sel, self.c);
+                eval_build_summary(gear, all_sk_non_wep, hw, has_shield, &charms_sel, &self.c);
             if (!self.c.allow_mf && sum.mf > 0)
                 || sum.fcr < self.c.min_fcr
                 || sum.fhr < self.c.min_fhr
@@ -1325,12 +1316,12 @@ impl<'a> SearchState<'a> {
             {
                 continue;
             }
-            let mut score = score_eval_summary(self.mode, self.offense, &sum, self.c);
+            let mut score = score_eval_summary(&sum, &self.c);
             let items_ref = items_ref_opt
                 .unwrap_or_else(|| leaf_items_ref(hand, self.groups, &self.chosen_slots, rp));
             score.locality = items_ref.iter().map(|it| item_locality_score(&it.loc)).sum();
-            if self.offense.uses_dps_tables(self.c)
-                && matches!(self.mode, SearchMode::Leveling | SearchMode::LevelingRes)
+            if offense.uses_dps_tables(&self.c)
+                && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes)
             {
                 self.charm_solver.improve_for_dps(
                     gear,
@@ -1339,7 +1330,6 @@ impl<'a> SearchState<'a> {
                     has_shield,
                     leaf,
                     (final_req_str, final_req_dex),
-                    self.offense,
                     self.top_results.nth_top3(),
                     &mut charms_sel,
                     &mut sum,
@@ -1350,7 +1340,7 @@ impl<'a> SearchState<'a> {
                 continue;
             }
             let res = sum.into_result(&items_ref, &charms_sel, 0);
-            self.top_results.push(score, res, self.offense);
+            self.top_results.push(score, res, offense);
         }
     }
 
@@ -1414,12 +1404,7 @@ impl<'a> SearchState<'a> {
     }
 }
 
-fn build_score_of_result(
-    res: &BuildResult,
-    mode: SearchMode,
-    offense: OffenseProfile,
-    c: &BuildConstraints,
-) -> BuildScore {
+fn build_score_of_result(res: &BuildResult, c: &ResolvedConstraints<'_>) -> BuildScore {
     let item_refs: Vec<&ItemSpec> = res.items.iter().collect();
     let charm_refs: Vec<&CharmSpec> = res.charms.iter().collect();
     let (gear, all_sk_non_wep) = compute_effective_gear_stats(&item_refs);
@@ -1428,7 +1413,7 @@ fn build_score_of_result(
         .iter()
         .any(|it| it.slot == "shield" && it.name != "(empty)");
     let sum = eval_build_summary(gear, all_sk_non_wep, hw, has_shield, &charm_refs, c);
-    let mut score = score_eval_summary(mode, offense, &sum, c);
+    let mut score = score_eval_summary(&sum, c);
     score.locality = item_refs
         .iter()
         .map(|it| item_locality_score(&it.loc))
@@ -1438,21 +1423,16 @@ fn build_score_of_result(
 
 /// Compute the comparable Rust score tuple (without locality) for an evaluated `BuildResult`.
 pub fn score_of_result_core(res: &BuildResult, c: &BuildConstraints) -> Result<ScoreTuple, String> {
-    let class = CharClass::from_id(c.character.char_class)?;
-    let offense = OffenseProfile::parse(&c.offense, class)?;
-    TargetType::parse(&c.target.target_type)?;
-    let mode = SearchMode::parse(&c.mode)?;
-    Ok(build_score_of_result(res, mode, offense, c).without_locality_tuple())
+    let rc = ResolvedConstraints::resolve(c)?;
+    Ok(build_score_of_result(res, &rc).without_locality_tuple())
 }
 
 fn run_search_pass(
     pool: &SearchPool<'_>,
-    c: &BuildConstraints,
-    mode: SearchMode,
-    offense: OffenseProfile,
+    c: ResolvedConstraints<'_>,
     score_floor: Option<BuildScore>,
 ) -> (Vec<BuildResult>, bool) {
-    let charm_solver = CharmSolver::new(pool.raw_pool, c, mode);
+    let charm_solver = CharmSolver::new(pool.raw_pool, c);
     let has_cold_sunder = charm_solver.has_cold_sunder();
     let ch = charm_solver.charm_ub_stats();
 
@@ -1467,7 +1447,7 @@ fn run_search_pass(
     };
 
     let mut hand_order: Vec<usize> = (0..pool.hands.len()).collect();
-    let max_hand_ub_dps = if offense.uses_dps_tables(c) {
+    let max_hand_ub_dps = if c.offense.uses_dps_tables(&c) {
         let tail_ub = init_acc.add(pool.suf[1]).add(ch);
         let hand_ubs: Vec<i32> = pool
             .hands
@@ -1482,11 +1462,11 @@ fn run_search_pass(
                     .add(h.max_stats)
                     .add(pool.global_sets.ub_for_mask(possible_h));
                 OffenseProfile::dps_bucket(
-                    offense.compute_dps(h.first.hand_weapon(), ub_h, c).0,
+                    c.offense.compute_dps(h.first.hand_weapon(), ub_h, &c).0,
                 )
             })
             .collect();
-        if mode == SearchMode::Leveling {
+        if c.mode == SearchMode::Leveling {
             hand_order.sort_by_key(|&i| Reverse(hand_ubs[i]));
         }
         hand_ubs.into_iter().max().unwrap_or(0)
@@ -1507,8 +1487,6 @@ fn run_search_pass(
         ch,
         charm_solver,
         c,
-        mode,
-        offense,
         chosen_hand: 0,
         chosen_slots: Vec::with_capacity(pool.groups.len()),
         evals: 0,
@@ -1545,21 +1523,21 @@ pub fn optimize_builds_with_baseline(
     c: &BuildConstraints,
     baseline: Option<&BuildResult>,
 ) -> Result<Vec<BuildResult>, String> {
-    let class = CharClass::from_id(c.character.char_class)?;
-    let offense = OffenseProfile::parse(&c.offense, class)?;
-    TargetType::parse(&c.target.target_type)?;
-    let mode = SearchMode::parse(&c.mode)?;
+    let rc = ResolvedConstraints::resolve(c)?;
+    let class = rc.class;
+    let offense = rc.offense;
+    let mode = rc.mode;
 
-    let valid_item = |i: &ItemSpec| c.allow_mf || i.mf == 0;
+    let valid_item = |i: &ItemSpec| rc.allow_mf || i.mf == 0;
     let norm_items = normalize_set_items(
         items,
-        c.allow_mf,
+        rc.allow_mf,
         offense.requires_shield(),
-        offense.requires_melee() && !c.is_weapon_fixed(),
-        |slot| c.is_slot_fixed(slot),
+        offense.requires_melee() && !rc.is_weapon_fixed(),
+        |slot| rc.is_slot_fixed(slot),
     );
 
-    let hands = build_hands(&norm_items, &valid_item, mode, offense, c);
+    let hands = build_hands(&norm_items, &valid_item, &rc);
 
     let mut groups: Vec<Vec<ItemSpec>> = Vec::with_capacity(SINGLE_SLOTS.len());
     for slot in SINGLE_SLOTS {
@@ -1568,10 +1546,10 @@ pub fn optimize_builds_with_baseline(
             .filter(|i| i.slot == slot && valid_item(i))
             .cloned()
             .collect();
-        let need_empty = if c.is_slot_fixed(slot) {
+        let need_empty = if rc.is_slot_fixed(slot) {
             slot_items.is_empty()
         } else {
-            empty_dominators(&slot_items, mode, offense, c) == 0
+            empty_dominators(&slot_items, &rc) == 0
         };
         if need_empty {
             slot_items.push(ItemSpec::empty(slot));
@@ -1581,12 +1559,12 @@ pub fn optimize_builds_with_baseline(
             Reverse(item_sort_key(
                 mode,
                 offense,
-                &max_s.for_mode(mode, offense, c),
+                &max_s.for_mode(&rc),
                 item_locality_score(&it.loc),
                 max_s.defense,
             ))
         });
-        groups.push(prune_slot_items(slot_items, false, mode, offense, c));
+        groups.push(prune_slot_items(slot_items, false, &rc));
     }
 
     let mut rngs: Vec<ItemSpec> = norm_items
@@ -1594,10 +1572,10 @@ pub fn optimize_builds_with_baseline(
         .filter(|i| i.slot == "ring" && valid_item(i))
         .cloned()
         .collect();
-    let empty_rings_needed = if c.is_slot_fixed("ring") {
+    let empty_rings_needed = if rc.is_slot_fixed("ring") {
         2usize.saturating_sub(rngs.len())
     } else {
-        2usize.saturating_sub(empty_dominators(&rngs, mode, offense, c))
+        2usize.saturating_sub(empty_dominators(&rngs, &rc))
     };
     for _ in 0..empty_rings_needed {
         rngs.push(ItemSpec::empty("ring"));
@@ -1607,12 +1585,12 @@ pub fn optimize_builds_with_baseline(
         Reverse(item_sort_key(
             mode,
             offense,
-            &max_s.for_mode(mode, offense, c),
+            &max_s.for_mode(&rc),
             item_locality_score(&it.loc),
             max_s.defense,
         ))
     });
-    let rngs = prune_slot_items(rngs, true, mode, offense, c);
+    let rngs = prune_slot_items(rngs, true, &rc);
 
     let mut all_pairs: Vec<ItemPair> = Vec::with_capacity(rngs.len() * rngs.len() / 2);
     for i in 0..rngs.len() {
@@ -1624,7 +1602,7 @@ pub fn optimize_builds_with_baseline(
         Reverse(item_sort_key(
             mode,
             offense,
-            &rp.max_stats.for_mode(mode, offense, c),
+            &rp.max_stats.for_mode(&rc),
             rp.locality,
             rp.max_stats.defense,
         ))
@@ -1632,7 +1610,7 @@ pub fn optimize_builds_with_baseline(
     let mut ring_pairs: Vec<ItemPair> = Vec::with_capacity(all_pairs.len());
     let mut seen_rp: HashMap<RingPairDedupKey, RingPairNames> = HashMap::new();
     for rp in all_pairs {
-        let comb_stats = rp.combined.stats().for_mode(mode, offense, c);
+        let comb_stats = rp.combined.stats().for_mode(&rc);
         let name_pair = if rp.first.name <= rp.second.name {
             (rp.first.name.clone(), rp.second.name.clone())
         } else {
@@ -1641,7 +1619,7 @@ pub fn optimize_builds_with_baseline(
         let names = seen_rp
             .entry((comb_stats, rp.reqs.0, rp.reqs.1, rp.set_sig.clone()))
             .or_default();
-        if names.contains(&name_pair) || (c.limit > 0 && names.len() >= c.limit) {
+        if names.contains(&name_pair) || (rc.limit > 0 && names.len() >= rc.limit) {
             continue;
         }
         names.insert(name_pair);
@@ -1668,7 +1646,7 @@ pub fn optimize_builds_with_baseline(
     let raw_pool: Vec<&CharmSpec> = charms
         .iter()
         .filter(|ch| {
-            (c.allow_mf || ch.mf == 0)
+            (rc.allow_mf || ch.mf == 0)
                 && (!class.excludes_light_skill_charms() || ch.light_skills == 0)
         })
         .collect();
@@ -1681,18 +1659,19 @@ pub fn optimize_builds_with_baseline(
         raw_pool: &raw_pool,
     };
     let strict_floor = baseline
-        .filter(|b| b.cr >= c.min_cr)
-        .map(|b| build_score_of_result(b, mode, offense, c));
-    let (results, has_cold_sunder) = run_search_pass(&pool, c, mode, offense, strict_floor);
+        .filter(|b| b.cr >= rc.min_cr)
+        .map(|b| build_score_of_result(b, &rc));
+    let (results, has_cold_sunder) = run_search_pass(&pool, rc, strict_floor);
     if results.is_empty()
         && strict_floor.is_none()
         && has_cold_sunder
-        && c.min_cr > RELAXED_MIN_CR
+        && rc.min_cr > RELAXED_MIN_CR
     {
         let mut relaxed = c.clone();
         relaxed.min_cr = RELAXED_MIN_CR;
-        let relaxed_floor = baseline.map(|b| build_score_of_result(b, mode, offense, &relaxed));
-        return Ok(run_search_pass(&pool, &relaxed, mode, offense, relaxed_floor).0);
+        let relaxed_rc = rc.with_raw(&relaxed);
+        let relaxed_floor = baseline.map(|b| build_score_of_result(b, &relaxed_rc));
+        return Ok(run_search_pass(&pool, relaxed_rc, relaxed_floor).0);
     }
     Ok(results)
 }

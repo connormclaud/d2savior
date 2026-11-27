@@ -1,4 +1,6 @@
 use super::*;
+use crate::dps::{holy_shield_smite_dmg_2x, HandWeapon, OffenseProfile, WeaponClass};
+use crate::stats::{equipped_hand_weapon, Stats};
 
 #[test]
 fn test_build_constraints_default_matches_expected() {
@@ -301,7 +303,8 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
     ];
 
     for (idx, (offense, hand, leaf, c)) in scenarios.iter().enumerate() {
-        let fast = offense.fast_leaf_dps(*hand, *leaf, c);
+        let rc = ResolvedConstraints::resolve(c).unwrap();
+        let fast = offense.fast_leaf_dps(*hand, *leaf, &rc);
         for &(add_ar, add_phys, add_elem, add_fire, add_psn) in &deltas {
             let eff_add_phys = if *offense == OffenseProfile::Smite {
                 0
@@ -316,7 +319,7 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
                 psn_dps_2x: leaf.psn_dps_2x + add_psn,
                 ..*leaf
             };
-            let exact = offense.compute_dps_detailed(*hand, s, c).0;
+            let exact = offense.compute_dps_detailed(*hand, s, &rc).0;
             let approx = fast.eval_dps(add_ar, add_phys, add_elem, add_fire, add_psn);
             assert!(
                 (exact - approx).abs() <= 1e-9 * exact.abs().max(1.0),
@@ -397,8 +400,9 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
         },
         ..base_c.clone()
     };
+    let trash_rc = ResolvedConstraints::resolve(&trash_c).unwrap();
     let (_, _, total_ar, cth_pct, ias_bp, display_frames, last_frames, used_zeal) =
-        OffenseProfile::Zeal.compute_dps_detailed(sword, itd_stats, &trash_c);
+        OffenseProfile::Zeal.compute_dps_detailed(sword, itd_stats, &trash_rc);
     assert!(total_ar > 0);
     assert_eq!(cth_pct, 95);
     let (_, exp_ias, exp_disp, exp_last, exp_zeal) =
@@ -435,7 +439,8 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
         }),
         ..base_c.clone()
     };
-    let fast_bow = OffenseProfile::Melee.fast_leaf_dps(bow, bow_stats, &bow_c);
+    let bow_rc = ResolvedConstraints::resolve(&bow_c).unwrap();
+    let fast_bow = OffenseProfile::Melee.fast_leaf_dps(bow, bow_stats, &bow_rc);
     let (eff_dps, raw_dps, bow_ar, bow_cth_pct, _, _, _, bow_zeal) = fast_bow.eval_detailed();
     assert_eq!(eff_dps, fast_bow.eval_dps(0, 0, 0, 0, 0));
     assert!(raw_dps > eff_dps);
@@ -456,8 +461,9 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
         psn_dps_2x: -20,
         ..Default::default()
     };
+    let base_rc = ResolvedConstraints::resolve(&base_c).unwrap();
     let (neg_eff, neg_raw, neg_ar, neg_cth, ..) =
-        OffenseProfile::Melee.compute_dps_detailed(neg_weapon, neg_stats, &base_c);
+        OffenseProfile::Melee.compute_dps_detailed(neg_weapon, neg_stats, &base_rc);
     assert!(neg_eff >= 0.0 && neg_raw >= 0.0);
     assert!(neg_ar >= 0);
     assert!((5..=95).contains(&neg_cth));
@@ -538,4 +544,78 @@ fn test_stats_combine_and_itemspec_roundtrip() {
     assert_eq!(item.set_group, 0);
     assert_eq!(item.wsm, 0);
     assert!(!item.can_zeal);
+}
+
+#[test]
+fn test_resolved_constraints_validation_and_with_raw() {
+    let default_c = BuildConstraints::default();
+    let rc_default = ResolvedConstraints::resolve(&default_c).expect("default constraints valid");
+    assert_eq!(rc_default.class, CharClass::Sorceress);
+    assert_eq!(rc_default.offense, OffenseProfile::Caster);
+    assert_eq!(rc_default.target_type, TargetType::Champion);
+    assert_eq!(rc_default.mode, SearchMode::Power);
+    assert_eq!(rc_default.min_cr, default_c.min_cr);
+
+    let pal_c = BuildConstraints {
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            ..Default::default()
+        },
+        offense: "Zeal".to_string(),
+        mode: "leveling-res".to_string(),
+        target: TargetProfile {
+            target_type: "Boss".to_string(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let rc_pal = ResolvedConstraints::resolve(&pal_c).expect("valid paladin constraints");
+    assert_eq!(rc_pal.class, CharClass::Paladin);
+    assert_eq!(rc_pal.offense, OffenseProfile::Zeal);
+    assert_eq!(rc_pal.target_type, TargetType::Boss);
+    assert_eq!(rc_pal.mode, SearchMode::LevelingRes);
+
+    let mut relaxed = pal_c.clone();
+    relaxed.min_cr = -1_000_000;
+    let rc_relaxed = rc_pal.with_raw(&relaxed);
+    assert_eq!(rc_relaxed.min_cr, -1_000_000);
+    assert_eq!(rc_relaxed.class, CharClass::Paladin);
+    assert_eq!(rc_relaxed.offense, OffenseProfile::Zeal);
+    assert_eq!(rc_relaxed.target_type, TargetType::Boss);
+    assert_eq!(rc_relaxed.mode, SearchMode::LevelingRes);
+
+    let rc_mode = rc_pal.with_mode(SearchMode::Power);
+    assert_eq!(rc_mode.mode, SearchMode::Power);
+    assert_eq!(rc_mode.class, CharClass::Paladin);
+
+    let mut bad_class = default_c.clone();
+    bad_class.character.char_class = 99;
+    assert!(ResolvedConstraints::resolve(&bad_class).is_err());
+
+    let bad_offense = BuildConstraints {
+        offense: "berserk".to_string(),
+        ..default_c.clone()
+    };
+    assert!(ResolvedConstraints::resolve(&bad_offense).is_err());
+
+    let sorc_melee = BuildConstraints {
+        offense: "melee".to_string(),
+        ..default_c.clone()
+    };
+    assert!(ResolvedConstraints::resolve(&sorc_melee).is_err());
+
+    let bad_target = BuildConstraints {
+        target: TargetProfile {
+            target_type: "uber".to_string(),
+            ..Default::default()
+        },
+        ..default_c.clone()
+    };
+    assert!(ResolvedConstraints::resolve(&bad_target).is_err());
+
+    let bad_mode = BuildConstraints {
+        mode: "hardcore".to_string(),
+        ..default_c
+    };
+    assert!(ResolvedConstraints::resolve(&bad_mode).is_err());
 }

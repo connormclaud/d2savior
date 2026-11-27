@@ -8,14 +8,13 @@ use super::greedy::{
     charm_eff_life, charm_eff_mana, charm_stat_ub, is_res_mode, shrink_charm_pool,
     shrink_sunder_pool,
 };
-use crate::types::{BuildConstraints, CharClass, CharmSpec, OffenseProfile, SearchMode, Stats};
+use crate::stats::Stats;
+use crate::types::{CharClass, CharmSpec, ResolvedConstraints, SearchMode};
 
 pub(crate) struct CharmSolver<'a> {
     pub(crate) pool: Vec<&'a CharmSpec>,
     pub(super) sunder_opts: Vec<&'a CharmSpec>,
-    pub(super) c: &'a BuildConstraints,
-    pub(super) mode: SearchMode,
-    pub(super) class: CharClass,
+    pub(super) c: ResolvedConstraints<'a>,
     pub(super) raw_max_slots: i32,
     pub(super) max_slots: i32,
     pub(super) sum_neg: [i32; 4],
@@ -82,7 +81,7 @@ impl<'a> CharmSolver<'a> {
     }
 
     pub(crate) fn charm_ub_stats(&self) -> Stats {
-        let class_splits = |skills: i32| match self.class {
+        let class_splits = |skills: i32| match self.c.class {
             CharClass::Sorceress => (skills, 0),
             CharClass::Paladin => (0, skills),
         };
@@ -165,22 +164,18 @@ impl<'a> CharmSolver<'a> {
         }
     }
 
-    pub(crate) fn new(
-        raw_pool: &[&'a CharmSpec],
-        c: &'a BuildConstraints,
-        mode: SearchMode,
-    ) -> Self {
-        Self::new_inner(raw_pool, c, mode, true)
+    pub(crate) fn new(raw_pool: &[&'a CharmSpec], c: ResolvedConstraints<'a>) -> Self {
+        Self::new_inner(raw_pool, c, true)
     }
 
     fn new_inner(
         raw_pool: &[&'a CharmSpec],
-        c: &'a BuildConstraints,
-        mode: SearchMode,
+        c: ResolvedConstraints<'a>,
         build_dps_refiner: bool,
     ) -> Self {
+        let mode = c.mode;
+        let class = c.class;
         let raw_max_slots = c.max_charm_slots.max(0);
-        let class = CharClass::from_id_or_default(c.character.char_class);
         let (sunder_opts, max_slots, pool) =
             partition_sunder_pool(raw_pool, class, mode, raw_max_slots);
 
@@ -213,12 +208,12 @@ impl<'a> CharmSolver<'a> {
         let ub_flat_elem_2x = charm_stat_ub(&pool, max_slots, |ch| ch.flat_elem_2x);
         let ub_psn_dps_2x = charm_stat_ub(&pool, max_slots, |ch| ch.psn_dps_2x);
 
-        let non_dps = build_non_dps_index(&pool, c, mode, class, max_slots);
+        let non_dps = build_non_dps_index(&pool, &c, max_slots);
         let dps = if build_dps_refiner
             && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes)
-            && OffenseProfile::parse(&c.offense, class).is_ok_and(|o| o.uses_dps_tables(c))
+            && c.offense.uses_dps_tables(&c)
         {
-            build_dps_index(&pool, c, class, max_slots)
+            build_dps_index(&pool, c, max_slots)
         } else {
             DpsIndex::default()
         };
@@ -227,8 +222,6 @@ impl<'a> CharmSolver<'a> {
             pool,
             sunder_opts,
             c,
-            mode,
-            class,
             raw_max_slots,
             max_slots,
             sum_neg,
@@ -386,11 +379,11 @@ struct NonDpsIndex {
 
 fn build_non_dps_index(
     pool: &[&CharmSpec],
-    c: &BuildConstraints,
-    mode: SearchMode,
-    class: CharClass,
+    c: &ResolvedConstraints<'_>,
     max_slots: i32,
 ) -> NonDpsIndex {
+    let mode = c.mode;
+    let class = c.class;
     let main_val_of = |ch: &CharmSpec| main_val_for_mode(ch, mode);
     let is_relevant = |ch: &CharmSpec| {
         let helps_feas = ch.str_bonus > 0
@@ -709,10 +702,10 @@ struct DpsIndex<'a> {
 
 fn build_dps_index<'a>(
     pool: &[&'a CharmSpec],
-    c: &'a BuildConstraints,
-    class: CharClass,
+    c: ResolvedConstraints<'a>,
     max_slots: i32,
 ) -> DpsIndex<'a> {
+    let class = c.class;
     let is_pure_dps = |ch: &CharmSpec| {
         (ch.ar > 0
             || ch.flat_phys_2x > 0
@@ -979,8 +972,7 @@ fn build_dps_index<'a>(
     let dps_order_mf = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.mf);
     let non_dps_solver = Box::new(CharmSolver::new_inner(
         &non_dps_pool,
-        c,
-        SearchMode::LevelingRes,
+        c.with_mode(SearchMode::LevelingRes),
         false,
     ));
     let slots_len = (max_slots.max(0) as usize) + 1;

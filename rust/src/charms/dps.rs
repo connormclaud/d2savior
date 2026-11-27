@@ -3,12 +3,11 @@ use super::dp::{
     min_slots_for_val,
 };
 use super::solver::CharmSolver;
+use crate::dps::{CthEval, FastLeafDps, HandWeapon, OffenseProfile};
 use crate::eval::{EvalSummary, base_res_caps, eval_build_summary, res_caps};
 use crate::search::{BuildScore, score_eval_summary};
-use crate::types::{
-    BuildConstraints, CharClass, CharmSpec, CthEval, FastLeafDps, HandWeapon, OffenseProfile,
-    SearchMode, Stats,
-};
+use crate::stats::Stats;
+use crate::types::{CharClass, CharmSpec, ResolvedConstraints, SearchMode};
 
 impl<'a> CharmSolver<'a> {
     #[allow(clippy::too_many_arguments)]
@@ -20,7 +19,6 @@ impl<'a> CharmSolver<'a> {
         has_shield: bool,
         leaf: Stats,
         reqs: (i32, i32),
-        offense: OffenseProfile,
         cutoff: Option<(i32, i32, i32)>,
         best_charms: &mut Vec<&'a CharmSpec>,
         best_sum: &mut EvalSummary,
@@ -29,13 +27,14 @@ impl<'a> CharmSolver<'a> {
         if self.non_dps_solver.is_none() {
             return;
         }
-        let base_fast = offense.fast_leaf_dps(hw, leaf, self.c);
+        let offense = self.c.offense;
+        let base_fast = offense.fast_leaf_dps(hw, leaf, &self.c);
         let gear_bucket = OffenseProfile::dps_bucket(base_fast.eval_eff_dps());
         let ub_leaf = leaf.add(self.charm_ub_stats());
         let global_ub_bucket =
-            OffenseProfile::dps_bucket(offense.compute_eff_dps(hw, ub_leaf, self.c));
-        let caps_t = res_caps(leaf, self.c);
-        let bc_t = base_res_caps(self.c);
+            OffenseProfile::dps_bucket(offense.compute_eff_dps(hw, ub_leaf, &self.c));
+        let caps_t = res_caps(leaf, &self.c);
+        let bc_t = base_res_caps(&self.c);
         let base_caps = [
             caps_t.0.min(bc_t.0),
             caps_t.1.min(bc_t.1),
@@ -52,7 +51,7 @@ impl<'a> CharmSolver<'a> {
             ]
             .iter()
             .sum();
-            let global_top3 = match self.mode {
+            let global_top3 = match self.c.mode {
                 SearchMode::Leveling => (global_ub_bucket, max_res_base, cbf_val),
                 SearchMode::LevelingRes => (max_res_base, global_ub_bucket, cbf_val),
                 _ => return,
@@ -73,9 +72,7 @@ impl<'a> CharmSolver<'a> {
 
         struct DpsStatic<'b, 'a> {
             pool: &'b [&'a CharmSpec],
-            c: &'a BuildConstraints,
-            mode: SearchMode,
-            class: CharClass,
+            c: ResolvedConstraints<'a>,
             max_slots: i32,
             gear: Stats,
             all_sk_non_wep: i32,
@@ -83,7 +80,6 @@ impl<'a> CharmSolver<'a> {
             has_shield: bool,
             leaf: Stats,
             reqs: (i32, i32),
-            offense: OffenseProfile,
             cutoff: Option<(i32, i32, i32)>,
             cbf_val: i32,
             groups: &'b [CharmGroup],
@@ -301,7 +297,7 @@ impl<'a> CharmSolver<'a> {
                 }
             }
             let mut s_req_res = s_req;
-            if st.mode == SearchMode::LevelingRes {
+            if st.c.mode == SearchMode::LevelingRes {
                 let target_res_base = mut_ctx
                     .best_score
                     .primary
@@ -343,7 +339,7 @@ impl<'a> CharmSolver<'a> {
             }
 
             if g_idx == st.groups.len() {
-                let leaf_d = leaf_with_cur(leaf, cur, st.class);
+                let leaf_d = leaf_with_cur(leaf, cur, st.c.class);
                 if leaf_d.fhr + st.nd_fhr_at[rs_idx] < st.c.min_fhr
                     || leaf_d.frw + st.nd_frw_at[rs_idx] < st.c.min_frw
                     || leaf_d.mf + st.nd_mf_at[rs_idx] < st.c.min_mf
@@ -369,7 +365,7 @@ impl<'a> CharmSolver<'a> {
                         cur.psn_dps_2x,
                     )
                 } else {
-                    st.offense.fast_leaf_dps(st.hw, leaf_d, st.c)
+                    st.c.offense.fast_leaf_dps(st.hw, leaf_d, &st.c)
                 };
                 let max_pure_s = (dps_rem_slots.max(0) as usize).min(st.max_slots.max(0) as usize);
                 let leaf_res_ub_0: i32 = [
@@ -382,7 +378,7 @@ impl<'a> CharmSolver<'a> {
                 .sum();
                 let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
                 let Some(req_bkt) = required_dps_bucket(
-                    st.mode,
+                    st.c.mode,
                     leaf_res_ub_0,
                     st.cbf_val,
                     st.cutoff,
@@ -395,7 +391,7 @@ impl<'a> CharmSolver<'a> {
                     return;
                 }
                 let leaf_ub_bucket = OffenseProfile::dps_bucket(leaf_ub_dps);
-                let leaf_top3 = match st.mode {
+                let leaf_top3 = match st.c.mode {
                     SearchMode::Leveling => (leaf_ub_bucket, leaf_res_ub_0, st.cbf_val),
                     SearchMode::LevelingRes => (leaf_res_ub_0, leaf_ub_bucket, st.cbf_val),
                     _ => return,
@@ -438,7 +434,7 @@ impl<'a> CharmSolver<'a> {
                     .sum();
                     let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
                     let Some(req_bkt) = required_dps_bucket(
-                        st.mode,
+                        st.c.mode,
                         cand_res_ub,
                         st.cbf_val,
                         st.cutoff,
@@ -455,7 +451,7 @@ impl<'a> CharmSolver<'a> {
                     if prev_tested_bucket == Some(cand_bucket) {
                         continue;
                     }
-                    let cand_top3 = match st.mode {
+                    let cand_top3 = match st.c.mode {
                         SearchMode::Leveling => (cand_bucket, cand_res_ub, st.cbf_val),
                         SearchMode::LevelingRes => (cand_res_ub, cand_bucket, st.cbf_val),
                         _ => continue,
@@ -488,7 +484,7 @@ impl<'a> CharmSolver<'a> {
                         st.hw,
                         st.has_shield,
                         &cand_charms,
-                        st.c,
+                        &st.c,
                     );
                     if (!st.c.allow_mf && cand_sum.mf > 0)
                         || cand_sum.fhr < st.c.min_fhr
@@ -501,7 +497,7 @@ impl<'a> CharmSolver<'a> {
                     {
                         continue;
                     }
-                    let mut cand_score = score_eval_summary(st.mode, st.offense, &cand_sum, st.c);
+                    let mut cand_score = score_eval_summary(&cand_sum, &st.c);
                     cand_score.locality = mut_ctx.best_score.locality;
                     if cand_score > *mut_ctx.best_score {
                         *mut_ctx.best_charms = cand_charms;
@@ -547,7 +543,7 @@ impl<'a> CharmSolver<'a> {
                     )
                     .eval_eff_dps()
             } else {
-                let (cur_sorc_ub, cur_pal_ub) = match st.class {
+                let (cur_sorc_ub, cur_pal_ub) = match st.c.class {
                     CharClass::Sorceress => (cur.class_skills + rem_cls_sk, 0),
                     CharClass::Paladin => (0, cur.class_skills + rem_cls_sk),
                 };
@@ -567,11 +563,11 @@ impl<'a> CharmSolver<'a> {
                     psn_dps_2x: leaf.psn_dps_2x + cur.psn_dps_2x + rem_psn,
                     ..leaf
                 };
-                st.offense.compute_eff_dps(st.hw, ub_dps_stats, st.c)
+                st.c.offense.compute_eff_dps(st.hw, ub_dps_stats, &st.c)
             };
             let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
             let Some(req_bkt) = required_dps_bucket(
-                st.mode,
+                st.c.mode,
                 ub_res_base,
                 st.cbf_val,
                 st.cutoff,
@@ -583,7 +579,7 @@ impl<'a> CharmSolver<'a> {
                 return;
             }
             let ub_bucket = OffenseProfile::dps_bucket(ub_dps);
-            let ub_top3 = match st.mode {
+            let ub_top3 = match st.c.mode {
                 SearchMode::Leveling => (ub_bucket, ub_res_base, st.cbf_val),
                 SearchMode::LevelingRes => (ub_res_base, ub_bucket, st.cbf_val),
                 _ => return,
@@ -656,8 +652,6 @@ impl<'a> CharmSolver<'a> {
         let st = DpsStatic {
             pool: &self.pool,
             c: self.c,
-            mode: self.mode,
-            class: self.class,
             max_slots: self.max_slots,
             gear,
             all_sk_non_wep,
@@ -665,7 +659,6 @@ impl<'a> CharmSolver<'a> {
             has_shield,
             leaf,
             reqs,
-            offense,
             cutoff,
             cbf_val,
             groups: &self.dps_groups,

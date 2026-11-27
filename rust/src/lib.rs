@@ -1,6 +1,8 @@
 mod charms;
+mod dps;
 mod eval;
 mod search;
+mod stats;
 mod types;
 
 #[cfg(feature = "python")]

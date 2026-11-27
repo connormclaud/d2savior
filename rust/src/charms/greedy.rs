@@ -1,9 +1,12 @@
 use std::collections::{BTreeMap, HashSet};
 
 use crate::eval::{base_res_caps, res_caps};
-use crate::types::{BuildConstraints, CharClass, CharmSpec, SearchMode, Stats};
 #[cfg(test)]
-use crate::types::{ItemSpec, compute_effective_gear_stats};
+use crate::stats::compute_effective_gear_stats;
+use crate::stats::Stats;
+#[cfg(test)]
+use crate::types::ItemSpec;
+use crate::types::{BuildConstraints, CharClass, CharmSpec, ResolvedConstraints, SearchMode};
 
 pub(super) fn is_res_mode(mode: SearchMode) -> bool {
     matches!(mode, SearchMode::MaxRes | SearchMode::LevelingRes)
@@ -423,14 +426,15 @@ pub(super) fn greedy_fill_remaining(
 fn greedy_charms_pass_indices(
     leaf: Stats,
     pool: &[&CharmSpec],
-    c: &BuildConstraints,
+    c: &ResolvedConstraints<'_>,
     reqs: (i32, i32),
-    mode: SearchMode,
     fhr_first: bool,
     slot_budget: i32,
     forbidden_uid: Option<i32>,
     include_stats_tail: bool,
 ) -> Option<Vec<usize>> {
+    let mode = c.mode;
+    let class = c.class;
     let (cap_fr, cap_lr, cap_cr, cap_pr) = res_caps(leaf, c);
     if c.min_fr > cap_fr || c.min_lr > cap_lr || c.min_cr > cap_cr || c.min_pr > cap_pr {
         return None;
@@ -485,7 +489,6 @@ fn greedy_charms_pass_indices(
         SearchMode::Mf => (0.05, 0.02),
         _ => (0.0, 0.2),
     };
-    let class = CharClass::from_id_or_default(c.character.char_class);
     let res_targets = [c.min_fr, c.min_lr, c.min_cr, c.min_pr];
     if fhr_first {
         greedy_fhr_loop(&mut state, c.min_fhr);
@@ -569,12 +572,14 @@ pub(super) fn greedy_charms_pass<'a>(
         dex_bonus: gear.dex_bonus + c.character.base_dex,
         ..gear
     };
+    let rc = ResolvedConstraints::resolve(c)
+        .expect("valid test constraints")
+        .with_mode(mode);
     greedy_charms_pass_indices(
         leaf,
         pool,
-        c,
+        &rc,
         reqs,
-        mode,
         fhr_first,
         c.max_charm_slots,
         None,
@@ -603,9 +608,8 @@ pub(crate) fn greedy_charms<'a>(
 pub(super) fn greedy_charms_indices(
     leaf: Stats,
     pool: &[&CharmSpec],
-    c: &BuildConstraints,
+    c: &ResolvedConstraints<'_>,
     reqs: (i32, i32),
-    mode: SearchMode,
     slot_budget: i32,
     forbidden_uid: Option<i32>,
     include_stats_tail: bool,
@@ -616,7 +620,6 @@ pub(super) fn greedy_charms_indices(
             pool,
             c,
             reqs,
-            mode,
             fhr_first,
             slot_budget,
             forbidden_uid,
