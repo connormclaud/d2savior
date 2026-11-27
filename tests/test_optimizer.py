@@ -4,7 +4,9 @@ from typing import Any
 
 import pytest
 
-from d2savior.cli import main, parse_d2i_file, parse_d2s_file
+from d2savior import load_d2s
+from d2savior.cli import main
+from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import CharClass, EquipSlot, ItemLocation
 from d2savior.core.item import D2Item
 from d2savior.core.resolver import GameDataResolver
@@ -175,20 +177,16 @@ def test_str_dex_requirements_pyo3() -> None:
 
 
 @requires_native
-def test_optimize_builds_from_fixtures() -> None:
-    resolver = GameDataResolver.load()
-    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    ok_st, stash, kind, _ = parse_d2i_file(
-        str(FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
-    )
-    assert ok_s
-    assert sork is not None
-    assert ok_m
-    assert mule is not None
-    assert ok_st
-    assert kind == "stash"
-    assert isinstance(stash, SharedStash)
+def test_optimize_builds_from_fixtures(
+    parsed_sork: D2SStruct,
+    parsed_mule_unique: D2SStruct,
+    parsed_shared_stash: SharedStash,
+    game_data_resolver: GameDataResolver,
+) -> None:
+    resolver = game_data_resolver
+    sork = parsed_sork
+    mule = parsed_mule_unique
+    stash = parsed_shared_stash
 
     items, charms = extract_pool(sork, extra_chars=[mule], stashes=[stash], resolver=resolver)
     assert len(items) > 10
@@ -330,9 +328,13 @@ def test_cli_optimize_missing_native_extension_prints_clean_error(
     assert "make build-rust" in err
 
 
-def test_item_level_requirements_uniques_sets_runewords() -> None:
-    resolver = GameDataResolver.load()
-    d2r = resolver.for_version(0x63)
+def test_item_level_requirements_uniques_sets_runewords(
+    parsed_sork: D2SStruct,
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    d2r = game_data_resolver.for_version(0x63)
 
     griff = d2r.get_unique_item(336)
     assert griff is not None
@@ -342,12 +344,8 @@ def test_item_level_requirements_uniques_sets_runewords() -> None:
     assert tal_amu is not None
     assert tal_amu.levelreq == 67
 
-    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    assert ok_s
-    assert sork is not None
-    assert ok_m
-    assert mule is not None
+    sork = parsed_sork
+    mule = parsed_mule_unique
 
     # Stealth (Tal 17 + Eth 15) in Studded Leather (base req 0) -> levelreq 17
     stealth = next(it for it in sork.item_list.items if it.code_str.strip() == "stu")
@@ -365,19 +363,20 @@ def test_item_level_requirements_uniques_sets_runewords() -> None:
     amu = next(it for it in sork.item_list.items if it.code_str.strip() == "amu")
     assert amu.item_info is not None
     assert amu.item_info.ext_info is not None
-    amu.item_info.ext_info.magic_prefix = None
-    amu.item_info.ext_info.magic_suffix = None
-    amu.item_info.ext_info.set_id = 77
+    monkeypatch.setattr(amu.item_info.ext_info, "magic_prefix", None)
+    monkeypatch.setattr(amu.item_info.ext_info, "magic_suffix", None)
+    monkeypatch.setattr(amu.item_info.ext_info, "set_id", 77)
     assert item_levelreq(amu, d2r) == 67
     assert item_to_spec(amu, "test", d2r, 0x63, char_level=66) is None
 
 
-def test_extract_prop_acc_per_level_and_cold_tab(monkeypatch: pytest.MonkeyPatch) -> None:
-    resolver = GameDataResolver.load().for_version(0x63)
-    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
-    assert ok_s
-    assert sork is not None
-    dummy_item = sork.item_list.items[0]
+def test_extract_prop_acc_per_level_and_cold_tab(
+    parsed_sork: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolver = game_data_resolver.for_version(0x63)
+    dummy_item = parsed_sork.item_list.items[0]
 
     fake_props = [
         (216, 12 << 8, [12, 0, 0, 0]),  # Shako +1.5 Life/lvl (val_shift=8, op_param=3)
@@ -400,12 +399,12 @@ def test_extract_prop_acc_per_level_and_cold_tab(monkeypatch: pytest.MonkeyPatch
 
 @requires_native
 def test_item_to_spec_keeps_frw_mdr_fire_absorb_and_max_res(
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    resolver = GameDataResolver.load().for_version(0x63)
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    assert ok_m
-    assert mule is not None
+    resolver = game_data_resolver.for_version(0x63)
+    mule = parsed_mule_unique
     # Pick a high-level-usable item that classifies to a slot (e.g. a ring, boot, belt, or sword)
     boot_or_ring = next(
         it
@@ -672,11 +671,13 @@ def test_bo_scales_flat_life_mana_not_per_lvl_or_vit_ene() -> None:
 
 
 @requires_native
-def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    resolver = GameDataResolver.load()
-    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
-    assert ok_s
-    assert sork is not None
+def test_blizzard_base_skills_from_save_and_fallback(
+    parsed_sork: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolver = game_data_resolver
+    sork = parsed_sork
 
     presets = select_sorc_presets(sork, build="tz")
     _, c = presets[0]
@@ -705,7 +706,9 @@ def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyP
 
     # When Blizzard has 0 hard points, hard synergy & Cold Mastery points are preserved for staffmod +Blizzard orbs
     assert sork.skills is not None
-    sork.skills.skill_levels[23] = 0
+    skills = list(sork.skills.skill_levels)
+    skills[23] = 0
+    monkeypatch.setattr(sork.skills, "skill_levels", skills)
     fallback_c = select_sorc_presets(sork, build="tz")[0][1]
     assert isinstance(fallback_c.skills, CasterSkillModel)
     assert (
@@ -719,9 +722,7 @@ def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyP
     )
 
     # Low-level Normal Sorc (Sorc.d2s, lvl 17, 0 Blizzard): Normal res penalty (0) & max_level filters high CTA
-    ok_n, norm_sorc, _ = parse_d2s_file(str(FIXTURES_DIR / "Sorc.d2s"), resolver=resolver)
-    assert ok_n
-    assert norm_sorc is not None
+    norm_sorc, _ = load_d2s(FIXTURES_DIR / "Sorc.d2s", resolver=resolver)
     norm_c = select_sorc_presets(norm_sorc, build="tz", resolver=resolver)[0][1]
     assert norm_c.character.base_hell_res == 0
     assert isinstance(norm_c.skills, CasterSkillModel)
@@ -753,11 +754,13 @@ def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyP
 
 
 @requires_native
-def test_single_skill_blizzard_orb_extraction_and_ranking(monkeypatch: pytest.MonkeyPatch) -> None:
-    resolver = GameDataResolver.load().for_version(0x63)
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    assert ok_m
-    assert mule is not None
+def test_single_skill_blizzard_orb_extraction_and_ranking(
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolver = game_data_resolver.for_version(0x63)
+    mule = parsed_mule_unique
     orb = next(it for it in mule.item_list.items if it.code_str.strip() == "oba")
 
     monkeypatch.setattr(
@@ -815,11 +818,12 @@ def test_single_skill_blizzard_orb_extraction_and_ranking(monkeypatch: pytest.Mo
 
 
 @requires_native
-def test_detect_cta_bo_bonus_and_excludes_swap_cta(monkeypatch: pytest.MonkeyPatch) -> None:
-    resolver = GameDataResolver.load()
-    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
-    assert ok_s
-    assert sork is not None
+def test_detect_cta_bo_bonus_and_excludes_swap_cta(
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolver = game_data_resolver
+    sork, _ = load_d2s(FIXTURES_DIR / "sork.d2s", resolver=resolver)
     # Default fallback when no CTA is present
     assert detect_cta_bo_bonus([sork], [], resolver) == 4
 
@@ -858,14 +862,14 @@ def test_detect_cta_bo_bonus_and_excludes_swap_cta(monkeypatch: pytest.MonkeyPat
 
 
 @requires_native
-def test_belt_slots_and_defense_prefer_upped_goldwrap() -> None:
-    resolver = GameDataResolver.load()
-    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    assert ok_s
-    assert sork is not None
-    assert ok_m
-    assert mule is not None
+def test_belt_slots_and_defense_prefer_upped_goldwrap(
+    parsed_sork: D2SStruct,
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
+) -> None:
+    resolver = game_data_resolver
+    sork = parsed_sork
+    mule = parsed_mule_unique
 
     items, _ = extract_pool(sork, extra_chars=[mule], resolver=resolver)
     belts = [it for it in items if it.slot == "belt"]
@@ -1017,7 +1021,10 @@ def test_cold_sunder_charm_extraction_and_optimizer_fallback(
 
 
 @requires_native
-def test_format_build_report_charm_diff_and_inventory_order() -> None:
+def test_format_build_report_charm_diff_and_inventory_order(
+    parsed_sork: D2SStruct,
+    game_data_resolver: GameDataResolver,
+) -> None:
     inv_vita_1 = CharmSpec("Small Charm of Vita", 1, "sork Inv", life=20)
     inv_vita_2 = CharmSpec("Small Charm of Vita", 1, "sork Inv", life=20)
     inv_drop = CharmSpec("Azure Grand Charm", 3, "sork Inv", cr=8)
@@ -1042,10 +1049,8 @@ def test_format_build_report_charm_diff_and_inventory_order() -> None:
     assert "      - add   : Small Charm of Good Luck [Stash Tab 5]" in report_no_pool
 
     # extract_pool orders character inventory charms by (column, row)
-    resolver = GameDataResolver.load()
-    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
-    assert ok_s
-    assert sork is not None
+    resolver = game_data_resolver
+    sork = parsed_sork
     _, extracted_charms = extract_pool(sork, resolver=resolver)
     inv_names = [c.name for c in extracted_charms if c.loc == "sork Inv"]
     assert inv_names == [
@@ -1061,44 +1066,46 @@ def test_format_build_report_charm_diff_and_inventory_order() -> None:
     ]
 
 
-def test_paladin_prop_extraction_and_detect_spec(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_paladin_prop_extraction_and_detect_spec(
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert PALADIN_BUILD_CHOICES == ("leveling",)
     for legacy_spec in ("holy-fire", "hammer", "foh", "smite"):
         assert legacy_spec not in BUILD_CHOICES
 
-    resolver = GameDataResolver.load()
-    d2r = resolver.for_version(0x63)
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    assert ok_m
-    assert mule is not None
+    d2r = game_data_resolver.for_version(0x63)
+    mule = parsed_mule_unique
     assert detect_paladin_spec(mule) == "leveling"
 
     assert mule.skills is not None
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[6] = 20  # Holy Fire
+    skills = [0] * 30
+    monkeypatch.setattr(mule.skills, "skill_levels", skills)
+    skills[6] = 20  # Holy Fire
     assert detect_paladin_spec(mule) == "holy-fire"
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[16] = 20  # Blessed Hammer
+    skills[:] = [0] * 30
+    skills[16] = 20  # Blessed Hammer
     assert detect_paladin_spec(mule) == "hammer"
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[25] = 20  # Fist of the Heavens
+    skills[:] = [0] * 30
+    skills[25] = 20  # Fist of the Heavens
     assert detect_paladin_spec(mule) == "foh"
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[5] = 20  # Holy Bolt
+    skills[:] = [0] * 30
+    skills[5] = 20  # Holy Bolt
     assert detect_paladin_spec(mule) == "holy-bolt"
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[1] = 20  # Smite
+    skills[:] = [0] * 30
+    skills[1] = 20  # Smite
     assert detect_paladin_spec(mule) == "smite"
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[10] = 20  # Zeal (+ 20 Fanaticism + 1 Smite -> still "zeal")
-    mule.skills.skill_levels[26] = 20
-    mule.skills.skill_levels[1] = 1
+    skills[:] = [0] * 30
+    skills[10] = 20  # Zeal (+ 20 Fanaticism + 1 Smite -> still "zeal")
+    skills[26] = 20
+    skills[1] = 1
     assert detect_paladin_spec(mule) == "zeal"
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[15] = 20  # Vengeance
+    skills[:] = [0] * 30
+    skills[15] = 20  # Vengeance
     assert detect_paladin_spec(mule) == "vengeance"
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[11] = 20  # Charge
+    skills[:] = [0] * 30
+    skills[11] = 20  # Charge
     assert detect_paladin_spec(mule) == "charge"
 
     dummy_item = next(
@@ -1140,16 +1147,19 @@ def test_paladin_prop_extraction_and_detect_spec(monkeypatch: pytest.MonkeyPatch
 
 
 @requires_native
-def test_optimize_paladin_leveling_tradeoffs_and_keep_gear(monkeypatch: pytest.MonkeyPatch) -> None:
-    resolver = GameDataResolver.load()
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    ok_s, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
-    assert ok_m
-    assert mule is not None
-    assert ok_s
-    assert sork is not None
+def test_optimize_paladin_leveling_tradeoffs_and_keep_gear(
+    parsed_mule_unique: D2SStruct,
+    parsed_sork: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolver = game_data_resolver
+    mule = parsed_mule_unique
+    sork = parsed_sork
     assert mule.skills is not None
-    mule.skills.skill_levels[6] = 20  # Holy Fire
+    skills = list(mule.skills.skill_levels)
+    skills[6] = 20  # Holy Fire
+    monkeypatch.setattr(mule.skills, "skill_levels", skills)
 
     # Synthetic gear creating an explicit 48% FHR vs 27% FHR / higher resists + offense trade-off:
     # Weapon gives 25% FHR + 2 skills (or 2h +6 Holy Fire, 0 FHR)
@@ -1201,13 +1211,13 @@ def test_optimize_paladin_leveling_tradeoffs_and_keep_gear(monkeypatch: pytest.M
     # Test keep_equipped=True on a Paladin with active set items and swap weapon
     # Patch mule's items: keep only 1 active equipped sword + 1 stash helm + 1 stash charm
     eq_wep = next(it for it in mule.item_list.items if it.location == ItemLocation.EQUIPPED)
-    eq_wep.position = EquipSlot.WEAPON_I
-    mule.weapon_set = 0
+    monkeypatch.setattr(eq_wep, "position", EquipSlot.WEAPON_I)
+    monkeypatch.setattr(mule, "weapon_set", 0)
     st_charm = next(
         it for it in sork.item_list.items if it.code_str.strip() in ("cm1", "cm2", "cm3")
     )
-    mule.item_list.items = [eq_wep]
-    sork.item_list.items = [st_charm]
+    monkeypatch.setattr(mule.item_list, "items", [eq_wep])
+    monkeypatch.setattr(sork.item_list, "items", [st_charm])
     monkeypatch.setattr(
         "d2savior.optimizer.extract.collect_item_properties",
         lambda it, **_kw: [(107, 0, [102, 4])] if it is eq_wep else [(39, 10, [10])],
@@ -1304,13 +1314,17 @@ def test_cli_paladin_toml_presets_and_overrides(
 
 
 @requires_native
-def test_paladin_dedup_key_and_keep_equipped_preserves_zero_stat_items() -> None:
-    resolver = GameDataResolver.load()
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    assert ok_m
-    assert mule is not None
+def test_paladin_dedup_key_and_keep_equipped_preserves_zero_stat_items(
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolver = game_data_resolver
+    mule = parsed_mule_unique
     assert mule.skills is not None
-    mule.skills.skill_levels[6] = 20
+    skills = list(mule.skills.skill_levels)
+    skills[6] = 20
+    monkeypatch.setattr(mule.skills, "skill_levels", skills)
 
     r_a = ItemSpec("Angelic Halo", "ring", "mule Equipped")
     r_b = ItemSpec("Manald Heal", "ring", "mule Equipped")
@@ -1356,26 +1370,27 @@ def test_paladin_dedup_key_and_keep_equipped_preserves_zero_stat_items() -> None
 
 
 @requires_native
-def test_extract_pool_and_optimize_paladin_set_bonuses(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_extract_pool_and_optimize_paladin_set_bonuses(
+    parsed_mule_unique: D2SStruct,
+    parsed_shared_stash: SharedStash,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from d2savior.core.item import ExtItemInfo, ItemInfo, TypeSpecificInfo
     from d2savior.core.property_list import PropertyList
 
-    resolver = GameDataResolver.load()
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    ok_st, stash, kind, _ = parse_d2i_file(
-        str(FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
-    )
-    assert ok_m
-    assert mule is not None
-    assert ok_st
-    assert kind == "stash"
-    assert isinstance(stash, SharedStash)
+    resolver = game_data_resolver
+    mule = parsed_mule_unique
+    stash = parsed_shared_stash
     assert mule.skills is not None
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[6] = 20  # Holy Fire -> attack spec (use_ias=True)
-    mule.player_stats.stat_values[0xC] = 29
-    mule.player_stats.stat_values[0] = 60  # Strength for Sigon's Gage/Wrap (req 60)
-    mule.char_level = 29
+    skills = [0] * 30
+    skills[6] = 20  # Holy Fire -> attack spec (use_ias=True)
+    monkeypatch.setattr(mule.skills, "skill_levels", skills)
+    stat_values = list(mule.player_stats.stat_values)
+    stat_values[0xC] = 29
+    stat_values[0] = 60  # Strength for Sigon's Gage/Wrap (req 60)
+    monkeypatch.setattr(mule.player_stats, "stat_values", stat_values)
+    monkeypatch.setattr(mule, "char_level", 29)
 
     # Pull real Sigon's Gage (35) & Sigon's Wrap (39) from Tab 2, Angelic Halo (52) from Tab 1,
     # and add synthetic Angelic Wings (53, 2pc=+75 Life) + an alternate 0-IAS +1 glove to compare.
@@ -1426,7 +1441,9 @@ def test_extract_pool_and_optimize_paladin_set_bonuses(monkeypatch: pytest.Monke
     )
 
     # 1. Full-gear extract_pool + optimize: selects Sigon's 2pc (+30 IAS) + Angelic 2pc (+75 Life)
-    mule.item_list.items = [sig_gage, sig_wrap, ang_halo, ang_wings, alt_gloves]
+    monkeypatch.setattr(
+        mule.item_list, "items", [sig_gage, sig_wrap, ang_halo, ang_wings, alt_gloves]
+    )
     items_full, charms_full = extract_pool(mule, resolver=resolver)
     sig_specs = [it for it in items_full if it.name in ("hgl", "hbl")]
     assert len(sig_specs) == 2
@@ -1452,7 +1469,7 @@ def test_extract_pool_and_optimize_paladin_set_bonuses(monkeypatch: pytest.Monke
     civ_b.item_info.ext_info = ExtItemInfo()
     civ_b.item_info.ext_info.set_id = 0
     civ_b.item_info.type_specific_info = tp_civ
-    mule.item_list.items = [civ_a, civ_b]
+    monkeypatch.setattr(mule.item_list, "items", [civ_a, civ_b])
     civ_items, _ = extract_pool(mule, resolver=resolver)
     assert len(civ_items) == 2
     assert all(it.set_item_id == 1 for it in civ_items)
@@ -1460,7 +1477,9 @@ def test_extract_pool_and_optimize_paladin_set_bonuses(monkeypatch: pytest.Monke
         mule, civ_items, [], resolver=resolver, bo_base_bonus=0
     )
     assert opts_civ[0][1].life_no_bo == mule.player_stats.max_life
-    mule.item_list.items = [sig_gage, sig_wrap, ang_halo, ang_wings, alt_gloves]
+    monkeypatch.setattr(
+        mule.item_list, "items", [sig_gage, sig_wrap, ang_halo, ang_wings, alt_gloves]
+    )
     alt_specs = [it for it in items_full if it.name == "Magefist-like"]
     assert len(alt_specs) == 1
     assert alt_specs[0].aura_skill_bonus == 1
@@ -1472,14 +1491,15 @@ def test_extract_pool_and_optimize_paladin_set_bonuses(monkeypatch: pytest.Monke
     assert opts_full[0][1].life_no_bo == mule.player_stats.max_life + 20 + 20 + 75
 
     # 2. keep_equipped=True with all four set items actively equipped gives the same 2pc bonuses
-    sig_gage.location = sig_wrap.location = ang_halo.location = ang_wings.location = (
-        ItemLocation.EQUIPPED.value
-    )
-    sig_gage.position = EquipSlot.GLOVES.value
-    sig_wrap.position = EquipSlot.BELT.value
-    ang_halo.position = EquipSlot.RING_LEFT.value
-    ang_wings.position = EquipSlot.AMULET.value
-    mule.item_list.items = [sig_gage, sig_wrap, ang_halo, ang_wings]
+    for set_item, slot_pos in (
+        (sig_gage, EquipSlot.GLOVES.value),
+        (sig_wrap, EquipSlot.BELT.value),
+        (ang_halo, EquipSlot.RING_LEFT.value),
+        (ang_wings, EquipSlot.AMULET.value),
+    ):
+        monkeypatch.setattr(set_item, "location", ItemLocation.EQUIPPED.value)
+        monkeypatch.setattr(set_item, "position", slot_pos)
+    monkeypatch.setattr(mule.item_list, "items", [sig_gage, sig_wrap, ang_halo, ang_wings])
     items_kept, charms_kept = extract_pool(mule, resolver=resolver, keep_equipped=True)
     _t2, opts_kept, _s2, _d2 = optimize_paladin_leveling(
         mule, items_kept, charms_kept, resolver=resolver, bo_base_bonus=0, keep_equipped=True
@@ -1490,11 +1510,12 @@ def test_extract_pool_and_optimize_paladin_set_bonuses(monkeypatch: pytest.Monke
 
 
 @requires_native
-def test_paladin_unknown_spec_error_and_native_validation() -> None:
-    resolver = GameDataResolver.load()
-    ok_m, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    assert ok_m
-    assert mule is not None
+def test_paladin_unknown_spec_error_and_native_validation(
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
+) -> None:
+    resolver = game_data_resolver
+    mule = parsed_mule_unique
 
     with pytest.raises(ValueError, match="Unknown Paladin spec") as exc_spec:
         optimize_paladin_leveling(mule, [], [], spec="bogus-spec", resolver=resolver)
@@ -1522,20 +1543,16 @@ def test_paladin_unknown_spec_error_and_native_validation() -> None:
 
 
 @requires_native
-def test_extract_pool_locality_order() -> None:
-    resolver = GameDataResolver.load()
-    pal_dir = FIXTURES_DIR / "paladin_snapshot"
-    ok_p, smite, _ = parse_d2s_file(str(pal_dir / "smite.d2s"), resolver=resolver)
-    ok_m, mule, _ = parse_d2s_file(str(pal_dir / "mule_sets.d2s"), resolver=resolver)
-    ok_st, stash, _, _ = parse_d2i_file(
-        str(pal_dir / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
-    )
-    assert ok_p
-    assert smite is not None
-    assert ok_m
-    assert mule is not None
-    assert ok_st
-    assert isinstance(stash, SharedStash)
+def test_extract_pool_locality_order(
+    parsed_paladin_smite: D2SStruct,
+    parsed_paladin_mule_sets: D2SStruct,
+    parsed_paladin_stash: SharedStash,
+    game_data_resolver: GameDataResolver,
+) -> None:
+    resolver = game_data_resolver
+    smite = parsed_paladin_smite
+    mule = parsed_paladin_mule_sets
+    stash = parsed_paladin_stash
 
     items, charms = extract_pool(smite, extra_chars=[mule], stashes=[stash], resolver=resolver)
 
@@ -1559,20 +1576,18 @@ def test_extract_pool_locality_order() -> None:
 
 
 @requires_native
-def test_keep_gear_groups_and_combinations(capsys: pytest.CaptureFixture[str]) -> None:
-    resolver = GameDataResolver.load()
+def test_keep_gear_groups_and_combinations(
+    parsed_paladin_smite: D2SStruct,
+    parsed_paladin_mule_sets: D2SStruct,
+    parsed_paladin_stash: SharedStash,
+    game_data_resolver: GameDataResolver,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    resolver = game_data_resolver
     pal_dir = FIXTURES_DIR / "paladin_snapshot"
-    ok_p, smite, _ = parse_d2s_file(str(pal_dir / "smite.d2s"), resolver=resolver)
-    ok_m, mule, _ = parse_d2s_file(str(pal_dir / "mule_sets.d2s"), resolver=resolver)
-    ok_st, stash, _, _ = parse_d2i_file(
-        str(pal_dir / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
-    )
-    assert ok_p
-    assert smite is not None
-    assert ok_m
-    assert mule is not None
-    assert ok_st
-    assert isinstance(stash, SharedStash)
+    smite = parsed_paladin_smite
+    mule = parsed_paladin_mule_sets
+    stash = parsed_paladin_stash
 
     all_items, all_charms = extract_pool(
         smite, extra_chars=[mule], stashes=[stash], resolver=resolver
@@ -1769,13 +1784,13 @@ def test_item_pct_life_scales_evaluate_and_optimize() -> None:
 
 
 @requires_native
-def test_angelic_set_and_itd_win_with_ar_cth_model() -> None:
+def test_angelic_set_and_itd_win_with_ar_cth_model(
+    parsed_paladin_smite: D2SStruct,
+    game_data_resolver: GameDataResolver,
+) -> None:
     # Verify extracted Angelic Halo + Wings from real fixtures give 2pc +AR/lvl and beat plain jewelry
-    resolver = GameDataResolver.load()
-    pal_dir = FIXTURES_DIR / "paladin_snapshot"
-    ok_p, smite, _ = parse_d2s_file(str(pal_dir / "smite.d2s"), resolver=resolver)
-    assert ok_p
-    assert smite is not None
+    resolver = game_data_resolver
+    smite = parsed_paladin_smite
     items, _ = extract_pool(smite, resolver=resolver)
     halos = [it for it in items if it.name.startswith("Angelic Halo") and it.set_bonuses]
     assert halos
@@ -1830,13 +1845,13 @@ def test_angelic_set_and_itd_win_with_ar_cth_model() -> None:
 
 
 @requires_native
-def test_evaluate_build_with_constraints_and_melee_action_end_to_end() -> None:
-    resolver = GameDataResolver.load()
-    ok_p, char_data, _ = parse_d2s_file(
-        str(FIXTURES_DIR / "paladin_snapshot" / "smite.d2s"), resolver=resolver
-    )
-    assert ok_p
-    assert char_data is not None
+def test_evaluate_build_with_constraints_and_melee_action_end_to_end(
+    parsed_paladin_smite: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolver = game_data_resolver
+    char_data = parsed_paladin_smite
     assert char_data.skills is not None
 
     # 1. evaluate_build(items, charms, constraints=c) evaluates melee/zeal AR/CTH/DPS directly.
@@ -1873,9 +1888,10 @@ def test_evaluate_build_with_constraints_and_melee_action_end_to_end() -> None:
     # 2. End-to-end optimize_paladin_leveling + report for Vengeance+Conviction and Charge/Sacrifice+Blessed Aim
     items = [ItemSpec("War Sword", "weapon", "Inv", wclass="1hs", wep_phys_2x=80, can_zeal=True)]
 
-    char_data.skills.skill_levels = [0] * 30
-    char_data.skills.skill_levels[15] = 20  # Vengeance (ID 111)
-    char_data.skills.skill_levels[27] = 20  # Conviction (ID 123)
+    skills = [0] * 30
+    skills[15] = 20  # Vengeance (ID 111)
+    skills[27] = 20  # Conviction (ID 123)
+    monkeypatch.setattr(char_data.skills, "skill_levels", skills)
     title_v, opts_v, _spec_v, diff_v = optimize_paladin_leveling(
         char_data, items, [], spec="vengeance", right_skill=123, resolver=resolver, bo_base_bonus=0
     )
@@ -1888,9 +1904,10 @@ def test_evaluate_build_with_constraints_and_melee_action_end_to_end() -> None:
     assert "(Vengeance) | AR:" in report_v
 
     for spec_name, offset in (("charge", 11), ("sacrifice", 0)):
-        char_data.skills.skill_levels = [0] * 30
-        char_data.skills.skill_levels[offset] = 20
-        char_data.skills.skill_levels[12] = 10  # Blessed Aim (ID 108)
+        skills = [0] * 30
+        skills[offset] = 20
+        skills[12] = 10  # Blessed Aim (ID 108)
+        monkeypatch.setattr(char_data.skills, "skill_levels", skills)
         title_m, opts_m, _spec_m, diff_m = optimize_paladin_leveling(
             char_data,
             items,
@@ -1915,13 +1932,12 @@ def test_evaluate_build_with_constraints_and_melee_action_end_to_end() -> None:
 
 
 @requires_native
-def test_target_type_prevents_overvaluing_itd_on_champion_and_boss() -> None:
-    resolver = GameDataResolver.load()
-    ok_p, smite, _ = parse_d2s_file(
-        str(FIXTURES_DIR / "paladin_snapshot" / "smite.d2s"), resolver=resolver
-    )
-    assert ok_p
-    assert smite is not None
+def test_target_type_prevents_overvaluing_itd_on_champion_and_boss(
+    parsed_paladin_smite: D2SStruct,
+    game_data_resolver: GameDataResolver,
+) -> None:
+    resolver = game_data_resolver
+    smite = parsed_paladin_smite
 
     plain_sword = ItemSpec(
         "Plain Sword", "weapon", "Inv", wclass="1hs", wep_phys_2x=100, can_zeal=True
@@ -1975,25 +1991,23 @@ def test_target_type_prevents_overvaluing_itd_on_champion_and_boss() -> None:
 
 
 @requires_native
-def test_optimizer_performance_budgets() -> None:
+def test_optimizer_performance_budgets(
+    parsed_paladin_smite: D2SStruct,
+    parsed_paladin_extra_chars: list[D2SStruct],
+    parsed_paladin_stash: SharedStash,
+    parsed_sork: D2SStruct,
+    parsed_mule_unique: D2SStruct,
+    parsed_shared_stash: SharedStash,
+    game_data_resolver: GameDataResolver,
+) -> None:
     import time
 
-    resolver = GameDataResolver.load()
+    resolver = game_data_resolver
 
     # 1. Paladin snapshot leveling optimize (full mules + shared stash with damage/AR charms)
-    pal_dir = FIXTURES_DIR / "paladin_snapshot"
-    _, smite, _ = parse_d2s_file(str(pal_dir / "smite.d2s"), resolver=resolver)
-    assert smite is not None
-    pal_extras = [
-        ch
-        for p in sorted(pal_dir.glob("*.d2s"))
-        if p.name != "smite.d2s"
-        and (ch := parse_d2s_file(str(p), resolver=resolver)[1]) is not None
-    ]
-    _, pal_stash, _, _ = parse_d2i_file(
-        str(pal_dir / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
-    )
-    assert isinstance(pal_stash, SharedStash)
+    smite = parsed_paladin_smite
+    pal_extras = parsed_paladin_extra_chars
+    pal_stash = parsed_paladin_stash
     pal_items, pal_charms = extract_pool(
         smite, extra_chars=pal_extras, stashes=[pal_stash], resolver=resolver
     )
@@ -2029,14 +2043,9 @@ def test_optimizer_performance_budgets() -> None:
     assert pal_t2_elapsed < 2.0, f"Paladin targets=2 optimize regression: {pal_t2_elapsed:.3f}s"
 
     # 2. Sorceress optimize (sork + mule_unique + shared stash)
-    _, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=resolver)
-    _, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=resolver)
-    _, sorc_stash, _, _ = parse_d2i_file(
-        str(FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
-    )
-    assert sork is not None
-    assert mule is not None
-    assert isinstance(sorc_stash, SharedStash)
+    sork = parsed_sork
+    mule = parsed_mule_unique
+    sorc_stash = parsed_shared_stash
     sorc_items, sorc_charms = extract_pool(
         sork, extra_chars=[mule], stashes=[sorc_stash], resolver=resolver
     )

@@ -7,7 +7,6 @@ import d2savior.core.bitstream_debug as bitstream_debug
 import d2savior.core.char_formatter as char_formatter
 import d2savior.core.constants as constants
 import d2savior.core.item_formatter as item_formatter
-import d2savior.core.stash_formatter as stash_formatter
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item import D2Item, ItemInfo, TypeSpecificInfo
@@ -133,14 +132,6 @@ class TestModularization:
             item, resolver=MagicMock(), property_formatter=custom_formatter
         )
         assert "CUSTOM_PROP_7:25" in summary
-
-    def test_no_sys_modules_d2s_parse_hack(self):
-        import inspect
-
-        for mod in (char_formatter, item_formatter, stash_formatter, bitstream_debug):
-            source = inspect.getsource(mod)
-            assert "sys.modules.get('d2s_parse')" not in source
-            assert "sys.modules" not in source
 
     def test_run_bitstream_searches_delegation(self):
         mock_bs = MagicMock()

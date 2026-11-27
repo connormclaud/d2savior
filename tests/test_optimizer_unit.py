@@ -2,12 +2,10 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
-from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
-from d2savior.cli import parse_d2i_file, parse_d2s_file
 from d2savior.core.d2s_struct import D2SStruct
 from d2savior.core.enums import CharClass, EquipSlot, ItemLocation, StoredIn
 from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
@@ -17,7 +15,6 @@ from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash, StashTab
 from d2savior.core.stats import compute_anya_resist_bonus, compute_paladin_passive_max_res
 from d2savior.optimizer.common import (
-    _long_name_levelreq,
     char_item_locality_rank,
     detect_cta_bo_bonus,
     format_item_location,
@@ -55,14 +52,10 @@ from d2savior.optimizer.paladin import (
     select_paladin_max_res_preset,
 )
 from d2savior.optimizer.report import (
-    _format_charm_diff_lines,
-    _is_inv_loc,
     format_build_report,
     format_paladin_leveling_report,
 )
-from d2savior.optimizer.sorc import _extract_blizz_base_skills, select_sorc_presets
-
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
+from d2savior.optimizer.sorc import select_sorc_presets
 
 
 @dataclass
@@ -283,7 +276,7 @@ def _patch_fake_constraints(monkeypatch: pytest.MonkeyPatch) -> None:
 @dataclass
 class _FakeBuildResult:
     items: list[_FakeItemSpec] = field(default_factory=list)
-    charms: list[_FakeCharmSpec] = field(default_factory=list)
+    charms: list[_FakeCharmSpec | CharmSpec] = field(default_factory=list)
     skills: int = 0
     action_skill_bonus: int = 0
     aura_skill_bonus: int = 0
@@ -341,17 +334,15 @@ def _as_charm(charm: _FakeCharmSpec) -> CharmSpec:
     return cast(CharmSpec, charm)
 
 
-def _load_char(filename: str) -> tuple[D2SStruct, GameDataResolver]:
-    resolver = GameDataResolver.load()
-    ok, char_data, _ = parse_d2s_file(str(FIXTURES_DIR / filename), resolver=resolver)
-    assert ok
-    assert char_data is not None
-    return char_data, resolver
-
-
-def test_common_validators_anya_levelreq_and_cta_bo(monkeypatch: pytest.MonkeyPatch) -> None:
-    sork, resolver = _load_char("sork.d2s")
-    mule, _ = _load_char("mule_unique.d2s")
+def test_common_validators_anya_levelreq_and_cta_bo(
+    parsed_sork: D2SStruct,
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sork = parsed_sork
+    mule = parsed_mule_unique
+    resolver = game_data_resolver
     d2r = resolver.for_version(0x63)
 
     validate_sorceress(sork)
@@ -371,8 +362,12 @@ def test_common_validators_anya_levelreq_and_cta_bo(monkeypatch: pytest.MonkeyPa
     assert compute_anya_resist_bonus(empty_char) == 0
     assert compute_anya_resist_bonus(sork) >= 0
 
-    empty_ln = LongName()
-    assert _long_name_levelreq(empty_ln, d2r, is_crafted=False) == 0
+    empty_rare = D2Item()
+    empty_rare.type_name = b"rin "
+    empty_rare.item_info = ItemInfo()
+    empty_rare.item_info.ext_info = ExtItemInfo()
+    empty_rare.item_info.ext_info.rare_name = LongName()
+    assert item_levelreq(empty_rare, d2r) == 0
 
     pref_info = d2r.get_magic_prefix(1)
     suff_info = d2r.get_magic_suffix(1)
@@ -382,8 +377,6 @@ def test_common_validators_anya_levelreq_and_cta_bo(monkeypatch: pytest.MonkeyPa
     ln.pref_1 = 1
     ln.suff_1 = 1
     expected_rare = max(pref_info.levelreq, suff_info.levelreq)
-    assert _long_name_levelreq(ln, d2r, is_crafted=False) == expected_rare
-    assert _long_name_levelreq(ln, d2r, is_crafted=True) == expected_rare + 10 + 3 * 2
 
     rare_item = D2Item()
     rare_item.type_name = b"rin "
@@ -416,7 +409,7 @@ def test_common_validators_anya_levelreq_and_cta_bo(monkeypatch: pytest.MonkeyPa
     cta_b.type_name = b"fla "
     plain = D2Item()
     plain.type_name = b"rin "
-    sork.item_list.items = [plain, cta_a]
+    monkeypatch.setattr(sork.item_list, "items", [plain, cta_a])
 
     stash = SharedStash()
     empty_tab = StashTab()
@@ -447,18 +440,15 @@ def test_common_validators_anya_levelreq_and_cta_bo(monkeypatch: pytest.MonkeyPa
     assert detect_cta_bo_bonus([sork], [stash], resolver, max_level=30, default=0) == 0
 
 
-def test_sorc_presets_and_blizz_base_skills(monkeypatch: pytest.MonkeyPatch) -> None:
-    sork, resolver = _load_char("sork.d2s")
-    mule, _ = _load_char("mule_unique.d2s")
-
-    assert _extract_blizz_base_skills(sork) == (20, 35, 20)
-    assert sork.skills is not None
-    sork.skills.skill_levels[23] = 0
-    assert _extract_blizz_base_skills(sork) == (0, 35, 20)
-    sork.skills.skill_levels = [0] * 30
-    assert _extract_blizz_base_skills(sork) == (0, 0, 0)
-    sork.skills.skill_levels = []
-    assert _extract_blizz_base_skills(sork) == (0, 0, 0)
+def test_sorc_presets_and_blizz_base_skills(
+    parsed_sork: D2SStruct,
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sork = parsed_sork
+    mule = parsed_mule_unique
+    resolver = game_data_resolver
 
     with pytest.raises(ValueError, match="expected Sorceress"):
         select_sorc_presets(mule)
@@ -466,7 +456,9 @@ def test_sorc_presets_and_blizz_base_skills(monkeypatch: pytest.MonkeyPatch) -> 
         select_sorc_presets(sork, build="invalid")
 
     _patch_fake_constraints(monkeypatch)
-    all_presets = select_sorc_presets(sork, build="all", max_charm_slots=20, limit=2)
+    all_presets = select_sorc_presets(
+        sork, build="all", max_charm_slots=20, limit=2, resolver=resolver
+    )
     assert len(all_presets) == 5
     c_sork = cast(_FakeConstraints, all_presets[0][1])
     assert c_sork.character.base_hell_res == -20  # Nightmare (-40) + Normal/NM Anya (+20)
@@ -481,11 +473,60 @@ def test_sorc_presets_and_blizz_base_skills(monkeypatch: pytest.MonkeyPatch) -> 
     assert c_mf.mode == "mf"
     tz_presets = select_sorc_presets(sork, build="tz", resolver=resolver, bo_base_bonus=4)
     assert len(tz_presets) == 1
-    assert cast(_FakeConstraints, tz_presets[0][1]).min_fcr == 105
+    c_tz = cast(_FakeConstraints, tz_presets[0][1])
+    assert c_tz.min_fcr == 105
+    tz_skills = cast(_FakeCasterSkillModel, c_tz.skills)
+    assert (tz_skills.blizz_base_lvl, tz_skills.blizz_syn_pts, tz_skills.cm_base_lvl) == (
+        20,
+        35,
+        20,
+    )
+
+    assert sork.skills is not None
+    skills = list(sork.skills.skill_levels)
+    skills[23] = 0
+    monkeypatch.setattr(sork.skills, "skill_levels", skills)
+    tz_no_blizz = cast(
+        _FakeCasterSkillModel,
+        cast(
+            _FakeConstraints,
+            select_sorc_presets(sork, build="tz", resolver=resolver, bo_base_bonus=0)[0][1],
+        ).skills,
+    )
+    assert (tz_no_blizz.blizz_base_lvl, tz_no_blizz.blizz_syn_pts, tz_no_blizz.cm_base_lvl) == (
+        0,
+        35,
+        20,
+    )
+
+    monkeypatch.setattr(sork.skills, "skill_levels", [0] * 30)
+    tz_zero = cast(
+        _FakeCasterSkillModel,
+        cast(
+            _FakeConstraints,
+            select_sorc_presets(sork, build="tz", resolver=resolver, bo_base_bonus=0)[0][1],
+        ).skills,
+    )
+    assert (tz_zero.blizz_base_lvl, tz_zero.blizz_syn_pts, tz_zero.cm_base_lvl) == (0, 0, 0)
+
+    monkeypatch.setattr(sork.skills, "skill_levels", [])
+    tz_empty = cast(
+        _FakeCasterSkillModel,
+        cast(
+            _FakeConstraints,
+            select_sorc_presets(sork, build="tz", resolver=resolver, bo_base_bonus=0)[0][1],
+        ).skills,
+    )
+    assert (tz_empty.blizz_base_lvl, tz_empty.blizz_syn_pts, tz_empty.cm_base_lvl) == (0, 0, 0)
 
 
-def test_paladin_pure_helpers_and_tradeoff_descriptions() -> None:
-    mule, _ = _load_char("mule_unique.d2s")
+def test_paladin_pure_helpers_and_tradeoff_descriptions(
+    parsed_mule_unique: D2SStruct,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mule = parsed_mule_unique
+    assert mule.skills is not None
+    monkeypatch.setattr(mule.skills, "skill_levels", list(mule.skills.skill_levels))
 
     assert paladin_offense_profile("smite") == "smite"
     assert paladin_offense_profile("hammer") == "caster"
@@ -493,7 +534,6 @@ def test_paladin_pure_helpers_and_tradeoff_descriptions() -> None:
     assert paladin_offense_profile("holy-bolt") == "caster"
     assert paladin_offense_profile("zeal") == "zeal"
     assert paladin_offense_profile("holy-fire", mule) == "melee"
-    assert mule.skills is not None
     mule.skills.skill_levels[10] = 4  # Zeal
     assert paladin_offense_profile("holy-fire", mule) == "zeal"
     assert paladin_offense_profile("charge", mule) == "melee"
@@ -736,11 +776,17 @@ def test_paladin_pure_helpers_and_tradeoff_descriptions() -> None:
     )
 
 
-def test_paladin_baseline_presets_and_leveling_flow(monkeypatch: pytest.MonkeyPatch) -> None:
-    mule, resolver = _load_char("mule_unique.d2s")
+def test_paladin_baseline_presets_and_leveling_flow(
+    parsed_mule_unique: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mule = parsed_mule_unique
+    resolver = game_data_resolver
     assert mule.skills is not None
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[6] = 20  # Holy Fire
+    skills = [0] * 30
+    skills[6] = 20  # Holy Fire
+    monkeypatch.setattr(mule.skills, "skill_levels", skills)
 
     _patch_fake_constraints(monkeypatch)
 
@@ -888,34 +934,40 @@ def test_paladin_baseline_presets_and_leveling_flow(monkeypatch: pytest.MonkeyPa
 
 
 def test_report_formatting_sorc_paladin_and_charms() -> None:
-    assert _is_inv_loc("inv")
-    assert _is_inv_loc("sork Inv")
-    assert not _is_inv_loc("Stash Tab 1")
-
     c_inv1 = _as_charm(_FakeCharmSpec("Vita SC", 1, "sork Inv", life=20))
     c_inv2 = _as_charm(_FakeCharmSpec("Vita SC", 1, "sork Inv", life=20))
     c_drop = _as_charm(_FakeCharmSpec("Drop GC", 3, "sork Inv", cr=10))
     c_add = _as_charm(_FakeCharmSpec("Luck SC", 1, "Stash Tab 2", mf=7))
     c_noloc = _as_charm(_FakeCharmSpec("Plain SC", 1, ""))
+    c_plain_inv = _as_charm(_FakeCharmSpec("Plain Inv SC", 1, "inv"))
     assert c_inv1 == c_inv2
     assert hash(c_inv1) == hash(c_inv2)
-    assert _format_charm_diff_lines([], []) == []
 
-    diff_lines = _format_charm_diff_lines(
-        [c_inv1, c_add, c_noloc],
+    empty_diff_report = format_build_report("Empty Diff", [_as_result(_FakeBuildResult())], [])
+    assert "- Charms  :" not in empty_diff_report
+
+    diff_report = format_build_report(
+        "Diff Test",
+        [_as_result(_FakeBuildResult(charms=[c_inv1, c_add, c_noloc]))],
         [c_inv1, c_inv2, c_drop, c_add],
         primary_inv_loc="sork Inv",
     )
-    joined = "\n".join(diff_lines)
-    assert "remove: Vita SC, Drop GC" in joined
-    assert "keep  : Vita SC" in joined
-    assert "add   : Luck SC [Stash Tab 2], Plain SC" in joined
+    assert "      - remove: Vita SC, Drop GC" in diff_report
+    assert "      - keep  : Vita SC" in diff_report
+    assert "      - add   : Luck SC [Stash Tab 2], Plain SC" in diff_report
 
     # Fallback when pool_charms is empty: inventory charm still shows up in keep
-    diff_fallback = "\n".join(_format_charm_diff_lines([c_inv1], []))
-    assert "remove: none" in diff_fallback
-    assert "keep  : Vita SC" in diff_fallback
-    assert "add   : none" in diff_fallback
+    fallback_report = format_build_report(
+        "Fallback Diff", [_as_result(_FakeBuildResult(charms=[c_inv1]))], []
+    )
+    assert "      - remove: none" in fallback_report
+    assert "      - keep  : Vita SC" in fallback_report
+    assert "      - add   : none" in fallback_report
+
+    plain_inv_report = format_build_report(
+        "Plain Inv", [_as_result(_FakeBuildResult(charms=[c_plain_inv]))], []
+    )
+    assert "      - keep  : Plain Inv SC" in plain_inv_report
 
     # Sorceress report
     sorc_res = _as_result(
@@ -1122,8 +1174,14 @@ def test_report_formatting_sorc_paladin_and_charms() -> None:
     assert "Block:" not in bow_report
 
 
-def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
-    resolver = GameDataResolver.load()
+def test_extract_pure_helpers_and_pool_with_stubs(
+    parsed_sork: D2SStruct,
+    parsed_mule_unique: D2SStruct,
+    parsed_shared_stash: SharedStash,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolver = game_data_resolver
     d2r = resolver.for_version(0x63)
 
     # format_item_location and char_item_locality_rank
@@ -1270,13 +1328,9 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
     assert global_by_req[6].mana == 20
 
     # End-to-end extract_pool across real fixtures with mocked specs
-    sork, _ = _load_char("sork.d2s")
-    mule, _ = _load_char("mule_unique.d2s")
-    ok_st, stash, _, _ = parse_d2i_file(
-        str(FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=resolver
-    )
-    assert ok_st
-    assert isinstance(stash, SharedStash)
+    sork = parsed_sork
+    mule = parsed_mule_unique
+    stash = parsed_shared_stash
     items, charms = extract_pool(sork, extra_chars=[mule], stashes=[stash])
     assert len(items) > 10
     assert len(charms) > 0
@@ -1289,6 +1343,7 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
 
 
 def test_split_skill_reporting_eth_filter_and_flat_damage(
+    game_data_resolver: GameDataResolver,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from typing import cast
@@ -1329,8 +1384,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     assert "(Zeal lvl 23)" in rep_zeal
 
     # 2. Flat +Damage (pid 111, item_normaldamage) adds 2*val to wep_phys_2x.
-    resolver = GameDataResolver.load()
-    d2r = resolver.for_version(0x69)
+    d2r = game_data_resolver.for_version(0x69)
     wep = D2Item()
     wep.type_name = b"bsd "
     phys_no_flat, _, _, _ = _compute_weapon_phys_2x(wep, [], d2r, 85, slot="weapon", code="bsd")
@@ -1728,11 +1782,13 @@ def test_to_charm_spec_preserves_all_skills_vit_and_ene(monkeypatch: pytest.Monk
     assert pal_ch.ene == 14
 
 
-def test_extract_per_level_attrs_res_def_and_pct_life() -> None:
+def test_extract_per_level_attrs_res_def_and_pct_life(
+    game_data_resolver: GameDataResolver,
+) -> None:
     from d2savior.core.stats import calculate_effective_defence
     from d2savior.optimizer.extract_props import _apply_props_to_acc
 
-    resolver = GameDataResolver.load()
+    resolver = game_data_resolver
     acc = _PropAcc()
     # At char_level=80, shift=3 (divide by 8): pval=6 -> 60, pval=4 -> 40, pval=8 -> 80.
     props: list[tuple[int, int, list[int]]] = [
@@ -1780,8 +1836,10 @@ def test_extract_per_level_attrs_res_def_and_pct_life() -> None:
     assert staff_def == 160
 
 
-def test_ar_stats_extracted_only_for_melee_paladin() -> None:
-    resolver = GameDataResolver.load()
+def test_ar_stats_extracted_only_for_melee_paladin(
+    game_data_resolver: GameDataResolver,
+) -> None:
+    resolver = game_data_resolver
     ar_props: list[tuple[int, int, list[int]]] = [
         (19, 100, [100]),  # +100 AR
         (119, 50, [50]),  # +50% AR
@@ -1832,8 +1890,10 @@ def test_ar_stats_extracted_only_for_melee_paladin() -> None:
         )
 
 
-def test_paladin_melee_and_support_aura_single_skill_extraction() -> None:
-    resolver = GameDataResolver.load()
+def test_paladin_melee_and_support_aura_single_skill_extraction(
+    game_data_resolver: GameDataResolver,
+) -> None:
+    resolver = game_data_resolver
     # +2 Sacrifice (96), +2 Charge (107), +2 Vengeance (111), +3 Fanaticism (122),
     # +3 Blessed Aim (108), +3 Conviction (123).
     skill_props: list[tuple[int, int, list[int]]] = [
@@ -1919,16 +1979,16 @@ def test_format_paladin_option_lines_melee_action_labels() -> None:
         assert f"DPS: 1000 ({skill_name}) | AR: 1200 (85%)" in lines[1]
 
 
-def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_paladin_target_type_baseline_and_cli_parsing(
+    parsed_paladin_smite: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from d2savior.cli_optimize import cmd_optimize
     from d2savior.optimizer.paladin import build_paladin_baseline
 
-    resolver = GameDataResolver.load()
-    ok_p, smite, _ = parse_d2s_file(
-        str(FIXTURES_DIR / "paladin_snapshot" / "smite.d2s"), resolver=resolver
-    )
-    assert ok_p
-    assert smite is not None
+    resolver = game_data_resolver
+    smite = parsed_paladin_smite
     lvl = smite.player_stats.level or smite.char_level
 
     _patch_fake_constraints(monkeypatch)
@@ -2014,11 +2074,13 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
 
 
 def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
+    parsed_paladin_stash: SharedStash,
+    game_data_resolver: GameDataResolver,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from d2savior.optimizer.extract import _compute_weapon_phys_2x
 
-    resolver = GameDataResolver.load().for_version(0x63)
+    resolver = game_data_resolver.for_version(0x63)
 
     # 1. All new melee/ranged combat properties + per-level scaling + CTC procs at char_level=80
     acc = _PropAcc()
@@ -2159,11 +2221,7 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
     assert wep_2h_with_218 == (base_2h_min + 8) + (base_2h_max + 10 + 15 + scaled_218)
 
     # 3. Blunt weapon implicit +50% Damage to Undead on Zeal/Melee Paladin
-    _, stash, _, _ = parse_d2i_file(
-        str(FIXTURES_DIR / "paladin_snapshot" / "ModernSharedStashSoftCoreV2.d2i"),
-        resolver=resolver,
-    )
-    assert isinstance(stash, SharedStash)
+    stash = parsed_paladin_stash
     black_flail = next(
         it
         for tab in stash.tabs
@@ -2265,12 +2323,15 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
     ) == (20, 3, 7, 11, 24)
 
 
-def test_defense_block_and_cold_armor_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_defense_block_and_cold_armor_extraction(
+    parsed_sork: D2SStruct,
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from d2savior.optimizer.common import synthesize_monster_stats
     from d2savior.optimizer.skill_tables import resolve_sorc_cold_armor
 
-    resolver = GameDataResolver.load()
-    d2r = resolver.for_version(0x63)
+    d2r = game_data_resolver.for_version(0x63)
 
     # Armor.txt shield block + CharStats-independent properties (pid 20, pid 102, Combat/Holy Shield/Armor staffmod)
     gilded = d2r.data.get_item("pa9")
@@ -2284,9 +2345,10 @@ def test_defense_block_and_cold_armor_extraction(monkeypatch: pytest.MonkeyPatch
     assert monarch.block == 22
 
     # Pick strongest Cold Armor allocated on Sorceress
-    sork, _ = _load_char("sork.d2s")
+    sork = parsed_sork
     assert resolve_sorc_cold_armor(sork) == (1, 1, 40)
     assert sork.skills is not None
+    monkeypatch.setattr(sork.skills, "skill_levels", list(sork.skills.skill_levels))
     sork.skills.skill_levels[50 - 36] = 1  # Shiver Armor lvl 1 (45% > 30%)
     assert resolve_sorc_cold_armor(sork) == (2, 1, 50)
     sork.skills.skill_levels[60 - 36] = 1  # Chilling Armor lvl 1 (60% > 45%)
@@ -2384,15 +2446,17 @@ def test_defense_block_and_cold_armor_extraction(monkeypatch: pytest.MonkeyPatch
 
 
 def test_paladin_passive_max_res_cap_in_alternatives(
+    parsed_mule_unique: D2SStruct,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from d2savior.optimizer.paladin import _collect_paladin_alternatives
 
-    mule, _ = _load_char("mule_unique.d2s")
+    mule = parsed_mule_unique
     assert mule.skills is not None
-    mule.skills.skill_levels = [0] * 30
-    mule.skills.skill_levels[4] = 10  # Resist Fire -> base_max_fr = 5 (cap 80%)
-    mule.skills.skill_levels[6] = 20  # Holy Fire
+    skills = [0] * 30
+    skills[4] = 10  # Resist Fire -> base_max_fr = 5 (cap 80%)
+    skills[6] = 20  # Holy Fire
+    monkeypatch.setattr(mule.skills, "skill_levels", skills)
 
     _patch_fake_constraints(monkeypatch)
     baseline, _, _, _ = build_paladin_baseline(

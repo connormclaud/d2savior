@@ -165,7 +165,7 @@ d2savior --summary
 d2savior --no-config /path/to/other.d2s
 ```
 
-When `save_dir` changes in your configuration, `d2savior` prints a confirmation to `stderr`. If multiple files or directories are provided in a single run, the last valid directory is saved.
+When `save_dir` is not yet set in your configuration, `d2savior` saves the directory of the first valid file or folder provided and prints a confirmation to `stderr` (existing `save_dir` values are preserved).
 
 `d2s-parse` and `python d2s_parse.py` are also available as compatibility aliases.
 
