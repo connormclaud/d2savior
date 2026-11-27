@@ -33,46 +33,10 @@ pub(crate) struct CharmSolver<'a> {
     pub(super) ub_flat_fire_2x: i32,
     pub(super) ub_flat_elem_2x: i32,
     pub(super) ub_psn_dps_2x: i32,
-    pub(super) groups: Vec<CharmGroup>,
-    pub(super) pure_axes: [PureAxisDp; 9],
-    pub(super) suf_pos: Vec<StatTotals>,
-    pub(super) suf_neg_res: Vec<[i32; 4]>,
-    pub(super) order_str: Vec<UbGroupEntry>,
-    pub(super) order_dex: Vec<UbGroupEntry>,
-    pub(super) order_fhr: Vec<UbGroupEntry>,
-    pub(super) order_frw: Vec<UbGroupEntry>,
-    pub(super) order_res: [Vec<UbGroupEntry>; 4],
-    pub(super) order_res_total: Vec<UbGroupEntry>,
-    pub(super) order_skills: Vec<UbGroupEntry>,
-    pub(super) order_mf: Vec<UbGroupEntry>,
+    pub(super) non_dps: NonDpsIndex,
     pub(super) cache: HashMap<CharmCacheKey, Option<(i32, Vec<usize>)>>,
     pub(super) failed_floor: HashMap<CharmCacheKey, i32>,
-    pub(super) dps_groups: Vec<CharmGroup>,
-    pub(super) dps_suf_pos: Vec<StatTotals>,
-    pub(super) dps_suf_neg_res: Vec<[i32; 4]>,
-    pub(super) dps_min_size: Vec<i32>,
-    pub(super) dps_order_all_skills: Vec<UbGroupEntry>,
-    pub(super) dps_order_class_skills: Vec<UbGroupEntry>,
-    pub(super) dps_order_action_skills: Vec<UbGroupEntry>,
-    pub(super) dps_order_aura_skills: Vec<UbGroupEntry>,
-    pub(super) dps_order_str: Vec<UbGroupEntry>,
-    pub(super) dps_order_dex: Vec<UbGroupEntry>,
-    pub(super) dps_order_ar: Vec<UbGroupEntry>,
-    pub(super) dps_order_phys: Vec<UbGroupEntry>,
-    pub(super) dps_order_fire: Vec<UbGroupEntry>,
-    pub(super) dps_order_elem: Vec<UbGroupEntry>,
-    pub(super) dps_order_psn: Vec<UbGroupEntry>,
-    pub(super) dps_order_res: [Vec<UbGroupEntry>; 4],
-    pub(super) dps_order_fhr: Vec<UbGroupEntry>,
-    pub(super) dps_order_frw: Vec<UbGroupEntry>,
-    pub(super) dps_order_mf: Vec<UbGroupEntry>,
-    pub(super) dps_group_has_util: Vec<bool>,
-    pub(super) pure_dps: PureDpsSolver,
-    pub(super) non_dps_solver: Option<Box<CharmSolver<'a>>>,
-    pub(super) nd_res_at: Vec<[i32; 4]>,
-    pub(super) nd_fhr_at: Vec<i32>,
-    pub(super) nd_frw_at: Vec<i32>,
-    pub(super) nd_mf_at: Vec<i32>,
+    pub(super) dps: Option<Box<DpsRefiner<'a>>>,
 }
 
 impl<'a> CharmSolver<'a> {
@@ -171,7 +135,7 @@ impl<'a> CharmSolver<'a> {
     fn new_inner(
         raw_pool: &[&'a CharmSpec],
         c: ResolvedConstraints<'a>,
-        build_dps_refiner: bool,
+        build_dps_refiner_flag: bool,
     ) -> Self {
         let mode = c.mode;
         let class = c.class;
@@ -209,13 +173,13 @@ impl<'a> CharmSolver<'a> {
         let ub_psn_dps_2x = charm_stat_ub(&pool, max_slots, |ch| ch.psn_dps_2x);
 
         let non_dps = build_non_dps_index(&pool, &c, max_slots);
-        let dps = if build_dps_refiner
+        let dps = if build_dps_refiner_flag
             && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes)
             && c.offense.uses_dps_tables(&c)
         {
-            build_dps_index(&pool, c, max_slots)
+            Some(Box::new(build_dps_refiner(&pool, c, max_slots)))
         } else {
-            DpsIndex::default()
+            None
         };
 
         Self {
@@ -240,46 +204,10 @@ impl<'a> CharmSolver<'a> {
             ub_flat_fire_2x,
             ub_flat_elem_2x,
             ub_psn_dps_2x,
-            groups: non_dps.groups,
-            pure_axes: non_dps.pure_axes,
-            suf_pos: non_dps.suf_pos,
-            suf_neg_res: non_dps.suf_neg_res,
-            order_str: non_dps.order_str,
-            order_dex: non_dps.order_dex,
-            order_fhr: non_dps.order_fhr,
-            order_frw: non_dps.order_frw,
-            order_res: non_dps.order_res,
-            order_res_total: non_dps.order_res_total,
-            order_skills: non_dps.order_skills,
-            order_mf: non_dps.order_mf,
+            non_dps,
             cache: HashMap::new(),
             failed_floor: HashMap::new(),
-            dps_groups: dps.dps_groups,
-            dps_suf_pos: dps.dps_suf_pos,
-            dps_suf_neg_res: dps.dps_suf_neg_res,
-            dps_min_size: dps.dps_min_size,
-            dps_order_all_skills: dps.dps_order_all_skills,
-            dps_order_class_skills: dps.dps_order_class_skills,
-            dps_order_action_skills: dps.dps_order_action_skills,
-            dps_order_aura_skills: dps.dps_order_aura_skills,
-            dps_order_str: dps.dps_order_str,
-            dps_order_dex: dps.dps_order_dex,
-            dps_order_ar: dps.dps_order_ar,
-            dps_order_phys: dps.dps_order_phys,
-            dps_order_fire: dps.dps_order_fire,
-            dps_order_elem: dps.dps_order_elem,
-            dps_order_psn: dps.dps_order_psn,
-            dps_order_res: dps.dps_order_res,
-            dps_order_fhr: dps.dps_order_fhr,
-            dps_order_frw: dps.dps_order_frw,
-            dps_order_mf: dps.dps_order_mf,
-            dps_group_has_util: dps.dps_group_has_util,
-            pure_dps: dps.pure_dps,
-            non_dps_solver: dps.non_dps_solver,
-            nd_res_at: dps.nd_res_at,
-            nd_fhr_at: dps.nd_fhr_at,
-            nd_frw_at: dps.nd_frw_at,
-            nd_mf_at: dps.nd_mf_at,
+            dps,
         }
     }
 }
@@ -362,19 +290,19 @@ fn partition_sunder_pool<'a>(
     (sunder_opts, max_slots, pool)
 }
 
-struct NonDpsIndex {
-    groups: Vec<CharmGroup>,
-    pure_axes: [PureAxisDp; 9],
-    suf_pos: Vec<StatTotals>,
-    suf_neg_res: Vec<[i32; 4]>,
-    order_str: Vec<UbGroupEntry>,
-    order_dex: Vec<UbGroupEntry>,
-    order_fhr: Vec<UbGroupEntry>,
-    order_frw: Vec<UbGroupEntry>,
-    order_res: [Vec<UbGroupEntry>; 4],
-    order_res_total: Vec<UbGroupEntry>,
-    order_skills: Vec<UbGroupEntry>,
-    order_mf: Vec<UbGroupEntry>,
+pub(super) struct NonDpsIndex {
+    pub(super) groups: Vec<CharmGroup>,
+    pub(super) pure_axes: [PureAxisDp; 9],
+    pub(super) suf_pos: Vec<StatTotals>,
+    pub(super) suf_neg_res: Vec<[i32; 4]>,
+    pub(super) order_str: Vec<UbGroupEntry>,
+    pub(super) order_dex: Vec<UbGroupEntry>,
+    pub(super) order_fhr: Vec<UbGroupEntry>,
+    pub(super) order_frw: Vec<UbGroupEntry>,
+    pub(super) order_res: [Vec<UbGroupEntry>; 4],
+    pub(super) order_res_total: Vec<UbGroupEntry>,
+    pub(super) order_skills: Vec<UbGroupEntry>,
+    pub(super) order_mf: Vec<UbGroupEntry>,
 }
 
 fn build_non_dps_index(
@@ -608,30 +536,7 @@ fn build_non_dps_index(
     let mut suf_neg_res = vec![[0i32; 4]; groups.len() + 1];
     for i in (0..groups.len()).rev() {
         let gp = groups[i].max_pos_total();
-        suf_pos[i] = StatTotals {
-            str_bonus: suf_pos[i + 1].str_bonus + gp.str_bonus,
-            dex_bonus: suf_pos[i + 1].dex_bonus + gp.dex_bonus,
-            fhr: suf_pos[i + 1].fhr + gp.fhr,
-            frw: suf_pos[i + 1].frw + gp.frw,
-            res: [
-                suf_pos[i + 1].res[0] + gp.res[0],
-                suf_pos[i + 1].res[1] + gp.res[1],
-                suf_pos[i + 1].res[2] + gp.res[2],
-                suf_pos[i + 1].res[3] + gp.res[3],
-            ],
-            skills: suf_pos[i + 1].skills + gp.skills,
-            all_skills: suf_pos[i + 1].all_skills + gp.all_skills,
-            class_skills: suf_pos[i + 1].class_skills + gp.class_skills,
-            general_skills: suf_pos[i + 1].general_skills + gp.general_skills,
-            action_skills: suf_pos[i + 1].action_skills + gp.action_skills,
-            aura_skills: suf_pos[i + 1].aura_skills + gp.aura_skills,
-            mf: suf_pos[i + 1].mf + gp.mf,
-            ar: suf_pos[i + 1].ar + gp.ar,
-            flat_phys_2x: suf_pos[i + 1].flat_phys_2x + gp.flat_phys_2x,
-            flat_fire_2x: suf_pos[i + 1].flat_fire_2x + gp.flat_fire_2x,
-            flat_elem_2x: suf_pos[i + 1].flat_elem_2x + gp.flat_elem_2x,
-            psn_dps_2x: suf_pos[i + 1].psn_dps_2x + gp.psn_dps_2x,
-        };
+        suf_pos[i] = suf_pos[i + 1].add_scaled(gp, 1);
         let gn = groups[i].min_neg_res();
         for r in 0..4 {
             suf_neg_res[i][r] = suf_neg_res[i + 1][r] + gn[r];
@@ -670,41 +575,43 @@ fn build_non_dps_index(
     }
 }
 
-#[derive(Default)]
-struct DpsIndex<'a> {
-    dps_groups: Vec<CharmGroup>,
-    dps_suf_pos: Vec<StatTotals>,
-    dps_suf_neg_res: Vec<[i32; 4]>,
-    dps_min_size: Vec<i32>,
-    dps_order_all_skills: Vec<UbGroupEntry>,
-    dps_order_class_skills: Vec<UbGroupEntry>,
-    dps_order_action_skills: Vec<UbGroupEntry>,
-    dps_order_aura_skills: Vec<UbGroupEntry>,
-    dps_order_str: Vec<UbGroupEntry>,
-    dps_order_dex: Vec<UbGroupEntry>,
-    dps_order_ar: Vec<UbGroupEntry>,
-    dps_order_phys: Vec<UbGroupEntry>,
-    dps_order_fire: Vec<UbGroupEntry>,
-    dps_order_elem: Vec<UbGroupEntry>,
-    dps_order_psn: Vec<UbGroupEntry>,
-    dps_order_res: [Vec<UbGroupEntry>; 4],
-    dps_order_fhr: Vec<UbGroupEntry>,
-    dps_order_frw: Vec<UbGroupEntry>,
-    dps_order_mf: Vec<UbGroupEntry>,
-    dps_group_has_util: Vec<bool>,
-    pure_dps: PureDpsSolver,
-    non_dps_solver: Option<Box<CharmSolver<'a>>>,
-    nd_res_at: Vec<[i32; 4]>,
-    nd_fhr_at: Vec<i32>,
-    nd_frw_at: Vec<i32>,
-    nd_mf_at: Vec<i32>,
+pub(super) struct DpsIndex {
+    pub(super) groups: Vec<CharmGroup>,
+    pub(super) suf_pos: Vec<StatTotals>,
+    pub(super) min_size: Vec<i32>,
+    pub(super) order_all_skills: Vec<UbGroupEntry>,
+    pub(super) order_class_skills: Vec<UbGroupEntry>,
+    pub(super) order_action_skills: Vec<UbGroupEntry>,
+    pub(super) order_aura_skills: Vec<UbGroupEntry>,
+    pub(super) order_str: Vec<UbGroupEntry>,
+    pub(super) order_dex: Vec<UbGroupEntry>,
+    pub(super) order_ar: Vec<UbGroupEntry>,
+    pub(super) order_phys: Vec<UbGroupEntry>,
+    pub(super) order_fire: Vec<UbGroupEntry>,
+    pub(super) order_elem: Vec<UbGroupEntry>,
+    pub(super) order_psn: Vec<UbGroupEntry>,
+    pub(super) order_res: [Vec<UbGroupEntry>; 4],
+    pub(super) order_fhr: Vec<UbGroupEntry>,
+    pub(super) order_frw: Vec<UbGroupEntry>,
+    pub(super) order_mf: Vec<UbGroupEntry>,
+    pub(super) group_has_util: Vec<bool>,
+    pub(super) pure_dps: PureDpsSolver,
+    pub(super) nd_res_at: Vec<[i32; 4]>,
+    pub(super) nd_fhr_at: Vec<i32>,
+    pub(super) nd_frw_at: Vec<i32>,
+    pub(super) nd_mf_at: Vec<i32>,
 }
 
-fn build_dps_index<'a>(
+pub(super) struct DpsRefiner<'a> {
+    pub(super) index: DpsIndex,
+    pub(super) non_dps_solver: CharmSolver<'a>,
+}
+
+fn build_dps_refiner<'a>(
     pool: &[&'a CharmSpec],
     c: ResolvedConstraints<'a>,
     max_slots: i32,
-) -> DpsIndex<'a> {
+) -> DpsRefiner<'a> {
     let class = c.class;
     let is_pure_dps = |ch: &CharmSpec| {
         (ch.ar > 0
@@ -930,99 +837,88 @@ fn build_dps_index<'a>(
         };
         dps_group_has_util.push(indices.iter().any(|&i| has_util(pool[i])));
     }
-    let mut dps_suf_pos = vec![StatTotals::default(); dps_groups.len() + 1];
-    let mut dps_suf_neg_res = vec![[0i32; 4]; dps_groups.len() + 1];
-    let mut dps_min_size = vec![i32::MAX; dps_groups.len() + 1];
+    let mut suf_pos = vec![StatTotals::default(); dps_groups.len() + 1];
+    let mut min_size = vec![i32::MAX; dps_groups.len() + 1];
     for i in (0..dps_groups.len()).rev() {
         let gp = dps_groups[i].max_pos_total();
-        dps_suf_pos[i] = dps_suf_pos[i + 1].add_scaled(gp, 1);
-        let gn = dps_groups[i].min_neg_res();
-        for r in 0..4 {
-            dps_suf_neg_res[i][r] = dps_suf_neg_res[i + 1][r] + gn[r];
-        }
+        suf_pos[i] = suf_pos[i + 1].add_scaled(gp, 1);
         let g_sz = match &dps_groups[i] {
             CharmGroup::Unique { min_size, .. } => *min_size,
             CharmGroup::Multi { size, .. } => *size,
         };
-        dps_min_size[i] = dps_min_size[i + 1].min(g_sz);
+        min_size[i] = min_size[i + 1].min(g_sz);
     }
-    let dps_order_all_skills = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.all_skills);
-    let dps_order_class_skills = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.skills);
-    let dps_order_action_skills = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.action_skills);
-    let dps_order_aura_skills = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.aura_skills);
-    let dps_order_str = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.str_bonus);
-    let dps_order_dex = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.dex_bonus);
-    let dps_order_ar = sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.ar);
-    let dps_order_phys =
-        sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.flat_phys_2x);
-    let dps_order_fire =
-        sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.flat_fire_2x);
-    let dps_order_elem =
-        sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.flat_elem_2x);
-    let dps_order_psn =
-        sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.psn_dps_2x);
-    let dps_order_res = [
+    let order_all_skills = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.all_skills);
+    let order_class_skills = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.skills);
+    let order_action_skills = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.action_skills);
+    let order_aura_skills = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.aura_skills);
+    let order_str = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.str_bonus);
+    let order_dex = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.dex_bonus);
+    let order_ar = sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.ar);
+    let order_phys = sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.flat_phys_2x);
+    let order_fire = sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.flat_fire_2x);
+    let order_elem = sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.flat_elem_2x);
+    let order_psn = sorted_ub_entries(&dps_groups, pool, &pure_dps_ub_items, |ch| ch.psn_dps_2x);
+    let order_res = [
         sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.fr),
         sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.lr),
         sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.cr),
         sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.pr),
     ];
-    let dps_order_fhr = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.fhr);
-    let dps_order_frw = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.frw);
-    let dps_order_mf = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.mf);
-    let non_dps_solver = Box::new(CharmSolver::new_inner(
-        &non_dps_pool,
-        c.with_mode(SearchMode::LevelingRes),
-        false,
-    ));
+    let order_fhr = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.fhr);
+    let order_frw = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.frw);
+    let order_mf = sorted_ub_entries(&dps_groups, pool, &[], |ch| ch.mf);
+    let non_dps_solver =
+        CharmSolver::new_inner(&non_dps_pool, c.with_mode(SearchMode::LevelingRes), false);
     let slots_len = (max_slots.max(0) as usize) + 1;
     let nd_res_at: Vec<[i32; 4]> = (0..slots_len)
         .map(|s| {
             let si = s as i32;
             [
-                eval_sorted_ub(&non_dps_solver.order_res[0], 0, si),
-                eval_sorted_ub(&non_dps_solver.order_res[1], 0, si),
-                eval_sorted_ub(&non_dps_solver.order_res[2], 0, si),
-                eval_sorted_ub(&non_dps_solver.order_res[3], 0, si),
+                eval_sorted_ub(&non_dps_solver.non_dps.order_res[0], 0, si),
+                eval_sorted_ub(&non_dps_solver.non_dps.order_res[1], 0, si),
+                eval_sorted_ub(&non_dps_solver.non_dps.order_res[2], 0, si),
+                eval_sorted_ub(&non_dps_solver.non_dps.order_res[3], 0, si),
             ]
         })
         .collect();
     let nd_fhr_at: Vec<i32> = (0..slots_len)
-        .map(|s| eval_sorted_ub(&non_dps_solver.order_fhr, 0, s as i32))
+        .map(|s| eval_sorted_ub(&non_dps_solver.non_dps.order_fhr, 0, s as i32))
         .collect();
     let nd_frw_at: Vec<i32> = (0..slots_len)
-        .map(|s| eval_sorted_ub(&non_dps_solver.order_frw, 0, s as i32))
+        .map(|s| eval_sorted_ub(&non_dps_solver.non_dps.order_frw, 0, s as i32))
         .collect();
     let nd_mf_at: Vec<i32> = (0..slots_len)
-        .map(|s| eval_sorted_ub(&non_dps_solver.order_mf, 0, s as i32))
+        .map(|s| eval_sorted_ub(&non_dps_solver.non_dps.order_mf, 0, s as i32))
         .collect();
 
-    DpsIndex {
-        dps_groups,
-        dps_suf_pos,
-        dps_suf_neg_res,
-        dps_min_size,
-        dps_order_all_skills,
-        dps_order_class_skills,
-        dps_order_action_skills,
-        dps_order_aura_skills,
-        dps_order_str,
-        dps_order_dex,
-        dps_order_ar,
-        dps_order_phys,
-        dps_order_fire,
-        dps_order_elem,
-        dps_order_psn,
-        dps_order_res,
-        dps_order_fhr,
-        dps_order_frw,
-        dps_order_mf,
-        dps_group_has_util,
-        pure_dps,
-        non_dps_solver: Some(non_dps_solver),
-        nd_res_at,
-        nd_fhr_at,
-        nd_frw_at,
-        nd_mf_at,
+    DpsRefiner {
+        index: DpsIndex {
+            groups: dps_groups,
+            suf_pos,
+            min_size,
+            order_all_skills,
+            order_class_skills,
+            order_action_skills,
+            order_aura_skills,
+            order_str,
+            order_dex,
+            order_ar,
+            order_phys,
+            order_fire,
+            order_elem,
+            order_psn,
+            order_res,
+            order_fhr,
+            order_frw,
+            order_mf,
+            group_has_util: dps_group_has_util,
+            pure_dps,
+            nd_res_at,
+            nd_fhr_at,
+            nd_frw_at,
+            nd_mf_at,
+        },
+        non_dps_solver,
     }
 }

@@ -1,8 +1,7 @@
 use super::dp::{
-    CharmGroup, PureDpsSolver, StatTotals, UbGroupEntry, eval_sorted_ub, min_slots_for_res_axis,
-    min_slots_for_val,
+    CharmGroup, StatTotals, UbGroupEntry, eval_sorted_ub, min_slots_for_res_axis, min_slots_for_val,
 };
-use super::solver::CharmSolver;
+use super::solver::{CharmSolver, DpsIndex};
 use crate::dps::{CthEval, FastLeafDps, HandWeapon, OffenseProfile};
 use crate::eval::{EvalSummary, base_res_caps, eval_build_summary, res_caps};
 use crate::search::{BuildScore, score_eval_summary};
@@ -24,7 +23,7 @@ impl<'a> CharmSolver<'a> {
         best_sum: &mut EvalSummary,
         best_score: &mut BuildScore,
     ) {
-        if self.non_dps_solver.is_none() {
+        if self.dps.is_none() {
             return;
         }
         let offense = self.c.offense;
@@ -60,15 +59,16 @@ impl<'a> CharmSolver<'a> {
                 return;
             }
         }
-        if self.dps_groups.is_empty()
-            && (self.pure_dps.is_empty() || gear_bucket >= global_ub_bucket)
+        let Some(dps_refiner) = self.dps.as_deref_mut() else {
+            return;
+        };
+        let dps = &dps_refiner.index;
+        let non_dps_solver = &mut dps_refiner.non_dps_solver;
+        if dps.groups.is_empty()
+            && (dps.pure_dps.is_empty() || gear_bucket >= global_ub_bucket)
         {
             return;
         }
-        let non_dps_solver = self
-            .non_dps_solver
-            .as_deref_mut()
-            .expect("checked non_dps_solver");
 
         struct DpsStatic<'b, 'a> {
             pool: &'b [&'a CharmSpec],
@@ -82,31 +82,7 @@ impl<'a> CharmSolver<'a> {
             reqs: (i32, i32),
             cutoff: Option<(i32, i32, i32)>,
             cbf_val: i32,
-            groups: &'b [CharmGroup],
-            suf_pos: &'b [StatTotals],
-            suf_neg_res: &'b [[i32; 4]],
-            min_size: &'b [i32],
-            order_all_skills: &'b [UbGroupEntry],
-            order_class_skills: &'b [UbGroupEntry],
-            order_action_skills: &'b [UbGroupEntry],
-            order_aura_skills: &'b [UbGroupEntry],
-            order_str: &'b [UbGroupEntry],
-            order_dex: &'b [UbGroupEntry],
-            order_ar: &'b [UbGroupEntry],
-            order_phys: &'b [UbGroupEntry],
-            order_fire: &'b [UbGroupEntry],
-            order_elem: &'b [UbGroupEntry],
-            order_psn: &'b [UbGroupEntry],
-            order_res: &'b [Vec<UbGroupEntry>; 4],
-            order_fhr: &'b [UbGroupEntry],
-            order_frw: &'b [UbGroupEntry],
-            order_mf: &'b [UbGroupEntry],
-            group_has_util: &'b [bool],
-            pure_dps: &'b PureDpsSolver,
-            nd_res_at: &'b [[i32; 4]],
-            nd_fhr_at: &'b [i32],
-            nd_frw_at: &'b [i32],
-            nd_mf_at: &'b [i32],
+            dps: &'b DpsIndex,
             base_caps: [i32; 4],
             base_fast: FastLeafDps,
         }
@@ -207,13 +183,14 @@ impl<'a> CharmSolver<'a> {
             rem_slots: i32,
             cur: StatTotals,
         ) {
-            if g_idx < st.groups.len() && rem_slots < st.min_size[g_idx] {
-                g_idx = st.groups.len();
+            let dps = st.dps;
+            if g_idx < dps.groups.len() && rem_slots < dps.min_size[g_idx] {
+                g_idx = dps.groups.len();
             }
-            let sp = st.suf_pos[g_idx];
-            let rs_idx = (rem_slots.max(0) as usize).min(st.nd_fhr_at.len() - 1);
+            let sp = dps.suf_pos[g_idx];
+            let rs_idx = (rem_slots.max(0) as usize).min(dps.nd_fhr_at.len() - 1);
             let ub_rem_at = |cur_g: usize, sp_v: i32, order: &[UbGroupEntry], slots: i32| {
-                if cur_g >= st.groups.len() || slots <= 0 || sp_v <= 0 {
+                if cur_g >= dps.groups.len() || slots <= 0 || sp_v <= 0 {
                     0
                 } else {
                     sp_v.min(eval_sorted_ub(order, cur_g, slots))
@@ -221,12 +198,12 @@ impl<'a> CharmSolver<'a> {
             };
             let leaf = st.leaf;
             let rem_str_all = if leaf.str_bonus + cur.str_bonus < st.reqs.0 {
-                ub_rem_at(g_idx, sp.str_bonus, st.order_str, rem_slots)
+                ub_rem_at(g_idx, sp.str_bonus, &dps.order_str, rem_slots)
             } else {
                 0
             };
             let rem_dex_all = if leaf.dex_bonus + cur.dex_bonus < st.reqs.1 {
-                ub_rem_at(g_idx, sp.dex_bonus, st.order_dex, rem_slots)
+                ub_rem_at(g_idx, sp.dex_bonus, &dps.order_dex, rem_slots)
             } else {
                 0
             };
@@ -236,28 +213,28 @@ impl<'a> CharmSolver<'a> {
                 return;
             }
             let rem_fhr = if leaf.fhr + cur.fhr < st.c.min_fhr {
-                ub_rem_at(g_idx, sp.fhr, st.order_fhr, rem_slots)
+                ub_rem_at(g_idx, sp.fhr, &dps.order_fhr, rem_slots)
             } else {
                 0
             };
             let rem_frw = if leaf.frw + cur.frw < st.c.min_frw {
-                ub_rem_at(g_idx, sp.frw, st.order_frw, rem_slots)
+                ub_rem_at(g_idx, sp.frw, &dps.order_frw, rem_slots)
             } else {
                 0
             };
             let rem_mf = if leaf.mf + cur.mf < st.c.min_mf {
-                ub_rem_at(g_idx, sp.mf, st.order_mf, rem_slots)
+                ub_rem_at(g_idx, sp.mf, &dps.order_mf, rem_slots)
             } else {
                 0
             };
             let mut s_req =
-                min_slots_for_val(st.nd_fhr_at, st.c.min_fhr - (leaf.fhr + cur.fhr + rem_fhr))
+                min_slots_for_val(&dps.nd_fhr_at, st.c.min_fhr - (leaf.fhr + cur.fhr + rem_fhr))
                     .max(min_slots_for_val(
-                        st.nd_frw_at,
+                        &dps.nd_frw_at,
                         st.c.min_frw - (leaf.frw + cur.frw + rem_frw),
                     ))
                     .max(min_slots_for_val(
-                        st.nd_mf_at,
+                        &dps.nd_mf_at,
                         st.c.min_mf - (leaf.mf + cur.mf + rem_mf),
                     ));
             if s_req > rem_slots {
@@ -270,11 +247,11 @@ impl<'a> CharmSolver<'a> {
             for r in 0..4 {
                 let cap_r = st.base_caps[r];
                 let base_r = leaf_res[r] + cur.res[r];
-                let cur_plus_nd = base_r + st.nd_res_at[rs_idx][r];
+                let cur_plus_nd = base_r + dps.nd_res_at[rs_idx][r];
                 if cur_plus_nd >= cap_r.max(min_res[r]) {
                     ub_res_base += cur_plus_nd.min(cap_r);
                 } else {
-                    let rem_r = ub_rem_at(g_idx, sp.res[r], &st.order_res[r], rem_slots);
+                    let rem_r = ub_rem_at(g_idx, sp.res[r], &dps.order_res[r], rem_slots);
                     rem_r_opt[r] = Some(rem_r);
                     let total_r = cur_plus_nd + rem_r;
                     if total_r < min_res[r] {
@@ -284,10 +261,10 @@ impl<'a> CharmSolver<'a> {
                 }
                 if base_r < min_res[r] {
                     let rem_r = *rem_r_opt[r].get_or_insert_with(|| {
-                        ub_rem_at(g_idx, sp.res[r], &st.order_res[r], rem_slots)
+                        ub_rem_at(g_idx, sp.res[r], &dps.order_res[r], rem_slots)
                     });
                     s_req = s_req.max(min_slots_for_res_axis(
-                        st.nd_res_at,
+                        &dps.nd_res_at,
                         r,
                         min_res[r] - (base_r + rem_r),
                     ));
@@ -310,18 +287,24 @@ impl<'a> CharmSolver<'a> {
                     let cap_r = st.base_caps[r];
                     if leaf_res[r] + cur.res[r] < cap_r {
                         rem_r_full[r] = *rem_r_opt[r].get_or_insert_with(|| {
-                            ub_rem_at(g_idx, sp.res[r], &st.order_res[r], rem_slots)
+                            ub_rem_at(g_idx, sp.res[r], &dps.order_res[r], rem_slots)
                         });
                     }
                 }
                 let mut found = false;
-                let max_s = (rem_slots as usize).min(st.nd_res_at.len() - 1);
-                for s in (s_req as usize)..=max_s {
+                let max_s = (rem_slots as usize).min(dps.nd_res_at.len() - 1);
+                for (s, nd_res) in dps
+                    .nd_res_at
+                    .iter()
+                    .enumerate()
+                    .take(max_s + 1)
+                    .skip(s_req as usize)
+                {
                     let mut sum_r = 0i32;
                     for r in 0..4 {
                         let cap_r = st.base_caps[r];
-                        sum_r += (leaf_res[r] + cur.res[r] + rem_r_full[r] + st.nd_res_at[s][r])
-                            .min(cap_r);
+                        sum_r +=
+                            (leaf_res[r] + cur.res[r] + rem_r_full[r] + nd_res[r]).min(cap_r);
                     }
                     if sum_r >= target_res_base {
                         s_req_res = s as i32;
@@ -334,19 +317,19 @@ impl<'a> CharmSolver<'a> {
                 }
             }
             let dps_rem_slots = rem_slots - s_req_res;
-            if g_idx < st.groups.len() && dps_rem_slots < st.min_size[g_idx] {
-                g_idx = st.groups.len();
+            if g_idx < dps.groups.len() && dps_rem_slots < dps.min_size[g_idx] {
+                g_idx = dps.groups.len();
             }
 
-            if g_idx == st.groups.len() {
+            if g_idx == dps.groups.len() {
                 let leaf_d = leaf_with_cur(leaf, cur, st.c.class);
-                if leaf_d.fhr + st.nd_fhr_at[rs_idx] < st.c.min_fhr
-                    || leaf_d.frw + st.nd_frw_at[rs_idx] < st.c.min_frw
-                    || leaf_d.mf + st.nd_mf_at[rs_idx] < st.c.min_mf
-                    || leaf_d.fr + st.nd_res_at[rs_idx][0] < st.c.min_fr
-                    || leaf_d.lr + st.nd_res_at[rs_idx][1] < st.c.min_lr
-                    || leaf_d.cr + st.nd_res_at[rs_idx][2] < st.c.min_cr
-                    || leaf_d.pr + st.nd_res_at[rs_idx][3] < st.c.min_pr
+                if leaf_d.fhr + dps.nd_fhr_at[rs_idx] < st.c.min_fhr
+                    || leaf_d.frw + dps.nd_frw_at[rs_idx] < st.c.min_frw
+                    || leaf_d.mf + dps.nd_mf_at[rs_idx] < st.c.min_mf
+                    || leaf_d.fr + dps.nd_res_at[rs_idx][0] < st.c.min_fr
+                    || leaf_d.lr + dps.nd_res_at[rs_idx][1] < st.c.min_lr
+                    || leaf_d.cr + dps.nd_res_at[rs_idx][2] < st.c.min_cr
+                    || leaf_d.pr + dps.nd_res_at[rs_idx][3] < st.c.min_pr
                 {
                     return;
                 }
@@ -369,10 +352,10 @@ impl<'a> CharmSolver<'a> {
                 };
                 let max_pure_s = (dps_rem_slots.max(0) as usize).min(st.max_slots.max(0) as usize);
                 let leaf_res_ub_0: i32 = [
-                    (leaf_d.fr + st.nd_res_at[rs_idx][0]).min(st.base_caps[0]),
-                    (leaf_d.lr + st.nd_res_at[rs_idx][1]).min(st.base_caps[1]),
-                    (leaf_d.cr + st.nd_res_at[rs_idx][2]).min(st.base_caps[2]),
-                    (leaf_d.pr + st.nd_res_at[rs_idx][3]).min(st.base_caps[3]),
+                    (leaf_d.fr + dps.nd_res_at[rs_idx][0]).min(st.base_caps[0]),
+                    (leaf_d.lr + dps.nd_res_at[rs_idx][1]).min(st.base_caps[1]),
+                    (leaf_d.cr + dps.nd_res_at[rs_idx][2]).min(st.base_caps[2]),
+                    (leaf_d.pr + dps.nd_res_at[rs_idx][3]).min(st.base_caps[3]),
                 ]
                 .iter()
                 .sum();
@@ -386,7 +369,7 @@ impl<'a> CharmSolver<'a> {
                 ) else {
                     return;
                 };
-                let leaf_ub_dps = st.pure_dps.max_dps_ub(&fast, max_pure_s);
+                let leaf_ub_dps = dps.pure_dps.max_dps_ub(&fast, max_pure_s);
                 if req_bkt > 0 && leaf_ub_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt) {
                     return;
                 }
@@ -401,7 +384,7 @@ impl<'a> CharmSolver<'a> {
                 {
                     return;
                 }
-                st.pure_dps.solve_for_leaf_into(
+                dps.pure_dps.solve_for_leaf_into(
                     &fast,
                     max_pure_s,
                     &mut mut_ctx.cth_cache,
@@ -413,22 +396,22 @@ impl<'a> CharmSolver<'a> {
                         continue;
                     }
                     let rem_nd = rem_slots - pure_s as i32;
-                    let nd_idx = (rem_nd.max(0) as usize).min(st.nd_fhr_at.len() - 1);
-                    if leaf_d.fhr + st.nd_fhr_at[nd_idx] < st.c.min_fhr
-                        || leaf_d.frw + st.nd_frw_at[nd_idx] < st.c.min_frw
-                        || leaf_d.mf + st.nd_mf_at[nd_idx] < st.c.min_mf
-                        || leaf_d.fr + st.nd_res_at[nd_idx][0] < st.c.min_fr
-                        || leaf_d.lr + st.nd_res_at[nd_idx][1] < st.c.min_lr
-                        || leaf_d.cr + st.nd_res_at[nd_idx][2] < st.c.min_cr
-                        || leaf_d.pr + st.nd_res_at[nd_idx][3] < st.c.min_pr
+                    let nd_idx = (rem_nd.max(0) as usize).min(dps.nd_fhr_at.len() - 1);
+                    if leaf_d.fhr + dps.nd_fhr_at[nd_idx] < st.c.min_fhr
+                        || leaf_d.frw + dps.nd_frw_at[nd_idx] < st.c.min_frw
+                        || leaf_d.mf + dps.nd_mf_at[nd_idx] < st.c.min_mf
+                        || leaf_d.fr + dps.nd_res_at[nd_idx][0] < st.c.min_fr
+                        || leaf_d.lr + dps.nd_res_at[nd_idx][1] < st.c.min_lr
+                        || leaf_d.cr + dps.nd_res_at[nd_idx][2] < st.c.min_cr
+                        || leaf_d.pr + dps.nd_res_at[nd_idx][3] < st.c.min_pr
                     {
                         continue;
                     }
                     let cand_res_ub: i32 = [
-                        (leaf_d.fr + st.nd_res_at[nd_idx][0]).min(st.base_caps[0]),
-                        (leaf_d.lr + st.nd_res_at[nd_idx][1]).min(st.base_caps[1]),
-                        (leaf_d.cr + st.nd_res_at[nd_idx][2]).min(st.base_caps[2]),
-                        (leaf_d.pr + st.nd_res_at[nd_idx][3]).min(st.base_caps[3]),
+                        (leaf_d.fr + dps.nd_res_at[nd_idx][0]).min(st.base_caps[0]),
+                        (leaf_d.lr + dps.nd_res_at[nd_idx][1]).min(st.base_caps[1]),
+                        (leaf_d.cr + dps.nd_res_at[nd_idx][2]).min(st.base_caps[2]),
+                        (leaf_d.pr + dps.nd_res_at[nd_idx][3]).min(st.base_caps[3]),
                     ]
                     .iter()
                     .sum();
@@ -475,7 +458,7 @@ impl<'a> CharmSolver<'a> {
                     let mut mask = mut_ctx.pure_buf[pure_s].1;
                     while mask != 0 {
                         let b = mask.trailing_zeros() as usize;
-                        cand_charms.push(st.pool[st.pure_dps.item_indices[b]]);
+                        cand_charms.push(st.pool[dps.pure_dps.item_indices[b]]);
                         mask &= mask - 1;
                     }
                     let cand_sum = eval_build_summary(
@@ -508,24 +491,27 @@ impl<'a> CharmSolver<'a> {
                 return;
             }
 
-            let sp = st.suf_pos[g_idx];
-            // Note: negative res from remaining dps_groups can never exceed `suf_neg_res[g_idx][r]`, which stays <= 0.
-            let _ = st.suf_neg_res[g_idx];
+            let sp = dps.suf_pos[g_idx];
+            // Note: negative res from remaining dps_groups stays <= 0.
 
-            let rem_str = ub_rem_at(g_idx, sp.str_bonus, st.order_str, dps_rem_slots);
-            let rem_dex = ub_rem_at(g_idx, sp.dex_bonus, st.order_dex, dps_rem_slots);
-            let rem_ar = eval_sorted_ub(st.order_ar, g_idx, dps_rem_slots);
-            let rem_all_sk = ub_rem_at(g_idx, sp.all_skills, st.order_all_skills, dps_rem_slots);
+            let rem_str = ub_rem_at(g_idx, sp.str_bonus, &dps.order_str, dps_rem_slots);
+            let rem_dex = ub_rem_at(g_idx, sp.dex_bonus, &dps.order_dex, dps_rem_slots);
+            let rem_ar = eval_sorted_ub(&dps.order_ar, g_idx, dps_rem_slots);
+            let rem_all_sk = ub_rem_at(g_idx, sp.all_skills, &dps.order_all_skills, dps_rem_slots);
             let rem_cls_sk =
-                ub_rem_at(g_idx, sp.class_skills, st.order_class_skills, dps_rem_slots);
-            let rem_act_sk =
-                ub_rem_at(g_idx, sp.action_skills, st.order_action_skills, dps_rem_slots);
+                ub_rem_at(g_idx, sp.class_skills, &dps.order_class_skills, dps_rem_slots);
+            let rem_act_sk = ub_rem_at(
+                g_idx,
+                sp.action_skills,
+                &dps.order_action_skills,
+                dps_rem_slots,
+            );
             let rem_aura_sk =
-                ub_rem_at(g_idx, sp.aura_skills, st.order_aura_skills, dps_rem_slots);
-            let rem_phys = eval_sorted_ub(st.order_phys, g_idx, dps_rem_slots);
-            let rem_fire = eval_sorted_ub(st.order_fire, g_idx, dps_rem_slots);
-            let rem_elem = eval_sorted_ub(st.order_elem, g_idx, dps_rem_slots);
-            let rem_psn = eval_sorted_ub(st.order_psn, g_idx, dps_rem_slots);
+                ub_rem_at(g_idx, sp.aura_skills, &dps.order_aura_skills, dps_rem_slots);
+            let rem_phys = eval_sorted_ub(&dps.order_phys, g_idx, dps_rem_slots);
+            let rem_fire = eval_sorted_ub(&dps.order_fire, g_idx, dps_rem_slots);
+            let rem_elem = eval_sorted_ub(&dps.order_elem, g_idx, dps_rem_slots);
+            let rem_psn = eval_sorted_ub(&dps.order_psn, g_idx, dps_rem_slots);
             let ub_dps = if cur.all_skills + rem_all_sk == 0
                 && cur.class_skills + rem_cls_sk == 0
                 && cur.action_skills + rem_act_sk == 0
@@ -588,7 +574,7 @@ impl<'a> CharmSolver<'a> {
                 return;
             }
 
-            match &st.groups[g_idx] {
+            match &dps.groups[g_idx] {
                 CharmGroup::Unique { options, .. } => {
                     for &opt_idx in options {
                         let ch = st.pool[opt_idx];
@@ -624,7 +610,7 @@ impl<'a> CharmSolver<'a> {
                         && stats.flat_fire_2x == 0
                         && stats.flat_elem_2x == 0
                         && stats.psn_dps_2x == 0
-                        && !st.group_has_util[g_idx]
+                        && !dps.group_has_util[g_idx]
                         && (stats.str_bonus <= 0
                             || (st.base_fast.str_pct == 0 && leaf.str_bonus + cur.str_bonus >= st.reqs.0))
                         && stats.dex_bonus <= 0;
@@ -661,31 +647,7 @@ impl<'a> CharmSolver<'a> {
             reqs,
             cutoff,
             cbf_val,
-            groups: &self.dps_groups,
-            suf_pos: &self.dps_suf_pos,
-            suf_neg_res: &self.dps_suf_neg_res,
-            min_size: &self.dps_min_size,
-            order_all_skills: &self.dps_order_all_skills,
-            order_class_skills: &self.dps_order_class_skills,
-            order_action_skills: &self.dps_order_action_skills,
-            order_aura_skills: &self.dps_order_aura_skills,
-            order_str: &self.dps_order_str,
-            order_dex: &self.dps_order_dex,
-            order_ar: &self.dps_order_ar,
-            order_phys: &self.dps_order_phys,
-            order_fire: &self.dps_order_fire,
-            order_elem: &self.dps_order_elem,
-            order_psn: &self.dps_order_psn,
-            order_res: &self.dps_order_res,
-            order_fhr: &self.dps_order_fhr,
-            order_frw: &self.dps_order_frw,
-            order_mf: &self.dps_order_mf,
-            group_has_util: &self.dps_group_has_util,
-            pure_dps: &self.pure_dps,
-            nd_res_at: &self.nd_res_at,
-            nd_fhr_at: &self.nd_fhr_at,
-            nd_frw_at: &self.nd_frw_at,
-            nd_mf_at: &self.nd_mf_at,
+            dps,
             base_caps,
             base_fast,
         };

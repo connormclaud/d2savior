@@ -48,7 +48,7 @@ impl<'a> CharmSolver<'a> {
         if room_sum < min_needed || room_sum == 0 {
             return room_sum;
         }
-        let total_ub = eval_sorted_ub(&self.order_res_total, min_g_idx, rem_slots);
+        let total_ub = eval_sorted_ub(&self.non_dps.order_res_total, min_g_idx, rem_slots);
         if total_ub < min_needed || total_ub == 0 {
             return total_ub;
         }
@@ -57,7 +57,11 @@ impl<'a> CharmSolver<'a> {
                 if rem_room[r] <= 0 {
                     0
                 } else {
-                    rem_room[r].min(eval_sorted_ub(&self.order_res[r], min_g_idx, rem_slots))
+                    rem_room[r].min(eval_sorted_ub(
+                        &self.non_dps.order_res[r],
+                        min_g_idx,
+                        rem_slots,
+                    ))
                 }
             })
             .sum();
@@ -65,7 +69,7 @@ impl<'a> CharmSolver<'a> {
             return per_res_ub;
         }
         scratch.clear();
-        for g in &self.groups[min_g_idx..] {
+        for g in &self.non_dps.groups[min_g_idx..] {
             match g {
                 CharmGroup::Unique {
                     options, min_size, ..
@@ -161,6 +165,7 @@ impl<'a> CharmSolver<'a> {
             cur_mf: i32,
         ) {
             let s = ctx.solver;
+            let nd = &s.non_dps;
             let cur_main = match s.c.mode {
                 SearchMode::Power | SearchMode::Leveling => cur_skills,
                 SearchMode::Mf => cur_mf,
@@ -175,7 +180,7 @@ impl<'a> CharmSolver<'a> {
                 let mut feasible = true;
                 for d in 0..9 {
                     if delta[d] < 0 {
-                        let Some(need_s) = s.pure_axes[d].min_slots_for(-delta[d]) else {
+                        let Some(need_s) = nd.pure_axes[d].min_slots_for(-delta[d]) else {
                             feasible = false;
                             break;
                         };
@@ -192,19 +197,19 @@ impl<'a> CharmSolver<'a> {
                     let mut next_indices = ctx.cur_indices.clone();
                     for (d, &need_s) in axis_slots.iter().enumerate() {
                         if need_s > 0 {
-                            next_indices.extend_from_slice(&s.pure_axes[d].best_picks[need_s]);
+                            next_indices.extend_from_slice(&nd.pure_axes[d].best_picks[need_s]);
                         }
                     }
                     ctx.best_indices = Some(next_indices);
                 }
             }
 
-            if g_idx == s.groups.len() || rem_slots == 0 {
+            if g_idx == nd.groups.len() || rem_slots == 0 {
                 return;
             }
 
             // O(1) suffix feasibility and joint multi-axis pure-slot checks.
-            let sp = s.suf_pos[g_idx];
+            let sp = nd.suf_pos[g_idx];
             let suf_vals = [
                 sp.str_bonus,
                 sp.dex_bonus,
@@ -217,7 +222,7 @@ impl<'a> CharmSolver<'a> {
                 sp.mf,
             ];
             for d in 0..9 {
-                if delta[d] + suf_vals[d] + s.pure_axes[d].max_gain < 0 {
+                if delta[d] + suf_vals[d] + nd.pure_axes[d].max_gain < 0 {
                     return;
                 }
             }
@@ -226,7 +231,7 @@ impl<'a> CharmSolver<'a> {
                 if delta[d] < 0 {
                     let must_pure = -delta[d] - suf_vals[d];
                     if must_pure > 0 {
-                        let Some(need_s) = s.pure_axes[d].min_slots_for(must_pure) else {
+                        let Some(need_s) = nd.pure_axes[d].min_slots_for(must_pure) else {
                             return;
                         };
                         must_pure_slots += need_s;
@@ -242,10 +247,10 @@ impl<'a> CharmSolver<'a> {
             if let Some(best) = ctx.best_main {
                 let can_beat = match s.c.mode {
                     SearchMode::Power | SearchMode::Leveling => {
-                        cur_skills + eval_sorted_ub(&s.order_skills, g_idx, rem_dfs_slots) > best
+                        cur_skills + eval_sorted_ub(&nd.order_skills, g_idx, rem_dfs_slots) > best
                     }
                     SearchMode::Mf => {
-                        cur_mf + eval_sorted_ub(&s.order_mf, g_idx, rem_dfs_slots) > best
+                        cur_mf + eval_sorted_ub(&nd.order_mf, g_idx, rem_dfs_slots) > best
                     }
                     SearchMode::MaxRes | SearchMode::LevelingRes => {
                         let cur_gain = cur_main;
@@ -277,30 +282,30 @@ impl<'a> CharmSolver<'a> {
             }
 
             // Slot-constrained feasibility upper bounds for any currently unmet shortfalls.
-            if delta[0] < 0 && delta[0] + eval_sorted_ub(&s.order_str, g_idx, rem_slots) < 0 {
+            if delta[0] < 0 && delta[0] + eval_sorted_ub(&nd.order_str, g_idx, rem_slots) < 0 {
                 return;
             }
-            if delta[1] < 0 && delta[1] + eval_sorted_ub(&s.order_dex, g_idx, rem_slots) < 0 {
+            if delta[1] < 0 && delta[1] + eval_sorted_ub(&nd.order_dex, g_idx, rem_slots) < 0 {
                 return;
             }
-            if delta[2] < 0 && delta[2] + eval_sorted_ub(&s.order_fhr, g_idx, rem_slots) < 0 {
+            if delta[2] < 0 && delta[2] + eval_sorted_ub(&nd.order_fhr, g_idx, rem_slots) < 0 {
                 return;
             }
             for r in 0..4 {
                 if delta[3 + r] < 0
-                    && delta[3 + r] + eval_sorted_ub(&s.order_res[r], g_idx, rem_slots) < 0
+                    && delta[3 + r] + eval_sorted_ub(&nd.order_res[r], g_idx, rem_slots) < 0
                 {
                     return;
                 }
             }
-            if delta[7] < 0 && delta[7] + eval_sorted_ub(&s.order_frw, g_idx, rem_slots) < 0 {
+            if delta[7] < 0 && delta[7] + eval_sorted_ub(&nd.order_frw, g_idx, rem_slots) < 0 {
                 return;
             }
-            if delta[8] < 0 && delta[8] + eval_sorted_ub(&s.order_mf, g_idx, rem_slots) < 0 {
+            if delta[8] < 0 && delta[8] + eval_sorted_ub(&nd.order_mf, g_idx, rem_slots) < 0 {
                 return;
             }
 
-            match &s.groups[g_idx] {
+            match &nd.groups[g_idx] {
                 CharmGroup::Unique { options, .. } => {
                     for &opt_idx in options {
                         let ch = s.pool[opt_idx];
@@ -356,7 +361,7 @@ impl<'a> CharmSolver<'a> {
                         SearchMode::Power | SearchMode::Leveling => stats.skills > 0,
                         SearchMode::Mf => stats.mf > 0,
                         SearchMode::MaxRes | SearchMode::LevelingRes => {
-                            let neg_next = s.suf_neg_res[g_idx + 1];
+                            let neg_next = nd.suf_neg_res[g_idx + 1];
                             (0..4).any(|r| {
                                 stats.res[r] > 0 && cur_res_added[r] + neg_next[r] < ctx.room[r]
                             })
@@ -365,7 +370,7 @@ impl<'a> CharmSolver<'a> {
                     let max_useful = if has_main {
                         max_k
                     } else {
-                        let neg_next = s.suf_neg_res[g_idx + 1];
+                        let neg_next = nd.suf_neg_res[g_idx + 1];
                         let deficits = [
                             (-delta[0]).max(0),
                             (-delta[1]).max(0),
@@ -453,7 +458,7 @@ impl<'a> CharmSolver<'a> {
             best_main,
             best_indices,
             cur_indices: Vec::new(),
-            scratch: Vec::with_capacity(self.groups.len()),
+            scratch: Vec::with_capacity(self.non_dps.groups.len()),
         };
         dfs_charms(&mut ctx, 0, slot_budget.max(0), init_delta, [0; 4], 0, 0);
         ctx.best_indices
@@ -699,9 +704,9 @@ impl<'a> CharmSolver<'a> {
 
         let ub_main = match self.c.mode {
             SearchMode::Power | SearchMode::Leveling => {
-                eval_sorted_ub(&self.order_skills, 0, slot_budget)
+                eval_sorted_ub(&self.non_dps.order_skills, 0, slot_budget)
             }
-            SearchMode::Mf => eval_sorted_ub(&self.order_mf, 0, slot_budget),
+            SearchMode::Mf => eval_sorted_ub(&self.non_dps.order_mf, 0, slot_budget),
             SearchMode::MaxRes | SearchMode::LevelingRes => {
                 (0..4).map(|r| room[r].max(0).min(self.ub_res[r])).sum()
             }
@@ -745,8 +750,7 @@ impl<'a> CharmSolver<'a> {
                 } else {
                     self.top_off_filler(g_idxs, leaf, caps, slot_budget, forbidden_uid)
                 };
-                self.cache
-                    .insert(key, Some((g_main, greedy_scored.unwrap().1)));
+                self.cache.insert(key, Some((g_main, g_idxs.clone())));
                 return Some(filled);
             }
             Some((g_main, g_idxs.clone()))

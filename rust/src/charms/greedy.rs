@@ -220,67 +220,23 @@ pub(crate) fn charm_stat_ub(
     ub
 }
 
-fn greedy_fhr_loop(state: &mut CharmState<'_, '_>, target_fhr: i32) {
-    while state.cur_fhr < target_fhr {
-        let need = target_fhr - state.cur_fhr;
+fn greedy_stat_loop(
+    state: &mut CharmState<'_, '_>,
+    target: i32,
+    cur_of: impl Fn(&CharmState<'_, '_>) -> i32,
+    stat_of: impl Fn(&CharmSpec) -> i32,
+) {
+    while cur_of(state) < target {
+        let need = target - cur_of(state);
         let mut best_idx = None;
         let mut best_key = (-1.0_f64, -1, -1);
         for (idx, c) in state.pool.iter().enumerate() {
-            if state.can_pick(idx) && c.fhr > 0 {
+            let val = stat_of(c);
+            if state.can_pick(idx) && val > 0 {
                 let key = (
-                    c.fhr.min(need) as f64 / c.size.max(1) as f64,
+                    val.min(need) as f64 / c.size.max(1) as f64,
                     c.skills_total(),
-                    c.fhr,
-                );
-                if key > best_key {
-                    best_key = key;
-                    best_idx = Some(idx);
-                }
-            }
-        }
-        match best_idx {
-            Some(idx) => state.pick(idx),
-            None => break,
-        }
-    }
-}
-
-fn greedy_frw_loop(state: &mut CharmState<'_, '_>, target_frw: i32) {
-    while state.cur_frw < target_frw {
-        let need = target_frw - state.cur_frw;
-        let mut best_idx = None;
-        let mut best_key = (-1.0_f64, -1, -1);
-        for (idx, c) in state.pool.iter().enumerate() {
-            if state.can_pick(idx) && c.frw > 0 {
-                let key = (
-                    c.frw.min(need) as f64 / c.size.max(1) as f64,
-                    c.skills_total(),
-                    c.frw,
-                );
-                if key > best_key {
-                    best_key = key;
-                    best_idx = Some(idx);
-                }
-            }
-        }
-        match best_idx {
-            Some(idx) => state.pick(idx),
-            None => break,
-        }
-    }
-}
-
-fn greedy_mf_loop(state: &mut CharmState<'_, '_>, target_mf: i32) {
-    while state.cur_mf < target_mf {
-        let need = target_mf - state.cur_mf;
-        let mut best_idx = None;
-        let mut best_key = (-1.0_f64, -1, -1);
-        for (idx, c) in state.pool.iter().enumerate() {
-            if state.can_pick(idx) && c.mf > 0 {
-                let key = (
-                    c.mf.min(need) as f64 / c.size.max(1) as f64,
-                    c.skills_total(),
-                    c.mf,
+                    val,
                 );
                 if key > best_key {
                     best_key = key;
@@ -491,7 +447,7 @@ fn greedy_charms_pass_indices(
     };
     let res_targets = [c.min_fr, c.min_lr, c.min_cr, c.min_pr];
     if fhr_first {
-        greedy_fhr_loop(&mut state, c.min_fhr);
+        greedy_stat_loop(&mut state, c.min_fhr, |s| s.cur_fhr, |ch| ch.fhr);
         greedy_res_loop(
             &mut state,
             res_targets,
@@ -509,13 +465,13 @@ fn greedy_charms_pass_indices(
             sk_w,
             class,
         );
-        greedy_fhr_loop(&mut state, c.min_fhr);
+        greedy_stat_loop(&mut state, c.min_fhr, |s| s.cur_fhr, |ch| ch.fhr);
     }
     if c.min_frw > 0 {
-        greedy_frw_loop(&mut state, c.min_frw);
+        greedy_stat_loop(&mut state, c.min_frw, |s| s.cur_frw, |ch| ch.frw);
     }
     if c.min_mf > 0 {
-        greedy_mf_loop(&mut state, c.min_mf);
+        greedy_stat_loop(&mut state, c.min_mf, |s| s.cur_mf, |ch| ch.mf);
     }
 
     if is_res_mode(mode) {
@@ -631,58 +587,47 @@ pub(super) fn greedy_charms_indices(
     None
 }
 
+fn charm_dom_vector(c: &CharmSpec) -> [i32; 24] {
+    [
+        i32::from(c.cold_sunder),
+        -c.size,
+        c.fhr,
+        c.fr,
+        c.lr,
+        c.cr,
+        c.pr,
+        c.mf,
+        c.life,
+        c.mana,
+        c.vit,
+        c.ene,
+        c.ar,
+        c.flat_phys_2x,
+        c.flat_fire_2x,
+        c.flat_elem_2x,
+        c.psn_dps_2x,
+        c.frw,
+        c.str_bonus,
+        c.dex_bonus,
+        c.general_skills(),
+        c.all_skills,
+        c.action_skills,
+        c.aura_skills,
+    ]
+}
+
 fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> bool {
-    if (!a.cold_sunder && b.cold_sunder)
-        || a.size > b.size
-        || a.fhr < b.fhr
-        || a.fr < b.fr
-        || a.lr < b.lr
-        || a.cr < b.cr
-        || a.pr < b.pr
-        || a.mf < b.mf
-        || a.life < b.life
-        || a.mana < b.mana
-        || a.vit < b.vit
-        || a.ene < b.ene
-        || a.ar < b.ar
-        || a.flat_phys_2x < b.flat_phys_2x
-        || a.flat_fire_2x < b.flat_fire_2x
-        || a.flat_elem_2x < b.flat_elem_2x
-        || a.psn_dps_2x < b.psn_dps_2x
-        || a.frw < b.frw
-        || a.str_bonus < b.str_bonus
-        || a.dex_bonus < b.dex_bonus
-        || a.general_skills() < b.general_skills()
-        || a.all_skills < b.all_skills
-        || a.action_skills < b.action_skills
-        || a.aura_skills < b.aura_skills
-    {
-        return false;
+    let va = charm_dom_vector(a);
+    let vb = charm_dom_vector(b);
+    let mut strictly_better = false;
+    for (x, y) in va.into_iter().zip(vb) {
+        if x < y {
+            return false;
+        }
+        if x > y {
+            strictly_better = true;
+        }
     }
-    let strictly_better = (a.cold_sunder && !b.cold_sunder)
-        || a.size < b.size
-        || a.fhr > b.fhr
-        || a.fr > b.fr
-        || a.lr > b.lr
-        || a.cr > b.cr
-        || a.pr > b.pr
-        || a.mf > b.mf
-        || a.life > b.life
-        || a.mana > b.mana
-        || a.vit > b.vit
-        || a.ene > b.ene
-        || a.ar > b.ar
-        || a.flat_phys_2x > b.flat_phys_2x
-        || a.flat_fire_2x > b.flat_fire_2x
-        || a.flat_elem_2x > b.flat_elem_2x
-        || a.psn_dps_2x > b.psn_dps_2x
-        || a.frw > b.frw
-        || a.str_bonus > b.str_bonus
-        || a.dex_bonus > b.dex_bonus
-        || a.general_skills() > b.general_skills()
-        || a.all_skills > b.all_skills
-        || a.action_skills > b.action_skills
-        || a.aura_skills > b.aura_skills;
     strictly_better || a_idx < b_idx
 }
 

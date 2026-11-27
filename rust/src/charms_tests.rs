@@ -973,7 +973,7 @@ fn test_pure_axis_dp_completes_multi_stat_deficits_and_prunes_joint_slot_exhaust
         ..Default::default()
     };
     let mut solver_fit = new_solver(&pool, &c_fit, SearchMode::Power);
-    assert!(solver_fit.groups.is_empty());
+    assert!(solver_fit.non_dps.groups.is_empty());
     let chosen = solver_fit.solve_with_min_main(leaf, (100, 0), 0).unwrap();
     assert_eq!(chosen.len(), 5);
     assert!(chosen.iter().any(|ch| ch.name == "Ruby SC of Vita"));
@@ -982,7 +982,7 @@ fn test_pure_axis_dp_completes_multi_stat_deficits_and_prunes_joint_slot_exhaust
     let mut c_tight = c_fit.clone();
     c_tight.max_charm_slots = 4;
     let mut solver_tight = new_solver(&pool, &c_tight, SearchMode::Power);
-    assert!(solver_tight.groups.is_empty());
+    assert!(solver_tight.non_dps.groups.is_empty());
     assert!(solver_tight.solve_with_min_main(leaf, (100, 0), 0).is_none());
 }
 
@@ -1224,12 +1224,12 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
     };
     for mode in [SearchMode::MaxRes, SearchMode::LevelingRes] {
         let mut solver = new_solver(&res_pool, &c_res, mode);
-        assert_eq!(solver.pure_axes[0].max_gain, 2);
-        assert_eq!(solver.pure_axes[2].max_gain, 5);
-        assert_eq!(solver.pure_axes[3].max_gain, 0);
-        assert_eq!(solver.pure_axes[5].max_gain, 0);
-        assert_eq!(solver.pure_axes[7].max_gain, 3);
-        assert_eq!(solver.pure_axes[8].max_gain, 7);
+        assert_eq!(solver.non_dps.pure_axes[0].max_gain, 2);
+        assert_eq!(solver.non_dps.pure_axes[2].max_gain, 5);
+        assert_eq!(solver.non_dps.pure_axes[3].max_gain, 0);
+        assert_eq!(solver.non_dps.pure_axes[5].max_gain, 0);
+        assert_eq!(solver.non_dps.pure_axes[7].max_gain, 3);
+        assert_eq!(solver.non_dps.pure_axes[8].max_gain, 7);
         let leaf = Stats {
             fr: 50,
             lr: 50,
@@ -1277,7 +1277,7 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
     };
     for mode in [SearchMode::MaxRes, SearchMode::LevelingRes] {
         let mut solver = new_solver(&fhr_skill_pool, &c_fhr_skill, mode);
-        assert!(solver.groups.is_empty());
+        assert!(solver.non_dps.groups.is_empty());
         let chosen = solver
             .solve_with_min_main(Stats::default(), (0, 0), 0)
             .unwrap();
@@ -1310,18 +1310,18 @@ fn test_multi_sunder_and_res_modes_keep_res_charms_in_dfs_and_respect_active_axe
         ..Default::default()
     };
     let s_pure_fr = new_solver(&fr_mf_pool, &c_pow_no_mf, SearchMode::Power);
-    assert!(s_pure_fr.groups.is_empty());
-    assert_eq!(s_pure_fr.pure_axes[3].max_gain, 11);
+    assert!(s_pure_fr.non_dps.groups.is_empty());
+    assert_eq!(s_pure_fr.non_dps.pure_axes[3].max_gain, 11);
 
     let mut c_pow_min_mf = c_pow_no_mf.clone();
     c_pow_min_mf.min_mf = 7;
     let s_multi_pow = new_solver(&fr_mf_pool, &c_pow_min_mf, SearchMode::Power);
-    assert_eq!(s_multi_pow.groups.len(), 1);
-    assert_eq!(s_multi_pow.pure_axes[3].max_gain, 0);
+    assert_eq!(s_multi_pow.non_dps.groups.len(), 1);
+    assert_eq!(s_multi_pow.non_dps.pure_axes[3].max_gain, 0);
 
     let s_multi_mf = new_solver(&fr_mf_pool, &c_pow_no_mf, SearchMode::Mf);
-    assert_eq!(s_multi_mf.groups.len(), 1);
-    assert_eq!(s_multi_mf.pure_axes[3].max_gain, 0);
+    assert_eq!(s_multi_mf.non_dps.groups.len(), 1);
+    assert_eq!(s_multi_mf.non_dps.pure_axes[3].max_gain, 0);
 }
 
 #[test]
@@ -1717,6 +1717,10 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
         let solver = super::CharmSolver::new(&pure_pool, rc_case);
         let fast = OffenseProfile::Melee.fast_leaf_dps(*hw_case, *leaf_case, &rc_case);
         let dp_res = solver
+            .dps
+            .as_ref()
+            .unwrap()
+            .index
             .pure_dps
             .solve_for_leaf(&fast, c_case.max_charm_slots as usize);
         let dp_best_dps = dp_res[c_case.max_charm_slots as usize].0;
@@ -1773,8 +1777,9 @@ fn test_improve_for_dps_negative_res_leveling_res_and_pure_dps_solver_parity() {
     c_many.max_charm_slots = 1;
     let rc_many = ResolvedConstraints::resolve(&c_many).unwrap();
     let mut solver_many = super::CharmSolver::new(&many_pool, rc_many);
-    assert_eq!(solver_many.pure_dps.item_indices.len(), 64);
-    assert_eq!(solver_many.dps_groups.len(), 1);
+    let many_dps = &solver_many.dps.as_ref().unwrap().index;
+    assert_eq!(many_dps.pure_dps.item_indices.len(), 64);
+    assert_eq!(many_dps.groups.len(), 1);
     let mut best_c3: Vec<&CharmSpec> = Vec::new();
     let mut best_s3 = eval_build_summary(gear, 0, hw, false, &best_c3, &rc_many);
     let mut best_sc3 = score_eval_summary(&best_s3, &rc_many);
