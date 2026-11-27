@@ -24,7 +24,6 @@ from d2savior.optimizer.native import (
     BuildConstraints,
     CasterSkillModel,
     CharacterStats,
-    SearchModeStr,
     TargetProfile,
     TargetTypeStr,
 )
@@ -56,69 +55,6 @@ BUILD_PRESET_ALIASES: frozendict[str, tuple[str, ...]] = frozendict(
 )
 
 SORC_ONLY_BUILD_CHOICES: tuple[str, ...] = ("base", "mf", "mf-speed", "mf-pure", "tz", "power")
-
-# (title, mode, allow_mf, min_fcr, min_fhr, min_fr, min_lr, min_cr, min_pr)
-_SORC_PRESET_SPECS: frozendict[
-    str, tuple[str, SearchModeStr, bool, int, int, int, int, int, int]
-] = frozendict(
-    {
-        "base": (
-            "1. 0% MF Base Hunting (105% FCR, 86% FHR, 75% All Res)",
-            "power",
-            False,
-            105,
-            86,
-            75,
-            75,
-            75,
-            75,
-        ),
-        "mf-speed": (
-            "2A. Max MF & Boss Farm — Speed (105% FCR, 60% FHR, 75% F/L/C)",
-            "mf",
-            True,
-            105,
-            60,
-            75,
-            75,
-            75,
-            0,
-        ),
-        "mf-pure": (
-            "2B. Max MF & Boss Farm — Pure MF (63% FCR, 60% FHR, 75% F/L/C)",
-            "mf",
-            True,
-            63,
-            60,
-            75,
-            75,
-            75,
-            0,
-        ),
-        "tz": (
-            "3. Max Power & Terror Zones (105% FCR, 86% FHR, 75% All Res)",
-            "power",
-            True,
-            105,
-            86,
-            75,
-            75,
-            75,
-            75,
-        ),
-        "max-res": (
-            "4. Max Resist (63% FCR, 60% FHR, Max All Res)",
-            "max-res",
-            True,
-            63,
-            60,
-            75,
-            75,
-            75,
-            75,
-        ),
-    }
-)
 
 
 def _extract_blizz_base_skills(char_data: D2SStruct) -> tuple[int, int, int]:

@@ -16,7 +16,7 @@ def test_cmd_stash_from_configured_dir(tmp_path: Path, capsys):
     saves_dir.mkdir()
     shutil.copy(fixture, saves_dir / "ModernSharedStashSoftCoreV2.d2i")
 
-    with patch("d2savior.cli.load_save_dir", return_value=saves_dir):
+    with patch("d2savior.cli_common.load_save_dir", return_value=saves_dir):
         code = cmd_stash([])
         assert code == 0
         captured = capsys.readouterr()

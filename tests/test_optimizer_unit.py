@@ -1644,54 +1644,56 @@ def test_parse_keep_gear_and_resolve_fixed_gear() -> None:
 
 
 def test_normalize_keep_gear_argv_before_positionals() -> None:
-    import argparse
-
     from d2savior.cli_optimize import _normalize_keep_gear_argv
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-b", "--build", default="all")
-    parser.add_argument("--char", default=None)
-    parser.add_argument("--keep-gear", nargs="?", const="all", default=None)
-    parser.add_argument("file_path", nargs="*")
-
     # Bare --keep-gear before sole character name preserves the character name as positional
-    assert _normalize_keep_gear_argv(["--keep-gear", "smite"], parser) == [
+    assert _normalize_keep_gear_argv(["--keep-gear", "smite"]) == [
         "--keep-gear=all",
         "smite",
     ]
-    assert _normalize_keep_gear_argv(["-b", "leveling", "--keep-gear", "smite"], parser) == [
+    assert _normalize_keep_gear_argv(["-b", "leveling", "--keep-gear", "smite"]) == [
         "-b",
         "leveling",
         "--keep-gear=all",
         "smite",
     ]
+    assert _normalize_keep_gear_argv(
+        ["--lang", "zhCN", "--min-fcr", "105", "--keep-gear", "smite"]
+    ) == [
+        "--lang",
+        "zhCN",
+        "--min-fcr",
+        "105",
+        "--keep-gear=all",
+        "smite",
+    ]
     # Valid group/slot expression is bound to --keep-gear
-    assert _normalize_keep_gear_argv(["--keep-gear", "weapon+jewelry", "smite"], parser) == [
+    assert _normalize_keep_gear_argv(["--keep-gear", "weapon+jewelry", "smite"]) == [
         "--keep-gear=weapon+jewelry",
         "smite",
     ]
-    assert _normalize_keep_gear_argv(["--keep-gear", "helm+boots", "smite"], parser) == [
+    assert _normalize_keep_gear_argv(["--keep-gear", "helm+boots", "smite"]) == [
         "--keep-gear=helm+boots",
         "smite",
     ]
-    assert _normalize_keep_gear_argv(["--keep-gear", "boots", "smite"], parser) == [
+    assert _normalize_keep_gear_argv(["--keep-gear", "boots", "smite"]) == [
         "--keep-gear=boots",
         "smite",
     ]
     # .d2s/.d2i path stays positional even when another positional is present
-    assert _normalize_keep_gear_argv(["smite", "--keep-gear", "foo.d2s"], parser) == [
+    assert _normalize_keep_gear_argv(["smite", "--keep-gear", "foo.d2s"]) == [
         "smite",
         "--keep-gear=all",
         "foo.d2s",
     ]
     # Invalid group with --char or another positional already present stays attached so argparse errors
-    assert _normalize_keep_gear_argv(["--char", "smite", "--keep-gear", "invalid"], parser) == [
+    assert _normalize_keep_gear_argv(["--char", "smite", "--keep-gear", "invalid"]) == [
         "--char",
         "smite",
         "--keep-gear",
         "invalid",
     ]
-    assert _normalize_keep_gear_argv(["--keep-gear", "weapon+bogus", "smite"], parser) == [
+    assert _normalize_keep_gear_argv(["--keep-gear", "weapon+bogus", "smite"]) == [
         "--keep-gear",
         "weapon+bogus",
         "smite",
@@ -1988,7 +1990,7 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
     captured: list[str] = []
 
     monkeypatch.setattr(
-        "d2savior.cli_optimize._resolve_and_save_targets", lambda _args: ["smite.d2s"]
+        "d2savior.cli_optimize.resolve_and_save_targets", lambda _args: ["smite.d2s"]
     )
     monkeypatch.setattr("d2savior.cli_optimize.GameDataResolver.load", lambda **_kw: resolver)
     monkeypatch.setattr(
@@ -2433,3 +2435,36 @@ def test_paladin_passive_max_res_cap_in_alternatives(
     )
     assert ("leveling-res", 0) in seen_calls
     assert any(r.fr == 80 for _, r in alts)
+
+
+def test_optimize_value_opts_in_sync_with_parser() -> None:
+    from d2savior.cli_optimize import _OPTIMIZE_VALUE_OPTS, _build_optimize_parser
+
+    parser = _build_optimize_parser(
+        prog="d2savior optimize", description="", include_socket_flags=True
+    )
+    parser_value_opts = {
+        opt
+        for action in parser._actions
+        if action.option_strings and action.nargs not in (0, "?")
+        for opt in action.option_strings
+    }
+    assert parser_value_opts == _OPTIMIZE_VALUE_OPTS
+
+
+def test_uses_paladin_leveling_probe_branches() -> None:
+    from d2savior.optimizer.paladin import uses_paladin_leveling_probe
+    from d2savior.optimizer.presets import ConstraintOverrides, ResolvedPreset
+
+    base = ResolvedPreset(
+        name="leveling",
+        title=None,
+        char_class="paladin",
+        strategy="leveling-probe",
+        mode="leveling-res",
+    )
+    assert uses_paladin_leveling_probe(base, None) is True
+    assert uses_paladin_leveling_probe(base, ConstraintOverrides(min_fcr=75)) is True
+    assert uses_paladin_leveling_probe(base, ConstraintOverrides(mode="power")) is False
+    assert uses_paladin_leveling_probe(replace(base, mode="leveling"), None) is False
+    assert uses_paladin_leveling_probe(replace(base, strategy=None), None) is False

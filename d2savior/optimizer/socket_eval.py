@@ -28,6 +28,7 @@ from d2savior.optimizer.paladin import (
     detect_paladin_spec,
     paladin_offense_profile,
     probe_paladin_opt1,
+    uses_paladin_leveling_probe,
 )
 from d2savior.optimizer.presets import ConstraintOverrides, resolve_build_expr
 from d2savior.optimizer.skill_tables import (
@@ -210,15 +211,9 @@ def _resolve_paladin_socket_presets(
         overrides=overrides,
         char_name=primary_char.get_char_name(),
     )
-    has_mode_override = overrides is not None and overrides.mode is not None
     presets_out: list[tuple[str, BuildConstraints, str]] = []
     for preset in resolved:
-        use_probe = (
-            preset.strategy == "leveling-probe"
-            and not has_mode_override
-            and preset.mode == "leveling-res"
-        )
-        if use_probe:
+        if uses_paladin_leveling_probe(preset, overrides):
             eff_targets = max(1, targets)
             baseline_obj, char_level, diff_name, resolved_spec = build_paladin_baseline(
                 primary_char,

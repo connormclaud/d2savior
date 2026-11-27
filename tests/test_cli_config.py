@@ -32,7 +32,7 @@ def test_find_saves_in_dir(tmp_path: Path):
 
 
 def test_resolve_target_files_no_args_no_config(capsys):
-    with patch("d2savior.cli.load_save_dir", return_value=None):
+    with patch("d2savior.cli_common.load_save_dir", return_value=None):
         files, to_save = resolve_target_files([], no_config=False)
         assert files == []
         assert to_save is None
@@ -54,7 +54,7 @@ def test_resolve_target_files_no_args_with_configured_dir(tmp_path: Path):
     char1 = saves_dir / "sork.d2s"
     char1.touch()
 
-    with patch("d2savior.cli.load_save_dir", return_value=saves_dir):
+    with patch("d2savior.cli_common.load_save_dir", return_value=saves_dir):
         files, to_save = resolve_target_files([], no_config=False)
         assert files == [str(char1)]
         assert to_save is None
@@ -66,7 +66,7 @@ def test_resolve_target_files_with_existing_file(tmp_path: Path):
     char = saves_dir / "sork.d2s"
     char.touch()
 
-    with patch("d2savior.cli.load_save_dir", return_value=None):
+    with patch("d2savior.cli_common.load_save_dir", return_value=None):
         files, to_save = resolve_target_files([str(char)], no_config=False)
         assert files == [str(char)]
         assert to_save == saves_dir.resolve()
@@ -80,7 +80,7 @@ def test_resolve_target_files_with_directory(tmp_path: Path):
     char.touch()
     stash.touch()
 
-    with patch("d2savior.cli.load_save_dir", return_value=None):
+    with patch("d2savior.cli_common.load_save_dir", return_value=None):
         files, to_save = resolve_target_files([str(saves_dir)], no_config=False)
         # Characters first, then stashes
         assert files == [str(char), str(stash)]
@@ -95,7 +95,7 @@ def test_resolve_target_files_with_existing_file_when_config_exists(tmp_path: Pa
     char = other_dir / "sork.d2s"
     char.touch()
 
-    with patch("d2savior.cli.load_save_dir", return_value=configured_dir):
+    with patch("d2savior.cli_common.load_save_dir", return_value=configured_dir):
         files, to_save = resolve_target_files([str(char)], no_config=False)
         assert files == [str(char)]
         assert to_save is None
@@ -109,7 +109,7 @@ def test_resolve_target_files_with_directory_when_config_exists(tmp_path: Path):
     char = other_dir / "sork.d2s"
     char.touch()
 
-    with patch("d2savior.cli.load_save_dir", return_value=configured_dir):
+    with patch("d2savior.cli_common.load_save_dir", return_value=configured_dir):
         files, to_save = resolve_target_files([str(other_dir)], no_config=False)
         assert files == [str(char)]
         assert to_save is None
@@ -121,7 +121,7 @@ def test_resolve_target_files_lookup_by_name_in_config(tmp_path: Path):
     char = saves_dir / "sork.D2S"
     char.touch()
 
-    with patch("d2savior.cli.load_save_dir", return_value=saves_dir):
+    with patch("d2savior.cli_common.load_save_dir", return_value=saves_dir):
         # 1. Lookup with exact filename
         files1, _ = resolve_target_files(["sork.D2S"], no_config=False)
         assert files1 == [str(char)]
@@ -185,7 +185,7 @@ def test_main_no_config_flag_bypasses_config(tmp_path: Path):
 
 def test_main_exits_with_error_code_when_no_config(capsys):
     with (
-        patch("d2savior.cli.load_save_dir", return_value=None),
+        patch("d2savior.cli_common.load_save_dir", return_value=None),
         patch("sys.argv", ["d2savior"]),
         pytest.raises(SystemExit) as exc_info,
     ):
@@ -197,7 +197,7 @@ def test_main_exits_with_error_code_when_no_config(capsys):
 
 def test_main_exits_with_error_code_on_missing_file(capsys):
     with (
-        patch("d2savior.cli.load_save_dir", return_value=None),
+        patch("d2savior.cli_common.load_save_dir", return_value=None),
         patch("sys.argv", ["d2savior", "nonexistent_file.d2s"]),
         pytest.raises(SystemExit) as exc_info,
     ):

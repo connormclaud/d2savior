@@ -2,15 +2,16 @@ import argparse
 import sys
 lazy from pathlib import Path
 
-lazy from d2savior.cli import (
-    _common_parser,
-    _resolve_and_save_targets,
-    parse_d2i_file,
-    parse_d2s_file,
+lazy from d2savior.cli_common import (
+    COMMON_VALUE_OPTS,
+    common_parser,
+    report_parse_error,
+    resolve_and_save_targets,
 )
 lazy from d2savior.core.constants import DIFFICULTY_NAMES
 lazy from d2savior.core.d2s_struct import D2SStruct
 lazy from d2savior.core.enums import CharClass
+lazy from d2savior.core.io import PARSE_ERRORS, load_d2i, load_d2s
 lazy from d2savior.core.resolver import GameDataResolver
 lazy from d2savior.core.stash import SharedStash
 lazy from d2savior.core.stats import get_current_difficulty, get_difficulty_resist_penalty
@@ -34,6 +35,7 @@ lazy from d2savior.optimizer import (
     parse_keep_gear,
     resolve_build_expr,
     select_sorc_presets,
+    uses_paladin_leveling_probe,
     validate_supported_class,
 )
 lazy from d2savior.optimizer.skill_tables import build_sorc_dps_tables, resolve_skill_override
@@ -85,12 +87,19 @@ def _load_optimize_pool(
     for f in files_to_process:
         lower = f.lower()
         if lower.endswith(".d2s"):
-            ok, char_data, _ = parse_d2s_file(f, resolver=resolver)
-            if ok and char_data is not None:
-                chars.append(char_data)
+            try:
+                char_data, _ = load_d2s(f, resolver=resolver)
+            except PARSE_ERRORS as exc:
+                report_parse_error(f, exc)
+                continue
+            chars.append(char_data)
         elif lower.endswith(".d2i"):
-            ok, stash_data, kind, _ = parse_d2i_file(f, resolver=resolver)
-            if ok and kind == "stash" and isinstance(stash_data, SharedStash):
+            try:
+                stash_data, kind, _ = load_d2i(f, resolver=resolver)
+            except PARSE_ERRORS as exc:
+                report_parse_error(f, exc)
+                continue
+            if kind == "stash" and isinstance(stash_data, SharedStash):
                 stashes.append(stash_data)
 
     primary, err = _resolve_primary_optimize_char(chars, target_name, build)
@@ -192,15 +201,9 @@ def _run_paladin_optimize(
         overrides=overrides,
         char_name=primary.get_char_name(),
     )
-    has_mode_override = overrides is not None and overrides.mode is not None
     resist_penalty = get_difficulty_resist_penalty(primary)
     for preset in resolved_presets:
-        use_probe = (
-            preset.strategy == "leveling-probe"
-            and not has_mode_override
-            and preset.mode == "leveling-res"
-        )
-        if use_probe:
+        if uses_paladin_leveling_probe(preset, overrides):
             title, options, resolved_spec, diff_name = optimize_paladin_leveling(
                 primary,
                 items,
@@ -268,7 +271,35 @@ def _is_valid_keep_gear_expr(token: str) -> bool:
         return False
 
 
-def _has_other_optimize_target(argv: list[str], value_opts: set[str]) -> bool:
+_OPTIMIZE_VALUE_OPTS: frozenset[str] = COMMON_VALUE_OPTS | frozenset(
+    {
+        "--char",
+        "-b",
+        "--build",
+        "--charm-slots",
+        "--limit",
+        "--targets",
+        "--target-type",
+        "--left-skill",
+        "--right-skill",
+        "--mode",
+        "--min-fcr",
+        "--min-fhr",
+        "--min-fr",
+        "--min-lr",
+        "--min-cr",
+        "--min-pr",
+        "--min-frw",
+        "--min-ias",
+        "--min-cb",
+        "--min-ll",
+        "--min-pdr",
+        "--min-mf",
+    }
+)
+
+
+def _has_other_optimize_target(argv: list[str], value_opts: frozenset[str]) -> bool:
     i = 0
     while i < len(argv):
         tok = argv[i]
@@ -289,16 +320,12 @@ def _has_other_optimize_target(argv: list[str], value_opts: set[str]) -> bool:
     return False
 
 
-def _normalize_keep_gear_argv(argv: list[str], parser: argparse.ArgumentParser) -> list[str]:
+def _normalize_keep_gear_argv(
+    argv: list[str], value_opts: frozenset[str] = _OPTIMIZE_VALUE_OPTS
+) -> list[str]:
     """Prevent bare ``--keep-gear`` from greedily consuming a following positional target."""
     if "--keep-gear" not in argv:
         return argv
-    value_opts = {
-        opt
-        for action in parser._actions
-        if action.option_strings and action.nargs not in (0, "?")
-        for opt in action.option_strings
-    }
     has_other_target = _has_other_optimize_target(argv, value_opts)
 
     out: list[str] = []
@@ -356,7 +383,7 @@ def _build_optimize_parser(
     parser = argparse.ArgumentParser(
         prog=prog,
         description=description,
-        parents=[_common_parser],
+        parents=[common_parser],
     )
     parser.add_argument(
         "--char",
@@ -526,7 +553,7 @@ def _prepare_optimize_run(
     | int
 ):
     """Parse optimize args, handle --list-builds, validate flags, and load target character/pool."""
-    args = parser.parse_intermixed_args(_normalize_keep_gear_argv(argv, parser))
+    args = parser.parse_intermixed_args(_normalize_keep_gear_argv(argv))
 
     if args.list_builds:
         entries = list_presets()
@@ -575,7 +602,7 @@ def _prepare_optimize_run(
         parser.error(str(exc))
 
     target_char, args.file_path = _split_optimize_targets(args.file_path, args.char)
-    files_to_process = _resolve_and_save_targets(args)
+    files_to_process = resolve_and_save_targets(args)
     if not files_to_process:
         return 1
 

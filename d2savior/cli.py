@@ -7,12 +7,20 @@ if hasattr(signal, "SIGPIPE"):
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 lazy import os
-lazy import struct
-lazy import traceback
 lazy from pathlib import Path
 
+lazy from d2savior.cli_common import (
+    common_parser,
+    report_parse_error,
+    resolve_and_save_targets,
+)
+lazy from d2savior.cli_common import (
+    find_saves_in_dir as find_saves_in_dir,
+)
+lazy from d2savior.cli_common import (
+    resolve_target_files as resolve_target_files,
+)
 lazy from d2savior.cli_optimize import cmd_optimize
-lazy from d2savior.config import load_save_dir, update_save_dir
 lazy from d2savior.core.bitstream_debug import _run_bitstream_searches
 lazy from d2savior.core.char_formatter import (
     CharListRow,
@@ -24,6 +32,7 @@ lazy from d2savior.core.char_formatter import (
 )
 lazy from d2savior.core.d2s_struct import D2SStruct
 lazy from d2savior.core.ibitstream import IBitStream
+lazy from d2savior.core.io import PARSE_ERRORS, ParsedData, load_d2i, load_d2s
 lazy from d2savior.core.item import D2Item
 lazy from d2savior.core.item_formatter import (
     format_item_find,
@@ -38,17 +47,6 @@ lazy from d2savior.core.stash_formatter import (
     format_stash_summary,
 )
 
-_PARSE_ERRORS = (OSError, ValueError, LookupError, EOFError, struct.error)
-
-
-def _report_parse_error(file_path: str, exc: Exception, debug: bool) -> None:
-    print(f"Error parsing '{file_path}': {exc}", file=sys.stderr)
-    if debug:
-        traceback.print_exc(file=sys.stderr)
-
-
-type ParsedData = D2SStruct | SharedStash | D2Item
-
 
 def parse_d2i_file(
     file_path: str, resolver: GameDataResolver | None = None, debug: bool = False
@@ -56,30 +54,21 @@ def parse_d2i_file(
     if resolver is None:
         resolver = GameDataResolver.load()
     try:
-        with open(file_path, "rb") as f:
-            data = f.read()
-
-        bs = IBitStream(data)
-        if data.startswith(b"JM"):
-            item = D2Item()
-            item.deserialize(bs, data=resolver.game_data)
-            return True, item, "item", bs
-
-        stash = SharedStash()
-        stash.deserialize(bs, data=resolver)
-        if not stash.tabs:
-            print(f"Error: '{file_path}' contains no parseable stash tabs", file=sys.stderr)
-            return False, None, None, None
-
-        if debug and len(data) >= 4 and data[:4] == b"\x55\xaa\x55\xaa":
+        parsed, kind, bs = load_d2i(file_path, resolver=resolver)
+        if (
+            debug
+            and kind == "stash"
+            and isinstance(parsed, SharedStash)
+            and bs.data[:4] == b"\x55\xaa\x55\xaa"
+        ):
             print("\n=== BitStream Final State ===")
             print(f"Total bits: {len(bs)}")
             print(f"Final offset: {bs.get_offset()}")
             print(f"Remaining: {bs.remaining()}")
 
-        return True, stash, "stash", bs
-    except _PARSE_ERRORS as e:
-        _report_parse_error(file_path, e, debug)
+        return True, parsed, kind, bs
+    except PARSE_ERRORS as e:
+        report_parse_error(file_path, e, debug)
         return False, None, None, None
 
 
@@ -89,12 +78,7 @@ def parse_d2s_file(
     if resolver is None:
         resolver = GameDataResolver.load()
     try:
-        with open(file_path, "rb") as f:
-            data = f.read()
-
-        bs = IBitStream(data)
-        char_data = D2SStruct()
-        char_data.deserialize(bs, data=resolver)
+        char_data, bs = load_d2s(file_path, resolver=resolver)
 
         if debug:
             print("\n=== BitStream Final State ===")
@@ -104,8 +88,8 @@ def parse_d2s_file(
 
         return True, char_data, bs
 
-    except _PARSE_ERRORS as e:
-        _report_parse_error(file_path, e, debug)
+    except PARSE_ERRORS as e:
+        report_parse_error(file_path, e, debug)
         return False, None, None
 
 
@@ -234,83 +218,6 @@ def _process_files(files: list[str], args: argparse.Namespace, resolver: GameDat
     return 1 if has_error else 0
 
 
-def find_saves_in_dir(dir_path: Path) -> list[str]:
-    """Return sorted list of save files: character files (.d2s) first, then stash files (.d2i)."""
-    if not dir_path.is_dir():
-        return []
-    saves = [p for p in dir_path.iterdir() if p.is_file() and p.suffix.lower() in (".d2s", ".d2i")]
-    saves.sort(key=lambda p: (0 if p.suffix.lower() == ".d2s" else 1, p.name.lower()))
-    return [str(p) for p in saves]
-
-
-def _resolve_default_dir_files(configured_dir: Path | None, no_config: bool) -> list[str]:
-    if no_config:
-        print("Error: No save path provided and --no-config was specified", file=sys.stderr)
-        return []
-    if not configured_dir or not configured_dir.is_dir():
-        print(
-            "Error: No save path provided and no save directory configured. "
-            "Provide a path to a save file or directory.",
-            file=sys.stderr,
-        )
-        return []
-    files = find_saves_in_dir(configured_dir)
-    if not files:
-        print(f"Error: No .d2s or .d2i files found in '{configured_dir}'", file=sys.stderr)
-        return []
-    return files
-
-
-def _lookup_in_configured_dir(configured_dir: Path | None, raw_path: str) -> str | None:
-    if not (configured_dir and configured_dir.is_dir()):
-        return None
-    for candidate in (raw_path, f"{raw_path}.d2s", f"{raw_path}.d2i"):
-        cand_path = configured_dir / candidate
-        if cand_path.is_file():
-            return str(cand_path)
-    target_names = {raw_path.lower(), f"{raw_path.lower()}.d2s", f"{raw_path.lower()}.d2i"}
-    for item in sorted(configured_dir.iterdir()):
-        if item.is_file() and item.name.lower() in target_names:
-            return str(item)
-    return None
-
-
-def resolve_target_files(
-    input_paths: list[str], no_config: bool = False
-) -> tuple[list[str], Path | None]:
-    """Resolve file paths and determine if a directory should be saved to config (if empty).
-
-    Returns (files_to_process, dir_to_save).
-    """
-    configured_dir = None if no_config else load_save_dir()
-
-    if not input_paths:
-        return _resolve_default_dir_files(configured_dir, no_config), None
-
-    resolved_files: list[str] = []
-    dir_to_save: Path | None = None
-    should_remember = configured_dir is None and not no_config
-
-    for raw_path in input_paths:
-        p = Path(raw_path)
-        if p.is_dir():
-            if dir_files := find_saves_in_dir(p):
-                resolved_files.extend(dir_files)
-                if should_remember and dir_to_save is None:
-                    dir_to_save = p.resolve()
-            else:
-                print(f"Error: No .d2s or .d2i files found in '{raw_path}'", file=sys.stderr)
-        elif p.is_file():
-            resolved_files.append(str(p))
-            if should_remember and dir_to_save is None:
-                dir_to_save = p.resolve().parent
-        else:
-            matched = _lookup_in_configured_dir(configured_dir, raw_path)
-            resolved_files.append(matched or raw_path)
-
-    return resolved_files, dir_to_save
-
-
 def extract_char_row(
     file_path: str, resolver: GameDataResolver | None = None
 ) -> CharListRow | None:
@@ -359,46 +266,14 @@ def list_characters(
     return records
 
 
-_common_parser = argparse.ArgumentParser(add_help=False)
-_common_parser.add_argument(
-    "file_path",
-    nargs="*",
-    help="Path to the .d2s save file(s), directory, or .d2i stash/item file(s)",
-)
-_common_parser.add_argument(
-    "--no-config",
-    action="store_true",
-    help="Do not read from or write to the configuration file",
-)
-_common_parser.add_argument(
-    "--lang",
-    metavar="LANG_KEY",
-    help="Set language (e.g. enUS, zhCN, zhTW)",
-)
-_common_parser.add_argument(
-    "-f",
-    "--find",
-    metavar="PATTERN",
-    help="Find items matching pattern in name or type",
-)
-
-
-def _resolve_and_save_targets(args: argparse.Namespace) -> list[str]:
-    """Resolve input targets and persist the inferred save directory if not yet configured."""
-    files_to_process, dir_to_save = resolve_target_files(args.file_path, no_config=args.no_config)
-    if not args.no_config and dir_to_save:
-        update_save_dir(dir_to_save, if_empty=True)
-    return files_to_process
-
-
 def cmd_list(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="d2savior list",
         description="List Diablo II characters in save directory",
-        parents=[_common_parser],
+        parents=[common_parser],
     )
     args = parser.parse_args(argv)
-    files_to_process = _resolve_and_save_targets(args)
+    files_to_process = resolve_and_save_targets(args)
 
     if not files_to_process:
         return 1
@@ -421,7 +296,7 @@ def cmd_stash(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="d2savior stash",
         description="Display Diablo II shared stash in save directory",
-        parents=[_common_parser],
+        parents=[common_parser],
     )
     parser.add_argument(
         "--summary",
@@ -431,7 +306,7 @@ def cmd_stash(argv: list[str]) -> int:
     parser.add_argument("-d", "--debug", action="store_true", help="Show debug info")
 
     args = parser.parse_args(argv)
-    files_to_process = _resolve_and_save_targets(args)
+    files_to_process = resolve_and_save_targets(args)
 
     if not files_to_process:
         return 1
@@ -498,7 +373,7 @@ Examples:
   %(prog)s --search 10110011 character.d2s
   %(prog)s --search-bytes 4a4d character.d2s
         """,
-        parents=[_common_parser],
+        parents=[common_parser],
     )
     parser.add_argument(
         "--summary", action="store_true", help="Show compact summary instead of full dump"
@@ -512,7 +387,7 @@ Examples:
     )
 
     args = parser.parse_args(argv)
-    files_to_process = _resolve_and_save_targets(args)
+    files_to_process = resolve_and_save_targets(args)
 
     if not files_to_process:
         sys.exit(1)

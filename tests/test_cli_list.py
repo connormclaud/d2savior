@@ -169,7 +169,7 @@ def test_cmd_list_from_configured_dir(tmp_path: Path, capsys):
     c = saves_dir / "sork.d2s"
     shutil.copy(fixture, c)
 
-    with patch("d2savior.cli.load_save_dir", return_value=saves_dir):
+    with patch("d2savior.cli_common.load_save_dir", return_value=saves_dir):
         code = cmd_list([])
         assert code == 0
         captured = capsys.readouterr()
@@ -213,7 +213,7 @@ def test_cmd_list_no_chars_found_only_stashes(tmp_path: Path, capsys):
     saves_dir.mkdir()
     (saves_dir / "stash.d2i").touch()
 
-    with patch("d2savior.cli.load_save_dir", return_value=saves_dir):
+    with patch("d2savior.cli_common.load_save_dir", return_value=saves_dir):
         code = cmd_list([])
         assert code == 1
         captured = capsys.readouterr()
@@ -224,7 +224,7 @@ def test_cmd_list_empty_dir(tmp_path: Path, capsys):
     saves_dir = tmp_path / "saves"
     saves_dir.mkdir()
 
-    with patch("d2savior.cli.load_save_dir", return_value=saves_dir):
+    with patch("d2savior.cli_common.load_save_dir", return_value=saves_dir):
         code = cmd_list([])
         assert code == 1
         captured = capsys.readouterr()
@@ -237,7 +237,7 @@ def test_main_dispatch_list_subcommand(tmp_path: Path, capsys):
     shutil.copy(fixture, c)
 
     with (
-        patch("d2savior.cli.load_save_dir", return_value=tmp_path),
+        patch("d2savior.cli_common.load_save_dir", return_value=tmp_path),
         patch("sys.argv", ["d2savior", "list"]),
     ):
         main()

@@ -3,6 +3,7 @@
 lazy from d2savior.core.char_formatter import format_char_info, format_char_summary
 lazy from d2savior.core.d2s_struct import D2SStruct
 lazy from d2savior.core.ibitstream import IBitStream
+lazy from d2savior.core.io import load_d2i, load_d2s
 lazy from d2savior.core.item import D2Item, ItemList
 lazy from d2savior.core.item_formatter import (
     format_item_info,
@@ -58,5 +59,7 @@ __all__ = [
     "format_stash_info",
     "format_stash_summary",
     "item_matches_pattern",
+    "load_d2i",
+    "load_d2s",
     "optimize_builds",
 ]

@@ -41,6 +41,7 @@ from d2savior.optimizer.paladin import (
     paladin_offense_profile,
     paladin_primary_skill_info,
     select_paladin_max_res_preset,
+    uses_paladin_leveling_probe,
 )
 from d2savior.optimizer.presets import ConstraintOverrides, list_presets, resolve_build_expr
 from d2savior.optimizer.report import format_build_report, format_paladin_leveling_report
@@ -121,6 +122,7 @@ __all__ = [
     "score_of_result",
     "select_paladin_max_res_preset",
     "select_sorc_presets",
+    "uses_paladin_leveling_probe",
     "validate_paladin",
     "validate_sorceress",
     "validate_supported_class",

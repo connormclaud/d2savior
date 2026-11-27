@@ -883,3 +883,15 @@ def optimize_paladin_leveling(
         extra_kwargs=extra_kwargs,
     )
     return eff_title, collected, resolved_spec, diff_name
+
+
+def uses_paladin_leveling_probe(
+    preset: ResolvedPreset, overrides: ConstraintOverrides | None
+) -> bool:
+    """Return True when a Paladin preset dispatches to the two-pass leveling probe."""
+    has_mode_override = overrides is not None and overrides.mode is not None
+    return (
+        preset.strategy == "leveling-probe"
+        and not has_mode_override
+        and preset.mode == "leveling-res"
+    )

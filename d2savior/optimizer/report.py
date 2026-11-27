@@ -93,6 +93,33 @@ def _format_charm_diff_lines(
 _AURA_PRIMARY_NAMES: frozenset[str] = frozenset({"Holy Fire", "Holy Freeze", "Holy Shock"})
 
 
+def _format_common_option_body(
+    res: BuildResult,
+    charms: Sequence[CharmSpec],
+    *,
+    diff_name: str,
+    resist_penalty: int | None,
+    primary_inv_loc: str | None,
+) -> list[str]:
+    """Format shared resistance, defense, life/mana/BO, gear, and charm-diff lines."""
+    lines = [_format_res_line(diff_name, res, resist_penalty)]
+    if def_line := _format_def_line(res):
+        lines.append(def_line)
+    if res.bo_lvl > 0:
+        lines.append(
+            f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"
+        )
+    else:
+        lines.append(
+            f"  Life: {res.life_no_bo} | Mana: {res.mana_bo} | Charm slots: {res.charm_slots}"
+        )
+    for it in res.items:
+        loc_str = f" ({it.loc})" if it.loc else ""
+        lines.append(f"    - {it.slot:8s}: {it.name}{loc_str}")
+    lines.extend(_format_charm_diff_lines(res.charms, charms, primary_inv_loc=primary_inv_loc))
+    return lines
+
+
 def _format_paladin_option_lines(
     header: str,
     res: BuildResult,
@@ -150,21 +177,55 @@ def _format_paladin_option_lines(
     lines.append(
         f"  FHR: {res.fhr}% (BP {res.fhr_bp}%, {fhr_f}f) | FCR: {res.fcr}% (BP {res.fcr_bp}%, {fcr_f}f) | FRW: {res.frw}% | MF: {res.mf}%"
     )
-    lines.append(_format_res_line(diff_name, res, resist_penalty))
-    if def_line := _format_def_line(res):
-        lines.append(def_line)
-    if res.bo_lvl > 0:
-        lines.append(
-            f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"
+    lines.extend(
+        _format_common_option_body(
+            res,
+            charms,
+            diff_name=diff_name,
+            resist_penalty=resist_penalty,
+            primary_inv_loc=primary_inv_loc,
         )
+    )
+    return lines
+
+
+def _format_sorc_option_lines(
+    header: str,
+    res: BuildResult,
+    charms: Sequence[CharmSpec],
+    *,
+    diff_name: str,
+    resist_penalty: int | None = None,
+    primary_inv_loc: str | None,
+    filler_skill_name: str | None,
+) -> list[str]:
+    lines = [header]
+    dps_val = getattr(res, "dps", 0.0)
+    if dps_val > 0.0:
+        dps_label = f"Blizz + {filler_skill_name}" if filler_skill_name else "Blizz"
+        dps_prefix = f"DPS: {dps_val:.0f} ({dps_label}) | "
     else:
-        lines.append(
-            f"  Life: {res.life_no_bo} | Mana: {res.mana_bo} | Charm slots: {res.charm_slots}"
+        dps_prefix = ""
+    blizz_suffix = (
+        f" | Blizz Avg: {res.blizz_avg:.0f} | CM: {res.cm_pierce}%"
+        if (res.blizz_avg > 0.0 or res.cm_pierce != 0)
+        else ""
+    )
+    lines.append(f"  {dps_prefix}Skills: +{res.skills}{blizz_suffix}")
+    fcr_f = SORCERESS_FCR_FRAMES.get(res.fcr_bp, 13)
+    fhr_f = SORCERESS_FHR_FRAMES.get(res.fhr_bp, 15)
+    lines.append(
+        f"  FCR: {res.fcr}% (BP {res.fcr_bp}%, {fcr_f}f) | FHR: {res.fhr}% (BP {res.fhr_bp}%, {fhr_f}f) | FRW: {res.frw}% | MF: {res.mf}%"
+    )
+    lines.extend(
+        _format_common_option_body(
+            res,
+            charms,
+            diff_name=diff_name,
+            resist_penalty=resist_penalty,
+            primary_inv_loc=primary_inv_loc,
         )
-    for it in res.items:
-        loc_str = f" ({it.loc})" if it.loc else ""
-        lines.append(f"    - {it.slot:8s}: {it.name}{loc_str}")
-    lines.extend(_format_charm_diff_lines(res.charms, charms, primary_inv_loc=primary_inv_loc))
+    )
     return lines
 
 
@@ -202,40 +263,18 @@ def format_build_report(
                     primary_inv_loc=primary_inv_loc,
                 )
             )
-            continue
-        lines.append(header)
-        dps_val = getattr(res, "dps", 0.0)
-        if dps_val > 0.0:
-            dps_label = f"Blizz + {filler_skill_name}" if filler_skill_name else "Blizz"
-            dps_prefix = f"DPS: {dps_val:.0f} ({dps_label}) | "
         else:
-            dps_prefix = ""
-        blizz_suffix = (
-            f" | Blizz Avg: {res.blizz_avg:.0f} | CM: {res.cm_pierce}%"
-            if (res.blizz_avg > 0.0 or res.cm_pierce != 0)
-            else ""
-        )
-        lines.append(f"  {dps_prefix}Skills: +{res.skills}{blizz_suffix}")
-        fcr_f = SORCERESS_FCR_FRAMES.get(res.fcr_bp, 13)
-        fhr_f = SORCERESS_FHR_FRAMES.get(res.fhr_bp, 15)
-        lines.append(
-            f"  FCR: {res.fcr}% (BP {res.fcr_bp}%, {fcr_f}f) | FHR: {res.fhr}% (BP {res.fhr_bp}%, {fhr_f}f) | FRW: {res.frw}% | MF: {res.mf}%"
-        )
-        lines.append(_format_res_line(diff_name, res, resist_penalty))
-        if def_line := _format_def_line(res):
-            lines.append(def_line)
-        if res.bo_lvl > 0:
-            lines.append(
-                f"  Life: {res.life_no_bo} (BO lvl {res.bo_lvl}: {res.life_bo}) | Mana (BO): {res.mana_bo} | Charm slots: {res.charm_slots}"
+            lines.extend(
+                _format_sorc_option_lines(
+                    header,
+                    res,
+                    charms,
+                    diff_name=diff_name,
+                    resist_penalty=resist_penalty,
+                    primary_inv_loc=primary_inv_loc,
+                    filler_skill_name=filler_skill_name,
+                )
             )
-        else:
-            lines.append(
-                f"  Life: {res.life_no_bo} | Mana: {res.mana_bo} | Charm slots: {res.charm_slots}"
-            )
-        for it in res.items:
-            loc_str = f" ({it.loc})" if it.loc else ""
-            lines.append(f"    - {it.slot:8s}: {it.name}{loc_str}")
-        lines.extend(_format_charm_diff_lines(res.charms, charms, primary_inv_loc=primary_inv_loc))
     return "\n".join(lines)
 
 
