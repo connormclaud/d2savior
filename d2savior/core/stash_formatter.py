@@ -1,11 +1,8 @@
 """Full, summary, and search text formatting for Diablo II shared stash files."""
 
 from d2savior.core.constants import (
-    COMBINED_SLOT_ORDER_STRIPPED,
     GEM_CODE_MAP,
     GEM_TYPE_NAMES,
-    MATERIAL_CODES_STRIPPED,
-    RUNE_CODES_STRIPPED,
     TAB_TYPE_NAMES,
 )
 from d2savior.core.item import D2Item
@@ -15,7 +12,13 @@ from d2savior.core.item_formatter import (
     item_matches_pattern,
 )
 from d2savior.core.resolver import GameDataResolver
-from d2savior.core.stash import STASH_TAB_TYPE_ADVANCED, SharedStash
+from d2savior.core.stash import (
+    COMBINED_SLOT_ORDER,
+    MATERIAL_CODES,
+    RUNE_CODES,
+    STASH_TAB_TYPE_ADVANCED,
+    SharedStash,
+)
 
 
 def _append_counted_summaries(
@@ -92,7 +95,7 @@ def format_stash_summary(stash: SharedStash, resolver: GameDataResolver) -> str:
     result.append(f"Tabs: {', '.join(tab_summaries)}")
     result.append("")
 
-    slot_order_map = {code: idx for idx, code in enumerate(COMBINED_SLOT_ORDER_STRIPPED)}
+    slot_order_map = {code: idx for idx, code in enumerate(COMBINED_SLOT_ORDER)}
 
     for tab_idx, tab in enumerate(stash.tabs):
         result.append(
@@ -117,21 +120,22 @@ def format_stash_summary(stash: SharedStash, resolver: GameDataResolver) -> str:
 
                 sorted_active = sorted(
                     active_items,
-                    key=lambda it: slot_order_map.get(it.type_name.strip(), 9999),
+                    key=lambda it: slot_order_map.get(it.type_name.ljust(4), 9999),
                 )
 
                 for it in sorted_active:
-                    code_b = it.type_name.strip()
+                    tn = it.type_name.ljust(4)
+                    code_b = tn.strip()
                     code_str = it.code_str
                     stack_size = it.stash_stack_size
 
                     if code_b in GEM_CODE_MAP:
                         g_type, tier = GEM_CODE_MAP[code_b]
                         gem_stats[g_type][tier] += stack_size
-                    elif code_b in RUNE_CODES_STRIPPED:
+                    elif tn in RUNE_CODES:
                         display_name = cur_resolver.get_localized_rune_short_name(code_str)
                         runes_list.append(f"{display_name}: {stack_size}")
-                    elif code_b in MATERIAL_CODES_STRIPPED:
+                    elif tn in MATERIAL_CODES:
                         type_info = cur_resolver.get_item(code_str)
                         raw_name = type_info.name if type_info else code_str
                         item_name = cur_resolver.get_localized_item_name(

@@ -589,3 +589,64 @@ class TestCodeSets:
         assert set() == RUNE_CODES & GEM_CODES
         assert set() == RUNE_CODES & MATERIAL_CODES
         assert set() == GEM_CODES & MATERIAL_CODES
+
+
+class TestStashExceptionHandling:
+    @pytest.mark.parametrize("exc", [ValueError("bad"), EOFError("eof"), KeyError("missing")])
+    def test_stash_tab_catches_expected_deserialization_errors(self, monkeypatch, caplog, exc):
+        from d2savior.core.item import ItemList
+
+        def _raise(*_args, **_kwargs):
+            raise exc
+
+        monkeypatch.setattr(ItemList, "codec", _raise)
+        header = _build_stash_tab_header(
+            stash_format=2, item_format=105, tab_size=STASH_TAB_HEADER_SIZE
+        )
+        tab = StashTab()
+        tab.deserialize(IBitStream(header), version=105)
+        assert "Failed to parse stash tab items" in caplog.text
+
+    def test_stash_tab_propagates_unexpected_error(self, monkeypatch):
+        from d2savior.core.item import ItemList
+
+        def _raise(*_args, **_kwargs):
+            raise RuntimeError("unexpected bug")
+
+        monkeypatch.setattr(ItemList, "codec", _raise)
+        header = _build_stash_tab_header(
+            stash_format=2, item_format=105, tab_size=STASH_TAB_HEADER_SIZE
+        )
+        tab = StashTab()
+        with pytest.raises(RuntimeError, match="unexpected bug"):
+            tab.deserialize(IBitStream(header), version=105)
+
+    @pytest.mark.parametrize("exc", [EOFError("eof"), IndexError("idx")])
+    def test_shared_stash_catches_expected_deserialization_errors(self, monkeypatch, caplog, exc):
+        calls = 0
+
+        def _codec(self, io, version=None, data=None):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                io.seek_bytes(STASH_TAB_HEADER_SIZE)
+                return
+            raise exc
+
+        monkeypatch.setattr(StashTab, "codec", _codec)
+        tab1 = _build_stash_tab_header(stash_format=2, item_format=105, tab_size=64)
+        tab2 = _build_stash_tab_header(stash_format=2, item_format=105, tab_size=64)
+        stash = SharedStash()
+        stash.deserialize(IBitStream(tab1 + tab2), version=105)
+        assert stash.get_tab_count() == 1
+        assert "Failed to parse stash tab #1" in caplog.text
+
+    def test_shared_stash_propagates_unexpected_error(self, monkeypatch):
+        def _codec(self, io, version=None, data=None):
+            raise RuntimeError("unexpected stash bug")
+
+        monkeypatch.setattr(StashTab, "codec", _codec)
+        header = _build_stash_tab_header(stash_format=2, item_format=105, tab_size=64)
+        stash = SharedStash()
+        with pytest.raises(RuntimeError, match="unexpected stash bug"):
+            stash.deserialize(IBitStream(header), version=105)

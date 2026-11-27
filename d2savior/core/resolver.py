@@ -241,16 +241,16 @@ class GameDataResolver:
 
         return self.get_socket_properties_for_code(parent_item, socket_item.code_str)
 
-    def _resolve_ranged_gem_mod(
-        self, mod: GemMod, *, include_len: bool
+    def _resolve_ranged_mod(
+        self, code: str, min_val: int, max_val: int, param_int: int, *, include_len: bool
     ) -> list[tuple[int, int, list[int]]] | None:
-        prop = self.data.get_property_by_code(mod.code)
+        prop = self.data.get_property_by_code(code)
         if not prop:
             return None
         pairs: tuple[tuple[str | None, int], ...] = (
-            ((prop.stat1, mod.min_val), (prop.stat2, mod.max_val), (prop.stat3, mod.param))
+            ((prop.stat1, min_val), (prop.stat2, max_val), (prop.stat3, param_int))
             if include_len
-            else ((prop.stat1, mod.min_val), (prop.stat2, mod.max_val))
+            else ((prop.stat1, min_val), (prop.stat2, max_val))
         )
         stats: list[tuple[int, int, list[int]]] = []
         for stat_name, val in pairs:
@@ -260,17 +260,33 @@ class GameDataResolver:
             stats.append((stat_info.stat_id, val, [val]))
         return stats
 
-    def _gem_mod_to_properties(self, mod: GemMod) -> list[tuple[int, int, list[int]]]:
-        code = mod.code
-        min_val = mod.min_val
-        param = mod.param
+    def _resolve_prop_stats(
+        self, prop: PropertyInfo, min_val: int, param_int: int
+    ) -> list[tuple[int, int, list[int]]]:
+        params = [param_int, min_val] if param_int else [min_val]
+        return [
+            (stat_info.stat_id, min_val, params)
+            for stat_name in (prop.stat1, prop.stat2, prop.stat3, prop.stat4, prop.stat5)
+            if stat_name and (stat_info := self.data.get_stat_by_name(stat_name))
+        ]
 
-        if code in ("dmg-fire", "dmg-ltng") and (
-            ranged := self._resolve_ranged_gem_mod(mod, include_len=False)
-        ):
-            return ranged
-        if code in ("dmg-cold", "dmg-pois") and (
-            ranged := self._resolve_ranged_gem_mod(mod, include_len=True)
+    def _resolve_mod_to_properties(
+        self,
+        code: str,
+        min_val: int,
+        max_val: int,
+        param_int: int,
+        *,
+        set_mod: SetBonusMod | None = None,
+    ) -> list[tuple[int, int, list[int]]]:
+        if code in ("dmg-fire", "dmg-ltng", "dmg-cold", "dmg-pois") and (
+            ranged := self._resolve_ranged_mod(
+                code,
+                min_val,
+                max_val,
+                param_int,
+                include_len=code in ("dmg-cold", "dmg-pois"),
+            )
         ):
             return ranged
 
@@ -284,18 +300,21 @@ class GameDataResolver:
             return fixed
 
         if prop := self.data.get_property_by_code(code):
-            params = [param, min_val] if param else [min_val]
-            res = [
-                (stat_info.stat_id, min_val, params)
-                for stat_name in (prop.stat1, prop.stat2, prop.stat3, prop.stat4, prop.stat5)
-                if stat_name and (stat_info := self.data.get_stat_by_name(stat_name))
-            ]
-            if res:
-                return res
+            if set_mod is not None:
+                res = self._resolve_prop_set_mod(prop, set_mod, param_int)
+                if res or prop.func1 in (11, 17, 21, 22, 24):
+                    return res
+            else:
+                res = self._resolve_prop_stats(prop, min_val, param_int)
+                if res:
+                    return res
 
         if stat_info := self.data.get_stat_by_name(code):
             return [(stat_info.stat_id, min_val, [min_val])]
         return []
+
+    def _gem_mod_to_properties(self, mod: GemMod) -> list[tuple[int, int, list[int]]]:
+        return self._resolve_mod_to_properties(mod.code, mod.min_val, mod.max_val, mod.param)
 
     def _parse_skill_param(self, param: str) -> int | None:
         raw = param.strip()
@@ -336,46 +355,16 @@ class GameDataResolver:
                 else []
             )
 
-        params = [param_int, min_val] if param_int else [min_val]
-        return [
-            (stat_info.stat_id, min_val, params)
-            for stat_name in (prop.stat1, prop.stat2, prop.stat3, prop.stat4, prop.stat5)
-            if stat_name and (stat_info := self.data.get_stat_by_name(stat_name))
-        ]
+        return self._resolve_prop_stats(prop, min_val, param_int)
 
     def set_mod_to_properties(self, mod: SetBonusMod) -> list[tuple[int, int, list[int]]]:
-        code = mod.code
-        min_val = mod.min_val
         try:
             param_int = int(mod.param.strip()) if mod.param.strip() else 0
         except ValueError:
             param_int = 0
-
-        if code in ("dmg-fire", "dmg-ltng", "dmg-cold", "dmg-pois"):
-            ranged = self._resolve_ranged_gem_mod(
-                GemMod(code=code, param=param_int, min_val=min_val, max_val=mod.max_val),
-                include_len=code in ("dmg-cold", "dmg-pois"),
-            )
-            if ranged:
-                return ranged
-
-        fixed_mods: dict[str, list[tuple[int, int, list[int]]]] = {
-            "dmg%": [(17, min_val, [min_val]), (18, min_val, [min_val])],
-            "dmg-min": [(21, min_val, [min_val])],
-            "dmg-max": [(22, min_val, [min_val])],
-            "indestruct": [(152, 1, [1])],
-        }
-        if fixed := fixed_mods.get(code):
-            return fixed
-
-        if prop := self.data.get_property_by_code(code):
-            res = self._resolve_prop_set_mod(prop, mod, param_int)
-            if res or prop.func1 in (11, 17, 21, 22, 24):
-                return res
-
-        if stat_info := self.data.get_stat_by_name(code):
-            return [(stat_info.stat_id, min_val, [min_val])]
-        return []
+        return self._resolve_mod_to_properties(
+            mod.code, mod.min_val, mod.max_val, param_int, set_mod=mod
+        )
 
     def get_set_bonus_tiers(
         self, set_name: str

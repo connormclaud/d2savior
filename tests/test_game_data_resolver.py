@@ -2,7 +2,7 @@ import os
 from unittest.mock import MagicMock
 
 from d2savior.core.loader import GameData
-from d2savior.core.models import VersionData
+from d2savior.core.models import GemMod, SetBonusMod, VersionData
 from d2savior.core.resolver import GameDataResolver
 
 
@@ -182,3 +182,45 @@ class TestGameDataResolver:
         r_zh = GameDataResolver.load(lang_key="zhCN")
         assert r_zh.get_localized_mercenary_details(34) == "Act II 沙漠佣兵, Hell, 神圣之冰"
         assert r_zh.get_localized_mercenary_name(34, 10) == "杰马里"
+
+    def test_mod_to_properties_shared_resolution(self):
+        resolver = GameDataResolver.load()
+
+        # Ranged elemental damage without length (dmg-fire)
+        assert resolver._gem_mod_to_properties(
+            GemMod(code="dmg-fire", param=0, min_val=10, max_val=20)
+        ) == [(48, 10, [10]), (49, 20, [20])]
+        assert resolver.set_mod_to_properties(
+            SetBonusMod(code="dmg-fire", param="", min_val=10, max_val=20)
+        ) == [(48, 10, [10]), (49, 20, [20])]
+
+        # Ranged elemental damage with length (dmg-cold)
+        assert resolver._gem_mod_to_properties(
+            GemMod(code="dmg-cold", param=75, min_val=5, max_val=12)
+        ) == [(54, 5, [5]), (55, 12, [12]), (56, 75, [75])]
+        assert resolver.set_mod_to_properties(
+            SetBonusMod(code="dmg-cold", param="75", min_val=5, max_val=12)
+        ) == [(54, 5, [5]), (55, 12, [12]), (56, 75, [75])]
+
+        # Fixed mods (dmg%, indestruct)
+        assert resolver._gem_mod_to_properties(
+            GemMod(code="dmg%", param=0, min_val=50, max_val=50)
+        ) == [(17, 50, [50]), (18, 50, [50])]
+        assert resolver.set_mod_to_properties(
+            SetBonusMod(code="dmg%", param="", min_val=50, max_val=50)
+        ) == [(17, 50, [50]), (18, 50, [50])]
+
+        assert resolver._gem_mod_to_properties(
+            GemMod(code="indestruct", param=0, min_val=1, max_val=1)
+        ) == [(152, 1, [1])]
+        assert resolver.set_mod_to_properties(
+            SetBonusMod(code="indestruct", param="", min_val=1, max_val=1)
+        ) == [(152, 1, [1])]
+
+        # Stat fallback (strength has no property entry, resolves directly by stat name)
+        assert resolver._gem_mod_to_properties(
+            GemMod(code="strength", param=0, min_val=15, max_val=15)
+        ) == [(0, 15, [15])]
+        assert resolver.set_mod_to_properties(
+            SetBonusMod(code="strength", param="", min_val=15, max_val=15)
+        ) == [(0, 15, [15])]

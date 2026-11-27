@@ -1,10 +1,6 @@
 """Constants for Diablo II save and stash parsing and formatting."""
 
 from d2savior.core.stash import (
-    COMBINED_SLOT_ORDER,
-    GEM_CODES,
-    MATERIAL_CODES,
-    RUNE_CODES,
     STASH_TAB_TYPE_ADVANCED,
     STASH_TAB_TYPE_CHRONICLE,
     STASH_TAB_TYPE_NORMAL,
@@ -66,11 +62,6 @@ GEM_CODE_MAP = frozendict(
         b"skz": ("Skull", "p"),
     }
 )
-
-RUNE_CODES_STRIPPED = frozenset(c.strip() for c in RUNE_CODES)
-GEM_CODES_STRIPPED = frozenset(c.strip() for c in GEM_CODES)
-MATERIAL_CODES_STRIPPED = frozenset(c.strip() for c in MATERIAL_CODES)
-COMBINED_SLOT_ORDER_STRIPPED = [c.strip() for c in COMBINED_SLOT_ORDER]
 
 CLASS_SKILL_BASES = [
     6,  # Amazon (0)

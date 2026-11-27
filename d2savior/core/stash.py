@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
@@ -128,111 +129,9 @@ MATERIAL_SLOT_ORDER = [
     b"ua5 ",
 ]
 
-RUNE_CODES = frozenset(
-    {
-        b"r01 ",
-        b"r02 ",
-        b"r03 ",
-        b"r04 ",
-        b"r05 ",
-        b"r06 ",
-        b"r07 ",
-        b"r08 ",
-        b"r09 ",
-        b"r10 ",
-        b"r11 ",
-        b"r12 ",
-        b"r13 ",
-        b"r14 ",
-        b"r15 ",
-        b"r16 ",
-        b"r17 ",
-        b"r18 ",
-        b"r19 ",
-        b"r20 ",
-        b"r21 ",
-        b"r22 ",
-        b"r23 ",
-        b"r24 ",
-        b"r25 ",
-        b"r26 ",
-        b"r27 ",
-        b"r28 ",
-        b"r29 ",
-        b"r30 ",
-        b"r31 ",
-        b"r32 ",
-        b"r33 ",
-    }
-)
-
-GEM_CODES = frozenset(
-    {
-        b"gcv ",
-        b"gfv ",
-        b"gsv ",
-        b"gzv ",
-        b"gpv ",
-        b"gcy ",
-        b"gfy ",
-        b"gsy ",
-        b"gly ",
-        b"gpy ",
-        b"gcb ",
-        b"gfb ",
-        b"gsb ",
-        b"glb ",
-        b"gpb ",
-        b"gcg ",
-        b"gfg ",
-        b"gsg ",
-        b"glg ",
-        b"gpg ",
-        b"gcr ",
-        b"gfr ",
-        b"gsr ",
-        b"glr ",
-        b"gpr ",
-        b"gcw ",
-        b"gfw ",
-        b"gsw ",
-        b"glw ",
-        b"gpw ",
-        b"skc ",
-        b"skf ",
-        b"sku ",
-        b"skl ",
-        b"skz ",
-    }
-)
-
-MATERIAL_CODES = frozenset(
-    {
-        b"rvs ",
-        b"rvl ",
-        b"pk1 ",
-        b"pk2 ",
-        b"pk3 ",
-        b"dhn ",
-        b"bey ",
-        b"mbr ",
-        b"toa ",
-        b"tes ",
-        b"ceh ",
-        b"bet ",
-        b"fed ",
-        b"xa1 ",
-        b"xa2 ",
-        b"xa3 ",
-        b"xa4 ",
-        b"xa5 ",
-        b"ua1 ",
-        b"ua2 ",
-        b"ua3 ",
-        b"ua4 ",
-        b"ua5 ",
-    }
-)
+RUNE_CODES = frozenset(RUNE_SLOT_ORDER)
+GEM_CODES = frozenset(GEM_SLOT_ORDER)
+MATERIAL_CODES = frozenset(MATERIAL_SLOT_ORDER)
 
 
 def classify_advanced_tab(items: Sequence[D2Item] | None) -> int:
@@ -376,9 +275,7 @@ class StashTab:
                 try:
                     self.items = ItemList()
                     self.items.codec(io, item_version, data=vd)
-                except Exception as e:
-                    import logging
-
+                except (ValueError, EOFError, LookupError) as e:
                     logging.warning(
                         f"Failed to parse stash tab items (TabType={self.tab_type}, "
                         f"ItemFormat={self.item_format:#x}): {e}"
@@ -437,9 +334,7 @@ class SharedStash:
                     self.tabs.append(tab)
                 except ValueError:
                     break
-                except Exception as e:
-                    import logging
-
+                except (EOFError, LookupError) as e:
                     logging.warning(f"Failed to parse stash tab #{len(self.tabs)}: {e}")
                     break
 
