@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import CharClass, EquipSlot, ItemLocation, StoredIn
+from d2savior.core.enums import CharClass, ItemLocation, StoredIn
 from d2savior.core.item import D2Item
 from d2savior.core.item_formatter import get_item_display_name
 from d2savior.core.property import adjust_property_values
@@ -15,11 +15,9 @@ from d2savior.core.stats import (
     resolve_set_group_key,
 )
 from d2savior.optimizer.common import (
-    _SWAP_SLOTS,
     ALL_GEAR_SLOTS,
-    _item_cta_bo,
-    _item_levelreq,
-    inactive_weapon_slots,
+    item_levelreq,
+    iter_pool_items,
     parse_keep_gear,
 )
 from d2savior.optimizer.extract_props import _USEFUL_ITEM_STATS, _apply_props_to_acc, _PropAcc
@@ -63,7 +61,7 @@ _SLOT_ANCESTORS: tuple[tuple[str, str], ...] = (
 _ARMOR_SLOTS: frozenset[str] = frozenset({"helm", "armor", "shield", "belt", "gloves", "boots"})
 
 
-def _classify_slot(
+def classify_slot(
     item: D2Item, resolver: GameDataResolver, char_class: int = int(CharClass.SORCERESS)
 ) -> tuple[str, int, int] | None:
     info = resolver.data.get_item(item.code_str.strip().lower())
@@ -376,22 +374,6 @@ def _extract_global_set_bonuses(
     return bonuses
 
 
-def _format_item_location(
-    char_name: str,
-    item: D2Item,
-    swap_slots: tuple[EquipSlot, EquipSlot] = _SWAP_SLOTS,
-) -> str:
-    if item.location == ItemLocation.EQUIPPED:
-        if item.position in swap_slots:
-            return f"{char_name} Swap"
-        return f"{char_name} Equipped"
-    if item.stored_in == StoredIn.STASH:
-        return f"{char_name} Stash"
-    if item.stored_in == StoredIn.INVENTORY:
-        return f"{char_name} Inv"
-    return char_name
-
-
 def _effective_req(base_req: int, is_ethereal: bool, req_pct: int) -> int:
     if base_req <= 0:
         return 0
@@ -488,7 +470,7 @@ def _apply_shield_base_stats(
         acc.flat_phys_2x += getattr(item_info, "mindam", 0) + getattr(item_info, "maxdam", 0)
 
 
-def _item_to_spec(
+def item_to_spec(
     item: D2Item,
     loc: str,
     resolver: GameDataResolver,
@@ -514,7 +496,7 @@ def _item_to_spec(
 ) -> ItemSpec | CharmSpec | None:
     if item.location == ItemLocation.SOCKET:
         return None
-    if max(_item_levelreq(item, resolver), extra_levelreq) > char_level:
+    if max(item_levelreq(item, resolver), extra_levelreq) > char_level:
         return None
     resolved_offense = (
         pal_offense
@@ -546,7 +528,7 @@ def _item_to_spec(
             char_class=char_class,
         )
 
-    classified = _classify_slot(item, resolver, char_class=char_class)
+    classified = classify_slot(item, resolver, char_class=char_class)
     if classified is None:
         return None
     slot, base_req_str, base_req_dex = classified
@@ -684,105 +666,72 @@ def _item_to_spec(
     )
 
 
-def _char_item_locality_rank(
-    item: D2Item,
-    swap_slots: tuple[EquipSlot, EquipSlot] = _SWAP_SLOTS,
-) -> int:
-    if item.location == ItemLocation.EQUIPPED:
-        return 1 if item.position in swap_slots else 0
-    if item.stored_in == StoredIn.INVENTORY:
-        return 2
-    if item.stored_in == StoredIn.STASH:
-        return 3
-    return 4
-
-
-def _extract_char_specs(
-    char: D2SStruct,
+def _resolve_pool_context(
+    primary_char: D2SStruct,
     *,
-    is_primary: bool,
-    kept_slots: frozenset[str],
-    primary_inactive_slots: tuple[EquipSlot, EquipSlot],
-    char_level: int,
-    char_class: int,
-    pal_spec: str,
-    pal_offense: str,
-    resolver: GameDataResolver,
-    set_group_ids: dict[str, int],
-    global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
-    allow_eth_melee: bool = False,
-    sorc_filler_id: int | None = None,
-    sorc_armor_id: int | None = None,
-    pal_aura_id: int | None = -1,
-    ignore_reqs: bool = False,
-) -> tuple[list[ItemSpec], list[CharmSpec]]:
-    ver = char.version or 0x63
-    char_resolver = resolver.for_version(ver)
-    keep_all = kept_slots == ALL_GEAR_SLOTS
-    char_swap_slots = inactive_weapon_slots(char)
-    has_swap_cta = any(
-        it.location == ItemLocation.EQUIPPED
-        and it.position in char_swap_slots
-        and _item_cta_bo(it, char_resolver, ver) is not None
-        for it in char.item_list.items
+    pal_spec: str | None,
+    left_skill: int | None,
+    right_skill: int | None,
+    targets: int,
+    char_level_override: int | None,
+) -> tuple[int, int, str, str, int | None, int | None, int | None]:
+    char_level = (
+        char_level_override
+        if char_level_override is not None
+        else max(1, primary_char.player_stats.level or primary_char.char_level)
     )
-    char_name = char.get_char_name()
-    char_items: list[tuple[int, ItemSpec]] = []
-    char_charms: list[tuple[tuple[int, int, int], CharmSpec]] = []
-
-    for it in char.item_list.items:
-        is_charm = it.code_str.strip().lower() in _CHARM_SIZES
-        is_active_primary_eq = (
-            is_primary
-            and it.location == ItemLocation.EQUIPPED
-            and it.position not in primary_inactive_slots
+    char_class = primary_char.char_class
+    is_pal = char_class == int(CharClass.PALADIN)
+    is_sorc = char_class == int(CharClass.SORCERESS)
+    resolved_pal_spec = (
+        pal_spec
+        if pal_spec is not None
+        else (
+            detect_paladin_spec(primary_char, left_skill=left_skill, right_skill=right_skill)
+            if is_pal
+            else "leveling"
         )
-        if keep_all:
-            if not (is_active_primary_eq or is_charm):
-                continue
-        elif (
-            has_swap_cta and it.location == ItemLocation.EQUIPPED and it.position in char_swap_slots
-        ):
-            continue
-
-        loc = _format_item_location(char_name, it, swap_slots=char_swap_slots)
-        exclude_slots = frozenset() if is_active_primary_eq else kept_slots
-        skip_useful_slots = kept_slots if is_active_primary_eq else frozenset()
-        spec = _item_to_spec(
-            it,
-            loc,
-            char_resolver,
-            version=ver,
-            char_level=char_level,
-            char_class=char_class,
-            pal_spec=pal_spec,
-            pal_offense=pal_offense,
-            set_group_ids=set_group_ids,
-            global_set_cache=global_set_cache,
-            skip_useful_slots=skip_useful_slots,
-            exclude_slots=exclude_slots,
-            allow_eth_melee=allow_eth_melee,
-            sorc_filler_id=sorc_filler_id,
-            sorc_armor_id=sorc_armor_id,
-            pal_aura_id=pal_aura_id,
-            ignore_reqs=ignore_reqs,
+    )
+    resolved_pal_offense = (
+        paladin_offense_profile(
+            resolved_pal_spec, primary_char, left_skill=left_skill, right_skill=right_skill
         )
-        if isinstance(spec, ItemSpec):
-            char_items.append((_char_item_locality_rank(it, swap_slots=char_swap_slots), spec))
-        elif isinstance(spec, CharmSpec):
-            sort_key = (
-                (0, getattr(it, "column", 0), getattr(it, "row", 0))
-                if getattr(it, "stored_in", None) == StoredIn.INVENTORY
-                else (1, 0, 0)
-            )
-            char_charms.append((sort_key, spec))
+        if is_pal
+        else "caster"
+    )
+    sorc_filler_id = (
+        resolve_sorc_filler_skill(
+            primary_char, left_skill=left_skill, right_skill=right_skill, targets=max(1, targets)
+        )
+        if is_sorc
+        else None
+    )
+    _, _, sorc_armor_id = resolve_sorc_cold_armor(primary_char) if is_sorc else (0, 0, None)
+    pal_aura_id = (
+        resolve_paladin_aura_id(primary_char, resolved_pal_spec, right_skill=right_skill)
+        if is_pal
+        else None
+    )
+    return (
+        char_level,
+        char_class,
+        resolved_pal_spec,
+        resolved_pal_offense,
+        sorc_filler_id,
+        sorc_armor_id,
+        pal_aura_id,
+    )
 
-    char_items.sort(key=lambda pair: pair[0])
-    char_charms.sort(key=lambda pair: pair[0])
-    return [spec for _, spec in char_items], [spec for _, spec in char_charms]
+
+def _charm_sort_key(
+    item: D2Item, source_idx: int, *, is_stash: bool
+) -> tuple[int, tuple[int, int, int]]:
+    if not is_stash and getattr(item, "stored_in", None) == StoredIn.INVENTORY:
+        return (source_idx, (0, getattr(item, "column", 0), getattr(item, "row", 0)))
+    return (source_idx, (1, 0, 0))
 
 
-def _extract_pool_with_context(
+def extract_pool_with_context(
     primary_char: D2SStruct,
     extra_chars: Sequence[D2SStruct] = (),
     stashes: Sequence[SharedStash] = (),
@@ -808,129 +757,73 @@ def _extract_pool_with_context(
 
     kept_slots = parse_keep_gear(keep_equipped)
     keep_all = kept_slots == ALL_GEAR_SLOTS
-    char_level = (
-        char_level_override
-        if char_level_override is not None
-        else max(1, primary_char.player_stats.level or primary_char.char_level)
+    (
+        char_level,
+        char_class,
+        resolved_pal_spec,
+        resolved_pal_offense,
+        sorc_filler_id,
+        sorc_armor_id,
+        pal_aura_id,
+    ) = _resolve_pool_context(
+        primary_char,
+        pal_spec=pal_spec,
+        left_skill=left_skill,
+        right_skill=right_skill,
+        targets=targets,
+        char_level_override=char_level_override,
     )
-    char_class = primary_char.char_class
-    resolved_pal_spec = (
-        pal_spec
-        if pal_spec is not None
-        else (
-            detect_paladin_spec(primary_char, left_skill=left_skill, right_skill=right_skill)
-            if char_class == int(CharClass.PALADIN)
-            else "leveling"
-        )
-    )
-    resolved_pal_offense = (
-        paladin_offense_profile(
-            resolved_pal_spec, primary_char, left_skill=left_skill, right_skill=right_skill
-        )
-        if char_class == int(CharClass.PALADIN)
-        else "caster"
-    )
-    sorc_filler_id = (
-        resolve_sorc_filler_skill(
-            primary_char, left_skill=left_skill, right_skill=right_skill, targets=max(1, targets)
-        )
-        if char_class == int(CharClass.SORCERESS)
-        else None
-    )
-    _, _, sorc_armor_id = (
-        resolve_sorc_cold_armor(primary_char)
-        if char_class == int(CharClass.SORCERESS)
-        else (0, 0, None)
-    )
-    pal_aura_id = (
-        resolve_paladin_aura_id(primary_char, resolved_pal_spec, right_skill=right_skill)
-        if char_class == int(CharClass.PALADIN)
-        else None
-    )
-    items_out: list[ItemSpec] = []
-    charms_out: list[CharmSpec] = []
     set_group_ids: dict[str, int] = {}
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] = {}
+    items_ranked: list[tuple[tuple[int, int], ItemSpec]] = []
+    charms_ranked: list[tuple[tuple[int, tuple[int, int, int]], CharmSpec]] = []
 
-    primary_inactive_slots = inactive_weapon_slots(primary_char)
-
-    ch_items, ch_charms = _extract_char_specs(
+    for entry in iter_pool_items(
         primary_char,
-        is_primary=True,
-        kept_slots=kept_slots,
-        primary_inactive_slots=primary_inactive_slots,
-        char_level=char_level,
-        char_class=char_class,
-        pal_spec=resolved_pal_spec,
-        pal_offense=resolved_pal_offense,
+        extra_chars=extra_chars,
+        stashes=stashes,
         resolver=resolver,
-        set_group_ids=set_group_ids,
-        global_set_cache=global_set_cache,
-        allow_eth_melee=allow_eth_melee,
-        sorc_filler_id=sorc_filler_id,
-        sorc_armor_id=sorc_armor_id,
-        pal_aura_id=pal_aura_id,
-        ignore_reqs=ignore_reqs,
-    )
-    items_out.extend(ch_items)
-    charms_out.extend(ch_charms)
-
-    for stash in stashes:
-        for idx, tab in enumerate(stash.tabs, start=1):
-            if tab.items is None:
-                continue
-            ver = tab.item_format or 0x63
-            char_resolver = resolver.for_version(ver)
-            loc = f"Stash Tab {idx}"
-            for it in tab.items.items:
-                if keep_all and it.code_str.strip().lower() not in _CHARM_SIZES:
-                    continue
-                spec = _item_to_spec(
-                    it,
-                    loc,
-                    char_resolver,
-                    ver,
-                    char_level,
-                    char_class=char_class,
-                    pal_spec=resolved_pal_spec,
-                    pal_offense=resolved_pal_offense,
-                    set_group_ids=set_group_ids,
-                    global_set_cache=global_set_cache,
-                    exclude_slots=kept_slots,
-                    allow_eth_melee=allow_eth_melee,
-                    sorc_filler_id=sorc_filler_id,
-                    sorc_armor_id=sorc_armor_id,
-                    pal_aura_id=pal_aura_id,
-                    ignore_reqs=ignore_reqs,
-                )
-                if isinstance(spec, ItemSpec):
-                    items_out.append(spec)
-                elif isinstance(spec, CharmSpec):
-                    charms_out.append(spec)
-
-    for char in extra_chars:
-        ch_items, ch_charms = _extract_char_specs(
-            char,
-            is_primary=False,
-            kept_slots=kept_slots,
-            primary_inactive_slots=primary_inactive_slots,
+        skip_swap_cta=True,
+    ):
+        is_charm = entry.item.code_str.strip().lower() in _CHARM_SIZES
+        if keep_all and not (entry.is_active_primary or is_charm):
+            continue
+        exclude_slots = frozenset() if entry.is_active_primary else kept_slots
+        skip_useful_slots = kept_slots if entry.is_active_primary else frozenset()
+        spec = item_to_spec(
+            entry.item,
+            entry.loc,
+            entry.resolver,
+            version=entry.version,
             char_level=char_level,
             char_class=char_class,
             pal_spec=resolved_pal_spec,
             pal_offense=resolved_pal_offense,
-            resolver=resolver,
             set_group_ids=set_group_ids,
             global_set_cache=global_set_cache,
+            skip_useful_slots=skip_useful_slots,
+            exclude_slots=exclude_slots,
             allow_eth_melee=allow_eth_melee,
             sorc_filler_id=sorc_filler_id,
             sorc_armor_id=sorc_armor_id,
             pal_aura_id=pal_aura_id,
             ignore_reqs=ignore_reqs,
         )
-        items_out.extend(ch_items)
-        charms_out.extend(ch_charms)
+        if isinstance(spec, ItemSpec):
+            items_ranked.append(((entry.source_idx, entry.locality_rank), spec))
+        elif isinstance(spec, CharmSpec):
+            charms_ranked.append(
+                (_charm_sort_key(entry.item, entry.source_idx, is_stash=entry.is_stash), spec)
+            )
 
-    return items_out, charms_out, set_group_ids, global_set_cache
+    items_ranked.sort(key=lambda pair: pair[0])
+    charms_ranked.sort(key=lambda pair: pair[0])
+    return (
+        [spec for _, spec in items_ranked],
+        [spec for _, spec in charms_ranked],
+        set_group_ids,
+        global_set_cache,
+    )
 
 
 def extract_pool(
@@ -949,7 +842,7 @@ def extract_pool(
     ignore_reqs: bool = False,
 ) -> tuple[list[ItemSpec], list[CharmSpec]]:
     """Extract class-equippable ItemSpecs and CharmSpecs across characters and shared stashes."""
-    items_out, charms_out, _, _ = _extract_pool_with_context(
+    items_out, charms_out, _, _ = extract_pool_with_context(
         primary_char,
         extra_chars=extra_chars,
         stashes=stashes,

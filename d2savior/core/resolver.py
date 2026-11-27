@@ -343,7 +343,7 @@ class GameDataResolver:
             if stat_name and (stat_info := self.data.get_stat_by_name(stat_name))
         ]
 
-    def _set_mod_to_properties(self, mod: SetBonusMod) -> list[tuple[int, int, list[int]]]:
+    def set_mod_to_properties(self, mod: SetBonusMod) -> list[tuple[int, int, list[int]]]:
         code = mod.code
         min_val = mod.min_val
         try:
@@ -389,14 +389,14 @@ class GameDataResolver:
         for req_pieces, mods in set_info.partial_bonuses.items():
             props: list[tuple[int, int, list[int]]] = []
             for mod in mods:
-                props.extend(self._set_mod_to_properties(mod))
+                props.extend(self.set_mod_to_properties(mod))
             if props:
                 tiers.setdefault(req_pieces, []).extend(props)
 
         if set_info.full_bonuses and set_info.piece_count >= 2:
             full_props: list[tuple[int, int, list[int]]] = []
             for mod in set_info.full_bonuses:
-                full_props.extend(self._set_mod_to_properties(mod))
+                full_props.extend(self.set_mod_to_properties(mod))
             if full_props:
                 tiers.setdefault(set_info.piece_count, []).extend(full_props)
 

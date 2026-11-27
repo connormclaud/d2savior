@@ -36,8 +36,8 @@ from d2savior.optimizer import (
     score_of_result,
     select_sorc_presets,
 )
-from d2savior.optimizer.common import _item_levelreq
-from d2savior.optimizer.extract import _classify_slot, _extract_prop_acc, _item_to_spec
+from d2savior.optimizer.common import item_levelreq
+from d2savior.optimizer.extract import _extract_prop_acc, classify_slot, item_to_spec
 from d2savior.optimizer.native import _missing_native
 from d2savior.optimizer.paladin import _result_dedup_key
 
@@ -351,15 +351,15 @@ def test_item_level_requirements_uniques_sets_runewords() -> None:
 
     # Stealth (Tal 17 + Eth 15) in Studded Leather (base req 0) -> levelreq 17
     stealth = next(it for it in sork.item_list.items if it.code_str.strip() == "stu")
-    assert _item_levelreq(stealth, d2r) == 17
-    assert _item_to_spec(stealth, "test", d2r, 0x63, char_level=16) is None
+    assert item_levelreq(stealth, d2r) == 17
+    assert item_to_spec(stealth, "test", d2r, 0x63, char_level=16) is None
 
     # The Oculus (base Swirling Crystal 37, unique 284 -> levelreq 42)
     oculus = next(it for it in mule.item_list.items if it.code_str.strip() == "oba")
-    assert _item_levelreq(oculus, d2r) == 42
-    assert _item_to_spec(oculus, "test", d2r, 0x63, char_level=41) is None
+    assert item_levelreq(oculus, d2r) == 42
+    assert item_to_spec(oculus, "test", d2r, 0x63, char_level=41) is None
     if HAS_NATIVE:
-        assert _item_to_spec(oculus, "test", d2r, 0x63, char_level=42) is not None
+        assert item_to_spec(oculus, "test", d2r, 0x63, char_level=42) is not None
 
     # Set amulet (base req 0, simulated Tal Rasha's Adjudication set_id=77 -> levelreq 67)
     amu = next(it for it in sork.item_list.items if it.code_str.strip() == "amu")
@@ -368,8 +368,8 @@ def test_item_level_requirements_uniques_sets_runewords() -> None:
     amu.item_info.ext_info.magic_prefix = None
     amu.item_info.ext_info.magic_suffix = None
     amu.item_info.ext_info.set_id = 77
-    assert _item_levelreq(amu, d2r) == 67
-    assert _item_to_spec(amu, "test", d2r, 0x63, char_level=66) is None
+    assert item_levelreq(amu, d2r) == 67
+    assert item_to_spec(amu, "test", d2r, 0x63, char_level=66) is None
 
 
 def test_extract_prop_acc_per_level_and_cold_tab(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -410,7 +410,7 @@ def test_item_to_spec_keeps_frw_mdr_fire_absorb_and_max_res(
     boot_or_ring = next(
         it
         for it in mule.item_list.items
-        if _item_to_spec(it, "test", resolver, 0x63, 99) is not None
+        if item_to_spec(it, "test", resolver, 0x63, 99) is not None
     )
 
     for pid, attr, expected in (
@@ -423,7 +423,7 @@ def test_item_to_spec_keeps_frw_mdr_fire_absorb_and_max_res(
             "d2savior.optimizer.extract.collect_item_properties",
             lambda *_a, _pid=pid, _val=expected, **_kw: [(_pid, _val, [_val])],
         )
-        spec = _item_to_spec(boot_or_ring, "test", resolver, 0x63, char_level=99)
+        spec = item_to_spec(boot_or_ring, "test", resolver, 0x63, char_level=99)
         assert isinstance(spec, ItemSpec)
         assert getattr(spec, attr) == expected
 
@@ -432,27 +432,27 @@ def test_item_to_spec_keeps_frw_mdr_fire_absorb_and_max_res(
         "d2savior.optimizer.extract.collect_item_properties",
         lambda *_a, **_kw: [(16, 100, [100])],  # +100% enhanced defense only
     )
-    assert _item_to_spec(boot_or_ring, "test", resolver, 0x63, char_level=99) is None
+    assert item_to_spec(boot_or_ring, "test", resolver, 0x63, char_level=99) is None
 
     # Sorceress items with %PDR (pid 36) and CBF (pid 153) satisfy --cbf and --min-pdr floors.
     helm_it = next(
         it
         for it in mule.item_list.items
-        if (_cls := _classify_slot(it, resolver, char_class=1)) is not None and _cls[0] == "helm"
+        if (_cls := classify_slot(it, resolver, char_class=1)) is not None and _cls[0] == "helm"
     )
     ring_it = next(
         it
         for it in mule.item_list.items
-        if (_cls := _classify_slot(it, resolver, char_class=1)) is not None and _cls[0] == "ring"
+        if (_cls := classify_slot(it, resolver, char_class=1)) is not None and _cls[0] == "ring"
     )
     monkeypatch.setattr(
         "d2savior.optimizer.extract.collect_item_properties",
         lambda it, **_kw: [(36, 10, [10])] if it is helm_it else [(153, 1, [1])],
     )
-    helm_spec = _item_to_spec(
+    helm_spec = item_to_spec(
         helm_it, "test", resolver, 0x63, char_level=99, char_class=int(CharClass.SORCERESS)
     )
-    ring_spec = _item_to_spec(
+    ring_spec = item_to_spec(
         ring_it, "test", resolver, 0x63, char_level=99, char_class=int(CharClass.SORCERESS)
     )
     assert isinstance(helm_spec, ItemSpec)
@@ -568,19 +568,19 @@ def test_classify_slot_tags_two_handed_and_1or2handed_weapons_as_weapon2h() -> N
     assert mau_info.two_handed
 
     for two_handed_code in ("bax", "2hs", "mau", "sst"):
-        classified = _classify_slot(_make_item(two_handed_code), resolver)
+        classified = classify_slot(_make_item(two_handed_code), resolver)
         assert classified is not None
         assert classified[0] == "weapon2h"
 
     for one_handed_code in ("crs", "ob1"):
-        classified = _classify_slot(_make_item(one_handed_code), resolver)
+        classified = classify_slot(_make_item(one_handed_code), resolver)
         assert classified is not None
         assert classified[0] == "weapon"
 
     # Paladin allows auric shields (pa1) and rejects Sorceress orbs (ob1); Sorceress does the opposite
-    assert _classify_slot(_make_item("pa1"), resolver, char_class=1) is None
-    assert _classify_slot(_make_item("pa1"), resolver, char_class=3) == ("shield", 16, 0)
-    assert _classify_slot(_make_item("ob1"), resolver, char_class=3) is None
+    assert classify_slot(_make_item("pa1"), resolver, char_class=1) is None
+    assert classify_slot(_make_item("pa1"), resolver, char_class=3) == ("shield", 16, 0)
+    assert classify_slot(_make_item("ob1"), resolver, char_class=3) is None
 
 
 @requires_native
@@ -741,7 +741,7 @@ def test_blizzard_base_skills_from_save_and_fallback(monkeypatch: pytest.MonkeyP
     high_cta = norm_sorc.item_list.items[0]
     cta_ptr = id(high_cta)
     monkeypatch.setattr(
-        "d2savior.optimizer.common._item_levelreq", lambda it, _res: 57 if id(it) == cta_ptr else 1
+        "d2savior.optimizer.common.item_levelreq", lambda it, _res: 57 if id(it) == cta_ptr else 1
     )
     monkeypatch.setattr(
         "d2savior.optimizer.common.collect_item_properties",
@@ -764,7 +764,7 @@ def test_single_skill_blizzard_orb_extraction_and_ranking(monkeypatch: pytest.Mo
         "d2savior.optimizer.extract.collect_item_properties",
         lambda *_a, **_kw: [(83, 0, [1, 2]), (107, 0, [59, 3]), (107, 0, [65, 1])],
     )
-    orb_spec = _item_to_spec(orb, "test", resolver, 0x63, char_level=99)
+    orb_spec = item_to_spec(orb, "test", resolver, 0x63, char_level=99)
     assert isinstance(orb_spec, ItemSpec)
     assert orb_spec.sorc_skills == 2
     assert orb_spec.blizz_skills == 3
@@ -963,7 +963,7 @@ def test_cold_sunder_charm_extraction_and_optimizer_fallback(
         "collect_item_properties",
         lambda *_a, **_kw: [(187, 1, ()), (43, -75, ())],
     )
-    spec = _item_to_spec(dummy_item, "sork Inv", resolver, 105, 85)
+    spec = item_to_spec(dummy_item, "sork Inv", resolver, 105, 85)
     assert isinstance(spec, CharmSpec)
     assert spec.cold_sunder is True
     assert spec.cr == -75
@@ -1102,7 +1102,7 @@ def test_paladin_prop_extraction_and_detect_spec(monkeypatch: pytest.MonkeyPatch
     assert detect_paladin_spec(mule) == "charge"
 
     dummy_item = next(
-        it for it in mule.item_list.items if _classify_slot(it, d2r, char_class=3) is not None
+        it for it in mule.item_list.items if classify_slot(it, d2r, char_class=3) is not None
     )
     fake_props = [
         (83, 0, [3, 2]),  # +2 Paladin Skills

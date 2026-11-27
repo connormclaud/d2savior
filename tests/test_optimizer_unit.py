@@ -17,23 +17,23 @@ from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash, StashTab
 from d2savior.core.stats import compute_anya_resist_bonus, compute_paladin_passive_max_res
 from d2savior.optimizer.common import (
-    _item_cta_bo,
-    _item_levelreq,
     _long_name_levelreq,
+    char_item_locality_rank,
     detect_cta_bo_bonus,
+    format_item_location,
+    item_cta_bo,
+    item_levelreq,
     validate_paladin,
     validate_sorceress,
     validate_supported_class,
 )
 from d2savior.optimizer.extract import (
-    _char_item_locality_rank,
-    _classify_slot,
     _effective_req,
     _extract_set_bonuses,
-    _format_item_location,
-    _item_to_spec,
     _resolve_item_set_info,
+    classify_slot,
     extract_pool,
+    item_to_spec,
 )
 from d2savior.optimizer.extract_props import (
     _apply_paladin_prop,
@@ -43,12 +43,12 @@ from d2savior.optimizer.extract_props import (
 )
 from d2savior.optimizer.native import BuildResult, CharmSpec
 from d2savior.optimizer.paladin import (
-    _build_paladin_baseline,
     _describe_lower_fhr_tradeoff,
     _describe_paladin_tradeoff,
     _format_opt1_label,
     _result_dedup_key,
     _step_below_bp,
+    build_paladin_baseline,
     optimize_paladin_leveling,
     paladin_offense_profile,
     paladin_primary_skill_info,
@@ -390,14 +390,14 @@ def test_common_validators_anya_levelreq_and_cta_bo(monkeypatch: pytest.MonkeyPa
     rare_item.item_info = ItemInfo()
     rare_item.item_info.ext_info = ExtItemInfo()
     rare_item.item_info.ext_info.rare_name = ln
-    assert _item_levelreq(rare_item, d2r) == expected_rare
+    assert item_levelreq(rare_item, d2r) == expected_rare
 
     craft_item = D2Item()
     craft_item.type_name = b"rin "
     craft_item.item_info = ItemInfo()
     craft_item.item_info.ext_info = ExtItemInfo()
     craft_item.item_info.ext_info.craft_name = ln
-    assert _item_levelreq(craft_item, d2r) == expected_rare + 10 + 3 * 2
+    assert item_levelreq(craft_item, d2r) == expected_rare + 10 + 3 * 2
 
     # Runeword without populated gem_items falls back to runeword rune_codes
     rw_id = next(iter(d2r.data.runewords))
@@ -407,7 +407,7 @@ def test_common_validators_anya_levelreq_and_cta_bo(monkeypatch: pytest.MonkeyPa
     rw_item.item_info = ItemInfo()
     rw_item.item_info.ext_info = ExtItemInfo()
     rw_item.item_info.ext_info.rune_id = rw_id
-    assert _item_levelreq(rw_item, d2r) >= 0
+    assert item_levelreq(rw_item, d2r) >= 0
 
     # CTA Battle Orders detection across chars and stashes (including empty tab and max_level filter)
     cta_a = D2Item()
@@ -435,13 +435,13 @@ def test_common_validators_anya_levelreq_and_cta_bo(monkeypatch: pytest.MonkeyPa
         return []
 
     monkeypatch.setattr("d2savior.optimizer.common.collect_item_properties", _fake_props)
-    assert _item_cta_bo(plain, d2r, 0x63) is None
-    assert _item_cta_bo(cta_a, d2r, 0x63) == 5
+    assert item_cta_bo(plain, d2r, 0x63) is None
+    assert item_cta_bo(cta_a, d2r, 0x63) == 5
     assert detect_cta_bo_bonus([sork], [stash], resolver, default=4) == 7
 
     # max_level filter skips items above threshold and falls back to default
     monkeypatch.setattr(
-        "d2savior.optimizer.common._item_levelreq",
+        "d2savior.optimizer.common.item_levelreq",
         lambda it, _res: 57 if it in (cta_a, cta_b) else 1,
     )
     assert detect_cta_bo_bonus([sork], [stash], resolver, max_level=30, default=0) == 0
@@ -744,7 +744,7 @@ def test_paladin_baseline_presets_and_leveling_flow(monkeypatch: pytest.MonkeyPa
 
     _patch_fake_constraints(monkeypatch)
 
-    baseline, lvl, diff, spec = _build_paladin_baseline(
+    baseline, lvl, diff, spec = build_paladin_baseline(
         mule,
         spec=None,
         max_charm_slots=20,
@@ -760,7 +760,7 @@ def test_paladin_baseline_presets_and_leveling_flow(monkeypatch: pytest.MonkeyPa
     assert baseline.character.bo_base_bonus == 0
 
     with pytest.raises(ValueError, match="Unknown Paladin spec"):
-        _build_paladin_baseline(
+        build_paladin_baseline(
             mule,
             spec="bogus",
             max_charm_slots=20,
@@ -1126,56 +1126,56 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
     resolver = GameDataResolver.load()
     d2r = resolver.for_version(0x63)
 
-    # _format_item_location and _char_item_locality_rank
+    # format_item_location and char_item_locality_rank
     it = D2Item()
     it.location = ItemLocation.EQUIPPED.value
     it.position = EquipSlot.WEAPON_I.value
-    assert _format_item_location("hero", it) == "hero Equipped"
-    assert _char_item_locality_rank(it) == 0
+    assert format_item_location("hero", it) == "hero Equipped"
+    assert char_item_locality_rank(it) == 0
 
     it.position = EquipSlot.WEAPON_II.value
-    assert _format_item_location("hero", it) == "hero Swap"
-    assert _char_item_locality_rank(it) == 1
+    assert format_item_location("hero", it) == "hero Swap"
+    assert char_item_locality_rank(it) == 1
 
     # When Weapon Set II is active, Weapon I / Shield I are swap slots and Weapon II / Shield II are equipped.
     w2_swap = (EquipSlot.WEAPON_I, EquipSlot.SHIELD_I)
-    assert _format_item_location("hero", it, swap_slots=w2_swap) == "hero Equipped"
-    assert _char_item_locality_rank(it, swap_slots=w2_swap) == 0
+    assert format_item_location("hero", it, swap_slots=w2_swap) == "hero Equipped"
+    assert char_item_locality_rank(it, swap_slots=w2_swap) == 0
     it.position = EquipSlot.WEAPON_I.value
-    assert _format_item_location("hero", it, swap_slots=w2_swap) == "hero Swap"
-    assert _char_item_locality_rank(it, swap_slots=w2_swap) == 1
+    assert format_item_location("hero", it, swap_slots=w2_swap) == "hero Swap"
+    assert char_item_locality_rank(it, swap_slots=w2_swap) == 1
 
     it.location = ItemLocation.STORED.value
     it.stored_in = StoredIn.INVENTORY.value
-    assert _format_item_location("hero", it) == "hero Inv"
-    assert _char_item_locality_rank(it) == 2
+    assert format_item_location("hero", it) == "hero Inv"
+    assert char_item_locality_rank(it) == 2
 
     it.stored_in = StoredIn.STASH.value
-    assert _format_item_location("hero", it) == "hero Stash"
-    assert _char_item_locality_rank(it) == 3
+    assert format_item_location("hero", it) == "hero Stash"
+    assert char_item_locality_rank(it) == 3
 
     it.stored_in = StoredIn.CUBE.value
-    assert _format_item_location("hero", it) == "hero"
-    assert _char_item_locality_rank(it) == 4
+    assert format_item_location("hero", it) == "hero"
+    assert char_item_locality_rank(it) == 4
 
     # _effective_req
     assert _effective_req(0, True, -20) == 0
     assert _effective_req(100, False, 0) == 100
     assert _effective_req(100, True, -15) == 76
 
-    # _classify_slot edge cases
+    # classify_slot edge cases
     unknown = D2Item()
     unknown.type_name = b"zzzz"
-    assert _classify_slot(unknown, d2r) is None
+    assert classify_slot(unknown, d2r) is None
     potion = D2Item()
     potion.type_name = b"hp1 "
-    assert _classify_slot(potion, d2r) is None
+    assert classify_slot(potion, d2r) is None
     amu = D2Item()
     amu.type_name = b"amu "
-    assert _classify_slot(amu, d2r) == ("amulet", 0, 0)
+    assert classify_slot(amu, d2r) == ("amulet", 0, 0)
     ring = D2Item()
     ring.type_name = b"rin "
-    assert _classify_slot(ring, d2r) == ("ring", 0, 0)
+    assert classify_slot(ring, d2r) == ("ring", 0, 0)
 
     # _apply_sorc_prop, _apply_paladin_prop, _apply_props_to_acc (defense props)
     sorc_acc = _PropAcc()
@@ -1220,7 +1220,7 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
     )
     assert def_acc.defense > 40
 
-    # Mock native ItemSpec & CharmSpec to test _item_to_spec, set bonuses, and extract_pool
+    # Mock native ItemSpec & CharmSpec to test item_to_spec, set bonuses, and extract_pool
     monkeypatch.setattr("d2savior.optimizer.extract.ItemSpec", _FakeItemSpec)
     monkeypatch.setattr("d2savior.optimizer.extract.CharmSpec", _FakeCharmSpec)
     monkeypatch.setattr("d2savior.optimizer.extract_props.ItemSpec", _FakeItemSpec)
@@ -1228,7 +1228,7 @@ def test_extract_pure_helpers_and_pool_with_stubs(monkeypatch: pytest.MonkeyPatc
 
     sock_it = D2Item()
     sock_it.location = ItemLocation.SOCKET.value
-    assert _item_to_spec(sock_it, "loc", d2r, 0x63, 90) is None
+    assert item_to_spec(sock_it, "loc", d2r, 0x63, 90) is None
 
     # Set bonuses extraction
     set_it = D2Item()
@@ -1349,7 +1349,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
         lambda *a, **kw: [(17, 200, [200]), (18, 200, [200])],
     )
     assert (
-        _item_to_spec(
+        item_to_spec(
             eth_wep,
             "loc",
             d2r,
@@ -1361,7 +1361,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
         )
         is None
     )
-    kept_opt = _item_to_spec(
+    kept_opt = item_to_spec(
         eth_wep,
         "loc",
         d2r,
@@ -1376,7 +1376,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     assert kept_opt.name.endswith(" (eth)")
 
     # Breakable eth weapon is still kept when its slot is in skip_useful_slots (--keep-gear / weapon)
-    kept_slot = _item_to_spec(
+    kept_slot = item_to_spec(
         eth_wep,
         "loc",
         d2r,
@@ -1394,7 +1394,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
         "d2savior.optimizer.extract.collect_item_properties",
         lambda *a, **kw: [(17, 200, [200]), (152, 1, [1])],
     )
-    indes_opt = _item_to_spec(
+    indes_opt = item_to_spec(
         eth_wep,
         "loc",
         d2r,
@@ -1413,7 +1413,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
         lambda *a, **kw: [(17, 200, [200]), (105, 20, [20])],
     )
     assert (
-        _item_to_spec(
+        item_to_spec(
             eth_wep,
             "loc",
             d2r,
@@ -1428,7 +1428,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     eth_pb = D2Item()
     eth_pb.type_name = b"7cr "
     eth_pb.is_ethereal = True
-    pb_spec = _item_to_spec(
+    pb_spec = item_to_spec(
         eth_pb,
         "loc",
         d2r,
@@ -1443,7 +1443,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
 
     # Breakable eth caster weapon is still kept for Sorceress and Hammerdin.
     assert isinstance(
-        _item_to_spec(
+        item_to_spec(
             eth_wep,
             "loc",
             d2r,
@@ -1454,7 +1454,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
         _FakeItemSpec,
     )
     assert isinstance(
-        _item_to_spec(
+        item_to_spec(
             eth_wep,
             "loc",
             d2r,
@@ -1489,7 +1489,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
             (int(CharClass.PALADIN), "smite", "smite"),
         ):
             assert (
-                _item_to_spec(
+                item_to_spec(
                     eth_arm,
                     "loc",
                     d2r,
@@ -1501,7 +1501,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
                 )
                 is None
             )
-        kept_arm = _item_to_spec(
+        kept_arm = item_to_spec(
             eth_arm,
             "loc",
             d2r,
@@ -1520,7 +1520,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
     eth_rep = D2Item()
     eth_rep.type_name = b"lrg "
     eth_rep.is_ethereal = True
-    rep_spec = _item_to_spec(eth_rep, "loc", d2r, 0x69, 90, char_class=int(CharClass.PALADIN))
+    rep_spec = item_to_spec(eth_rep, "loc", d2r, 0x69, 90, char_class=int(CharClass.PALADIN))
     assert isinstance(rep_spec, _FakeItemSpec)
     assert rep_spec.name.endswith(" (eth)")
 
@@ -1528,7 +1528,7 @@ def test_split_skill_reporting_eth_filter_and_flat_damage(
         "d2savior.optimizer.extract.collect_item_properties",
         lambda *a, **kw: [(39, 25, [25]), (152, 1, [1])],  # Indestructible
     )
-    ind_spec = _item_to_spec(eth_rep, "loc", d2r, 0x69, 90, char_class=int(CharClass.SORCERESS))
+    ind_spec = item_to_spec(eth_rep, "loc", d2r, 0x69, 90, char_class=int(CharClass.SORCERESS))
     assert isinstance(ind_spec, _FakeItemSpec)
     assert ind_spec.name.endswith(" (eth)")
 
@@ -1919,7 +1919,7 @@ def test_format_paladin_option_lines_melee_action_labels() -> None:
 
 def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
     from d2savior.cli_optimize import cmd_optimize
-    from d2savior.optimizer.paladin import _build_paladin_baseline
+    from d2savior.optimizer.paladin import build_paladin_baseline
 
     resolver = GameDataResolver.load()
     ok_p, smite, _ = parse_d2s_file(
@@ -1930,7 +1930,7 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
     lvl = smite.player_stats.level or smite.char_level
 
     _patch_fake_constraints(monkeypatch)
-    b_champ, _, _, _ = _build_paladin_baseline(
+    b_champ, _, _, _ = build_paladin_baseline(
         smite,
         spec="holy-fire",
         max_charm_slots=23,
@@ -1940,7 +1940,7 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
         bo_base_bonus=0,
         keep_equipped=False,
     )
-    b_trash, _, _, _ = _build_paladin_baseline(
+    b_trash, _, _, _ = build_paladin_baseline(
         smite,
         spec="holy-fire",
         max_charm_slots=23,
@@ -1951,7 +1951,7 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
         keep_equipped=False,
         target_type="trash",
     )
-    b_boss, _, _, _ = _build_paladin_baseline(
+    b_boss, _, _, _ = build_paladin_baseline(
         smite,
         spec="holy-fire",
         max_charm_slots=23,
@@ -1973,7 +1973,7 @@ def test_paladin_target_type_baseline_and_cli_parsing(monkeypatch: pytest.Monkey
 
     bad_target: Any = "uber"
     with pytest.raises(ValueError, match="Unknown target_type"):
-        _build_paladin_baseline(
+        build_paladin_baseline(
             smite,
             spec="holy-fire",
             max_charm_slots=23,
@@ -2170,7 +2170,7 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
         if it.code_str.strip().lower() == "fla"
     )
     monkeypatch.setattr("d2savior.optimizer.extract_props.ItemSpec", _FakeItemSpec)
-    flail_spec = _item_to_spec(
+    flail_spec = item_to_spec(
         black_flail,
         "Stash",
         resolver,
@@ -2192,7 +2192,7 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
     monkeypatch.setattr(st_pl, "get_parsed_properties", lambda *_a, **_kw: [(39, 35, [35])])
     st_tp.property_list = st_pl
     st_shield.item_info.type_specific_info = st_tp
-    st_spec = _item_to_spec(
+    st_spec = item_to_spec(
         st_shield,
         "loc",
         resolver,
@@ -2204,7 +2204,7 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
     )
     assert isinstance(st_spec, _FakeItemSpec)
     assert st_spec.flat_phys_2x == 22 + 70
-    st_zeal_spec = _item_to_spec(
+    st_zeal_spec = item_to_spec(
         st_shield,
         "loc",
         resolver,
@@ -2316,7 +2316,7 @@ def test_defense_block_and_cold_armor_extraction(monkeypatch: pytest.MonkeyPatch
     )
     tp.property_list = sp
     shield_item.item_info.type_specific_info = tp
-    spec = _item_to_spec(
+    spec = item_to_spec(
         shield_item,
         "Stash",
         d2r,
@@ -2350,7 +2350,7 @@ def test_defense_block_and_cold_armor_extraction(monkeypatch: pytest.MonkeyPatch
     )
     amul_tp.property_list = amul_sp
     amul_item.item_info.type_specific_info = amul_tp
-    amul_spec = _item_to_spec(amul_item, "Stash", d2r, 0x63, char_level=85)
+    amul_spec = item_to_spec(amul_item, "Stash", d2r, 0x63, char_level=85)
     assert isinstance(amul_spec, _FakeItemSpec)
     assert amul_spec.defense == 325
 
@@ -2393,7 +2393,7 @@ def test_paladin_passive_max_res_cap_in_alternatives(
     mule.skills.skill_levels[6] = 20  # Holy Fire
 
     _patch_fake_constraints(monkeypatch)
-    baseline, _, _, _ = _build_paladin_baseline(
+    baseline, _, _, _ = build_paladin_baseline(
         mule,
         spec="holy-fire",
         max_charm_slots=20,

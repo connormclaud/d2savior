@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from d2savior.cli import main, parse_d2i_file, parse_d2s_file
-from d2savior.core.enums import CharClass, ItemLocation, ItemQuality
+from d2savior.core.enums import CharClass, EquipSlot, ItemLocation, ItemQuality
 from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
@@ -20,9 +20,14 @@ from d2savior.optimizer import (
     get_socket_quest_status,
     optimize_socket_quests,
 )
+from d2savior.optimizer.common import iter_pool_items
 from d2savior.optimizer.paladin import build_paladin_preset_constraints
 from d2savior.optimizer.presets import resolve_build_expr
-from d2savior.optimizer.socket import SocketCandidateVariant, _pareto_prune_variants
+from d2savior.optimizer.socket_candidates import (
+    SocketCandidateVariant,
+    collect_eligible_items,
+    pareto_prune_variants,
+)
 
 requires_native = pytest.mark.skipif(not HAS_NATIVE, reason="d2savior._native is not built")
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -164,7 +169,7 @@ def test_pareto_prune_preserves_zero_mf_bucket() -> None:
         missing_runes=(),
         spec=ItemSpec("Shako [+Weak]", "helm", "Inv", fr=15, mf=0),
     )
-    pruned = _pareto_prune_variants([v_mf, v_ral, v_weak])
+    pruned = pareto_prune_variants([v_mf, v_ral, v_weak])
     labels = {v.action_label for v in pruned}
     assert labels == {"Jewel (+30% FR, +5% MF)", "Ral Rune"}
 
@@ -399,9 +404,7 @@ def test_socket_sorc_cold_armor_staffmod_and_gear_defense_parity(
     )
     assert norm_sorc is not None
     # Verify socket candidate generation preserves Chilling Armor staffmod (Snowclash) and gear_defense.
-    from d2savior.optimizer.socket import _collect_eligible_items
-
-    eligible = _collect_eligible_items(
+    eligible = collect_eligible_items(
         norm_sorc,
         extra_chars=(),
         stashes=(),
@@ -432,3 +435,179 @@ def test_socket_sorc_cold_armor_staffmod_and_gear_defense_parity(
         baseline.gear_defense == sum(it.defense for it in baseline.items)
         or baseline.gear_defense > 0
     )
+
+
+def test_iter_pool_items_order_swap_cta_and_advanced_stacks(
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=game_data_resolver)
+    _, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=game_data_resolver)
+    _, stash, _, _ = parse_d2i_file(
+        str(FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=game_data_resolver
+    )
+    assert sork is not None
+    assert mule is not None
+    assert isinstance(stash, SharedStash)
+
+    cta = _make_item("crs", location=ItemLocation.EQUIPPED)
+    cta.position = int(EquipSlot.WEAPON_II)
+    swap_shield = _make_item("uit", location=ItemLocation.EQUIPPED)
+    swap_shield.position = int(EquipSlot.SHIELD_II)
+    sork.item_list.items.extend([cta, swap_shield])
+
+    monkeypatch.setattr(
+        "d2savior.optimizer.common.collect_item_properties",
+        lambda it, **_kw: [(97, 0, [149, 4])] if it is cta else [],
+    )
+
+    entries_keep = list(
+        iter_pool_items(
+            sork,
+            extra_chars=[mule],
+            stashes=[stash],
+            resolver=game_data_resolver,
+            skip_swap_cta=False,
+        )
+    )
+    entries_skip = list(
+        iter_pool_items(
+            sork,
+            extra_chars=[mule],
+            stashes=[stash],
+            resolver=game_data_resolver,
+            skip_swap_cta=True,
+        )
+    )
+
+    source_indices = [e.source_idx for e in entries_skip]
+    assert source_indices == sorted(source_indices)
+    assert set(source_indices) == {0, 1, 2}
+
+    keep_items = [e.item for e in entries_keep]
+    skip_items = [e.item for e in entries_skip]
+    assert cta in keep_items
+    assert swap_shield in keep_items
+    assert cta not in skip_items
+    assert swap_shield not in skip_items
+
+    cta_entry = next(e for e in entries_keep if e.item is cta)
+    assert cta_entry.loc == "sork Swap"
+    assert cta_entry.locality_rank == 1
+    assert cta_entry.is_primary is True
+    assert cta_entry.is_active_primary is False
+
+    active_eq = [e for e in entries_skip if e.is_active_primary]
+    assert active_eq
+    assert all(e.locality_rank == 0 and e.source_idx == 0 for e in active_eq)
+
+    stash_entries = [e for e in entries_skip if e.source_idx == 1]
+    assert all(e.stack_count > 0 for e in stash_entries)
+    tal_entries = [e for e in stash_entries if e.item.code_str.strip() == "r07"]
+    assert any(e.stack_count == 15 for e in tal_entries)
+    assert all(e.item.code_str.strip() != "r31" for e in stash_entries)
+
+    extra_entries = [e for e in entries_skip if e.source_idx == 2]
+    assert extra_entries
+    assert all(not e.is_primary and not e.is_active_primary for e in extra_entries)
+    assert all(not e.is_stash and e.locality_rank >= 100 for e in extra_entries)
+
+
+def test_iter_pool_items_edge_cases(
+    game_data_resolver: GameDataResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=game_data_resolver)
+    _, mule, _ = parse_d2s_file(str(FIXTURES_DIR / "mule_unique.d2s"), resolver=game_data_resolver)
+    _, smite, _ = parse_d2s_file(str(PAL_FIXTURES_DIR / "smite.d2s"), resolver=game_data_resolver)
+    _, stash1, _, _ = parse_d2i_file(
+        str(FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=game_data_resolver
+    )
+    _, stash2, _, _ = parse_d2i_file(
+        str(PAL_FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=game_data_resolver
+    )
+    assert sork is not None
+    assert mule is not None
+    assert smite is not None
+    assert isinstance(stash1, SharedStash)
+    assert isinstance(stash2, SharedStash)
+
+    # 1. swap slots without CTA are retained even with skip_swap_cta=True; weapon_set=1 flips active set.
+    sork.weapon_set = 1
+    w1_swap = _make_item("crs", location=ItemLocation.EQUIPPED)
+    w1_swap.position = int(EquipSlot.WEAPON_I)
+    w2_active = _make_item("oba", location=ItemLocation.EQUIPPED)
+    w2_active.position = int(EquipSlot.WEAPON_II)
+    sork.item_list.items.extend([w1_swap, w2_active])
+
+    # 2. Extra char swap CTA is skipped while non-swap items are preserved.
+    mule.weapon_set = 0
+    mule_cta = _make_item("crs", location=ItemLocation.EQUIPPED)
+    mule_cta.position = int(EquipSlot.WEAPON_II)
+    mule_swap_shield = _make_item("uit", location=ItemLocation.EQUIPPED)
+    mule_swap_shield.position = int(EquipSlot.SHIELD_II)
+    mule.item_list.items.extend([mule_cta, mule_swap_shield])
+
+    monkeypatch.setattr(
+        "d2savior.optimizer.common.collect_item_properties",
+        lambda it, **_kw: [(97, 0, [149, 3])] if it is mule_cta else [],
+    )
+
+    entries_no_primary_cta = list(
+        iter_pool_items(
+            sork,
+            extra_chars=[mule, smite],
+            stashes=[stash1, stash2],
+            resolver=game_data_resolver,
+            skip_swap_cta=True,
+        )
+    )
+    # sork had no CTA on weapon_set=1 swap (WEAPON_I), so w1_swap is retained as swap and w2_active is active.
+    w1_entry = next(e for e in entries_no_primary_cta if e.item is w1_swap)
+    w2_entry = next(e for e in entries_no_primary_cta if e.item is w2_active)
+    assert w1_entry.loc == "sork Swap"
+    assert w1_entry.is_active_primary is False
+    assert w2_entry.loc == "sork Equipped"
+    assert w2_entry.is_active_primary is True
+
+    # Now make w1_swap a CTA on sork (weapon_set == 1) and verify it is skipped.
+    monkeypatch.setattr(
+        "d2savior.optimizer.common.collect_item_properties",
+        lambda it, **_kw: [(97, 0, [149, 4])] if it in (w1_swap, mule_cta) else [],
+    )
+    entries = list(
+        iter_pool_items(
+            sork,
+            extra_chars=[mule, smite],
+            stashes=[stash1, stash2],
+            resolver=game_data_resolver,
+            skip_swap_cta=True,
+        )
+    )
+    items_yielded = [e.item for e in entries]
+    assert w1_swap not in items_yielded
+    assert w2_active in items_yielded
+    assert mule_cta not in items_yielded
+    assert mule_swap_shield not in items_yielded
+
+    # Multi-stash and multi-extra-char source_idx separation:
+    # primary=0, stash1=1, stash2=2, mule=3, smite=4.
+    source_indices = [e.source_idx for e in entries]
+    assert source_indices == sorted(source_indices)
+    assert set(source_indices) == {0, 1, 2, 3, 4}
+    assert all(e.is_stash for e in entries if e.source_idx in (1, 2))
+    assert all(not e.is_stash for e in entries if e.source_idx in (0, 3, 4))
+    assert all(e.locality_rank >= 100 for e in entries if e.source_idx in (3, 4))
+
+    # 3. primary_char=None omits source_idx=0 and starts stashes at source_idx=1.
+    no_primary = list(
+        iter_pool_items(
+            None,
+            extra_chars=[mule],
+            stashes=[stash1],
+            resolver=game_data_resolver,
+            skip_swap_cta=False,
+        )
+    )
+    assert all(not e.is_primary and not e.is_active_primary for e in no_primary)
+    assert {e.source_idx for e in no_primary} == {1, 2}

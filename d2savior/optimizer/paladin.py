@@ -257,7 +257,7 @@ def paladin_primary_skill_info(char_data: D2SStruct, spec: str) -> tuple[str | N
     return skill_name, base_lvl
 
 
-def _build_paladin_baseline(
+def build_paladin_baseline(
     char_data: D2SStruct,
     *,
     spec: str | None,
@@ -445,7 +445,7 @@ def build_paladin_preset_constraints(
     """Build a `BuildConstraints` profile from a resolved TOML preset for a Paladin."""
     eff_targets = max(1, targets)
     resolved_target_type = _normalize_target_type(target_type)
-    baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
+    baseline, char_level, diff_name, resolved_spec = build_paladin_baseline(
         char_data,
         spec=spec,
         max_charm_slots=max_charm_slots,
@@ -621,7 +621,7 @@ def _format_opt1_label(opt1: BuildResult, *, is_caster: bool) -> str:
     return f"High Breakpoint ({opt1.fhr_bp}% FHR, {frames}f)"
 
 
-def _probe_paladin_opt1(
+def probe_paladin_opt1(
     items: list[ItemSpec],
     charms: list[CharmSpec],
     baseline: CharacterBaseline,
@@ -792,7 +792,7 @@ def optimize_paladin_leveling(
     """Optimize Paladin leveling gear and inventory charms across breakpoint/resist trade-offs."""
     eff_targets = max(1, targets)
     resolved_target_type = _normalize_target_type(target_type)
-    baseline, char_level, diff_name, resolved_spec = _build_paladin_baseline(
+    baseline, char_level, diff_name, resolved_spec = build_paladin_baseline(
         char_data,
         spec=spec,
         max_charm_slots=max_charm_slots,
@@ -853,7 +853,7 @@ def optimize_paladin_leveling(
 
     items_list = list(items)
     charms_list = list(charms)
-    opt1 = _probe_paladin_opt1(
+    opt1 = probe_paladin_opt1(
         items_list,
         charms_list,
         baseline,

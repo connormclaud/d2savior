@@ -1,15 +1,15 @@
-"""Shared optimizer baselines, class validators, level requirements, and CTA BO detection."""
+"""Shared optimizer baselines, class validators, level requirements, and pool traversal."""
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import cast
 
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import CharClass, EquipSlot
+from d2savior.core.enums import CharClass, EquipSlot, ItemLocation, StoredIn
 from d2savior.core.item import D2Item
 from d2savior.core.item_name import LongName
 from d2savior.core.resolver import GameDataResolver
-from d2savior.core.stash import SharedStash
+from d2savior.core.stash import STASH_TAB_TYPE_ADVANCED, SharedStash
 from d2savior.core.stats import collect_item_properties
 from d2savior.optimizer.native import (
     BuildConstraints,
@@ -154,7 +154,7 @@ def _long_name_levelreq(
     return max_req + 10 + 3 * len(reqs) if is_crafted else max_req
 
 
-def _item_levelreq(item: D2Item, resolver: GameDataResolver) -> int:
+def item_levelreq(item: D2Item, resolver: GameDataResolver) -> int:
     """Compute effective level requirement across base, unique/set, affixes, runewords, and sockets."""
     info = resolver.data.get_item(item.code_str.strip().lower())
     req = info.levelreq if info else 0
@@ -184,11 +184,11 @@ def _item_levelreq(item: D2Item, resolver: GameDataResolver) -> int:
                     req = max(req, rune_item.levelreq)
 
     for gem in item.gem_items:
-        req = max(req, _item_levelreq(gem, resolver))
+        req = max(req, item_levelreq(gem, resolver))
     return req
 
 
-def _item_cta_bo(item: D2Item, resolver: GameDataResolver, version: int) -> int | None:
+def item_cta_bo(item: D2Item, resolver: GameDataResolver, version: int) -> int | None:
     """Return `bo_oskill + all_skills` if `item` grants Battle Orders (pid 97), else None."""
     bo_oskill: int | None = None
     all_skills = 0
@@ -198,6 +198,147 @@ def _item_cta_bo(item: D2Item, resolver: GameDataResolver, version: int) -> int 
         elif pid == 127:
             all_skills += params[0] if params else val
     return bo_oskill + all_skills if bo_oskill is not None else None
+
+
+def format_item_location(
+    char_name: str,
+    item: D2Item,
+    swap_slots: tuple[EquipSlot, EquipSlot] = _SWAP_SLOTS,
+) -> str:
+    """Format a character item's human-readable location label."""
+    if item.location == ItemLocation.EQUIPPED:
+        if item.position in swap_slots:
+            return f"{char_name} Swap"
+        return f"{char_name} Equipped"
+    if item.stored_in == StoredIn.STASH:
+        return f"{char_name} Stash"
+    if item.stored_in == StoredIn.INVENTORY:
+        return f"{char_name} Inv"
+    return char_name
+
+
+def char_item_locality_rank(
+    item: D2Item,
+    swap_slots: tuple[EquipSlot, EquipSlot] = _SWAP_SLOTS,
+) -> int:
+    """Return per-character locality rank (0 equipped, 1 swap, 2 inv, 3 stash, 4 other)."""
+    if item.location == ItemLocation.EQUIPPED:
+        return 1 if item.position in swap_slots else 0
+    if item.stored_in == StoredIn.INVENTORY:
+        return 2
+    if item.stored_in == StoredIn.STASH:
+        return 3
+    return 4
+
+
+@dataclass(frozen=True, slots=True)
+class PoolItem:
+    """An item yielded from a character or shared stash during pool traversal."""
+
+    item: D2Item
+    loc: str
+    version: int
+    resolver: GameDataResolver
+    locality_rank: int
+    stack_count: int
+    is_primary: bool
+    is_active_primary: bool
+    is_stash: bool
+    source_idx: int
+
+
+def _iter_char_pool_items(
+    ch: D2SStruct,
+    *,
+    is_primary: bool,
+    source_idx: int,
+    resolver: GameDataResolver,
+    skip_swap_cta: bool,
+) -> Iterator[PoolItem]:
+    ver = ch.version or 0x63
+    ver_res = resolver.for_version(ver)
+    char_name = ch.get_char_name()
+    swap_slots = inactive_weapon_slots(ch)
+    has_swap_cta = skip_swap_cta and any(
+        it.location == ItemLocation.EQUIPPED
+        and it.position in swap_slots
+        and item_cta_bo(it, ver_res, ver) is not None
+        for it in ch.item_list.items
+    )
+    rank_offset = 0 if is_primary else 100
+    for it in ch.item_list.items:
+        if has_swap_cta and it.location == ItemLocation.EQUIPPED and it.position in swap_slots:
+            continue
+        is_active_primary = (
+            is_primary and it.location == ItemLocation.EQUIPPED and it.position not in swap_slots
+        )
+        yield PoolItem(
+            item=it,
+            loc=format_item_location(char_name, it, swap_slots=swap_slots),
+            version=ver,
+            resolver=ver_res,
+            locality_rank=rank_offset + char_item_locality_rank(it, swap_slots=swap_slots),
+            stack_count=1,
+            is_primary=is_primary,
+            is_active_primary=is_active_primary,
+            is_stash=False,
+            source_idx=source_idx,
+        )
+
+
+def iter_pool_items(
+    primary_char: D2SStruct | None,
+    extra_chars: Sequence[D2SStruct] = (),
+    stashes: Sequence[SharedStash] = (),
+    resolver: GameDataResolver | None = None,
+    *,
+    skip_swap_cta: bool = False,
+) -> Iterator[PoolItem]:
+    """Yield items across `primary_char`, `stashes`, and `extra_chars` with locality metadata."""
+    if resolver is None:
+        resolver = GameDataResolver.load()
+    if primary_char is not None:
+        yield from _iter_char_pool_items(
+            primary_char,
+            is_primary=True,
+            source_idx=0,
+            resolver=resolver,
+            skip_swap_cta=skip_swap_cta,
+        )
+    for stash_idx, stash in enumerate(stashes):
+        stash_source_idx = 1 + stash_idx
+        for idx, tab in enumerate(stash.tabs, start=1):
+            if tab.items is None:
+                continue
+            ver = tab.item_format or 0x63
+            ver_res = resolver.for_version(ver)
+            loc = f"Stash Tab {idx}"
+            is_adv = tab.tab_type == STASH_TAB_TYPE_ADVANCED
+            for it in tab.items.items:
+                cnt = it.stash_stack_size if is_adv else 1
+                if is_adv and cnt <= 0:
+                    continue
+                yield PoolItem(
+                    item=it,
+                    loc=loc,
+                    version=ver,
+                    resolver=ver_res,
+                    locality_rank=10 + idx,
+                    stack_count=cnt,
+                    is_primary=False,
+                    is_active_primary=False,
+                    is_stash=True,
+                    source_idx=stash_source_idx,
+                )
+    extra_base_idx = 1 + len(stashes)
+    for i, ch in enumerate(extra_chars):
+        yield from _iter_char_pool_items(
+            ch,
+            is_primary=False,
+            source_idx=extra_base_idx + i,
+            resolver=resolver,
+            skip_swap_cta=skip_swap_cta,
+        )
 
 
 def detect_cta_bo_bonus(
@@ -210,27 +351,14 @@ def detect_cta_bo_bonus(
 ) -> int:
     """Return max Battle Orders bonus (`oskill + all_skills`) from any CTA in pool, else `default`."""
     best: int | None = None
-
-    def scan(item: D2Item, version: int) -> None:
-        nonlocal best
-        ver_res = resolver.for_version(version)
-        if max_level is not None and _item_levelreq(item, ver_res) > max_level:
-            return
-        bonus = _item_cta_bo(item, ver_res, version)
+    for entry in iter_pool_items(
+        None, extra_chars=chars, stashes=stashes, resolver=resolver, skip_swap_cta=False
+    ):
+        if max_level is not None and item_levelreq(entry.item, entry.resolver) > max_level:
+            continue
+        bonus = item_cta_bo(entry.item, entry.resolver, entry.version)
         if bonus is not None and (best is None or bonus > best):
             best = bonus
-
-    for char in chars:
-        ver = char.version or 0x63
-        for it in char.item_list.items:
-            scan(it, ver)
-    for stash in stashes:
-        for tab in stash.tabs:
-            if tab.items is None:
-                continue
-            ver = tab.item_format or 0x63
-            for it in tab.items.items:
-                scan(it, ver)
     return best if best is not None else default
 
 

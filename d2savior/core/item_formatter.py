@@ -242,7 +242,7 @@ def _format_parsed_properties(
     )
 
 
-def _format_summary_properties(
+def format_summary_properties(
     parsed_props: list[tuple[int, int, list[int]]],
     resolver: GameDataResolver,
     version: int = 0x63,
@@ -376,7 +376,7 @@ def format_item_summary(
 
     props = []
     if include_properties and tp:
-        props = _format_summary_properties(
+        props = format_summary_properties(
             all_parsed,
             resolver=resolver,
             version=version,

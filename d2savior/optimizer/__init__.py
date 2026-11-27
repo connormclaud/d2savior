@@ -44,18 +44,20 @@ from d2savior.optimizer.paladin import (
 )
 from d2savior.optimizer.presets import ConstraintOverrides, list_presets, resolve_build_expr
 from d2savior.optimizer.report import format_build_report, format_paladin_leveling_report
-from d2savior.optimizer.socket import (
-    PresetSocketReport,
+from d2savior.optimizer.socket_candidates import (
     SocketableOption,
     SocketCandidateVariant,
-    SocketQuestReport,
-    SocketUpgradeResult,
     extract_socketables,
     find_unclaimed_socket_quests,
-    format_socket_report,
     get_larzuk_socket_range,
     get_socket_quest_status,
-    optimize_socket_quests,
+)
+from d2savior.optimizer.socket_eval import optimize_socket_quests
+from d2savior.optimizer.socket_report import (
+    PresetSocketReport,
+    SocketQuestReport,
+    SocketUpgradeResult,
+    format_socket_report,
 )
 from d2savior.optimizer.sorc import (
     BUILD_PRESET_ALIASES,

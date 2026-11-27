@@ -723,31 +723,31 @@ class TestSummaryMode:
         assert "Mercenary Level:" not in unknown_full
 
     def test_summary_properties_collapse_damage_variants(self, game_data_resolver):
-        from d2savior.core.item_formatter import _format_summary_properties
+        from d2savior.core.item_formatter import format_summary_properties
 
         # Max damage only (1H/2H/Throw identical)
-        max_only = _format_summary_properties(
+        max_only = format_summary_properties(
             [(19, 33, [33]), (22, 6, [6]), (24, 6, [6]), (160, 6, [6])],
             resolver=game_data_resolver,
         )
         assert max_only == ["+33 to Attack Rating", "+6 to Maximum Damage"]
 
         # Min damage only (1H/2H/Throw identical)
-        min_only = _format_summary_properties(
+        min_only = format_summary_properties(
             [(2, 8, [8]), (21, 2, [2]), (23, 2, [2]), (159, 2, [2])],
             resolver=game_data_resolver,
         )
         assert min_only == ["+8 to Dexterity", "+2 to Minimum Damage"]
 
         # Matching min + max (1H + Throw) combines into Adds X-Y damage
-        t_revenge = _format_summary_properties(
+        t_revenge = format_summary_properties(
             [(21, 25, [25]), (22, 50, [50]), (159, 25, [25]), (160, 50, [50])],
             resolver=game_data_resolver,
         )
         assert t_revenge == ["Adds 25-50 damage"]
 
         # Matching min + max (all 6 stats) and reverse max-before-min order
-        all_six = _format_summary_properties(
+        all_six = format_summary_properties(
             [
                 (21, 3, [3]),
                 (23, 3, [3]),
@@ -760,14 +760,14 @@ class TestSummaryMode:
         )
         assert all_six == ["Adds 3-8 damage"]
 
-        reversed_pair = _format_summary_properties(
+        reversed_pair = format_summary_properties(
             [(22, 25, [25]), (21, 15, [15])],
             resolver=game_data_resolver,
         )
         assert reversed_pair == ["Adds 15-25 damage"]
 
         # Distinct throw values remain visible
-        diff_throw = _format_summary_properties(
+        diff_throw = format_summary_properties(
             [(21, 10, [10]), (22, 20, [20]), (159, 12, [12]), (160, 25, [25])],
             resolver=game_data_resolver,
         )
@@ -778,35 +778,35 @@ class TestSummaryMode:
         ]
 
         # Pre-summed 1H + dmg-min on one property list collapses to canonical 1H total
-        diff_2h = _format_summary_properties(
+        diff_2h = format_summary_properties(
             [(21, 14, [14]), (23, 5, [5]), (159, 5, [5])],
             resolver=game_data_resolver,
         )
         assert diff_2h == ["+14 to Minimum Damage"]
 
         # Pre-summed 1H dmg-norm + dmg-max on one property list collapses duplicate 2H/Throw max
-        mixed_1h = _format_summary_properties(
+        mixed_1h = format_summary_properties(
             [(21, 12, [12]), (22, 53, [53]), (24, 8, [8]), (160, 8, [8])],
             resolver=game_data_resolver,
         )
         assert mixed_1h == ["Adds 12-53 damage"]
 
         # Pre-summed 2H dmg-norm + dmg-min on one property list collapses duplicate 1H/Throw min
-        mixed_2h = _format_summary_properties(
+        mixed_2h = format_summary_properties(
             [(21, 6, [6]), (23, 15, [15]), (24, 30, [30]), (159, 6, [6])],
             resolver=game_data_resolver,
         )
         assert mixed_2h == ["Adds 15-30 damage"]
 
         # 2H min (23) + 1H max (22, e.g. Ith Rune) combine cleanly
-        bow_plus_ith = _format_summary_properties(
+        bow_plus_ith = format_summary_properties(
             [(23, 10, [10]), (22, 15, [15])],
             resolver=game_data_resolver,
         )
         assert bow_plus_ith == ["Adds 10-15 damage"]
 
         # Inverted min > max does not emit nonsensical "Adds 9-4 damage"
-        min_gt_max = _format_summary_properties(
+        min_gt_max = format_summary_properties(
             [
                 (21, 9, [9]),
                 (23, 9, [9]),
@@ -821,7 +821,7 @@ class TestSummaryMode:
 
         # Localized damage range formatting (ruRU)
         resolver_ru = GameDataResolver.load(lang_key="ruRU")
-        assert _format_summary_properties(
+        assert format_summary_properties(
             [(21, 25, [25]), (22, 50, [50])],
             resolver=resolver_ru,
         ) == ["+25–50 урона"]
@@ -907,12 +907,12 @@ class TestSummaryMode:
     def test_elemental_and_poison_grouping(self, game_data_resolver):
         from d2savior.core.item_formatter import (
             _format_property_entries,
-            _format_summary_properties,
+            format_summary_properties,
         )
 
         # Poison equal rate (Tal Rune: 154 rate * 125 frames / 256 = 75 over 5s)
         tal_props = [(57, 154, [154]), (58, 154, [154]), (59, 125, [125])]
-        assert _format_summary_properties(tal_props, resolver=game_data_resolver) == [
+        assert format_summary_properties(tal_props, resolver=game_data_resolver) == [
             "+75 poison damage over 5 seconds"
         ]
         assert _format_property_entries(tal_props, resolver=game_data_resolver) == [
@@ -921,19 +921,19 @@ class TestSummaryMode:
 
         # Foul Small Charm (128 rate * 100 frames / 256 = 50 over 4s), no stat 88
         foul_props = [(57, 128, [128]), (58, 128, [128]), (59, 100, [100])]
-        assert _format_summary_properties(foul_props, resolver=game_data_resolver) == [
+        assert format_summary_properties(foul_props, resolver=game_data_resolver) == [
             "+50 poison damage over 4 seconds"
         ]
 
         # Asymmetric poison range (min_rate=103, max_rate=205, 50 frames -> 20-40 over 2s)
         range_poison = [(57, 103, [103]), (58, 205, [205]), (59, 50, [50])]
-        assert _format_summary_properties(range_poison, resolver=game_data_resolver) == [
+        assert format_summary_properties(range_poison, resolver=game_data_resolver) == [
             "Adds 20-40 poison damage over 2 seconds"
         ]
 
         # Legacy 0x60 single-tuple poison format [min_rate, max_rate, frames]
         legacy_poison = [(57, 0, [128, 128, 100, 0])]
-        assert _format_summary_properties(legacy_poison, resolver=game_data_resolver) == [
+        assert format_summary_properties(legacy_poison, resolver=game_data_resolver) == [
             "+50 poison damage over 4 seconds"
         ]
 
@@ -952,9 +952,9 @@ class TestSummaryMode:
             "Adds 1-50 lightning damage",
             "Adds 3-14 cold damage",
         ]
-        assert _format_summary_properties(elem_props, resolver=game_data_resolver) == expected_elem
+        assert format_summary_properties(elem_props, resolver=game_data_resolver) == expected_elem
         assert _format_property_entries(elem_props, resolver=game_data_resolver) == expected_elem
-        assert _format_summary_properties(
+        assert format_summary_properties(
             [(48, 12, [12]), (49, 12, [12])], resolver=game_data_resolver
         ) == ["+12 fire damage"]
 
@@ -974,10 +974,10 @@ class TestSummaryMode:
 
         # Localized ruRU poison and elemental range formatting
         resolver_ru = GameDataResolver.load(lang_key="ruRU")
-        assert _format_summary_properties(tal_props, resolver=resolver_ru) == [
+        assert format_summary_properties(tal_props, resolver=resolver_ru) == [
             "+75 урона от яда за 5 сек."
         ]
-        assert _format_summary_properties(elem_props, resolver=resolver_ru) == [
+        assert format_summary_properties(elem_props, resolver=resolver_ru) == [
             "+5–30 урона от огня",
             "+1–50 урона от молнии",
             "+3–14 урона от льда",
@@ -986,12 +986,12 @@ class TestSummaryMode:
     def test_enhanced_damage_collapse_and_ohm_rune(self, game_data_resolver):
         from d2savior.core.item_formatter import (
             _format_property_entries,
-            _format_summary_properties,
+            format_summary_properties,
         )
 
         # Equal 17 + 18 collapse into +% Enhanced Damage in both summary and full modes
         equal_ed = [(17, 64, [64]), (18, 64, [64])]
-        assert _format_summary_properties(equal_ed, resolver=game_data_resolver) == [
+        assert format_summary_properties(equal_ed, resolver=game_data_resolver) == [
             "+64% Enhanced Damage"
         ]
         assert _format_property_entries(equal_ed, resolver=game_data_resolver) == [
@@ -999,18 +999,18 @@ class TestSummaryMode:
         ]
 
         # Unequal 17 + 18 remain separate
-        assert _format_summary_properties(
+        assert format_summary_properties(
             [(17, 64, [64]), (18, 30, [30])], resolver=game_data_resolver
         ) == ["+64% Enhanced Maximum Damage", "+30% Enhanced Minimum Damage"]
 
         # Legacy 0x60 single-tuple [max%, min%] when equal
-        assert _format_summary_properties(
+        assert format_summary_properties(
             [(17, 0, [64, 64, 0, 0])], resolver=game_data_resolver
         ) == ["+64% Enhanced Damage"]
 
         # Localized ruRU
         resolver_ru = GameDataResolver.load(lang_key="ruRU")
-        assert _format_summary_properties(equal_ed, resolver=resolver_ru) == ["+64% к урону"]
+        assert format_summary_properties(equal_ed, resolver=resolver_ru) == ["+64% к урону"]
 
         # Ohm Rune (r27) in weapon contributes both stat 17 (+50%) and stat 18 (+50%)
         class _StaticPropertyList(PropertyList):
