@@ -11,7 +11,7 @@ from d2savior.core.loader import GameData
 from d2savior.core.models import ItemMetaData, VersionData
 from d2savior.core.obitstream import OBitStream
 from d2savior.core.property_list import PropertyList
-from d2savior.core.resolver import GameDataResolver
+from d2savior.core.resolver import GameDataResolver, resolve_version_data
 from d2savior.core.stash import GEM_CODES, MATERIAL_CODES, RUNE_CODES
 from d2savior.core.versions import (
     VALID_VERSIONS as VALID_VERSIONS,
@@ -168,15 +168,27 @@ class ExtItemInfo:
         )
 
 
+_D2R_ITEM_FLAGS: tuple[tuple[str, int], ...] = (
+    ("is_identified", 0x00000010),
+    ("_has_quantity", 0x00000020),
+    ("is_socketed", 0x00000800),
+    ("is_ear", 0x00010000),
+    ("is_newbie", 0x00020000),
+    ("is_simple", 0x00200000),
+    ("is_ethereal", 0x00400000),
+    ("is_personalized", 0x01000000),
+    ("is_runeword", 0x04000000),
+    ("is_chronicle", 0x10000000),
+    ("is_chronicle_compact", 0x20000000),
+)
+
+
 def _resolve_version_data(
     data: VersionData | GameData | GameDataResolver | None, version: int
 ) -> VersionData:
-    if isinstance(data, GameDataResolver):
-        return data.game_data.for_version(version)
-    if isinstance(data, GameData):
-        return data.for_version(version)
-    if data is not None:
-        return data
+    vd = resolve_version_data(data, version)
+    if vd is not None:
+        return vd
     raise ValueError(
         f"VersionData or GameData is required to parse item properties for version {version:#x}"
     )
@@ -704,8 +716,7 @@ class D2Item:
             data = data.game_data
         if io.is_writing and not is_valid_version(self.version):
             self.version = version
-        vd = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
-        self._data = vd
+        self._data = resolve_version_data(data, version, self._data)
         if is_d2r(version):
             self._codec_d2r(io, version, magic_flag, data=data)
         else:
@@ -751,15 +762,11 @@ class D2Item:
                 self.magic = ITEM_LIST_MAGIC
                 self.version = version
 
-            d = (
-                data.for_version(self.version)
-                if isinstance(data, GameData)
-                else (data or self._data)
-            )
+            d = resolve_version_data(data, self.version, self._data)
             self._data = d
             return d
 
-        d = data.for_version(version) if isinstance(data, GameData) else (data or self._data)
+        d = resolve_version_data(data, version, self._data)
         if magic_flag:
             io.align_byte()
             io.word(self.magic)
@@ -794,22 +801,9 @@ class D2Item:
         d = self._codec_header(io, version, magic_flag, data)
 
         if io.is_writing:
-
-            def _sync_bit(f: int, mask: int, val: bool) -> int:
-                return (f | mask) if val else (f & ~mask)
-
             flags = self._flags
-            flags = _sync_bit(flags, 0x00000010, self.is_identified)
-            flags = _sync_bit(flags, 0x00000020, self._has_quantity)
-            flags = _sync_bit(flags, 0x00000800, self.is_socketed)
-            flags = _sync_bit(flags, 0x00010000, self.is_ear)
-            flags = _sync_bit(flags, 0x00020000, self.is_newbie)
-            flags = _sync_bit(flags, 0x00200000, self.is_simple)
-            flags = _sync_bit(flags, 0x00400000, self.is_ethereal)
-            flags = _sync_bit(flags, 0x01000000, self.is_personalized)
-            flags = _sync_bit(flags, 0x04000000, self.is_runeword)
-            flags = _sync_bit(flags, 0x10000000, self.is_chronicle)
-            flags = _sync_bit(flags, 0x20000000, self.is_chronicle_compact)
+            for attr, mask in _D2R_ITEM_FLAGS:
+                flags = (flags | mask) if getattr(self, attr) else (flags & ~mask)
             self._flags = flags
             io.bits(32, flags)
 
@@ -822,17 +816,8 @@ class D2Item:
         else:
             flags = io.bits(32)
             self._flags = flags
-            self.is_identified = bool(flags & 0x00000010)
-            self._has_quantity = bool(flags & 0x00000020)
-            self.is_socketed = bool(flags & 0x00000800)
-            self.is_ear = bool(flags & 0x00010000)
-            self.is_newbie = bool(flags & 0x00020000)
-            self.is_simple = bool(flags & 0x00200000)
-            self.is_ethereal = bool(flags & 0x00400000)
-            self.is_personalized = bool(flags & 0x01000000)
-            self.is_runeword = bool(flags & 0x04000000)
-            self.is_chronicle = bool(flags & 0x10000000)
-            self.is_chronicle_compact = bool(flags & 0x20000000)
+            for attr, mask in _D2R_ITEM_FLAGS:
+                setattr(self, attr, bool(flags & mask))
 
             hf = io.bit()
             vv = io.bits(2)

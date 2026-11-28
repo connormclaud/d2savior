@@ -552,3 +552,36 @@ class TestBitsStream:
 
         assert val1 == 5
         assert val2 == 26
+
+
+def test_d2s_merc_experience_setter_respects_version():
+    from d2savior.core.d2s_struct import D2SStruct
+    from d2savior.core.versions import VERSION_D2R_1X, VERSION_D2R_3X
+
+    legacy = D2SStruct()
+    legacy.version = VERSION_D2R_1X
+    legacy.merc_experience = 123456
+    assert legacy.merc_exp == 123456
+    assert legacy.merc_experience == 123456
+    assert legacy._merc_experience == 0
+
+    d2r3 = D2SStruct()
+    d2r3.version = VERSION_D2R_3X
+    d2r3.merc_experience = 654321
+    assert d2r3._merc_experience == 654321
+    assert d2r3.merc_experience == 654321
+    assert d2r3.merc_exp == 0
+
+
+def test_resolve_version_data_normalizes_all_inputs():
+    from d2savior.core.resolver import GameDataResolver, resolve_version_data
+
+    resolver = GameDataResolver.load()
+    gd = resolver.game_data
+    vd_63 = gd.for_version(0x63)
+
+    assert resolve_version_data(resolver, 0x63) is vd_63
+    assert resolve_version_data(gd, 0x63) is vd_63
+    assert resolve_version_data(vd_63, 0x69) is vd_63
+    assert resolve_version_data(None, 0x63, fallback=vd_63) is vd_63
+    assert resolve_version_data(None, 0x63) is None

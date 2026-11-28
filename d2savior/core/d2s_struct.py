@@ -17,7 +17,7 @@ from d2savior.core.item import D2Item, ItemList
 from d2savior.core.loader import GameData
 from d2savior.core.models import VersionData
 from d2savior.core.obitstream import OBitStream
-from d2savior.core.resolver import GameDataResolver
+from d2savior.core.resolver import GameDataResolver, resolve_version_data
 from d2savior.core.versions import is_d2r, is_d2r_3x, is_ptr24_and_above
 
 
@@ -529,7 +529,10 @@ class D2SStruct:
 
     @merc_experience.setter
     def merc_experience(self, val: int) -> None:
-        self._merc_experience = val
+        if is_d2r_3x(self.version):
+            self._merc_experience = val
+        else:
+            self.merc_exp = val
 
     def codec(
         self, io: BitIO, data: VersionData | GameData | GameDataResolver | None = None
@@ -540,12 +543,7 @@ class D2SStruct:
         self.crc = io.dword(self.crc)
         self.weapon_set = io.dword(self.weapon_set)
 
-        if isinstance(data, GameDataResolver):
-            vd: VersionData | None = data.for_version(self.version).data
-        elif isinstance(data, GameData):
-            vd = data.for_version(self.version)
-        else:
-            vd = data or self._data
+        vd = resolve_version_data(data, self.version, self._data)
         self._data = vd
 
         if is_d2r_3x(self.version):

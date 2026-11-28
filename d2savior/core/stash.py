@@ -7,7 +7,7 @@ from d2savior.core.ibitstream import IBitStream
 from d2savior.core.loader import GameData
 from d2savior.core.models import VersionData
 from d2savior.core.obitstream import OBitStream
-from d2savior.core.resolver import GameDataResolver
+from d2savior.core.resolver import GameDataResolver, resolve_version_data
 
 if TYPE_CHECKING:
     from d2savior.core.item import D2Item, ItemList
@@ -250,12 +250,7 @@ class StashTab:
             self.tab_type = STASH_TAB_TYPE_NORMAL
 
         item_version = version if version else self.item_format
-        if isinstance(data, GameDataResolver):
-            vd: VersionData | None = data.for_version(item_version).data
-        elif isinstance(data, GameData):
-            vd = data.for_version(item_version)
-        else:
-            vd = data or self._data
+        vd = resolve_version_data(data, item_version, self._data)
         self._data = vd
 
         if self.tab_type == STASH_TAB_TYPE_CHRONICLE:

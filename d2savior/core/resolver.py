@@ -675,3 +675,16 @@ class GameDataResolver:
                         return loc_skill
             return info.skill_1
         return ""
+
+
+def resolve_version_data(
+    data: VersionData | GameData | GameDataResolver | None,
+    version: int,
+    fallback: VersionData | None = None,
+) -> VersionData | None:
+    """Normalize a GameDataResolver, GameData, or VersionData for ``version``."""
+    if isinstance(data, GameDataResolver):
+        return data.for_version(version).data
+    if isinstance(data, GameData):
+        return data.for_version(version)
+    return data if data is not None else fallback
