@@ -18,6 +18,7 @@ from d2savior.core.loader import GameData
 from d2savior.core.models import VersionData
 from d2savior.core.obitstream import OBitStream
 from d2savior.core.resolver import GameDataResolver
+from d2savior.core.versions import is_d2r, is_d2r_3x, is_ptr24_and_above
 
 
 class CharStatus(IntFlag, boundary=FlagBoundary.KEEP):
@@ -524,7 +525,7 @@ class D2SStruct:
 
     @property
     def merc_experience(self) -> int:
-        return self._merc_experience if self.version >= 0x69 else self.merc_exp
+        return self._merc_experience if is_d2r_3x(self.version) else self.merc_exp
 
     @merc_experience.setter
     def merc_experience(self, val: int) -> None:
@@ -547,7 +548,7 @@ class D2SStruct:
             vd = data or self._data
         self._data = vd
 
-        if self.version >= 0x69:
+        if is_d2r_3x(self.version):
             self._codec_v69(io, data=vd)
         else:
             self._codec_common(io, data=vd)
@@ -592,7 +593,7 @@ class D2SStruct:
             self.mercenary.codec(io, self.has_mercenary(), self.version, data=data)
             self.golem.codec(io, self.version, data=data)
 
-        if self.version >= 0x69 and self.game_version >= 3:
+        if is_d2r_3x(self.version) and self.game_version >= 3:
             self.demon.codec(io)
 
         io.align_byte()
@@ -665,20 +666,20 @@ class D2SStruct:
         self._codec_sections(io, data=data)
 
     def has_mercenary(self) -> bool:
-        if self.version >= 0x69:
+        if is_d2r_3x(self.version):
             return self.merc_seed != 0 or self.merc_name_index != 0 or self.merc_experience != 0
-        elif self.version >= 0x61:
+        elif is_d2r(self.version):
             return self.merc_control != 0
         else:
             return self.merc_name > 0
 
     @property
     def merc_name_id(self) -> int:
-        return self.merc_name_index if self.version >= 0x69 else self.merc_name
+        return self.merc_name_index if is_d2r_3x(self.version) else self.merc_name
 
     @property
     def merc_type_id(self) -> int:
-        return self.merc_hireling_id if self.version >= 0x69 else self.merc_type
+        return self.merc_hireling_id if is_d2r_3x(self.version) else self.merc_type
 
     @property
     def merc_is_dead(self) -> bool:
@@ -688,7 +689,7 @@ class D2SStruct:
         return bool(self.char_flags & CharStatus.LADDER)
 
     def is_expansion(self) -> bool:
-        if self.version >= 0x69:
+        if is_d2r_3x(self.version):
             return self.game_version > 1
         if self.char_flags & CharStatus.EXPANSION:
             return True
@@ -709,15 +710,15 @@ class D2SStruct:
         return "Unknown"
 
     def get_char_name(self) -> str:
-        if self.version >= 0x69:
+        if is_d2r_3x(self.version):
             name_data = self.name
-        elif self.version >= 0x62:
+        elif is_ptr24_and_above(self.version):
             name_data = self.name_ptr
         else:
             name_data = self.name
         null_pos = name_data.find(b"\x00")
         name_bytes = name_data[:null_pos] if null_pos != -1 else name_data
-        if self.version >= 0x62:
+        if is_ptr24_and_above(self.version):
             name = name_bytes.decode("utf-8", errors="replace")
         else:
             name = name_bytes.decode("ascii", errors="replace")

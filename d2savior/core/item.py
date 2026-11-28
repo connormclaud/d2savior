@@ -3,22 +3,31 @@ from dataclasses import dataclass, field
 from typing import ClassVar
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
-from d2savior.core.ear import Ear, is_ptr24_and_above
+from d2savior.core.ear import Ear
 from d2savior.core.enums import ITEM_LIST_MAGIC, ItemLocation, StoredIn
 from d2savior.core.ibitstream import IBitStream
 from d2savior.core.item_name import GoldQuantity, LongName
 from d2savior.core.loader import GameData
 from d2savior.core.models import ItemMetaData, VersionData
 from d2savior.core.obitstream import OBitStream
-from d2savior.core.property_list import PropertyList, is_d2r
+from d2savior.core.property_list import PropertyList
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import GEM_CODES, MATERIAL_CODES, RUNE_CODES
-
-VALID_VERSIONS = [0x69, 0x63, 0x62, 0x61, 0x60, 0x5C, 0x59, 0x57, 0x47]
-
-
-def is_valid_version(version: int) -> bool:
-    return version in VALID_VERSIONS
+from d2savior.core.versions import (
+    VALID_VERSIONS as VALID_VERSIONS,
+)
+from d2savior.core.versions import (
+    VERSION_D2R_1X,
+    VERSION_D2R_STASH_STACK_FLAG,
+    VERSION_LOD,
+    VERSION_LOD_109,
+    VERSION_REALM_DATA,
+    is_d2r,
+    is_d2r_3x,
+    is_ptr24_and_above,
+    is_valid_version,
+    realm_data_word_count,
+)
 
 
 class ExtItemInfo:
@@ -226,7 +235,7 @@ class TypeSpecificInfo:
             self.current_durability = io.bits(dur_bits, self.current_durability or 0)
 
     def _codec_quantity(self, io: BitIO, version: int, is_stacked: bool) -> None:
-        if version >= 0x69:
+        if is_d2r_3x(version):
             self.quantity = io.opt_bits(9, self.quantity)
         elif is_stacked:
             self.quantity = io.bits(9, self.quantity or 0)
@@ -389,7 +398,7 @@ class ItemInfo:
         return type_name in self.STACKABLE_FOR_STASH
 
     def _codec_realm_data(self, io: BitIO, version: int) -> None:
-        realm_count = 4 if version > 96 else (3 if version > 93 else 2)
+        realm_count = realm_data_word_count(version)
         if io.is_reading:
             self.realm_data = [io.bits(32) for _ in range(realm_count)]
         else:
@@ -404,9 +413,9 @@ class ItemInfo:
             self.realm_data = []
 
     def _codec_stash_stack_size(self, io: BitIO, version: int) -> None:
-        if not is_d2r(version) or version <= 99:
+        if not is_d2r(version) or version <= VERSION_D2R_1X:
             return
-        if version <= 101:
+        if version <= VERSION_D2R_STASH_STACK_FLAG:
             if self._is_stackable_for_stash():
                 self.stash_stack_size = io.bits(8, self.stash_stack_size)
                 self.has_stash_stack_size = True
@@ -434,7 +443,7 @@ class ItemInfo:
         self.has_rand = has_rand
         if not has_rand:
             return
-        if is_d2r_ and version > 86:
+        if is_d2r_ and version > VERSION_REALM_DATA:
             self._codec_realm_data(io, version)
         elif not is_simple:
             if io.is_reading:
@@ -492,7 +501,7 @@ class ItemInfo:
                     is_runeword=is_runeword,
                     data=data,
                 )
-        elif is_d2r_ and version >= 0x69 and meta and meta.ipad_bits > 0:
+        elif is_d2r_3x(version) and meta and meta.ipad_bits > 0:
             self.pad = io.bits(meta.ipad_bits, self.pad)
 
         return meta
@@ -867,7 +876,7 @@ class D2Item:
         else:
             self._codec_complete_d2r(io, item_ver, data=d)
 
-        self._codec_gem_items(io, magic_flag=self.version <= 96, data=d)
+        self._codec_gem_items(io, magic_flag=self.version <= VERSION_LOD, data=d)
 
     def _codec_compact_d2r(
         self,
@@ -879,7 +888,7 @@ class D2Item:
             return
 
         d = data or self._data
-        if version > 92 and d:
+        if version > VERSION_LOD_109 and d:
             type_info = d.get_item(self.code_str)
             if type_info and type_info.quest > 0 and type_info.questdiffcheck:
                 quest_diff_stat = d.get_stat(356)

@@ -126,6 +126,23 @@ class TestVersionFunctions:
         assert is_valid_version(105)
         assert not is_valid_version(0)
 
+    def test_is_d2r_3x_and_realm_word_count(self):
+        from d2savior.core.versions import (
+            VERSION_D2R_1X,
+            VERSION_D2R_3X,
+            VERSION_LOD,
+            VERSION_REALM_3,
+            is_d2r_3x,
+            realm_data_word_count,
+        )
+
+        assert not is_d2r_3x(VERSION_D2R_1X)
+        assert is_d2r_3x(VERSION_D2R_3X)
+        assert realm_data_word_count(VERSION_REALM_3) == 2
+        assert realm_data_word_count(VERSION_LOD) == 3
+        assert realm_data_word_count(VERSION_D2R_1X) == 4
+        assert realm_data_word_count(VERSION_D2R_3X) == 4
+
 
 class TestCEar:
     def test_ear_creation(self):

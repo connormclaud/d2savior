@@ -28,6 +28,7 @@ from d2savior.core.stats import (
     get_current_difficulty,
     get_difficulty_resist_penalty,
 )
+from d2savior.core.versions import is_d2r_3x
 
 type SkillInfo = tuple[int, str, int, int]
 
@@ -321,7 +322,7 @@ def _format_info_header_lines(
         f"Last Save Time: {format_timestamp(last_save_time)}",
         f"Play Time: {format_duration(char_data.play_time)}",
     ]
-    if char_data.version >= 0x69:
+    if is_d2r_3x(char_data.version):
         result.append(f"Game Version: {char_data.game_version}")
     else:
         result.append(f"NumStats/NumSkills: 0x{char_data.num_stats_num_skills:04X}")
@@ -420,7 +421,7 @@ def _format_info_mercenary_lines(
         "=== Mercenary ===",
         _format_mercenary_header(char_data, char_resolver, summary=False),
     ]
-    if char_data.version >= 0x69:
+    if is_d2r_3x(char_data.version):
         result.extend(
             [
                 f"Mercenary Seed: 0x{char_data.merc_seed:08X}",

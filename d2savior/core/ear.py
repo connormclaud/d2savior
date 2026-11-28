@@ -3,14 +3,11 @@
 from typing import TYPE_CHECKING
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
+from d2savior.core.versions import is_ptr24_and_above
 
 if TYPE_CHECKING:
     from d2savior.core.ibitstream import IBitStream
     from d2savior.core.obitstream import OBitStream
-
-
-def is_ptr24_and_above(version: int) -> bool:
-    return version >= 0x62
 
 
 class Ear:

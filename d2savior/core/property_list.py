@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
+from d2savior.core.versions import is_d2r
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,6 @@ if TYPE_CHECKING:
     from d2savior.core.obitstream import OBitStream
 
 type RawProperty = tuple[int, int, int]
-
-
-def is_d2r(version: int) -> bool:
-    return version >= 0x61
 
 
 PAIRED_STATS: frozendict[int, tuple[int, ...]] = frozendict(
