@@ -19,6 +19,14 @@ type OptimizeBuildsFn = Callable[
     [list[ItemSpec], list[CharmSpec], BuildConstraints], list[BuildResult]
 ]
 
+# Default elemental resist floor for the DPS-first (`mode="leveling"`) probe,
+# clamped to `opt1`'s achieved resists so the floor is always feasible.
+LEVELING_DPS_RES_FLOOR = 50
+
+
+def _dps_probe_res_floor(opt1_res: int, floor_res: int) -> int:
+    return max(floor_res, min(opt1_res, LEVELING_DPS_RES_FLOOR))
+
 
 def _step_below_bp(bp: int, table: tuple[int, ...]) -> int | None:
     lower = [b for b in table if b < bp]
@@ -275,15 +283,25 @@ def collect_leveling_alternatives(
         min_fcr: int = 0,
         min_fhr: int = 0,
         res_limit: int = 1,
+        extra_res_floors: dict[str, int] | None = None,
     ) -> BuildConstraints:
+        kw = dict(ek)
+        if extra_res_floors:
+            kw.update(extra_res_floors)
         return baseline.build_constraints(
             mode=mode,
             limit=res_limit,
             min_fcr=max(min_fcr, floor_fcr),
             min_fhr=max(min_fhr, floor_fhr),
             offense=offense,
-            **ek,
+            **kw,
         )
+
+    dps_res_floors = {
+        "min_fr": _dps_probe_res_floor(opt1.fr, int(ek.get("min_fr", 0))),
+        "min_lr": _dps_probe_res_floor(opt1.lr, int(ek.get("min_lr", 0))),
+        "min_cr": _dps_probe_res_floor(opt1.cr, int(ek.get("min_cr", 0))),
+    }
 
     def _clamped_below(bp: int, table: tuple[int, ...], floor: int) -> int | None:
         step = _step_below_bp(bp, table)
@@ -304,7 +322,7 @@ def collect_leveling_alternatives(
     ):
         try_add(build_c(mode="leveling-res"))
 
-    try_add(build_c(mode="leveling"))
+    try_add(build_c(mode="leveling", extra_res_floors=dps_res_floors))
     try_add(build_c(mode="max-res", min_fhr=fhr_below or 0))
     if fhr_below is not None:
         fhr_below_2 = _clamped_below(fhr_below, fhr_bps, floor_fhr)
@@ -313,7 +331,7 @@ def collect_leveling_alternatives(
 
     if len(collected) < limit and not baseline.fixed_gear:
         try_add(build_c(mode="leveling-res", res_limit=limit))
-        try_add(build_c(mode="leveling", res_limit=limit))
+        try_add(build_c(mode="leveling", res_limit=limit, extra_res_floors=dps_res_floors))
     return collected
 
 

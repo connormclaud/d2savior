@@ -76,6 +76,9 @@ SORK_OPTIMIZE_SOCKET_THEORETICAL_GOLDEN = os.path.join(
 )
 SMITE_SUMMARY_GOLDEN = os.path.join(GOLDEN_DIR, "smite_summary.golden.txt")
 SMITE_OPTIMIZE_LEVELING_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_leveling.golden.txt")
+SMITE_OPTIMIZE_LEVELING_LIMIT4_GOLDEN = os.path.join(
+    GOLDEN_DIR, "smite_optimize_leveling_limit4.golden.txt"
+)
 SMITE_OPTIMIZE_KEEP_GEAR_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_keep_gear.golden.txt")
 SMITE_OPTIMIZE_MAX_RES_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_max_res.golden.txt")
 SMITE_OPTIMIZE_CBF_FRW30_GOLDEN = os.path.join(GOLDEN_DIR, "smite_optimize_cbf_frw30.golden.txt")
@@ -267,6 +270,41 @@ class TestSmokeAPI:
         )
         assert_matches_golden(
             report + "\n\n", SMITE_OPTIMIZE_LEVELING_GOLDEN, "smite_optimize_leveling_api"
+        )
+
+    def test_smite_optimize_leveling_limit4(self, game_data_resolver):
+        """Limit=4 exercises the DPS-first leveling probe with adaptive F/L/C resist floors."""
+        pytest.importorskip("d2savior._native")
+        smite, extras, stashes = self._load_paladin_snapshot(game_data_resolver)
+        items, charms = extract_pool(
+            smite, extra_chars=extras, stashes=stashes, resolver=game_data_resolver
+        )
+        title, options, resolved_spec, diff_name = optimize_paladin_leveling(
+            smite,
+            items,
+            charms,
+            limit=4,
+            extra_chars=extras,
+            stashes=stashes,
+            resolver=game_data_resolver,
+        )
+        assert len(options) == 4
+        for _label, res in options:
+            assert min(res.fr, res.lr, res.cr) >= 50
+        skill_name, base_skill_lvl = paladin_primary_skill_info(smite, resolved_spec)
+        report = format_paladin_leveling_report(
+            title,
+            options,
+            charms,
+            diff_name=diff_name,
+            primary_skill_name=skill_name,
+            primary_skill_base=base_skill_lvl,
+            primary_inv_loc="smite Inv",
+        )
+        assert_matches_golden(
+            report + "\n\n",
+            SMITE_OPTIMIZE_LEVELING_LIMIT4_GOLDEN,
+            "smite_optimize_leveling_limit4_api",
         )
 
     def test_smite_optimize_keep_gear(self, game_data_resolver):
@@ -553,6 +591,11 @@ class TestSmokeCLI:
         ("extra_args", "golden_path", "case_name"),
         [
             (["-b", "leveling"], SMITE_OPTIMIZE_LEVELING_GOLDEN, "cli_smite_optimize_leveling"),
+            (
+                ["-b", "leveling", "--limit", "4"],
+                SMITE_OPTIMIZE_LEVELING_LIMIT4_GOLDEN,
+                "cli_smite_optimize_leveling_limit4",
+            ),
             (
                 ["--keep-gear", "--charm-slots", "26"],
                 SMITE_OPTIMIZE_KEEP_GEAR_GOLDEN,

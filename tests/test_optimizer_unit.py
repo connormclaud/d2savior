@@ -2554,6 +2554,31 @@ def test_paladin_passive_max_res_cap_in_alternatives(
     assert alts_capped[2][1].dps == 1600.0
     assert alts_capped[2][1].lr == 75
 
+    # The DPS-first (`mode="leveling"`) probe applies adaptive F/L/C resist floors:
+    # min(opt1_res, 50) by default, honoring any higher user floor.
+    opt1_mixed = _as_result(_FakeBuildResult(fhr_bp=48, skills=2, fr=75, lr=40, cr=60, pr=75))
+    dps_floors_seen: list[tuple[int, int, int, int]] = []
+
+    def _fake_opt_floors(_items: object, _charms: object, c: _FakeConstraints) -> list[BuildResult]:
+        if c.mode == "leveling":
+            dps_floors_seen.append((c.min_fr, c.min_lr, c.min_cr, c.min_pr))
+        return []
+
+    monkeypatch.setattr("d2savior.optimizer.paladin.optimize_builds", _fake_opt_floors)
+    _collect_paladin_alternatives(
+        [],
+        [],
+        baseline,
+        opt1_mixed,
+        limit=4,
+        offense="melee",
+        is_caster=False,
+        is_smite=False,
+        extra_kwargs={"min_fr": 65, "min_lr": 0, "min_cr": 0, "min_pr": 0},
+    )
+    assert dps_floors_seen
+    assert dps_floors_seen[0] == (65, 40, 50, 0)
+
 
 def test_optimize_value_opts_in_sync_with_parser() -> None:
     from d2savior.cli_optimize import _OPTIMIZE_VALUE_OPTS, _build_optimize_parser

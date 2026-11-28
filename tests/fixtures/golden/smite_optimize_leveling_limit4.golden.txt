@@ -1,0 +1,82 @@
+=== Paladin Leveling — Holy Fire (lvl 30, Normal) ===
+Option #1: High Breakpoint (86% FHR, 4f) (evaluated 985 pruned sets):
+  DPS: 1424 (Attack) | AR: 1009 (85%) | Skills: +4 (Holy Fire lvl 24) | CBF: Yes | IAS: 40% (BP 32%, 11f) | CB: 0% | DR: 0% | LL: 17%
+  FHR: 90% (BP 86%, 4f) | FCR: 34% (BP 30%, 12f) | FRW: 35% | MF: 30%
+  Normal Res: F:76%(80) L:75%(75) C:75%(97) P:75%(77)
+  Def: 587 (57% hit) | Block: 14% (FBR 0%, 5f)
+  Life: 719 | Mana: 181 | Charm slots: 23
+    - weapon  : Spirit (Broad Sword) (smite Stash)
+    - shield  : The Ward (Gothic Shield) (mule_leveling Stash)
+    - helm    : Peasant Crown (War Hat) (smite Equipped)
+    - armor   : The Spirit Shroud (Ghost Armor) (smite Equipped)
+    - amulet  : Angelic Wings (Amulet) (smite Equipped)
+    - belt    : Goldwrap (Heavy Belt) (mule_unique Inv)
+    - gloves  : Sigon's Gage (Gauntlets) (smite Equipped)
+    - boots   : Sigon's Sabot (Greaves) (Stash Tab 1)
+    - ring    : Angelic Halo (Ring) (smite Equipped)
+    - ring    : Angelic Halo (Ring) (smite Stash)
+    - Charms  :
+      - remove: Iron Large Charm of Inertia, Ocher Small Charm, Ocher Small Charm of Sustenance, Lapis Small Charm, Shimmering Large Charm, Russet Grand Charm, Sapphire Grand Charm, Lapis Small Charm
+      - keep  : Tangerine Small Charm of Balance, Small Charm of Balance, Russet Small Charm, Shimmering Large Charm, Bronze Small Charm of Balance, Grand Charm of Balance
+      - add   : Jade Small Charm [smite Stash], Amber Large Charm of Greed [Stash Tab 5], Russet Small Charm [smite Stash], Jade Large Charm of Balance [Stash Tab 5], Crimson Small Charm of Shock [smite Stash], Crimson Small Charm of Flame [smite Stash], Fine Grand Charm of Greed [mule_charms Inv], Fine Small Charm [mule_charms Stash], Fine Small Charm [mule_charms Inv], Fine Small Charm [Stash Tab 5]
+Option #2: Lower FHR BP (48%, 5f) — More Life / FRW (evaluated 1086 pruned sets):
+  DPS: 1442 (Attack) | AR: 1061 (85%) | Skills: +4 (Holy Fire lvl 24) | CBF: Yes | IAS: 40% (BP 32%, 11f) | CB: 0% | DR: 0% | LL: 17%
+  FHR: 55% (BP 48%, 5f) | FCR: 34% (BP 30%, 12f) | FRW: 40% | MF: 30%
+  Normal Res: F:76%(79) L:75%(79) C:75%(106) P:75%(81)
+  Def: 587 (57% hit) | Block: 14% (FBR 0%, 5f)
+  Life: 740 | Mana: 181 | Charm slots: 23
+    - weapon  : Spirit (Broad Sword) (smite Stash)
+    - shield  : The Ward (Gothic Shield) (mule_leveling Stash)
+    - helm    : Peasant Crown (War Hat) (smite Equipped)
+    - armor   : The Spirit Shroud (Ghost Armor) (smite Equipped)
+    - amulet  : Angelic Wings (Amulet) (smite Equipped)
+    - belt    : Goldwrap (Heavy Belt) (mule_unique Inv)
+    - gloves  : Sigon's Gage (Gauntlets) (smite Equipped)
+    - boots   : Sigon's Sabot (Greaves) (Stash Tab 1)
+    - ring    : Angelic Halo (Ring) (smite Equipped)
+    - ring    : Angelic Halo (Ring) (smite Stash)
+    - Charms  :
+      - remove: Tangerine Small Charm of Balance, Small Charm of Balance, Ocher Small Charm, Lapis Small Charm, Shimmering Large Charm, Russet Grand Charm, Bronze Small Charm of Balance, Sapphire Grand Charm, Lapis Small Charm, Grand Charm of Balance
+      - keep  : Iron Large Charm of Inertia, Russet Small Charm, Ocher Small Charm of Sustenance, Shimmering Large Charm
+      - add   : Amber Large Charm of Greed [Stash Tab 5], Crimson Small Charm of Greed [smite Stash], Cobalt Small Charm of Life [Stash Tab 5], Crimson Small Charm of Shock [smite Stash], Jade Grand Charm of Thunder [Stash Tab 5], Crimson Small Charm of Flame [smite Stash], Fine Grand Charm of Greed [mule_charms Inv], Fine Grand Charm [mule_charms Stash], Fine Small Charm [mule_charms Stash], Fine Small Charm [mule_charms Inv]
+Option #3: Lower FHR BP (0%, 9f) — Higher DPS (evaluated 717 pruned sets):
+  DPS: 1524 (Attack) | AR: 1130 (86%) | Skills: +2 (Holy Fire lvl 22) | CBF: Yes | IAS: 60% (BP 54%, 10f) | CB: 0% | DR: 0% | LL: 18%
+  FHR: 0% (BP 0%, 9f) | FCR: 0% (BP 0%, 15f) | FRW: 60% | MF: 30%
+  Normal Res: F:76%(79) L:75%(79) C:75%(106) P:75%(81)
+  Def: 587 (57% hit) | Block: 14% (FBR 0%, 5f)
+  Life: 674 | Mana: 88 | Charm slots: 23
+    - weapon  : Bloodletter (Gladius) (Stash Tab 2)
+    - shield  : The Ward (Gothic Shield) (mule_leveling Stash)
+    - helm    : Peasant Crown (War Hat) (smite Equipped)
+    - armor   : The Spirit Shroud (Ghost Armor) (smite Equipped)
+    - amulet  : Angelic Wings (Amulet) (smite Equipped)
+    - belt    : Goldwrap (Heavy Belt) (mule_unique Inv)
+    - gloves  : Sigon's Gage (Gauntlets) (smite Equipped)
+    - boots   : Sigon's Sabot (Greaves) (Stash Tab 1)
+    - ring    : Angelic Halo (Ring) (smite Equipped)
+    - ring    : Angelic Halo (Ring) (smite Stash)
+    - Charms  :
+      - remove: Tangerine Small Charm of Balance, Small Charm of Balance, Ocher Small Charm, Lapis Small Charm, Shimmering Large Charm, Russet Grand Charm, Bronze Small Charm of Balance, Sapphire Grand Charm, Lapis Small Charm, Grand Charm of Balance
+      - keep  : Iron Large Charm of Inertia, Russet Small Charm, Ocher Small Charm of Sustenance, Shimmering Large Charm
+      - add   : Amber Large Charm of Greed [Stash Tab 5], Crimson Small Charm of Greed [smite Stash], Cobalt Small Charm of Life [Stash Tab 5], Crimson Small Charm of Shock [smite Stash], Jade Grand Charm of Thunder [Stash Tab 5], Crimson Small Charm of Flame [smite Stash], Burly Small Charm of Strength [Stash Tab 5], Fine Grand Charm of Greed [mule_charms Inv], Fine Small Charm [mule_charms Stash], Fine Small Charm [mule_charms Inv], Fine Small Charm [Stash Tab 5], Fiery Small Charm of Greed [mule_charms Stash]
+Option #4: Lower FHR BP (0%, 9f) — Higher DPS (evaluated 257 pruned sets):
+  DPS: 1600 (Attack) | AR: 1068 (86%) | Skills: +3 (Holy Fire lvl 23) | CBF: Yes | IAS: 60% (BP 54%, 10f) | CB: 0% | DR: 0% | LL: 18%
+  FHR: 0% (BP 0%, 9f) | FCR: 0% (BP 0%, 15f) | FRW: 40% | MF: 30%
+  Normal Res: F:56%(56) L:54%(54) C:62%(62) P:57%(57)
+  Def: 446 (64% hit) | Block: 24% (FBR 0%, 5f)
+  Life: 603 | Mana: 73 | Charm slots: 23
+    - weapon  : Bloodletter (Gladius) (Stash Tab 2)
+    - shield  : Sigon's Guard (Tower Shield) (mule_sets Stash)
+    - helm    : Lore (Cap) (Stash Tab 2)
+    - armor   : The Spirit Shroud (Ghost Armor) (smite Equipped)
+    - amulet  : Angelic Wings (Amulet) (smite Equipped)
+    - belt    : Goldwrap (Heavy Belt) (mule_unique Inv)
+    - gloves  : Sigon's Gage (Gauntlets) (smite Equipped)
+    - boots   : Tearhaunch (Greaves) (smite Equipped)
+    - ring    : Angelic Halo (Ring) (smite Equipped)
+    - ring    : Angelic Halo (Ring) (smite Stash)
+    - Charms  :
+      - remove: Iron Large Charm of Inertia, Tangerine Small Charm of Balance, Small Charm of Balance, Ocher Small Charm, Ocher Small Charm of Sustenance, Lapis Small Charm, Bronze Small Charm of Balance, Lapis Small Charm, Grand Charm of Balance
+      - keep  : Russet Small Charm, Shimmering Large Charm, Shimmering Large Charm, Russet Grand Charm, Sapphire Grand Charm
+      - add   : Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Crimson Small Charm of Shock [smite Stash], Jade Grand Charm of Thunder [Stash Tab 5], Fine Grand Charm of Greed [mule_charms Inv], Fine Small Charm [mule_charms Stash], Fine Small Charm [mule_charms Inv], Fine Small Charm [Stash Tab 5]
+
