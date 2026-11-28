@@ -7,7 +7,7 @@ from importlib.resources import files
 
 from d2savior.core.constants import CLASS_SKILL_BASES
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import CharClass
+from d2savior.core.enums import CharClass, SkillId
 from d2savior.core.loader import TsvReader
 from d2savior.optimizer.common import active_skill_bindings
 
@@ -15,32 +15,12 @@ DEFAULT_MAX_SKILL_BONUS = 40
 
 _SORC_SKILL_BASE = CLASS_SKILL_BASES[int(CharClass.SORCERESS)]
 _PAL_SKILL_BASE = CLASS_SKILL_BASES[int(CharClass.PALADIN)]
-_SKILL_EXPLODING_ARROW = 16
-_SKILL_FROZEN_ARMOR = 40
-_SKILL_ICE_BLAST = 45
-_SKILL_SHIVER_ARMOR = 50
-_SKILL_GLACIAL_SPIKE = 55
-_SKILL_BLIZZARD = 59
-_SKILL_CHILLING_ARMOR = 60
-_SKILL_FROZEN_ORB = 64
-_SKILL_SACRIFICE = 96
-_SKILL_SMITE = 97
-_SKILL_HOLY_FIRE = 102
-_SKILL_ZEAL = 106
-_SKILL_CHARGE = 107
-_SKILL_BLESSED_AIM = 108
-_SKILL_VENGEANCE = 111
-_SKILL_HOLY_FREEZE = 114
-_SKILL_HOLY_SHOCK = 118
-_SKILL_FANATICISM = 122
-_SKILL_CONVICTION = 123
-_SKILL_VENOM = 278
 
 _ELEMENTAL_AURA_SPECS: frozendict[str, int] = frozendict(
     {
-        "holy-fire": _SKILL_HOLY_FIRE,
-        "holy-freeze": _SKILL_HOLY_FREEZE,
-        "holy-shock": _SKILL_HOLY_SHOCK,
+        "holy-fire": SkillId.HOLY_FIRE,
+        "holy-freeze": SkillId.HOLY_FREEZE,
+        "holy-shock": SkillId.HOLY_SHOCK,
     }
 )
 
@@ -48,7 +28,7 @@ _SYNERGY_RE = re.compile(r"skill\('([^']+)'\.blvl\)\s*\*\s*par(\d+)")
 _SYNERGY_GROUP_RE = re.compile(r"\((.+)\)\s*\*\s*par(\d+)")
 _SKILL_BLVL_RE = re.compile(r"skill\('([^']+)'\.blvl\)")
 _SORC_FILLER_NAMES: frozendict[int, str] = frozendict(
-    {_SKILL_ICE_BLAST: "Ice Blast", _SKILL_GLACIAL_SPIKE: "Glacial Spike"}
+    {SkillId.ICE_BLAST: "Ice Blast", SkillId.GLACIAL_SPIKE: "Glacial Spike"}
 )
 
 
@@ -133,23 +113,23 @@ def _load_skill_formulas() -> tuple[dict[int, _SkillFormula], dict[str, int]]:
     formulas: dict[int, _SkillFormula] = {}
     name_to_id: dict[str, int] = {}
     wanted = {
-        _SKILL_EXPLODING_ARROW,
-        _SKILL_ICE_BLAST,
-        _SKILL_GLACIAL_SPIKE,
-        _SKILL_BLIZZARD,
-        _SKILL_FROZEN_ORB,
-        _SKILL_SACRIFICE,
-        _SKILL_SMITE,
-        _SKILL_HOLY_FIRE,
-        _SKILL_ZEAL,
-        _SKILL_CHARGE,
-        _SKILL_BLESSED_AIM,
-        _SKILL_VENGEANCE,
-        _SKILL_HOLY_FREEZE,
-        _SKILL_HOLY_SHOCK,
-        _SKILL_FANATICISM,
-        _SKILL_CONVICTION,
-        _SKILL_VENOM,
+        SkillId.EXPLODING_ARROW,
+        SkillId.ICE_BLAST,
+        SkillId.GLACIAL_SPIKE,
+        SkillId.BLIZZARD,
+        SkillId.FROZEN_ORB,
+        SkillId.SACRIFICE,
+        SkillId.SMITE,
+        SkillId.HOLY_FIRE,
+        SkillId.ZEAL,
+        SkillId.CHARGE,
+        SkillId.BLESSED_AIM,
+        SkillId.VENGEANCE,
+        SkillId.HOLY_FREEZE,
+        SkillId.HOLY_SHOCK,
+        SkillId.FANATICISM,
+        SkillId.CONVICTION,
+        SkillId.VENOM,
     }
 
     for row in TsvReader(skills_path):
@@ -201,7 +181,7 @@ def exploding_arrow_fire_2x(slvl: int) -> int:
     if slvl <= 0:
         return 0
     formulas, _ = _load_skill_formulas()
-    ef = formulas.get(_SKILL_EXPLODING_ARROW)
+    ef = formulas.get(SkillId.EXPLODING_ARROW)
     if ef is None:
         return 0
     scale = 2.0 ** (ef.hit_shift - 8)
@@ -215,7 +195,7 @@ def venom_dps_2x(slvl: int) -> int:
     if slvl <= 0:
         return 0
     formulas, _ = _load_skill_formulas()
-    vf = formulas.get(_SKILL_VENOM)
+    vf = formulas.get(SkillId.VENOM)
     if vf is None:
         return 0
     scale = 2.0 ** (vf.hit_shift - 8)
@@ -229,7 +209,7 @@ def frozen_orb_avg_dmg_2x(slvl: int) -> int:
     if slvl <= 0:
         return 0
     formulas, _ = _load_skill_formulas()
-    ff = formulas.get(_SKILL_FROZEN_ORB)
+    ff = formulas.get(SkillId.FROZEN_ORB)
     if ff is None:
         return 0
     scale = 2.0 ** (ff.hit_shift - 8)
@@ -257,16 +237,16 @@ def resolve_paladin_aura_id(
     if right_skill == -1:
         return None
     eff_right = right_skill if right_skill is not None else active_skill_bindings(char_data)[1]
-    if eff_right in (_SKILL_FANATICISM, _SKILL_BLESSED_AIM, _SKILL_CONVICTION) and (
+    if eff_right in (SkillId.FANATICISM, SkillId.BLESSED_AIM, SkillId.CONVICTION) and (
         _pal_hard_pts(skill_levels, eff_right) > 0
     ):
         return eff_right
     if spec in ("smite", "zeal", "sacrifice", "charge", "leveling") and (
-        _pal_hard_pts(skill_levels, _SKILL_FANATICISM) > 0
+        _pal_hard_pts(skill_levels, SkillId.FANATICISM) > 0
     ):
-        return _SKILL_FANATICISM
-    if spec == "vengeance" and _pal_hard_pts(skill_levels, _SKILL_CONVICTION) > 0:
-        return _SKILL_CONVICTION
+        return SkillId.FANATICISM
+    if spec == "vengeance" and _pal_hard_pts(skill_levels, SkillId.CONVICTION) > 0:
+        return SkillId.CONVICTION
     return None
 
 
@@ -288,9 +268,9 @@ def build_paladin_dps_tables(
             if right_skill == -1
             else resolve_paladin_aura_id(char_data, spec, right_skill=right_skill)
         )
-        if support_aura_id == _SKILL_FANATICISM and _SKILL_FANATICISM in formulas:
-            ff = formulas[_SKILL_FANATICISM]
-            base_f = _pal_hard_pts(skill_levels, _SKILL_FANATICISM)
+        if support_aura_id == SkillId.FANATICISM and SkillId.FANATICISM in formulas:
+            ff = formulas[SkillId.FANATICISM]
+            base_f = _pal_hard_pts(skill_levels, SkillId.FANATICISM)
             par3, par4 = ff.params.get(3, 10), ff.params.get(4, 40)
             par5, par6 = ff.params.get(5, 50), ff.params.get(6, 17)
             aura_ed_t = tuple(par5 + (base_f + b - 1) * par6 for b in range(max_bonus + 1))
@@ -300,9 +280,9 @@ def build_paladin_dps_tables(
         else:
             aura_ed_t = (0,)
             aura_ias_t = (0,)
-        base_smite = _pal_hard_pts(skill_levels, _SKILL_SMITE)
-        if base_smite > 0 and _SKILL_SMITE in formulas:
-            smf = formulas[_SKILL_SMITE]
+        base_smite = _pal_hard_pts(skill_levels, SkillId.SMITE)
+        if base_smite > 0 and SkillId.SMITE in formulas:
+            smf = formulas[SkillId.SMITE]
             par3, par4 = smf.params.get(3, 15), smf.params.get(4, 15)
             action_ed_t = tuple(par3 + (base_smite + b - 1) * par4 for b in range(max_bonus + 1))
         else:
@@ -357,8 +337,10 @@ def build_paladin_dps_tables(
         has_aura = False
 
     # --- Passive Blessed Aim & non-elemental support aura AR / -Target Defense ---
-    ba_pts = _pal_hard_pts(skill_levels, _SKILL_BLESSED_AIM)
-    ba_par8 = formulas[_SKILL_BLESSED_AIM].params.get(8, 5) if _SKILL_BLESSED_AIM in formulas else 5
+    ba_pts = _pal_hard_pts(skill_levels, SkillId.BLESSED_AIM)
+    ba_par8 = (
+        formulas[SkillId.BLESSED_AIM].params.get(8, 5) if SkillId.BLESSED_AIM in formulas else 5
+    )
     passive_ar_pct = ba_pts * ba_par8
 
     support_aura_id = (
@@ -367,25 +349,25 @@ def build_paladin_dps_tables(
         else resolve_paladin_aura_id(char_data, spec, right_skill=right_skill)
     )
 
-    if support_aura_id == _SKILL_FANATICISM and _SKILL_FANATICISM in formulas:
-        ff = formulas[_SKILL_FANATICISM]
-        base_f = _pal_hard_pts(skill_levels, _SKILL_FANATICISM)
+    if support_aura_id == SkillId.FANATICISM and SkillId.FANATICISM in formulas:
+        ff = formulas[SkillId.FANATICISM]
+        base_f = _pal_hard_pts(skill_levels, SkillId.FANATICISM)
         aura_ar_pct_t = tuple(
             passive_ar_pct + _skill_tohit_pct(ff, base_f + b) for b in range(max_bonus + 1)
         )
         aura_tdef_t: tuple[int, ...] = (0,)
-    elif support_aura_id == _SKILL_BLESSED_AIM and _SKILL_BLESSED_AIM in formulas:
-        bf = formulas[_SKILL_BLESSED_AIM]
-        base_ba = _pal_hard_pts(skill_levels, _SKILL_BLESSED_AIM)
+    elif support_aura_id == SkillId.BLESSED_AIM and SkillId.BLESSED_AIM in formulas:
+        bf = formulas[SkillId.BLESSED_AIM]
+        base_ba = _pal_hard_pts(skill_levels, SkillId.BLESSED_AIM)
         par3, par4 = bf.params.get(3, 75), bf.params.get(4, 15)
         # In D2R, Blessed Aim's passive (`penetrate`) stacks with its active `blessedaim` state.
         aura_ar_pct_t = tuple(
             passive_ar_pct + par3 + (base_ba + b - 1) * par4 for b in range(max_bonus + 1)
         )
         aura_tdef_t = (0,)
-    elif support_aura_id == _SKILL_CONVICTION and _SKILL_CONVICTION in formulas:
-        cf = formulas[_SKILL_CONVICTION]
-        base_c = _pal_hard_pts(skill_levels, _SKILL_CONVICTION)
+    elif support_aura_id == SkillId.CONVICTION and SkillId.CONVICTION in formulas:
+        cf = formulas[SkillId.CONVICTION]
+        base_c = _pal_hard_pts(skill_levels, SkillId.CONVICTION)
         par5, par6 = cf.params.get(5, 40), cf.params.get(6, 100)
         aura_ar_pct_t = (passive_ar_pct,)
         aura_tdef_t = tuple(
@@ -396,19 +378,19 @@ def build_paladin_dps_tables(
         aura_tdef_t = (0,)
 
     # --- Action tables (Zeal vs Sacrifice/Charge/Vengeance vs normal Attack) ---
-    base_zeal = _pal_hard_pts(skill_levels, _SKILL_ZEAL)
+    base_zeal = _pal_hard_pts(skill_levels, SkillId.ZEAL)
     melee_action_ids = {
-        "sacrifice": _SKILL_SACRIFICE,
-        "charge": _SKILL_CHARGE,
-        "vengeance": _SKILL_VENGEANCE,
+        "sacrifice": SkillId.SACRIFICE,
+        "charge": SkillId.CHARGE,
+        "vengeance": SkillId.VENGEANCE,
     }
-    if offense == "zeal" and base_zeal > 0 and _SKILL_ZEAL in formulas:
-        zf = formulas[_SKILL_ZEAL]
+    if offense == "zeal" and base_zeal > 0 and SkillId.ZEAL in formulas:
+        zf = formulas[SkillId.ZEAL]
         par4 = zf.params.get(4, 6)
         par5 = zf.params.get(5, 2)
         par6 = zf.params.get(6, 5)
         sac_pct = next((pct for _, pct in zf.synergies), zf.params.get(8, 12))
-        sac_ed = _pal_hard_pts(skill_levels, _SKILL_SACRIFICE) * sac_pct
+        sac_ed = _pal_hard_pts(skill_levels, SkillId.SACRIFICE) * sac_pct
 
         action_ed_list: list[int] = []
         action_hits_list: list[int] = []
@@ -439,7 +421,7 @@ def build_paladin_dps_tables(
         action_ed=action_ed_t,
         action_hits=action_hits_t,
         has_aura=has_aura,
-        aura_is_fire=has_aura and aura_id == _SKILL_HOLY_FIRE,
+        aura_is_fire=has_aura and aura_id == SkillId.HOLY_FIRE,
         action_ar_pct=action_ar_t,
         aura_ar_pct=aura_ar_pct_t,
         aura_target_def_pct=aura_tdef_t,
@@ -491,8 +473,8 @@ def resolve_sorc_filler_skill(
     if left_skill == -1:
         return None
     skill_levels = char_data.skills.skill_levels if char_data.skills else ()
-    ib_pts = _sorc_hard_pts(skill_levels, _SKILL_ICE_BLAST)
-    gs_pts = _sorc_hard_pts(skill_levels, _SKILL_GLACIAL_SPIKE)
+    ib_pts = _sorc_hard_pts(skill_levels, SkillId.ICE_BLAST)
+    gs_pts = _sorc_hard_pts(skill_levels, SkillId.GLACIAL_SPIKE)
 
     active_left, active_right = active_skill_bindings(char_data)
     eff_left = left_skill if left_skill is not None else active_left
@@ -504,10 +486,10 @@ def resolve_sorc_filler_skill(
     if ib_pts <= 0 and gs_pts <= 0:
         return None
     if gs_pts > ib_pts:
-        return _SKILL_GLACIAL_SPIKE
+        return SkillId.GLACIAL_SPIKE
     if ib_pts > gs_pts:
-        return _SKILL_ICE_BLAST
-    return _SKILL_GLACIAL_SPIKE if targets > 1 else _SKILL_ICE_BLAST
+        return SkillId.ICE_BLAST
+    return SkillId.GLACIAL_SPIKE if targets > 1 else SkillId.ICE_BLAST
 
 
 def resolve_sorc_cold_armor(char_data: D2SStruct) -> tuple[int, int, int | None]:
@@ -518,9 +500,9 @@ def resolve_sorc_cold_armor(char_data: D2SStruct) -> tuple[int, int, int | None]
     a bound Cold Armor or defaults to Chilling Armor (`base_lvl=0`) so Snowclash/staffmods apply.
     """
     armors = (
-        (1, _SKILL_FROZEN_ARMOR, 30, 5),
-        (2, _SKILL_SHIVER_ARMOR, 45, 6),
-        (3, _SKILL_CHILLING_ARMOR, 60, 9),
+        (1, SkillId.FROZEN_ARMOR, 30, 5),
+        (2, SkillId.SHIVER_ARMOR, 45, 6),
+        (3, SkillId.CHILLING_ARMOR, 60, 9),
     )
     armor_by_id = {sid: kind for kind, sid, _, _ in armors}
     skill_levels = char_data.skills.skill_levels if char_data.skills else ()
@@ -545,7 +527,7 @@ def resolve_sorc_cold_armor(char_data: D2SStruct) -> tuple[int, int, int | None]
         return best[1], best[2], best[3]
     if bound_cold:
         return bound_cold[0][0], 0, bound_cold[0][1]
-    return 3, 0, _SKILL_CHILLING_ARMOR
+    return 3, 0, SkillId.CHILLING_ARMOR
 
 
 def _eval_skill_dmg_table(
@@ -576,11 +558,11 @@ def build_sorc_dps_tables(
     formulas, name_to_id = _load_skill_formulas()
     skill_levels = char_data.skills.skill_levels if char_data.skills else ()
 
-    base_blizz = _sorc_hard_pts(skill_levels, _SKILL_BLIZZARD)
-    if base_blizz <= 0 or _SKILL_BLIZZARD not in formulas:
+    base_blizz = _sorc_hard_pts(skill_levels, SkillId.BLIZZARD)
+    if base_blizz <= 0 or SkillId.BLIZZARD not in formulas:
         return SorcDpsTables((), (), False, None, None)
 
-    bf = formulas[_SKILL_BLIZZARD]
+    bf = formulas[SkillId.BLIZZARD]
     blizz_syn = sum(
         _sorc_hard_pts(skill_levels, name_to_id[sname]) * pct
         for sname, pct in bf.synergies
@@ -603,7 +585,7 @@ def build_sorc_dps_tables(
         return SorcDpsTables(
             blizz_dmg=blizz_tbl,
             filler_dmg=filler_tbl,
-            filler_is_aoe=(filler_id == _SKILL_GLACIAL_SPIKE),
+            filler_is_aoe=(filler_id == SkillId.GLACIAL_SPIKE),
             filler_skill_id=filler_id,
             filler_skill_name=_SORC_FILLER_NAMES.get(filler_id),
         )

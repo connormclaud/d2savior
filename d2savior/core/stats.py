@@ -23,7 +23,7 @@ from d2savior.core.constants import (
     get_skill_tab_index,
 )
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import CharClass, EquipSlot, StoredIn
+from d2savior.core.enums import CharClass, EquipSlot, StatId, StoredIn
 from d2savior.core.item import D2Item
 from d2savior.core.models import HirelingInfo
 from d2savior.core.property import adjust_property_values, get_skill_class_id
@@ -356,15 +356,19 @@ def _apply_advanced_prop(
     if attr := _SIMPLE_ACC_FIELDS.get(prop_id):
         setattr(acc, attr, getattr(acc, attr) + param_val)
         return
-    if prop_id == 83 and len(params) >= 2 and params[0] == char_class:
+    if prop_id == StatId.CLASS_SKILLS and len(params) >= 2 and params[0] == char_class:
         acc.class_skills += params[1]
-    elif prop_id == 188 and len(params) >= 3 and params[1] == char_class:
+    elif prop_id == StatId.SKILL_TAB and len(params) >= 3 and params[1] == char_class:
         acc.skill_tab_bonuses[params[0]] += params[2]
-    elif prop_id == 107 and len(params) >= 2 and get_skill_class_id(params[0]) == char_class:
+    elif (
+        prop_id == StatId.SINGLE_SKILL
+        and len(params) >= 2
+        and get_skill_class_id(params[0]) == char_class
+    ):
         acc.single_skill_bonuses[params[0]] += params[1]
-    elif prop_id == 97 and len(params) >= 2:
+    elif prop_id == StatId.OSKILL and len(params) >= 2:
         acc.oskill_bonuses[params[0]] += params[1]
-    elif prop_id == 126 and len(params) >= 2 and params[0] == 1:
+    elif prop_id == StatId.ELEM_SKILL and len(params) >= 2 and params[0] == 1:
         acc.fire_skills += params[1]
 
 

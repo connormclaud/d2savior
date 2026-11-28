@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import CharClass, ItemLocation, StoredIn
+from d2savior.core.enums import CharClass, ItemLocation, StatId, StoredIn
 from d2savior.core.item import D2Item
 from d2savior.core.item_formatter import get_item_display_name
 from d2savior.core.property import adjust_property_values
@@ -117,26 +117,26 @@ def _sum_weapon_prop_sources(
         src_max_2h = 0
         for pid, val, params in src:
             pval = params[0] if params else val
-            if pid == 17:
+            if pid == StatId.MAX_DAMAGE_PERCENT:
                 ed_max += pval
-            elif pid == 18:
+            elif pid == StatId.MIN_DAMAGE_PERCENT:
                 ed_min += pval
-            elif pid == 21:
+            elif pid == StatId.MIN_DAMAGE:
                 src_min_1h += pval
-            elif pid == 22:
+            elif pid == StatId.MAX_DAMAGE:
                 src_max_1h += pval
-            elif pid == 23:
+            elif pid == StatId.SECONDARY_MIN_DAMAGE:
                 src_min_2h += pval
-            elif pid == 24:
+            elif pid == StatId.SECONDARY_MAX_DAMAGE:
                 src_max_2h += pval
-            elif pid == 111:
+            elif pid == StatId.NORMAL_DAMAGE:
                 flat_dmg += pval
-            elif pid in (218, 219):
+            elif pid in (StatId.MAX_DAMAGE_PER_LEVEL, StatId.MAX_DAMAGE_PERCENT_PER_LEVEL):
                 scaled = adjust_property_values(
                     pid, [pval], resolver.data.get_stat(pid), char_level=char_level
                 )
                 if isinstance(scaled, int):
-                    if pid == 218:
+                    if pid == StatId.MAX_DAMAGE_PER_LEVEL:
                         add_max += scaled
                     else:
                         ed_max += scaled
@@ -217,7 +217,7 @@ def _compute_item_defense(
         return calculate_effective_defence(
             tp.get_defence(), props, char_level=char_level, resolver=resolver
         )
-    if any(pid in (31, 214) for pid, _, _ in props):
+    if any(pid in (StatId.ARMOR_CLASS, StatId.ARMOR_PER_LEVEL) for pid, _, _ in props):
         return calculate_effective_defence(0, props, char_level=char_level, resolver=resolver)
     return 0
 
@@ -565,7 +565,11 @@ def item_to_spec(
             extra_props=extra_props,
         )
         exp_lvl = max(
-            (params[0] if params else val for pid, val, params in props if pid == 158),
+            (
+                params[0] if params else val
+                for pid, val, params in props
+                if pid == StatId.EXPLOSIVE_ARROW
+            ),
             default=0,
         )
         if exp_lvl > 0:

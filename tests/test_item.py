@@ -585,3 +585,70 @@ def test_resolve_version_data_normalizes_all_inputs():
     assert resolve_version_data(vd_63, 0x69) is vd_63
     assert resolve_version_data(None, 0x63, fallback=vd_63) is vd_63
     assert resolve_version_data(None, 0x63) is None
+
+
+def test_skill_id_enum_matches_skills_txt():
+    from d2savior.core.enums import SkillId
+    from d2savior.core.resolver import GameDataResolver
+
+    vd = GameDataResolver.load().game_data.for_version(0x69)
+    for member in SkillId:
+        table_name = vd.skills.get(int(member))
+        assert table_name is not None, (
+            f"SkillId.{member.name} ({int(member)}) missing from skills.txt"
+        )
+        normalized = table_name.upper().replace(" ", "_")
+        assert normalized == member.name, (
+            f"SkillId.{member.name} ({int(member)}) != skills.txt '{table_name}'"
+        )
+
+
+def test_stat_id_enum_matches_itemstatcost():
+    from d2savior.core.enums import StatId
+    from d2savior.core.resolver import GameDataResolver
+
+    vd = GameDataResolver.load().game_data.for_version(0x69)
+    expected_stat_names: dict[StatId, str] = {
+        StatId.ARMOR_PERCENT: "item_armor_percent",
+        StatId.MAX_DAMAGE_PERCENT: "item_maxdamage_percent",
+        StatId.MIN_DAMAGE_PERCENT: "item_mindamage_percent",
+        StatId.MIN_DAMAGE: "mindamage",
+        StatId.MAX_DAMAGE: "maxdamage",
+        StatId.SECONDARY_MIN_DAMAGE: "secondary_mindamage",
+        StatId.SECONDARY_MAX_DAMAGE: "secondary_maxdamage",
+        StatId.DAMAGE_PERCENT: "damagepercent",
+        StatId.ARMOR_CLASS: "armorclass",
+        StatId.POISON_MIN_DAM: "poisonmindam",
+        StatId.POISON_MAX_DAM: "poisonmaxdam",
+        StatId.POISON_LENGTH: "poisonlength",
+        StatId.CLASS_SKILLS: "item_addclassskills",
+        StatId.OSKILL: "item_nonclassskill",
+        StatId.SINGLE_SKILL: "item_singleskill",
+        StatId.NORMAL_DAMAGE: "item_normaldamage",
+        StatId.IGNORE_TARGET_AC: "item_ignoretargetac",
+        StatId.DEMON_TOHIT: "item_demon_tohit",
+        StatId.UNDEAD_TOHIT: "item_undead_tohit",
+        StatId.ELEM_SKILL: "item_elemskill",
+        StatId.ALL_SKILLS: "item_allskills",
+        StatId.OPEN_WOUNDS: "item_openwounds",
+        StatId.INDESTRUCTIBLE: "item_indesctructible",
+        StatId.CANNOT_BE_FROZEN: "item_cannotbefrozen",
+        StatId.EXPLOSIVE_ARROW: "item_explosivearrow",
+        StatId.SKILL_TAB: "item_addskill_tab",
+        StatId.NUM_SOCKETS: "item_numsockets",
+        StatId.SKILL_ON_ATTACK: "item_skillonattack",
+        StatId.SKILL_ON_HIT: "item_skillonhit",
+        StatId.ARMOR_PER_LEVEL: "item_armor_perlevel",
+        StatId.MAX_DAMAGE_PER_LEVEL: "item_maxdamage_perlevel",
+        StatId.MAX_DAMAGE_PERCENT_PER_LEVEL: "item_maxdamage_percent_perlevel",
+        StatId.CRUSHING_BLOW_PER_LEVEL: "item_crushingblow_perlevel",
+        StatId.OPEN_WOUNDS_PER_LEVEL: "item_openwounds_perlevel",
+        StatId.PASSIVE_COLD_MASTERY: "passive_cold_mastery",
+    }
+    assert set(expected_stat_names) == set(StatId)
+    for member, expected_name in expected_stat_names.items():
+        stat = vd.get_stat(int(member))
+        assert stat is not None, f"StatId.{member.name} ({int(member)}) missing from ItemStatCost"
+        assert stat.stat_name == expected_name, (
+            f"StatId.{member.name} ({int(member)}): expected '{expected_name}', got '{stat.stat_name}'"
+        )

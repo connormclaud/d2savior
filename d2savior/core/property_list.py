@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from d2savior.core.bit_io import BitIO, BitReader, BitWriter
+from d2savior.core.enums import StatId
 from d2savior.core.versions import is_d2r
 
 logger = logging.getLogger(__name__)
@@ -144,12 +145,15 @@ class PropertyList:
     def ext_sockets(self) -> int:
         r = 0
         for prop_id, _layer, value in self.properties:
-            if prop_id == 194:
+            if prop_id == StatId.NUM_SOCKETS:
                 r += value
         return r
 
     def is_indestructible(self) -> bool:
-        return any(prop_id == 152 and value != 0 for prop_id, _layer, value in self.properties)
+        return any(
+            prop_id == StatId.INDESTRUCTIBLE and value != 0
+            for prop_id, _layer, value in self.properties
+        )
 
     def get_parsed_properties(
         self, version: int | None = None, data: VersionData | None = None

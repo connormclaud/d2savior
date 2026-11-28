@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from d2savior.core.constants import CLASS_SKILL_BASES
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import CharClass
+from d2savior.core.enums import CharClass, SkillId
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
 from d2savior.core.stats import (
@@ -30,9 +30,11 @@ from d2savior.optimizer.native import (
 from d2savior.optimizer.presets import ConstraintOverrides, resolve_build_expr
 from d2savior.optimizer.skill_tables import build_sorc_dps_tables, resolve_sorc_cold_armor
 
-_SKILL_BLIZZARD = 59
-_SKILL_COLD_MASTERY = 65
-_BLIZZ_SYNERGY_SKILLS: tuple[int, ...] = (39, 45, 55)
+_BLIZZ_SYNERGY_SKILLS: tuple[int, ...] = (
+    SkillId.ICE_BOLT,
+    SkillId.ICE_BLAST,
+    SkillId.GLACIAL_SPIKE,
+)
 
 SORCERESS_FCR_FRAMES: frozendict[int, int] = frozendict(
     {0: 13, 9: 12, 20: 11, 37: 10, 63: 9, 105: 8, 200: 7}
@@ -62,9 +64,9 @@ def _extract_blizz_base_skills(char_data: D2SStruct) -> tuple[int, int, int]:
     skills = char_data.skills.skill_levels if char_data.skills else ()
     sorc_base = CLASS_SKILL_BASES[int(CharClass.SORCERESS)]
     if len(skills) >= 30:
-        blizz_base = skills[_SKILL_BLIZZARD - sorc_base]
+        blizz_base = skills[SkillId.BLIZZARD - sorc_base]
         syn_pts = sum(skills[sid - sorc_base] for sid in _BLIZZ_SYNERGY_SKILLS)
-        cm_base = skills[_SKILL_COLD_MASTERY - sorc_base]
+        cm_base = skills[SkillId.COLD_MASTERY - sorc_base]
         return blizz_base, syn_pts, cm_base
     return 0, 0, 0
 

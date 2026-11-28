@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import cast
 
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import CharClass, EquipSlot, ItemLocation, StoredIn
+from d2savior.core.enums import CharClass, EquipSlot, ItemLocation, SkillId, StatId, StoredIn
 from d2savior.core.item import D2Item
 from d2savior.core.item_name import LongName
 from d2savior.core.resolver import GameDataResolver
@@ -100,7 +100,6 @@ def resolve_fixed_gear(value: bool | str | None) -> tuple[bool, tuple[str, ...]]
 
 
 _SWAP_SLOTS: tuple[EquipSlot, EquipSlot] = (EquipSlot.WEAPON_II, EquipSlot.SHIELD_II)
-_SKILL_BATTLE_ORDERS = 149
 
 
 def active_skill_bindings(char_data: D2SStruct) -> tuple[int, int]:
@@ -199,13 +198,13 @@ def item_levelreq(item: D2Item, resolver: GameDataResolver) -> int:
 
 
 def item_cta_bo(item: D2Item, resolver: GameDataResolver, version: int) -> int | None:
-    """Return `bo_oskill + all_skills` if `item` grants Battle Orders (pid 97), else None."""
+    """Return `bo_oskill + all_skills` if `item` grants Battle Orders, else None."""
     bo_oskill: int | None = None
     all_skills = 0
     for pid, val, params in collect_item_properties(item, resolver=resolver, version=version):
-        if pid == 97 and len(params) >= 2 and params[0] == _SKILL_BATTLE_ORDERS:
+        if pid == StatId.OSKILL and len(params) >= 2 and params[0] == SkillId.BATTLE_ORDERS:
             bo_oskill = (bo_oskill or 0) + params[1]
-        elif pid == 127:
+        elif pid == StatId.ALL_SKILLS:
             all_skills += params[0] if params else val
     return bo_oskill + all_skills if bo_oskill is not None else None
 

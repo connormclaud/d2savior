@@ -8,7 +8,7 @@ from d2savior.core.constants import (
     DIFFICULTY_NAMES,
 )
 from d2savior.core.d2s_struct import D2SStruct
-from d2savior.core.enums import CharClass
+from d2savior.core.enums import CharClass, SkillId
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
 from d2savior.core.stats import (
@@ -123,9 +123,9 @@ PALADIN_SPEC_INFO: frozendict[str, tuple[int | None, str | None, frozenset[int]]
 _PALADIN_CASTER_SPECS: frozenset[str] = frozenset({"hammer", "foh", "holy-bolt"})
 
 
-_SKILL_ID_SMITE = 97
-_SKILL_ID_ZEAL = 106
-_ELEMENTAL_AURA_SKILL_IDS: frozenset[int] = frozenset({102, 114, 118})
+_ELEMENTAL_AURA_SKILL_IDS: frozenset[int] = frozenset(
+    {SkillId.HOLY_FIRE, SkillId.HOLY_FREEZE, SkillId.HOLY_SHOCK}
+)
 
 
 def paladin_offense_profile(
@@ -142,7 +142,7 @@ def paladin_offense_profile(
     Smite + Holy Fire -> 'smite'), falling back to hard skill points only when no active
     bindings are populated.
     """
-    if left_skill == _SKILL_ID_SMITE:
+    if left_skill == SkillId.SMITE:
         return "smite"
     if spec == "smite":
         return "smite"
@@ -161,9 +161,9 @@ def paladin_offense_profile(
             left_skill is not None or right_skill is not None or eff_left != 0 or eff_right != 0
         )
         if has_bindings:
-            if has_smite and _SKILL_ID_SMITE in (eff_left, eff_right):
+            if has_smite and SkillId.SMITE in (eff_left, eff_right):
                 return "smite"
-            if has_zeal and _SKILL_ID_ZEAL in (eff_left, eff_right):
+            if has_zeal and SkillId.ZEAL in (eff_left, eff_right):
                 return "zeal"
             return "melee"
         if has_zeal:
@@ -182,13 +182,13 @@ def detect_paladin_spec(
     if len(skills) < 30:
         return "leveling"
     active_left, active_right = active_skill_bindings(char_data)
-    if left_skill == _SKILL_ID_SMITE and right_skill not in _ELEMENTAL_AURA_SKILL_IDS:
+    if left_skill == SkillId.SMITE and right_skill not in _ELEMENTAL_AURA_SKILL_IDS:
         return "smite"
     if right_skill == -1:
         eff_left = left_skill if left_skill is not None else active_left
-        if eff_left == _SKILL_ID_SMITE:
+        if eff_left == SkillId.SMITE:
             return "smite"
-        return "zeal" if eff_left == _SKILL_ID_ZEAL else "leveling"
+        return "zeal" if eff_left == SkillId.ZEAL else "leveling"
     if right_skill is not None and right_skill > 0:
         for spec_name in ("holy-fire", "holy-freeze", "holy-shock"):
             if PALADIN_SPEC_INFO[spec_name][0] == right_skill:

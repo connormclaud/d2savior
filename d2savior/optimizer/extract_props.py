@@ -3,7 +3,7 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from d2savior.core.enums import CharClass
+from d2savior.core.enums import CharClass, SkillId, StatId
 from d2savior.core.property import adjust_property_values
 from d2savior.core.resolver import GameDataResolver
 from d2savior.optimizer.native import CharmSpec, ItemSpec
@@ -24,31 +24,18 @@ class ExtractionContext:
     pal_aura_id: int | None = -1
 
 
-_SKILL_CRITICAL_STRIKE = 9
-_SKILL_STATIC_FIELD = 42
-_SKILL_BLIZZARD = 59
-_SKILL_FROZEN_ORB = 64
-_SKILL_COLD_MASTERY = 65
-_SKILL_LIFE_TAP = 82
-_SKILL_DECREPIFY = 87
-_SKILL_SMITE = 97
-_SKILL_ZEAL = 106
-_SKILL_HOLY_SHIELD = 117
-_SKILL_FANATICISM = 122
-_SKILL_CONVICTION = 123
-_SKILL_VENOM = 278
 _FLAT_FIRE_PIDS: frozenset[int] = frozenset({48, 49})
 _FLAT_ELEM_PIDS: frozenset[int] = frozenset({50, 51, 52, 53, 54, 55})
 _ELEMENTAL_AURA_SPECS: frozenset[str] = frozenset({"holy-fire", "holy-freeze", "holy-shock"})
 _MELEE_ACTION_SPECS: frozenset[str] = frozenset({"sacrifice", "charge", "vengeance"})
 _SUPPORT_AURA_IDS: frozendict[str, int] = frozendict(
     {
-        "smite": _SKILL_FANATICISM,
-        "zeal": _SKILL_FANATICISM,
-        "sacrifice": _SKILL_FANATICISM,
-        "charge": _SKILL_FANATICISM,
-        "leveling": _SKILL_FANATICISM,
-        "vengeance": _SKILL_CONVICTION,
+        "smite": SkillId.FANATICISM,
+        "zeal": SkillId.FANATICISM,
+        "sacrifice": SkillId.FANATICISM,
+        "charge": SkillId.FANATICISM,
+        "leveling": SkillId.FANATICISM,
+        "vengeance": SkillId.CONVICTION,
     }
 )
 
@@ -398,20 +385,20 @@ def _apply_sorc_prop(
     sorc_armor_id: int | None = None,
 ) -> None:
     sorc_id = int(CharClass.SORCERESS)
-    if pid == 83 and len(params) >= 2 and params[0] == sorc_id:
+    if pid == StatId.CLASS_SKILLS and len(params) >= 2 and params[0] == sorc_id:
         acc.class_skills += params[1]
-    elif pid == 331:
+    elif pid == StatId.PASSIVE_COLD_MASTERY:
         acc.cold_dmg_pct += pval if pval is not None else (params[0] if params else 0)
-    elif pid == 107 and len(params) >= 2:
-        if params[0] == _SKILL_BLIZZARD:
+    elif pid == StatId.SINGLE_SKILL and len(params) >= 2:
+        if params[0] == SkillId.BLIZZARD:
             acc.blizz_skills += params[1]
-        elif params[0] == _SKILL_COLD_MASTERY:
+        elif params[0] == SkillId.COLD_MASTERY:
             acc.cm_skills += params[1]
         elif sorc_filler_id is not None and params[0] == sorc_filler_id:
             acc.action_skill_bonus += params[1]
         if sorc_armor_id is not None and params[0] == sorc_armor_id:
             acc.def_skill += params[1]
-    elif pid == 188 and len(params) >= 3 and params[1] == sorc_id:
+    elif pid == StatId.SKILL_TAB and len(params) >= 3 and params[1] == sorc_id:
         # Sorceress skill tab: 0=Fire, 1=Lightning, 2=Cold
         if params[0] == 1:
             acc.light_skills += params[2]
@@ -428,7 +415,7 @@ def _apply_paladin_staffmod(
     pal_aura_id: int | None,
     split_skills: bool,
 ) -> None:
-    if params[0] == _SKILL_HOLY_SHIELD:
+    if params[0] == SkillId.HOLY_SHIELD:
         acc.def_skill += params[1]
     if not split_skills:
         if pal_primary_id is not None and params[0] == pal_primary_id:
@@ -440,8 +427,8 @@ def _apply_paladin_staffmod(
         else pal_aura_id
     )
     is_action = (
-        (params[0] == _SKILL_ZEAL and pal_offense == "zeal")
-        or (params[0] == _SKILL_SMITE and pal_offense == "smite")
+        (params[0] == SkillId.ZEAL and pal_offense == "zeal")
+        or (params[0] == SkillId.SMITE and pal_offense == "smite")
         or (
             pal_offense == "melee"
             and pal_spec in _MELEE_ACTION_SPECS
@@ -466,10 +453,10 @@ def _apply_paladin_skill_prop(
 ) -> bool:
     pal_id = int(CharClass.PALADIN)
     split_skills = pal_offense in ("zeal", "melee", "smite")
-    if pid == 83 and len(params) >= 2 and params[0] == pal_id:
+    if pid == StatId.CLASS_SKILLS and len(params) >= 2 and params[0] == pal_id:
         acc.class_skills += params[1]
         return True
-    if pid == 188 and len(params) >= 3 and params[1] == pal_id:
+    if pid == StatId.SKILL_TAB and len(params) >= 3 and params[1] == pal_id:
         if split_skills:
             if params[0] == 0:
                 acc.action_skill_bonus += params[2]
@@ -483,14 +470,14 @@ def _apply_paladin_skill_prop(
         elif params[0] == 0:
             acc.def_skill += params[2]
         return True
-    if pid == 126 and len(params) >= 2 and params[0] == 1 and pal_spec == "holy-fire":
+    if pid == StatId.ELEM_SKILL and len(params) >= 2 and params[0] == 1 and pal_spec == "holy-fire":
         if split_skills:
             acc.aura_skill_bonus += params[1]
         else:
             acc.class_skills += params[1]
             acc.def_skill -= params[1]
         return True
-    if pid == 107 and len(params) >= 2:
+    if pid == StatId.SINGLE_SKILL and len(params) >= 2:
         _apply_paladin_staffmod(
             acc, params, pal_spec, pal_primary_id, pal_offense, pal_aura_id, split_skills
         )
@@ -514,7 +501,7 @@ _PAL_MELEE_PER_LVL_MAP: frozendict[int, str] = frozendict(
     {224: "ar", 225: "ar_pct", 243: "ed_demon", 244: "ed_undead", 248: "ow", 250: "ds"}
 )
 _PAL_CTC_CHANCE_MAP: frozendict[int, str] = frozendict(
-    {_SKILL_STATIC_FIELD: "ctc_static_pct", _SKILL_DECREPIFY: "ctc_decrep_pct"}
+    {SkillId.STATIC_FIELD: "ctc_static_pct", SkillId.DECREPIFY: "ctc_decrep_pct"}
 )
 
 
@@ -535,16 +522,16 @@ def _apply_paladin_ctc_prop(acc: _PropAcc, params: list[int], pal_offense: str) 
     if len(params) < 3:
         return
     slvl, sid, chance = params[0], params[1], params[2]
-    if sid == _SKILL_LIFE_TAP:
+    if sid == SkillId.LIFE_TAP:
         acc.ctc_lifetap_pct += chance
         return
     if pal_offense not in ("zeal", "melee", "smite"):
         return
     if attr := _PAL_CTC_CHANCE_MAP.get(sid):
         setattr(acc, attr, getattr(acc, attr) + chance)
-    elif sid == _SKILL_VENOM and pal_offense != "smite":
+    elif sid == SkillId.VENOM and pal_offense != "smite":
         acc.ctc_venom_dps_2x = max(acc.ctc_venom_dps_2x, venom_dps_2x(slvl))
-    elif sid == _SKILL_FROZEN_ORB:
+    elif sid == SkillId.FROZEN_ORB:
         acc.ctc_orb_dmg_2x += round((chance / 100.0) * frozen_orb_avg_dmg_2x(slvl))
 
 
@@ -566,24 +553,32 @@ def _apply_paladin_melee_combat_prop(
         acc.flat_fire_2x += pval
     elif pid in _FLAT_ELEM_PIDS:
         acc.flat_elem_2x += pval
-    elif not is_weapon and pid in (17, 25):
+    elif not is_weapon and pid in (StatId.MAX_DAMAGE_PERCENT, StatId.DAMAGE_PERCENT):
         acc.off_ed += pval
-    elif not is_weapon and pid in (21, 22):
+    elif not is_weapon and pid in (StatId.MIN_DAMAGE, StatId.MAX_DAMAGE):
         acc.flat_phys_2x += pval
-    elif not is_weapon and pid in (218, 219):
+    elif not is_weapon and pid in (
+        StatId.MAX_DAMAGE_PER_LEVEL,
+        StatId.MAX_DAMAGE_PERCENT_PER_LEVEL,
+    ):
         _apply_scaled_stat(
-            acc, pid, pval, "flat_phys_2x" if pid == 218 else "off_ed", resolver, char_level
+            acc,
+            pid,
+            pval,
+            "flat_phys_2x" if pid == StatId.MAX_DAMAGE_PER_LEVEL else "off_ed",
+            resolver,
+            char_level,
         )
-    elif pid == 97 and len(params) >= 2 and params[0] == _SKILL_CRITICAL_STRIKE:
+    elif pid == StatId.OSKILL and len(params) >= 2 and params[0] == SkillId.CRITICAL_STRIKE:
         acc.cs_oskill += params[1]
-    elif pid == 57:
+    elif pid == StatId.POISON_MIN_DAM:
         rate_sum = (params[0] + params[1]) if len(params) >= 2 else (params[0] if params else 0)
         acc.psn_dps_2x += round(rate_sum * 25.0 / 256.0)
-    elif pid == 58:
+    elif pid == StatId.POISON_MAX_DAM:
         acc.psn_dps_2x += round(pval * 25.0 / 256.0)
-    elif pid == 115 and pval > 0:
+    elif pid == StatId.IGNORE_TARGET_AC and pval > 0:
         acc.itd = 1
-    elif pid in (123, 124) and pval > 0:
+    elif pid in (StatId.DEMON_TOHIT, StatId.UNDEAD_TOHIT) and pval > 0:
         acc.ar += max(1, pval // 3)
 
 
@@ -608,24 +603,24 @@ def _apply_paladin_prop(
         acc, pid, params, pal_spec, pal_primary_id, pal_tabs, pal_offense, pal_aura_id
     ):
         return
-    elif pid == 247:
+    elif pid == StatId.CRUSHING_BLOW_PER_LEVEL:
         _apply_scaled_stat(acc, pid, pval, "cb", resolver, char_level)
-    elif pid in (195, 198):
+    elif pid in (StatId.SKILL_ON_ATTACK, StatId.SKILL_ON_HIT):
         _apply_paladin_ctc_prop(acc, params, pal_offense)
     elif pal_offense in ("zeal", "melee"):
         _apply_paladin_melee_combat_prop(
             acc, pid, pval, params, resolver, char_level, is_weapon=is_weapon
         )
     elif pal_offense == "smite":
-        if pid == 135:
+        if pid == StatId.OPEN_WOUNDS:
             acc.ow += pval
-        elif pid == 248:
+        elif pid == StatId.OPEN_WOUNDS_PER_LEVEL:
             _apply_scaled_stat(acc, pid, pval, "ow", resolver, char_level)
-        elif not is_weapon and pid in (17, 25):
+        elif not is_weapon and pid in (StatId.MAX_DAMAGE_PERCENT, StatId.DAMAGE_PERCENT):
             acc.off_ed += pval
-        elif not is_weapon and pid == 219:
+        elif not is_weapon and pid == StatId.MAX_DAMAGE_PERCENT_PER_LEVEL:
             _apply_scaled_stat(acc, pid, pval, "off_ed", resolver, char_level)
-        elif pid == 111:
+        elif pid == StatId.NORMAL_DAMAGE:
             acc.flat_phys_2x += pval * 2
 
 
@@ -724,11 +719,11 @@ def _apply_props_to_acc(
             setattr(acc, attr, getattr(acc, attr) + pval)
         elif pid in _PER_LEVEL_STAT_MAP:
             _apply_per_lvl_prop(acc, pid, pval, resolver, eff_level)
-        elif pid == 153 and pval > 0:
+        elif pid == StatId.CANNOT_BE_FROZEN and pval > 0:
             acc.cbf = 1
-        elif include_defense_props and pid == 31:
+        elif include_defense_props and pid == StatId.ARMOR_CLASS:
             acc.defense += pval
-        elif include_defense_props and pid == 214:
+        elif include_defense_props and pid == StatId.ARMOR_PER_LEVEL:
             scaled = adjust_property_values(
                 pid, [pval], resolver.data.get_stat(pid), char_level=eff_level
             )
