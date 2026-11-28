@@ -3,7 +3,6 @@
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from d2savior.core.constants import BASE_MAX_RESIST, HARD_MAX_RESIST
 from d2savior.optimizer.common import CharacterBaseline
 from d2savior.optimizer.native import (
     BuildConstraints,
@@ -296,19 +295,12 @@ def collect_leveling_alternatives(
     fcr_below = _clamped_below(opt1.fcr_bp, fcr_bps, floor_fcr) if is_caster else None
     caster_fcr_floor = max(opt1.fcr_bp, floor_fcr) if is_caster else floor_fcr
 
-    cap_fr = min(BASE_MAX_RESIST + baseline.character.base_max_fr, HARD_MAX_RESIST)
-    cap_lr = min(BASE_MAX_RESIST + baseline.character.base_max_lr, HARD_MAX_RESIST)
-    cap_cr = min(BASE_MAX_RESIST + baseline.character.base_max_cr, HARD_MAX_RESIST)
-    cap_pr = min(BASE_MAX_RESIST + baseline.character.base_max_pr, HARD_MAX_RESIST)
-
     if fhr_below is not None:
         try_add(build_c(mode="leveling-res", min_fcr=caster_fcr_floor, min_fhr=fhr_below))
     if is_caster and fcr_below is not None:
         try_add(build_c(mode="leveling-res", min_fcr=fcr_below, min_fhr=fhr_below or 0))
-    if (
-        all(r.fr < cap_fr or r.lr < cap_lr or r.cr < cap_cr or r.pr < cap_pr for _, r in collected)
-        and fhr_below is not None
-        and fhr_below > floor_fhr
+    if (fhr_below is not None and fhr_below > floor_fhr) or (
+        is_caster and fcr_below is not None and fcr_below > floor_fcr
     ):
         try_add(build_c(mode="leveling-res"))
 

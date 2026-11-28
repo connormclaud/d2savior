@@ -2516,6 +2516,44 @@ def test_paladin_passive_max_res_cap_in_alternatives(
     assert ("leveling-res", 0) in seen_calls
     assert any(r.fr == 80 for _, r in alts)
 
+    # Even when Option #1/#2 already cap resists, unconstrained `leveling-res` must still run
+    # before `mode="leveling"` so higher-DPS capped-resist builds beat glass-cannon alternatives.
+    opt1_capped = _as_result(_FakeBuildResult(fhr_bp=48, skills=2, fr=80, lr=75, cr=75, pr=75))
+    opt_27_capped = _as_result(_FakeBuildResult(fhr_bp=27, skills=2, fr=80, lr=75, cr=75, pr=75))
+    opt_0_dps = _as_result(
+        _FakeBuildResult(fhr_bp=0, skills=2, dps=1600.0, fr=80, lr=75, cr=75, pr=75)
+    )
+    opt_glass = _as_result(
+        _FakeBuildResult(fhr_bp=0, skills=2, dps=1800.0, fr=10, lr=0, cr=10, pr=10)
+    )
+    order_calls: list[tuple[str, int]] = []
+
+    def _fake_opt_order(_items: object, _charms: object, c: _FakeConstraints) -> list[BuildResult]:
+        order_calls.append((c.mode, c.min_fhr))
+        if c.mode == "leveling-res" and c.min_fhr == 27:
+            return [opt_27_capped]
+        if c.mode == "leveling-res" and c.min_fhr == 0:
+            return [opt_0_dps]
+        if c.mode == "leveling":
+            return [opt_glass]
+        return []
+
+    monkeypatch.setattr("d2savior.optimizer.paladin.optimize_builds", _fake_opt_order)
+    alts_capped = _collect_paladin_alternatives(
+        [],
+        [],
+        baseline,
+        opt1_capped,
+        limit=3,
+        offense="melee",
+        is_caster=False,
+        is_smite=False,
+    )
+    assert order_calls == [("leveling-res", 27), ("leveling-res", 0)]
+    assert len(alts_capped) == 3
+    assert alts_capped[2][1].dps == 1600.0
+    assert alts_capped[2][1].lr == 75
+
 
 def test_optimize_value_opts_in_sync_with_parser() -> None:
     from d2savior.cli_optimize import _OPTIMIZE_VALUE_OPTS, _build_optimize_parser
