@@ -133,9 +133,19 @@ def validate_paladin(char_data: D2SStruct) -> None:
     _validate_char_class(char_data, (CharClass.PALADIN,), "Paladin")
 
 
+def supported_classes_label(classes: Sequence[CharClass] = SUPPORTED_OPTIMIZER_CLASSES) -> str:
+    """Format a human-readable label for a sequence of character classes."""
+    names = [c.display_name for c in classes]
+    if len(names) <= 1:
+        return names[0] if names else "supported"
+    if len(names) == 2:
+        return f"{names[0]} or {names[1]}"
+    return f"{', '.join(names[:-1])}, or {names[-1]}"
+
+
 def validate_supported_class(char_data: D2SStruct) -> None:
     """Validate that a parsed character belongs to a supported optimizer class."""
-    _validate_char_class(char_data, SUPPORTED_OPTIMIZER_CLASSES, "Sorceress or Paladin")
+    _validate_char_class(char_data, SUPPORTED_OPTIMIZER_CLASSES, supported_classes_label())
 
 
 def _long_name_levelreq(

@@ -5,11 +5,14 @@ from pathlib import Path
 import pytest
 
 from d2savior.core.enums import CharClass
+from d2savior.optimizer.common import supported_classes_label
 from d2savior.optimizer.presets import (
     ConstraintOverrides,
+    allowed_classes_for_expr,
     list_presets,
     resolve_build_expr,
 )
+from d2savior.optimizer.profiles import CLASS_PROFILES, get_class_profile
 
 
 def test_builtin_sorc_and_paladin_presets(tmp_path: Path) -> None:
@@ -133,3 +136,41 @@ def test_overrides_and_validation_errors(tmp_path: Path) -> None:
     (tmp_path / "b.toml").write_text('extends = ["a"]\n', encoding="utf-8")
     with pytest.raises(ValueError, match="Circular preset inheritance"):
         resolve_build_expr("a", CharClass.SORCERESS, user_dir=tmp_path)
+
+
+def test_multiclass_preset_and_profile_lookup(tmp_path: Path) -> None:
+    # Multi-class list syntax in TOML presets (prep for shared leveling presets).
+    (tmp_path / "shared.toml").write_text(
+        'class = ["paladin", "sorceress"]\nmode = "max-res"\n',
+        encoding="utf-8",
+    )
+    assert allowed_classes_for_expr("tz", user_dir=tmp_path) == (CharClass.SORCERESS,)
+    assert allowed_classes_for_expr("leveling", user_dir=tmp_path) == (CharClass.PALADIN,)
+    assert allowed_classes_for_expr("shared", user_dir=tmp_path) == (
+        CharClass.SORCERESS,
+        CharClass.PALADIN,
+    )
+    assert allowed_classes_for_expr("nonexistent", user_dir=tmp_path) == (
+        CharClass.SORCERESS,
+        CharClass.PALADIN,
+    )
+
+    entries = {e.name: e for e in list_presets(user_dir=tmp_path)}
+    assert entries["shared"].char_class == "paladin, sorceress"
+    assert resolve_build_expr("shared", CharClass.PALADIN, user_dir=tmp_path)[0].mode == "max-res"
+
+    # Invalid empty or unknown class list rejected.
+    (tmp_path / "bad_cls.toml").write_text("class = []\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid class"):
+        resolve_build_expr("bad_cls", CharClass.SORCERESS, user_dir=tmp_path)
+
+    # Class profile registry and label formatting.
+    assert set(CLASS_PROFILES) == {CharClass.SORCERESS, CharClass.PALADIN}
+    assert get_class_profile(CharClass.SORCERESS).char_class == CharClass.SORCERESS
+    assert get_class_profile(int(CharClass.PALADIN)).char_class == CharClass.PALADIN
+    with pytest.raises(ValueError, match="Unsupported optimizer class 'Amazon'"):
+        get_class_profile(CharClass.AMAZON)
+    assert (
+        supported_classes_label((CharClass.SORCERESS, CharClass.PALADIN, CharClass.AMAZON))
+        == "Sorceress, Paladin, or Amazon"
+    )

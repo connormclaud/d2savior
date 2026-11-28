@@ -1,6 +1,6 @@
 """Property accumulation and class-specific stat mapping for optimizer extraction."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from d2savior.core.enums import CharClass
@@ -9,6 +9,20 @@ from d2savior.core.resolver import GameDataResolver
 from d2savior.optimizer.native import CharmSpec, ItemSpec
 from d2savior.optimizer.paladin import PALADIN_SPEC_INFO
 from d2savior.optimizer.skill_tables import frozen_orb_avg_dmg_2x, venom_dps_2x
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractionContext:
+    """Per-character class/skill context threaded through item and charm extraction."""
+
+    char_class: int = int(CharClass.SORCERESS)
+    char_level: int = 1
+    pal_spec: str = "leveling"
+    pal_offense: str = "caster"
+    sorc_filler_id: int | None = None
+    sorc_armor_id: int | None = None
+    pal_aura_id: int | None = -1
+
 
 _SKILL_CRITICAL_STRIKE = 9
 _SKILL_STATIC_FIELD = 42
@@ -619,14 +633,73 @@ def _apply_paladin_prop(
             acc.flat_phys_2x += pval * 2
 
 
+def _apply_sorc_prop_ctx(
+    acc: _PropAcc,
+    pid: int,
+    pval: int,
+    params: list[int],
+    _resolver: GameDataResolver,
+    ctx: ExtractionContext,
+    *,
+    is_weapon: bool,
+) -> None:
+    del is_weapon
+    _apply_sorc_prop(
+        acc,
+        pid,
+        params,
+        pval=pval,
+        sorc_filler_id=ctx.sorc_filler_id,
+        sorc_armor_id=ctx.sorc_armor_id,
+    )
+
+
+def _apply_paladin_prop_ctx(
+    acc: _PropAcc,
+    pid: int,
+    pval: int,
+    params: list[int],
+    resolver: GameDataResolver,
+    ctx: ExtractionContext,
+    *,
+    is_weapon: bool,
+) -> None:
+    pal_primary_id, _, pal_tabs = PALADIN_SPEC_INFO.get(
+        ctx.pal_spec, (None, None, frozenset({0, 1}))
+    )
+    _apply_paladin_prop(
+        acc,
+        pid,
+        pval,
+        params,
+        resolver,
+        ctx.char_level,
+        ctx.pal_spec,
+        pal_primary_id,
+        pal_tabs,
+        pal_offense=ctx.pal_offense,
+        is_weapon=is_weapon,
+        pal_aura_id=ctx.pal_aura_id,
+    )
+
+
+_CLASS_PROP_HANDLERS: frozendict[int, Callable[..., None]] = frozendict(
+    {
+        int(CharClass.SORCERESS): _apply_sorc_prop_ctx,
+        int(CharClass.PALADIN): _apply_paladin_prop_ctx,
+    }
+)
+
+
 def _apply_props_to_acc(
     acc: _PropAcc,
     props: Sequence[tuple[int, int, list[int]]],
     resolver: GameDataResolver,
-    char_level: int,
+    char_level: int = 1,
     *,
-    char_class: int,
-    pal_spec: str,
+    ctx: ExtractionContext | None = None,
+    char_class: int = int(CharClass.SORCERESS),
+    pal_spec: str = "leveling",
     pal_offense: str = "caster",
     is_weapon: bool = False,
     include_defense_props: bool = False,
@@ -634,44 +707,44 @@ def _apply_props_to_acc(
     sorc_armor_id: int | None = None,
     pal_aura_id: int | None = -1,
 ) -> None:
-    pal_primary_id, _, pal_tabs = PALADIN_SPEC_INFO.get(pal_spec, (None, None, frozenset({0, 1})))
+    eff_ctx = (
+        ctx
+        if ctx is not None
+        else ExtractionContext(
+            char_class=char_class,
+            char_level=char_level,
+            pal_spec=pal_spec,
+            pal_offense=pal_offense,
+            sorc_filler_id=sorc_filler_id,
+            sorc_armor_id=sorc_armor_id,
+            pal_aura_id=pal_aura_id,
+        )
+    )
+    eff_level = eff_ctx.char_level
+    class_handler = _CLASS_PROP_HANDLERS.get(eff_ctx.char_class)
     for pid, val, params in props:
         pval = params[0] if params else val
         if attr := _SIMPLE_ITEM_STAT_MAP.get(pid):
             setattr(acc, attr, getattr(acc, attr) + pval)
         elif pid in _PER_LEVEL_STAT_MAP:
-            _apply_per_lvl_prop(acc, pid, pval, resolver, char_level)
+            _apply_per_lvl_prop(acc, pid, pval, resolver, eff_level)
         elif pid == 153 and pval > 0:
             acc.cbf = 1
         elif include_defense_props and pid == 31:
             acc.defense += pval
         elif include_defense_props and pid == 214:
             scaled = adjust_property_values(
-                pid, [pval], resolver.data.get_stat(pid), char_level=char_level
+                pid, [pval], resolver.data.get_stat(pid), char_level=eff_level
             )
             if isinstance(scaled, int):
                 acc.defense += scaled
-        elif char_class == int(CharClass.SORCERESS):
-            _apply_sorc_prop(
-                acc,
-                pid,
-                params,
-                pval=pval,
-                sorc_filler_id=sorc_filler_id,
-                sorc_armor_id=sorc_armor_id,
-            )
-        elif char_class == int(CharClass.PALADIN):
-            _apply_paladin_prop(
+        elif class_handler is not None:
+            class_handler(
                 acc,
                 pid,
                 pval,
                 params,
                 resolver,
-                char_level,
-                pal_spec,
-                pal_primary_id,
-                pal_tabs,
-                pal_offense=pal_offense,
+                eff_ctx,
                 is_weapon=is_weapon,
-                pal_aura_id=pal_aura_id,
             )

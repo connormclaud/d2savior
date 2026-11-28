@@ -6,11 +6,13 @@ from d2savior.optimizer.common import (
     SUPPORTED_OPTIMIZER_CLASSES,
     detect_cta_bo_bonus,
     parse_keep_gear,
+    supported_classes_label,
     validate_paladin,
     validate_sorceress,
     validate_supported_class,
 )
-from d2savior.optimizer.extract import extract_pool
+from d2savior.optimizer.extract import extract_pool, resolve_extraction_context
+from d2savior.optimizer.extract_props import ExtractionContext
 from d2savior.optimizer.native import (
     HAS_NATIVE,
     BuildConstraints,
@@ -43,7 +45,13 @@ from d2savior.optimizer.paladin import (
     select_paladin_max_res_preset,
     uses_paladin_leveling_probe,
 )
-from d2savior.optimizer.presets import ConstraintOverrides, list_presets, resolve_build_expr
+from d2savior.optimizer.presets import (
+    ConstraintOverrides,
+    allowed_classes_for_expr,
+    list_presets,
+    resolve_build_expr,
+)
+from d2savior.optimizer.profiles import CLASS_PROFILES, ClassProfile, get_class_profile
 from d2savior.optimizer.report import format_build_report, format_paladin_leveling_report
 from d2savior.optimizer.socket_candidates import (
     SocketableOption,
@@ -71,6 +79,7 @@ BUILD_CHOICES: tuple[str, ...] = (*BUILD_PRESET_ALIASES.keys(), *PALADIN_BUILD_C
 __all__ = [
     "BUILD_CHOICES",
     "BUILD_PRESET_ALIASES",
+    "CLASS_PROFILES",
     "HAS_NATIVE",
     "KEEP_GEAR_GROUPS",
     "KEEP_GEAR_SLOTS",
@@ -87,7 +96,9 @@ __all__ = [
     "CasterSkillModel",
     "CharacterStats",
     "CharmSpec",
+    "ClassProfile",
     "ConstraintOverrides",
+    "ExtractionContext",
     "ItemSpec",
     "MeleeSkillModel",
     "PresetSocketReport",
@@ -96,6 +107,7 @@ __all__ = [
     "SocketUpgradeResult",
     "SocketableOption",
     "TargetProfile",
+    "allowed_classes_for_expr",
     "blizzard_damage",
     "blizzard_damage_with_base",
     "build_paladin_preset_constraints",
@@ -109,6 +121,7 @@ __all__ = [
     "format_build_report",
     "format_paladin_leveling_report",
     "format_socket_report",
+    "get_class_profile",
     "get_larzuk_socket_range",
     "get_socket_quest_status",
     "list_presets",
@@ -119,9 +132,11 @@ __all__ = [
     "paladin_primary_skill_info",
     "parse_keep_gear",
     "resolve_build_expr",
+    "resolve_extraction_context",
     "score_of_result",
     "select_paladin_max_res_preset",
     "select_sorc_presets",
+    "supported_classes_label",
     "uses_paladin_leveling_probe",
     "validate_paladin",
     "validate_sorceress",

@@ -229,6 +229,63 @@ def _format_sorc_option_lines(
     return lines
 
 
+def _format_sorc_report_option(
+    header: str,
+    res: BuildResult,
+    charms: Sequence[CharmSpec],
+    *,
+    diff_name: str,
+    resist_penalty: int | None,
+    primary_skill_name: str | None,
+    primary_skill_base: int,
+    primary_inv_loc: str | None,
+    filler_skill_name: str | None,
+) -> list[str]:
+    del primary_skill_name, primary_skill_base
+    return _format_sorc_option_lines(
+        header,
+        res,
+        charms,
+        diff_name=diff_name,
+        resist_penalty=resist_penalty,
+        primary_inv_loc=primary_inv_loc,
+        filler_skill_name=filler_skill_name,
+    )
+
+
+def _format_paladin_report_option(
+    header: str,
+    res: BuildResult,
+    charms: Sequence[CharmSpec],
+    *,
+    diff_name: str,
+    resist_penalty: int | None,
+    primary_skill_name: str | None,
+    primary_skill_base: int,
+    primary_inv_loc: str | None,
+    filler_skill_name: str | None,
+) -> list[str]:
+    del filler_skill_name
+    return _format_paladin_option_lines(
+        header,
+        res,
+        charms,
+        diff_name=diff_name,
+        resist_penalty=resist_penalty,
+        primary_skill_name=primary_skill_name,
+        primary_skill_base=primary_skill_base,
+        primary_inv_loc=primary_inv_loc,
+    )
+
+
+_CLASS_OPTION_FORMATTERS = frozendict(
+    {
+        int(CharClass.SORCERESS): _format_sorc_report_option,
+        int(CharClass.PALADIN): _format_paladin_report_option,
+    }
+)
+
+
 def format_build_report(
     title: str,
     results: Sequence[BuildResult],
@@ -248,33 +305,22 @@ def format_build_report(
         lines.append("  No loadout found matching all constraints.")
         return "\n".join(lines)
 
+    formatter = _CLASS_OPTION_FORMATTERS.get(char_class, _format_sorc_report_option)
     for idx, res in enumerate(results, start=1):
         header = f"Option #{idx} (evaluated {res.evaluated_candidates} pruned sets):"
-        if char_class == int(CharClass.PALADIN):
-            lines.extend(
-                _format_paladin_option_lines(
-                    header,
-                    res,
-                    charms,
-                    diff_name=diff_name,
-                    resist_penalty=resist_penalty,
-                    primary_skill_name=primary_skill_name,
-                    primary_skill_base=primary_skill_base,
-                    primary_inv_loc=primary_inv_loc,
-                )
+        lines.extend(
+            formatter(
+                header,
+                res,
+                charms,
+                diff_name=diff_name,
+                resist_penalty=resist_penalty,
+                primary_skill_name=primary_skill_name,
+                primary_skill_base=primary_skill_base,
+                primary_inv_loc=primary_inv_loc,
+                filler_skill_name=filler_skill_name,
             )
-        else:
-            lines.extend(
-                _format_sorc_option_lines(
-                    header,
-                    res,
-                    charms,
-                    diff_name=diff_name,
-                    resist_penalty=resist_penalty,
-                    primary_inv_loc=primary_inv_loc,
-                    filler_skill_name=filler_skill_name,
-                )
-            )
+        )
     return "\n".join(lines)
 
 

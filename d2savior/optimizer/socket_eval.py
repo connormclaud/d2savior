@@ -3,7 +3,6 @@
 import os
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, cast
 
 from d2savior.core.constants import DIFFICULTY_NAMES
 from d2savior.core.d2s_struct import D2SStruct
@@ -11,31 +10,21 @@ from d2savior.core.enums import CharClass
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
 from d2savior.core.stats import get_current_difficulty
-from d2savior.optimizer.common import normalize_target_type, parse_keep_gear
-from d2savior.optimizer.extract import extract_pool_with_context
+from d2savior.optimizer.common import (
+    parse_keep_gear,
+    validate_supported_class,
+)
+from d2savior.optimizer.extract import extract_pool_with_context, resolve_extraction_context
 from d2savior.optimizer.native import (
     BuildConstraints,
     BuildResult,
     CharmSpec,
     ItemSpec,
-    TargetTypeStr,
     optimize_builds,
     score_of_result,
 )
-from d2savior.optimizer.paladin import (
-    build_paladin_baseline,
-    build_paladin_preset_constraints,
-    detect_paladin_spec,
-    paladin_offense_profile,
-    probe_paladin_opt1,
-    uses_paladin_leveling_probe,
-)
-from d2savior.optimizer.presets import ConstraintOverrides, resolve_build_expr
-from d2savior.optimizer.skill_tables import (
-    resolve_paladin_aura_id,
-    resolve_sorc_cold_armor,
-    resolve_sorc_filler_skill,
-)
+from d2savior.optimizer.presets import ConstraintOverrides
+from d2savior.optimizer.profiles import get_class_profile
 from d2savior.optimizer.socket_candidates import (
     THEORETICAL_CHAR_LEVEL,
     CandidateItem,
@@ -51,7 +40,6 @@ from d2savior.optimizer.socket_report import (
     SocketQuestReport,
     SocketUpgradeResult,
 )
-from d2savior.optimizer.sorc import select_sorc_presets
 
 _EXCLUDED_SLOTS_FOR_CAND: dict[str, frozenset[str]] = {
     "weapon": frozenset({"weapon", "weapon2h"}),
@@ -187,95 +175,6 @@ def evaluate_socket_candidates_for_preset(
     )
 
 
-def _resolve_paladin_socket_presets(
-    primary_char: D2SStruct,
-    base_items: Sequence[ItemSpec],
-    charms: Sequence[CharmSpec],
-    *,
-    build: str,
-    max_charm_slots: int,
-    extra_chars: Sequence[D2SStruct],
-    stashes: Sequence[SharedStash],
-    resolver: GameDataResolver,
-    keep_equipped: bool | str | None,
-    targets: int,
-    target_type: str,
-    left_skill: int | None,
-    right_skill: int | None,
-    overrides: ConstraintOverrides | None,
-    char_level_override: int | None = None,
-) -> list[tuple[str, BuildConstraints, str]]:
-    resolved = resolve_build_expr(
-        build,
-        CharClass.PALADIN,
-        overrides=overrides,
-        char_name=primary_char.get_char_name(),
-    )
-    presets_out: list[tuple[str, BuildConstraints, str]] = []
-    for preset in resolved:
-        if uses_paladin_leveling_probe(preset, overrides):
-            eff_targets = max(1, targets)
-            baseline_obj, char_level, diff_name, resolved_spec = build_paladin_baseline(
-                primary_char,
-                spec=None,
-                max_charm_slots=max_charm_slots,
-                extra_chars=extra_chars,
-                stashes=stashes,
-                resolver=resolver,
-                bo_base_bonus=None,
-                keep_equipped=keep_equipped,
-                targets=eff_targets,
-                target_type=cast(TargetTypeStr, target_type),
-                left_skill=left_skill,
-                right_skill=right_skill,
-                char_level_override=char_level_override,
-            )
-            offense = paladin_offense_profile(
-                resolved_spec, primary_char, left_skill=left_skill, right_skill=right_skill
-            )
-            extra_kwargs: dict[str, Any] = {
-                k: v for k, v in preset.constraint_kwargs().items() if k != "mode"
-            }
-            opt1 = probe_paladin_opt1(
-                list(base_items),
-                list(charms),
-                baseline_obj,
-                offense=offense,
-                is_caster=(offense == "caster"),
-                extra_kwargs=extra_kwargs,
-            )
-            eff_kwargs = dict(extra_kwargs)
-            if opt1 is not None:
-                eff_kwargs["min_fcr"] = max(int(eff_kwargs.get("min_fcr", 0)), opt1.fcr_bp)
-                eff_kwargs["min_fhr"] = max(int(eff_kwargs.get("min_fhr", 0)), opt1.fhr_bp)
-            constraints = baseline_obj.build_constraints(
-                mode="leveling-res",
-                limit=1,
-                offense=offense,
-                **eff_kwargs,
-            )
-            title = preset.title or f"Paladin Leveling (lvl {char_level}, {diff_name})"
-            presets_out.append((title, constraints, diff_name))
-        else:
-            title, constraints, _, diff_name = build_paladin_preset_constraints(
-                primary_char,
-                preset,
-                max_charm_slots=max_charm_slots,
-                limit=1,
-                extra_chars=extra_chars,
-                stashes=stashes,
-                resolver=resolver,
-                keep_equipped=keep_equipped,
-                targets=targets,
-                target_type=cast(TargetTypeStr, target_type),
-                left_skill=left_skill,
-                right_skill=right_skill,
-                char_level_override=char_level_override,
-            )
-            presets_out.append((title, constraints, diff_name))
-    return presets_out
-
-
 def optimize_socket_quests(
     primary_char: D2SStruct,
     extra_chars: Sequence[D2SStruct] = (),
@@ -297,45 +196,18 @@ def optimize_socket_quests(
     if resolver is None:
         resolver = GameDataResolver.load()
 
+    validate_supported_class(primary_char)
+    profile = get_class_profile(primary_char.char_class)
+
     char_level = max(1, primary_char.player_stats.level or primary_char.char_level)
     level_override = THEORETICAL_CHAR_LEVEL if theoretical else None
-    eff_char_level = THEORETICAL_CHAR_LEVEL if theoretical else char_level
-    char_class = primary_char.char_class
-    if char_class not in (CharClass.SORCERESS, CharClass.PALADIN):
-        actual = CharClass(char_class).display_name
-        raise ValueError(
-            f"Character '{primary_char.get_char_name()}' is {actual}, expected Sorceress or Paladin"
-        )
-
     kept_slots = parse_keep_gear(keep_equipped)
-    pal_spec = (
-        detect_paladin_spec(primary_char, left_skill=left_skill, right_skill=right_skill)
-        if char_class == int(CharClass.PALADIN)
-        else "leveling"
-    )
-    pal_offense = (
-        paladin_offense_profile(
-            pal_spec, primary_char, left_skill=left_skill, right_skill=right_skill
-        )
-        if char_class == int(CharClass.PALADIN)
-        else "caster"
-    )
-    sorc_filler_id = (
-        resolve_sorc_filler_skill(
-            primary_char, left_skill=left_skill, right_skill=right_skill, targets=max(1, targets)
-        )
-        if char_class == int(CharClass.SORCERESS)
-        else None
-    )
-    _, _, sorc_armor_id = (
-        resolve_sorc_cold_armor(primary_char)
-        if char_class == int(CharClass.SORCERESS)
-        else (0, 0, None)
-    )
-    pal_aura_id = (
-        resolve_paladin_aura_id(primary_char, pal_spec, right_skill=right_skill)
-        if char_class == int(CharClass.PALADIN)
-        else None
+    ctx = resolve_extraction_context(
+        primary_char,
+        left_skill=left_skill,
+        right_skill=right_skill,
+        targets=targets,
+        char_level_override=level_override,
     )
 
     base_items, charms, set_group_ids, global_set_cache = extract_pool_with_context(
@@ -343,12 +215,8 @@ def optimize_socket_quests(
         extra_chars=extra_chars,
         stashes=stashes,
         resolver=resolver,
-        pal_spec=pal_spec,
+        ctx=ctx,
         keep_equipped=keep_equipped,
-        left_skill=left_skill,
-        right_skill=right_skill,
-        targets=targets,
-        char_level_override=level_override,
         ignore_reqs=theoretical,
     )
 
@@ -366,14 +234,9 @@ def optimize_socket_quests(
         stashes=stashes,
         resolver=resolver,
         kept_slots=kept_slots,
-        pal_spec=pal_spec,
-        pal_offense=pal_offense,
+        ctx=ctx,
         set_group_ids=set_group_ids,
         global_set_cache=global_set_cache,
-        sorc_filler_id=sorc_filler_id,
-        sorc_armor_id=sorc_armor_id,
-        pal_aura_id=pal_aura_id,
-        char_level_override=level_override,
         ignore_reqs=theoretical,
     )
 
@@ -382,56 +245,34 @@ def optimize_socket_quests(
         rune_counts=rune_counts,
         socketables=socketables,
         theoretical=theoretical,
-        char_level=eff_char_level,
-        char_class=char_class,
-        pal_spec=pal_spec,
-        pal_offense=pal_offense,
+        ctx=ctx,
         set_group_ids=set_group_ids,
         global_set_cache=global_set_cache,
-        sorc_filler_id=sorc_filler_id,
-        sorc_armor_id=sorc_armor_id,
-        pal_aura_id=pal_aura_id,
         ignore_reqs=theoretical,
     )
 
-    if char_class == int(CharClass.SORCERESS):
-        diff_name = DIFFICULTY_NAMES[get_current_difficulty(primary_char)]
-        sorc_presets = select_sorc_presets(
-            primary_char,
-            build=build,
-            max_charm_slots=max_charm_slots,
-            limit=1,
-            extra_chars=extra_chars,
-            stashes=stashes,
-            resolver=resolver,
-            keep_equipped=keep_equipped,
-            targets=targets,
-            target_type=normalize_target_type(target_type),
-            left_skill=left_skill,
-            right_skill=right_skill,
-            overrides=overrides,
-            char_level_override=level_override,
-        )
-        preset_specs = [(title, c, diff_name) for title, c in sorc_presets]
-    else:
-        preset_specs = _resolve_paladin_socket_presets(
-            primary_char,
-            base_items,
-            charms,
-            build=build,
-            max_charm_slots=max_charm_slots,
-            extra_chars=extra_chars,
-            stashes=stashes,
-            resolver=resolver,
-            keep_equipped=keep_equipped,
-            targets=targets,
-            target_type=normalize_target_type(target_type),
-            left_skill=left_skill,
-            right_skill=right_skill,
-            overrides=overrides,
-            char_level_override=level_override,
-        )
-        diff_name = preset_specs[0][2] if preset_specs else "Normal"
+    preset_specs = profile.resolve_socket_presets(
+        primary_char,
+        base_items,
+        charms,
+        build=build,
+        max_charm_slots=max_charm_slots,
+        extra_chars=extra_chars,
+        stashes=stashes,
+        resolver=resolver,
+        keep_equipped=keep_equipped,
+        targets=targets,
+        target_type=target_type,
+        left_skill=left_skill,
+        right_skill=right_skill,
+        overrides=overrides,
+        char_level_override=level_override,
+    )
+    diff_name = (
+        preset_specs[0][2]
+        if preset_specs
+        else DIFFICULTY_NAMES[get_current_difficulty(primary_char)]
+    )
 
     preset_reports = [
         evaluate_socket_candidates_for_preset(
@@ -448,7 +289,7 @@ def optimize_socket_quests(
 
     return SocketQuestReport(
         char_name=primary_char.get_char_name(),
-        char_class_name=CharClass(char_class).display_name,
+        char_class_name=CharClass(ctx.char_class).display_name,
         char_level=char_level,
         diff_name=diff_name,
         quest_status=get_socket_quest_status(primary_char),

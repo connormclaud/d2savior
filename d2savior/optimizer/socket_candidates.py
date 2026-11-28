@@ -17,6 +17,7 @@ from d2savior.core.stash import GEM_CODES, RUNE_CODES, SharedStash
 from d2savior.core.stats import collect_item_properties, normalize_damage_props
 from d2savior.optimizer.common import ALL_GEAR_SLOTS, item_levelreq, iter_pool_items
 from d2savior.optimizer.extract import classify_slot, item_to_spec
+from d2savior.optimizer.extract_props import ExtractionContext
 from d2savior.optimizer.native import ItemSpec
 
 _SOCKETABLE_SLOTS: frozenset[str] = frozenset({"helm", "armor", "shield", "weapon", "weapon2h"})
@@ -388,26 +389,20 @@ def _consider_candidate_item(
     is_active_primary: bool,
     keep_all: bool,
     kept_slots: frozenset[str],
-    char_level: int,
-    char_class: int,
-    pal_spec: str,
-    pal_offense: str,
+    ctx: ExtractionContext,
     set_group_ids: dict[str, int],
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
-    sorc_filler_id: int | None,
-    sorc_armor_id: int | None,
-    pal_aura_id: int | None,
     dedup: dict[tuple[object, ...], CandidateItem],
     ignore_reqs: bool = False,
 ) -> None:
     if it.location == ItemLocation.SOCKET or (keep_all and not is_active_primary):
         return
-    if item_levelreq(it, ver_res) > char_level:
+    if item_levelreq(it, ver_res) > ctx.char_level:
         return
     sock_range = get_larzuk_socket_range(it, ver_res)
     if sock_range[1] <= 0:
         return
-    classified = classify_slot(it, ver_res, char_class=char_class)
+    classified = classify_slot(it, ver_res, char_class=ctx.char_class)
     if classified is None:
         return
     slot, _, _ = classified
@@ -425,16 +420,10 @@ def _consider_candidate_item(
         loc,
         ver_res,
         ver,
-        char_level,
-        char_class=char_class,
-        pal_spec=pal_spec,
-        pal_offense=pal_offense,
+        ctx=ctx,
         set_group_ids=set_group_ids,
         global_set_cache=global_set_cache,
         skip_useful_check=True,
-        sorc_filler_id=sorc_filler_id,
-        sorc_armor_id=sorc_armor_id,
-        pal_aura_id=pal_aura_id,
         ignore_reqs=ignore_reqs,
     )
     dedup[d_key] = CandidateItem(
@@ -457,23 +446,35 @@ def collect_eligible_items(
     resolver: GameDataResolver,
     *,
     kept_slots: frozenset[str],
-    pal_spec: str,
-    pal_offense: str,
     set_group_ids: dict[str, int],
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
-    sorc_filler_id: int | None,
-    pal_aura_id: int | None,
+    ctx: ExtractionContext | None = None,
+    pal_spec: str = "leveling",
+    pal_offense: str = "caster",
+    sorc_filler_id: int | None = None,
+    pal_aura_id: int | None = -1,
     sorc_armor_id: int | None = None,
     char_level_override: int | None = None,
     ignore_reqs: bool = False,
 ) -> list[CandidateItem]:
     """Find deduplicated, class-equippable, unsocketed items eligible for Larzuk."""
-    char_level = (
-        char_level_override
-        if char_level_override is not None
-        else max(1, primary_char.player_stats.level or primary_char.char_level)
-    )
-    char_class = primary_char.char_class
+    if ctx is None:
+        char_level = (
+            char_level_override
+            if char_level_override is not None
+            else max(1, primary_char.player_stats.level or primary_char.char_level)
+        )
+        eff_ctx = ExtractionContext(
+            char_class=primary_char.char_class,
+            char_level=char_level,
+            pal_spec=pal_spec,
+            pal_offense=pal_offense,
+            sorc_filler_id=sorc_filler_id,
+            sorc_armor_id=sorc_armor_id,
+            pal_aura_id=pal_aura_id,
+        )
+    else:
+        eff_ctx = ctx
     keep_all = kept_slots == ALL_GEAR_SLOTS
     dedup: dict[tuple[object, ...], CandidateItem] = {}
 
@@ -493,15 +494,9 @@ def collect_eligible_items(
             is_active_primary=entry.is_active_primary,
             keep_all=keep_all,
             kept_slots=kept_slots,
-            char_level=char_level,
-            char_class=char_class,
-            pal_spec=pal_spec,
-            pal_offense=pal_offense,
+            ctx=eff_ctx,
             set_group_ids=set_group_ids,
             global_set_cache=global_set_cache,
-            sorc_filler_id=sorc_filler_id,
-            sorc_armor_id=sorc_armor_id,
-            pal_aura_id=pal_aura_id,
             dedup=dedup,
             ignore_reqs=ignore_reqs,
         )
@@ -573,15 +568,9 @@ def build_runeword_variants(
     *,
     rune_counts: Counter[str],
     theoretical: bool,
-    char_level: int,
-    char_class: int,
-    pal_spec: str,
-    pal_offense: str,
+    ctx: ExtractionContext,
     set_group_ids: dict[str, int],
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
-    sorc_filler_id: int | None,
-    pal_aura_id: int | None,
-    sorc_armor_id: int | None = None,
     ignore_reqs: bool = False,
 ) -> list[SocketCandidateVariant]:
     """Synthesize and Pareto-prune runeword variants for an unsocketed base item."""
@@ -609,7 +598,7 @@ def build_runeword_variants(
         rw_lvlreq = max(
             (r_info.levelreq if (r_info := ver_res.get_item(rc)) else 0) for rc in rw.rune_codes
         )
-        if rw_lvlreq > char_level:
+        if rw_lvlreq > ctx.char_level:
             continue
 
         extra_props: list[tuple[int, int, list[int]]] = []
@@ -626,16 +615,10 @@ def build_runeword_variants(
             cand.loc,
             ver_res,
             cand.version,
-            char_level,
-            char_class=char_class,
-            pal_spec=pal_spec,
-            pal_offense=pal_offense,
+            ctx=ctx,
             set_group_ids=set_group_ids,
             global_set_cache=global_set_cache,
             skip_useful_check=True,
-            sorc_filler_id=sorc_filler_id,
-            sorc_armor_id=sorc_armor_id,
-            pal_aura_id=pal_aura_id,
             extra_props=extra_props,
             extra_levelreq=rw_lvlreq,
             name_override=variant_name,
@@ -663,15 +646,9 @@ def build_gear_socket_variants(
     cand: CandidateItem,
     *,
     socketables: Sequence[SocketableOption],
-    char_level: int,
-    char_class: int,
-    pal_spec: str,
-    pal_offense: str,
+    ctx: ExtractionContext,
     set_group_ids: dict[str, int],
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
-    sorc_filler_id: int | None,
-    pal_aura_id: int | None,
-    sorc_armor_id: int | None = None,
     ignore_reqs: bool = False,
 ) -> list[SocketCandidateVariant]:
     """Synthesize and Pareto-prune single-socket gem/rune/jewel variants for gear."""
@@ -683,7 +660,7 @@ def build_gear_socket_variants(
     variants: list[SocketCandidateVariant] = []
 
     for sock in socketables:
-        if sock.levelreq > char_level:
+        if sock.levelreq > ctx.char_level:
             continue
         s_props = sock.props_for_item(cand.item, ver_res)
         if not s_props:
@@ -694,16 +671,10 @@ def build_gear_socket_variants(
             cand.loc,
             ver_res,
             cand.version,
-            char_level,
-            char_class=char_class,
-            pal_spec=pal_spec,
-            pal_offense=pal_offense,
+            ctx=ctx,
             set_group_ids=set_group_ids,
             global_set_cache=global_set_cache,
             skip_useful_check=True,
-            sorc_filler_id=sorc_filler_id,
-            sorc_armor_id=sorc_armor_id,
-            pal_aura_id=pal_aura_id,
             extra_props=s_props,
             extra_levelreq=sock.levelreq,
             name_override=variant_name,
@@ -742,15 +713,9 @@ def build_candidate_groups(
     rune_counts: Counter[str],
     socketables: Sequence[SocketableOption],
     theoretical: bool,
-    char_level: int,
-    char_class: int,
-    pal_spec: str,
-    pal_offense: str,
+    ctx: ExtractionContext,
     set_group_ids: dict[str, int],
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
-    sorc_filler_id: int | None,
-    pal_aura_id: int | None,
-    sorc_armor_id: int | None = None,
     ignore_reqs: bool = False,
 ) -> list[tuple[CandidateItem, list[SocketCandidateVariant]]]:
     """Synthesize and Pareto-prune runeword and socket variants for all eligible candidates."""
@@ -762,30 +727,18 @@ def build_candidate_groups(
                 cand,
                 rune_counts=rune_counts,
                 theoretical=theoretical,
-                char_level=char_level,
-                char_class=char_class,
-                pal_spec=pal_spec,
-                pal_offense=pal_offense,
+                ctx=ctx,
                 set_group_ids=set_group_ids,
                 global_set_cache=global_set_cache,
-                sorc_filler_id=sorc_filler_id,
-                sorc_armor_id=sorc_armor_id,
-                pal_aura_id=pal_aura_id,
                 ignore_reqs=ignore_reqs,
             )
         else:
             variants = build_gear_socket_variants(
                 cand,
                 socketables=socketables,
-                char_level=char_level,
-                char_class=char_class,
-                pal_spec=pal_spec,
-                pal_offense=pal_offense,
+                ctx=ctx,
                 set_group_ids=set_group_ids,
                 global_set_cache=global_set_cache,
-                sorc_filler_id=sorc_filler_id,
-                sorc_armor_id=sorc_armor_id,
-                pal_aura_id=pal_aura_id,
                 ignore_reqs=ignore_reqs,
             )
         if variants:

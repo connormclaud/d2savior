@@ -33,6 +33,7 @@ from d2savior.optimizer.extract import (
     item_to_spec,
 )
 from d2savior.optimizer.extract_props import (
+    ExtractionContext,
     _apply_paladin_prop,
     _apply_props_to_acc,
     _apply_sorc_prop,
@@ -1300,18 +1301,20 @@ def test_extract_pure_helpers_and_pool_with_stubs(
     sp.properties = [(31, 0, 25)]  # +25 Defense 2pc bonus
     tp.set_properties = [sp, None, None, None, None]
     set_it.item_info.type_specific_info = tp
-    bonuses = _extract_set_bonuses(
-        set_it, d2r, 0x63, 30, char_class=int(CharClass.PALADIN), pal_spec="holy-fire"
+    hf_ctx = ExtractionContext(
+        char_class=int(CharClass.PALADIN),
+        char_level=30,
+        pal_spec="holy-fire",
+        pal_offense="zeal",
     )
+    bonuses = _extract_set_bonuses(set_it, d2r, 0x63, hf_ctx)
     assert len(bonuses) == 1
     assert bonuses[0][0] == 2
     gid, sid, resolved_bonuses, resolved_global_bonuses = _resolve_item_set_info(
         set_it,
         d2r,
         0x63,
-        30,
-        char_class=int(CharClass.PALADIN),
-        pal_spec="holy-fire",
+        hf_ctx,
         set_group_ids={},
     )
     assert gid == 1
@@ -2059,7 +2062,7 @@ def test_paladin_target_type_baseline_and_cli_parsing(
     )
     monkeypatch.setattr("d2savior.cli_optimize.extract_pool", lambda *_a, **_kw: ([], []))
     monkeypatch.setattr(
-        "d2savior.cli_optimize.optimize_paladin_leveling",
+        "d2savior.optimizer.profiles.optimize_paladin_leveling",
         lambda *_a, **kw: (
             captured.append(kw["target_type"]) or "Title",
             [],
@@ -2290,14 +2293,17 @@ def test_combat_props_blunt_2h_sockets_set_weapon_and_damage_charms(
     )
     set_tp.set_properties = [set_b2]
     set_wep.item_info.type_specific_info = set_tp
+    zeal_ctx = ExtractionContext(
+        char_class=int(CharClass.PALADIN),
+        char_level=80,
+        pal_spec="zeal",
+        pal_offense="zeal",
+    )
     set_bonuses = _extract_set_bonuses(
         set_wep,
         resolver,
         0x63,
-        char_level=80,
-        char_class=int(CharClass.PALADIN),
-        pal_spec="zeal",
-        pal_offense="zeal",
+        zeal_ctx,
         is_weapon=True,
         slot="weapon",
         code="9bs",

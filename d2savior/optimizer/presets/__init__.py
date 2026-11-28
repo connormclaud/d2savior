@@ -9,12 +9,15 @@ from tomlkit.exceptions import TOMLKitError
 
 from d2savior.config import get_presets_dir
 from d2savior.core.enums import CharClass
+from d2savior.optimizer.common import SUPPORTED_OPTIMIZER_CLASSES
 from d2savior.optimizer.native import SearchModeStr
 
 BUILTIN_PRESETS_DIR: Path = Path(__file__).resolve().parent
 
 VALID_MODES: tuple[SearchModeStr, ...] = ("power", "mf", "max-res", "leveling", "leveling-res")
-VALID_CLASSES: frozenset[str] = frozenset({"sorceress", "paladin"})
+VALID_CLASSES: frozenset[str] = frozenset(
+    c.display_name.lower() for c in SUPPORTED_OPTIMIZER_CLASSES
+)
 VALID_STRATEGIES: frozenset[str] = frozenset({"leveling-probe"})
 
 _INT_CONSTRAINT_KEYS: tuple[str, ...] = (
@@ -193,9 +196,11 @@ class PresetEntry:
     path: Path
 
 
-def _normalize_class(char_class: CharClass | str) -> str:
+def _normalize_class(char_class: CharClass | int | str) -> str:
     if isinstance(char_class, CharClass):
         name = char_class.display_name.lower()
+    elif isinstance(char_class, int):
+        name = CharClass(char_class).display_name.lower()
     else:
         name = char_class.strip().lower()
     if name not in VALID_CLASSES:
@@ -225,9 +230,9 @@ def list_presets(user_dir: Path | None = None) -> list[PresetEntry]:
         char_class: str | None = None
         try:
             raw = _read_toml_file(path)
-            raw_cls = raw.get("class")
-            if isinstance(raw_cls, str):
-                char_class = raw_cls.lower()
+            parsed_classes = _parse_class_field(raw.get("class"), name)
+            if parsed_classes:
+                char_class = ", ".join(parsed_classes)
         except ValueError:
             char_class = None
         entries.append(PresetEntry(name=name, source=source, char_class=char_class, path=path))
@@ -240,6 +245,35 @@ def _read_toml_file(path: Path) -> dict[str, Any]:
     except (OSError, TOMLKitError) as exc:
         raise ValueError(f"Failed to parse preset '{path}': {exc}") from exc
     return doc.unwrap()
+
+
+def _parse_class_field(raw_cls: object, source_label: str) -> tuple[str, ...] | None:
+    if raw_cls is None:
+        return None
+    if isinstance(raw_cls, str):
+        cls_low = raw_cls.lower()
+        if cls_low not in VALID_CLASSES:
+            raise ValueError(
+                f"Invalid class '{raw_cls}' in preset '{source_label}'; "
+                f"expected one of: {', '.join(sorted(VALID_CLASSES))}"
+            )
+        return (cls_low,)
+    if isinstance(raw_cls, list) and raw_cls and all(isinstance(x, str) for x in raw_cls):
+        out: list[str] = []
+        for item in raw_cls:
+            cls_low = item.lower()
+            if cls_low not in VALID_CLASSES:
+                raise ValueError(
+                    f"Invalid class '{item}' in preset '{source_label}'; "
+                    f"expected one of: {', '.join(sorted(VALID_CLASSES))}"
+                )
+            if cls_low not in out:
+                out.append(cls_low)
+        return tuple(out)
+    raise ValueError(
+        f"Invalid class '{raw_cls}' in preset '{source_label}'; "
+        f"expected one of: {', '.join(sorted(VALID_CLASSES))} (or a non-empty list)"
+    )
 
 
 def _validate_enum_str(
@@ -259,7 +293,8 @@ def _validate_section(data: dict[str, Any], source_label: str) -> None:
     unknown = sorted(set(data) - _ALLOWED_KEYS)
     if unknown:
         raise ValueError(f"Unknown key(s) in preset '{source_label}': {', '.join(unknown)}")
-    _validate_enum_str(data, "class", VALID_CLASSES, source_label)
+    if "class" in data:
+        _parse_class_field(data["class"], source_label)
     _validate_enum_str(data, "mode", VALID_MODES, source_label)
     _validate_enum_str(data, "strategy", VALID_STRATEGIES, source_label)
     if "title" in data and not isinstance(data["title"], str):
@@ -294,11 +329,16 @@ def _extract_class_doc(raw: dict[str, Any], class_name: str, source_label: str) 
 def _check_class_compatibility(
     doc: dict[str, Any], preset_name: str, class_name: str, char_name: str | None = None
 ) -> None:
-    req_cls = doc.get("class")
-    if isinstance(req_cls, str) and req_cls.lower() != class_name:
+    req_classes = _parse_class_field(doc.get("class"), preset_name)
+    if req_classes is not None and class_name not in req_classes:
+        names = [c.title() for c in req_classes]
+        if len(names) <= 2:
+            allowed_label = " or ".join(names)
+        else:
+            allowed_label = f"{', '.join(names[:-1])}, or {names[-1]}"
         target = f"'{char_name}' is {class_name.title()}" if char_name else f"class is {class_name}"
         raise ValueError(
-            f"Build preset '{preset_name}' is only supported for {req_cls.title()}; {target}"
+            f"Build preset '{preset_name}' is only supported for {allowed_label}; {target}"
         )
 
 
@@ -345,12 +385,12 @@ def _dict_to_resolved(name: str, doc: dict[str, Any], class_name: str) -> Resolv
     default_mode: SearchModeStr = "power" if class_name == "sorceress" else "leveling-res"
     mode_raw = doc.get("mode")
     mode = cast(SearchModeStr, mode_raw.lower() if isinstance(mode_raw, str) else default_mode)
-    cls_raw = doc.get("class")
+    cls_parsed = _parse_class_field(doc.get("class"), name)
     strat_raw = doc.get("strategy")
     return ResolvedPreset(
         name=name,
         title=doc.get("title"),
-        char_class=cls_raw.lower() if isinstance(cls_raw, str) else None,
+        char_class=", ".join(cls_parsed) if cls_parsed else None,
         strategy=strat_raw.lower() if isinstance(strat_raw, str) else None,
         mode=mode,
         allow_mf=bool(doc.get("allow_mf", True)),
@@ -420,7 +460,7 @@ def _expand_term(
 
 def resolve_build_expr(
     expr: str,
-    char_class: CharClass | str,
+    char_class: CharClass | int | str,
     *,
     overrides: ConstraintOverrides | None = None,
     user_dir: Path | None = None,
@@ -439,6 +479,32 @@ def resolve_build_expr(
     return resolved
 
 
+def allowed_classes_for_expr(
+    expr: str,
+    *,
+    user_dir: Path | None = None,
+) -> tuple[CharClass, ...]:
+    """Return the subset of supported classes compatible with a `-b` preset expression.
+
+    Falls back to ``SUPPORTED_OPTIMIZER_CLASSES`` if the expression is invalid or matches no
+    supported class, so downstream resolution can emit the specific validation error.
+    """
+    catalog = load_preset_catalog(user_dir=user_dir)
+    terms = [t.strip() for t in expr.split(",")]
+    if not terms or any(not t for t in terms):
+        return SUPPORTED_OPTIMIZER_CLASSES
+    compatible: list[CharClass] = []
+    for cls in SUPPORTED_OPTIMIZER_CLASSES:
+        cls_name = cls.display_name.lower()
+        try:
+            for term in terms:
+                _expand_term(term, cls_name, catalog)
+        except ValueError:
+            continue
+        compatible.append(cls)
+    return tuple(compatible) if compatible else SUPPORTED_OPTIMIZER_CLASSES
+
+
 __all__ = [
     "BUILTIN_PRESETS_DIR",
     "VALID_CLASSES",
@@ -447,6 +513,7 @@ __all__ = [
     "ConstraintOverrides",
     "PresetEntry",
     "ResolvedPreset",
+    "allowed_classes_for_expr",
     "list_presets",
     "load_preset_catalog",
     "resolve_build_expr",

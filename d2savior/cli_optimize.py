@@ -8,63 +8,45 @@ lazy from d2savior.cli_common import (
     report_parse_error,
     resolve_and_save_targets,
 )
-lazy from d2savior.core.constants import DIFFICULTY_NAMES
 lazy from d2savior.core.d2s_struct import D2SStruct
-lazy from d2savior.core.enums import CharClass
 lazy from d2savior.core.io import PARSE_ERRORS, load_d2i, load_d2s
 lazy from d2savior.core.resolver import GameDataResolver
 lazy from d2savior.core.stash import SharedStash
-lazy from d2savior.core.stats import get_current_difficulty, get_difficulty_resist_penalty
 lazy from d2savior.optimizer import (
-    PALADIN_BUILD_CHOICES,
-    SORC_ONLY_BUILD_CHOICES,
     SUPPORTED_OPTIMIZER_CLASSES,
-    CharmSpec,
     ConstraintOverrides,
-    ItemSpec,
-    build_paladin_preset_constraints,
+    allowed_classes_for_expr,
     extract_pool,
-    format_build_report,
-    format_paladin_leveling_report,
     format_socket_report,
+    get_class_profile,
     list_presets,
-    optimize_builds,
-    optimize_paladin_leveling,
     optimize_socket_quests,
-    paladin_primary_skill_info,
     parse_keep_gear,
     resolve_build_expr,
-    select_sorc_presets,
-    uses_paladin_leveling_probe,
+    supported_classes_label,
     validate_supported_class,
 )
-lazy from d2savior.optimizer.skill_tables import build_sorc_dps_tables, resolve_skill_override
+lazy from d2savior.optimizer.skill_tables import resolve_skill_override
 
 
 def _resolve_primary_optimize_char(
     chars: list[D2SStruct], target_name: str | None, build: str
 ) -> tuple[D2SStruct | None, str | None]:
-    build_lower = build.lower()
     if target_name is not None:
         for ch in chars:
             if ch.get_char_name().lower() == target_name.lower():
                 return ch, None
         return None, f"Error: Character '{target_name}' not found in target saves"
 
-    allowed_classes: tuple[CharClass, ...]
-    if build_lower in SORC_ONLY_BUILD_CHOICES:
-        allowed_classes, class_label = (CharClass.SORCERESS,), "Sorceress"
-    elif build_lower in PALADIN_BUILD_CHOICES:
-        allowed_classes, class_label = (CharClass.PALADIN,), "Paladin"
+    allowed_classes = allowed_classes_for_expr(build)
+    if allowed_classes == SUPPORTED_OPTIMIZER_CLASSES:
+        class_label = "optimizable"
+        no_cls_msg = supported_classes_label()
     else:
-        allowed_classes, class_label = SUPPORTED_OPTIMIZER_CLASSES, "optimizable"
+        class_label = supported_classes_label(allowed_classes)
+        no_cls_msg = class_label
     candidates = [ch for ch in chars if ch.char_class in allowed_classes]
     if not candidates:
-        no_cls_msg = (
-            "Sorceress or Paladin"
-            if allowed_classes == SUPPORTED_OPTIMIZER_CLASSES
-            else class_label
-        )
         return None, f"Error: No {no_cls_msg} character found in target saves"
     if len(candidates) > 1:
         names = ", ".join(ch.get_char_name() for ch in candidates)
@@ -108,159 +90,12 @@ def _load_optimize_pool(
 
     try:
         validate_supported_class(primary)
+        resolve_build_expr(build, primary.char_class, char_name=primary.get_char_name())
     except ValueError as exc:
         return None, [], stashes, f"Error: {exc}"
 
-    build_lower = build.lower()
-    if primary.char_class == CharClass.SORCERESS and build_lower in PALADIN_BUILD_CHOICES:
-        return (
-            None,
-            [],
-            stashes,
-            f"Error: Build preset '{build}' is only supported for Paladin; '{primary.get_char_name()}' is Sorceress",
-        )
-    if primary.char_class == CharClass.PALADIN and build_lower in SORC_ONLY_BUILD_CHOICES:
-        return (
-            None,
-            [],
-            stashes,
-            f"Error: Build preset '{build}' is only supported for Sorceress; '{primary.get_char_name()}' is Paladin",
-        )
-
     extras = [ch for ch in chars if ch is not primary]
     return primary, extras, stashes, None
-
-
-def _run_sorc_optimize(
-    primary: D2SStruct,
-    extras: list[D2SStruct],
-    stashes: list[SharedStash],
-    items: list[ItemSpec],
-    charms: list[CharmSpec],
-    resolver: GameDataResolver,
-    args: argparse.Namespace,
-    primary_inv_loc: str,
-    *,
-    left_skill: int | None = None,
-    right_skill: int | None = None,
-    overrides: ConstraintOverrides | None = None,
-) -> None:
-    filler_name = build_sorc_dps_tables(
-        primary, left_skill=left_skill, right_skill=right_skill, targets=args.targets
-    ).filler_skill_name
-    diff_idx = get_current_difficulty(primary)
-    diff_name = DIFFICULTY_NAMES[diff_idx]
-    resist_penalty = get_difficulty_resist_penalty(primary, diff_idx)
-    for title, constraints in select_sorc_presets(
-        primary,
-        build=args.build,
-        max_charm_slots=args.charm_slots,
-        limit=args.limit,
-        extra_chars=extras,
-        stashes=stashes,
-        resolver=resolver,
-        keep_equipped=args.keep_gear,
-        targets=args.targets,
-        target_type=args.target_type,
-        left_skill=left_skill,
-        right_skill=right_skill,
-        overrides=overrides,
-    ):
-        results = optimize_builds(items, charms, constraints)
-        print(
-            format_build_report(
-                title,
-                results,
-                charms,
-                diff_name=diff_name,
-                resist_penalty=resist_penalty,
-                primary_inv_loc=primary_inv_loc,
-                filler_skill_name=filler_name,
-            )
-        )
-        print()
-
-
-def _run_paladin_optimize(
-    primary: D2SStruct,
-    extras: list[D2SStruct],
-    stashes: list[SharedStash],
-    items: list[ItemSpec],
-    charms: list[CharmSpec],
-    resolver: GameDataResolver,
-    args: argparse.Namespace,
-    primary_inv_loc: str,
-    *,
-    left_skill: int | None = None,
-    right_skill: int | None = None,
-    overrides: ConstraintOverrides | None = None,
-) -> None:
-    resolved_presets = resolve_build_expr(
-        args.build,
-        CharClass.PALADIN,
-        overrides=overrides,
-        char_name=primary.get_char_name(),
-    )
-    resist_penalty = get_difficulty_resist_penalty(primary)
-    for preset in resolved_presets:
-        if uses_paladin_leveling_probe(preset, overrides):
-            title, options, resolved_spec, diff_name = optimize_paladin_leveling(
-                primary,
-                items,
-                charms,
-                max_charm_slots=args.charm_slots,
-                limit=args.limit,
-                extra_chars=extras,
-                stashes=stashes,
-                resolver=resolver,
-                keep_equipped=args.keep_gear,
-                targets=args.targets,
-                target_type=args.target_type,
-                left_skill=left_skill,
-                right_skill=right_skill,
-                overrides=preset.to_overrides(),
-                title=preset.title,
-            )
-            skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
-            report = format_paladin_leveling_report(
-                title,
-                options,
-                charms,
-                diff_name=diff_name,
-                resist_penalty=resist_penalty,
-                primary_skill_name=skill_name,
-                primary_skill_base=base_skill_lvl,
-                primary_inv_loc=primary_inv_loc,
-            )
-        else:
-            title, constraints, resolved_spec, diff_name = build_paladin_preset_constraints(
-                primary,
-                preset,
-                max_charm_slots=args.charm_slots,
-                limit=args.limit,
-                extra_chars=extras,
-                stashes=stashes,
-                resolver=resolver,
-                keep_equipped=args.keep_gear,
-                targets=args.targets,
-                target_type=args.target_type,
-                left_skill=left_skill,
-                right_skill=right_skill,
-            )
-            skill_name, base_skill_lvl = paladin_primary_skill_info(primary, resolved_spec)
-            report = format_build_report(
-                title,
-                optimize_builds(items, charms, constraints),
-                charms,
-                char_class=primary.char_class,
-                diff_name=diff_name,
-                resist_penalty=resist_penalty,
-                primary_skill_name=skill_name,
-                primary_skill_base=base_skill_lvl,
-                primary_inv_loc=primary_inv_loc,
-            )
-        print(report)
-        print()
 
 
 def _is_valid_keep_gear_expr(token: str) -> bool:
@@ -679,34 +514,20 @@ def cmd_optimize(argv: list[str]) -> int:
             right_skill=right_skill,
             targets=args.targets,
         )
-        if primary.char_class == CharClass.SORCERESS:
-            _run_sorc_optimize(
-                primary,
-                extras,
-                stashes,
-                items,
-                charms,
-                resolver,
-                args,
-                primary_inv_loc,
-                left_skill=left_skill,
-                right_skill=right_skill,
-                overrides=active_overrides,
-            )
-        else:
-            _run_paladin_optimize(
-                primary,
-                extras,
-                stashes,
-                items,
-                charms,
-                resolver,
-                args,
-                primary_inv_loc,
-                left_skill=left_skill,
-                right_skill=right_skill,
-                overrides=active_overrides,
-            )
+        profile = get_class_profile(primary.char_class)
+        profile.run_cli_optimize(
+            primary,
+            extras,
+            stashes,
+            items,
+            charms,
+            resolver,
+            args,
+            primary_inv_loc,
+            left_skill=left_skill,
+            right_skill=right_skill,
+            overrides=active_overrides,
+        )
     except (RuntimeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

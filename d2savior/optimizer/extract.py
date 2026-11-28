@@ -20,7 +20,12 @@ from d2savior.optimizer.common import (
     iter_pool_items,
     parse_keep_gear,
 )
-from d2savior.optimizer.extract_props import _USEFUL_ITEM_STATS, _apply_props_to_acc, _PropAcc
+from d2savior.optimizer.extract_props import (
+    _USEFUL_ITEM_STATS,
+    ExtractionContext,
+    _apply_props_to_acc,
+    _PropAcc,
+)
 from d2savior.optimizer.native import CharmSpec, ItemSpec
 from d2savior.optimizer.paladin import detect_paladin_spec, paladin_offense_profile
 from d2savior.optimizer.skill_tables import (
@@ -217,12 +222,44 @@ def _compute_item_defense(
     return 0
 
 
+def _make_extraction_context(
+    char_level: int,
+    *,
+    ctx: ExtractionContext | None = None,
+    char_class: int = int(CharClass.SORCERESS),
+    pal_spec: str = "leveling",
+    pal_offense: str | None = None,
+    sorc_filler_id: int | None = None,
+    sorc_armor_id: int | None = None,
+    pal_aura_id: int | None = -1,
+) -> ExtractionContext:
+    if ctx is not None:
+        return ctx
+    resolved_offense = (
+        pal_offense
+        if pal_offense is not None
+        else (
+            paladin_offense_profile(pal_spec) if char_class == int(CharClass.PALADIN) else "caster"
+        )
+    )
+    return ExtractionContext(
+        char_class=char_class,
+        char_level=char_level,
+        pal_spec=pal_spec,
+        pal_offense=resolved_offense,
+        sorc_filler_id=sorc_filler_id,
+        sorc_armor_id=sorc_armor_id,
+        pal_aura_id=pal_aura_id,
+    )
+
+
 def _extract_prop_acc(
     item: D2Item,
     resolver: GameDataResolver,
     version: int,
-    char_level: int,
+    char_level: int = 1,
     *,
+    ctx: ExtractionContext | None = None,
     char_class: int = int(CharClass.SORCERESS),
     pal_spec: str = "leveling",
     pal_offense: str | None = None,
@@ -231,49 +268,29 @@ def _extract_prop_acc(
     sorc_armor_id: int | None = None,
     pal_aura_id: int | None = -1,
 ) -> _PropAcc:
-    acc = _PropAcc()
-    props = list(collect_item_properties(item, resolver=resolver, version=version))
-    resolved_offense = (
-        pal_offense
-        if pal_offense is not None
-        else (
-            paladin_offense_profile(pal_spec) if char_class == int(CharClass.PALADIN) else "caster"
-        )
-    )
-    _apply_props_to_acc(
-        acc,
-        props,
-        resolver,
+    eff_ctx = _make_extraction_context(
         char_level,
+        ctx=ctx,
         char_class=char_class,
         pal_spec=pal_spec,
-        pal_offense=resolved_offense,
-        is_weapon=is_weapon,
+        pal_offense=pal_offense,
         sorc_filler_id=sorc_filler_id,
         sorc_armor_id=sorc_armor_id,
         pal_aura_id=pal_aura_id,
     )
-    acc.defense = _compute_item_defense(item, props, resolver, char_level)
+    acc = _PropAcc()
+    props = list(collect_item_properties(item, resolver=resolver, version=version))
+    _apply_props_to_acc(acc, props, resolver, ctx=eff_ctx, is_weapon=is_weapon)
+    acc.defense = _compute_item_defense(item, props, resolver, eff_ctx.char_level)
     return acc
-
-
-def _resolve_pal_offense(char_class: int, pal_spec: str, pal_offense: str | None) -> str:
-    if pal_offense is not None:
-        return pal_offense
-    return paladin_offense_profile(pal_spec) if char_class == int(CharClass.PALADIN) else "caster"
 
 
 def _extract_set_bonuses(
     item: D2Item,
     resolver: GameDataResolver,
     version: int,
-    char_level: int,
+    ctx: ExtractionContext,
     *,
-    char_class: int,
-    pal_spec: str,
-    pal_offense: str | None = None,
-    pal_aura_id: int | None = -1,
-    sorc_armor_id: int | None = None,
     is_weapon: bool = False,
     slot: str = "",
     code: str = "",
@@ -281,7 +298,6 @@ def _extract_set_bonuses(
     tp = item.type_specific_info
     if not (tp and tp.set_properties):
         return []
-    resolved_offense = _resolve_pal_offense(char_class, pal_spec, pal_offense)
     w_info = resolver.data.get_item(code) if is_weapon and code else None
     bonuses: list[tuple[int, ItemSpec]] = []
     for req_pieces, set_prop_list in enumerate(tp.set_properties, start=2):
@@ -293,22 +309,17 @@ def _extract_set_bonuses(
             b_acc,
             props,
             resolver,
-            char_level,
-            char_class=char_class,
-            pal_spec=pal_spec,
-            pal_offense=resolved_offense,
+            ctx=ctx,
             is_weapon=is_weapon,
             include_defense_props=True,
-            sorc_armor_id=sorc_armor_id,
-            pal_aura_id=pal_aura_id,
         )
         if (
             is_weapon
-            and char_class == int(CharClass.PALADIN)
-            and resolved_offense in ("zeal", "melee")
+            and ctx.char_class == int(CharClass.PALADIN)
+            and ctx.pal_offense in ("zeal", "melee")
         ):
             b_ed_min, b_ed_max, b_add_min, b_add_max, b_flat = _sum_weapon_prop_sources(
-                [props], resolver, char_level, slot=slot
+                [props], resolver, ctx.char_level, slot=slot
             )
             base_min, base_max = (
                 _weapon_base_minmax(w_info, slot=slot, is_ethereal=item.is_ethereal)
@@ -336,18 +347,11 @@ def _extract_set_bonuses(
 def _extract_global_set_bonuses(
     set_name: str,
     resolver: GameDataResolver,
-    char_level: int,
-    *,
-    char_class: int,
-    pal_spec: str,
-    pal_offense: str | None = None,
-    pal_aura_id: int | None = -1,
-    sorc_armor_id: int | None = None,
+    ctx: ExtractionContext,
 ) -> list[tuple[int, ItemSpec]]:
     tiers = resolver.get_set_bonus_tiers(set_name)
     if not tiers:
         return []
-    resolved_offense = _resolve_pal_offense(char_class, pal_spec, pal_offense)
     bonuses: list[tuple[int, ItemSpec]] = []
     for req_pieces, props in tiers:
         b_acc = _PropAcc()
@@ -355,13 +359,8 @@ def _extract_global_set_bonuses(
             b_acc,
             props,
             resolver,
-            char_level,
-            char_class=char_class,
-            pal_spec=pal_spec,
-            pal_offense=resolved_offense,
+            ctx=ctx,
             include_defense_props=True,
-            sorc_armor_id=sorc_armor_id,
-            pal_aura_id=pal_aura_id,
         )
         if (
             b_acc.defense != 0
@@ -385,15 +384,10 @@ def _resolve_item_set_info(
     item: D2Item,
     resolver: GameDataResolver,
     version: int,
-    char_level: int,
+    ctx: ExtractionContext,
     *,
-    char_class: int,
-    pal_spec: str,
-    pal_offense: str | None = None,
     set_group_ids: dict[str, int] | None,
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] | None = None,
-    pal_aura_id: int | None = -1,
-    sorc_armor_id: int | None = None,
     is_weapon: bool = False,
     slot: str = "",
     code: str = "",
@@ -404,7 +398,6 @@ def _resolve_item_set_info(
     group_key = resolve_set_group_key(item, resolver)
     if group_key is None:
         return 0, 0, [], []
-    resolved_offense = _resolve_pal_offense(char_class, pal_spec, pal_offense)
     ids = set_group_ids if set_group_ids is not None else {}
     group_id = ids.get(group_key)
     if group_id is None:
@@ -414,12 +407,7 @@ def _resolve_item_set_info(
         item,
         resolver,
         version,
-        char_level,
-        char_class=char_class,
-        pal_spec=pal_spec,
-        pal_offense=resolved_offense,
-        pal_aura_id=pal_aura_id,
-        sorc_armor_id=sorc_armor_id,
+        ctx,
         is_weapon=is_weapon,
         slot=slot,
         code=code,
@@ -428,16 +416,7 @@ def _resolve_item_set_info(
     if global_set_cache is not None and cache_key in global_set_cache:
         global_bonuses = global_set_cache[cache_key]
     else:
-        global_bonuses = _extract_global_set_bonuses(
-            group_key,
-            resolver,
-            char_level,
-            char_class=char_class,
-            pal_spec=pal_spec,
-            pal_offense=resolved_offense,
-            pal_aura_id=pal_aura_id,
-            sorc_armor_id=sorc_armor_id,
-        )
+        global_bonuses = _extract_global_set_bonuses(group_key, resolver, ctx)
         if global_set_cache is not None:
             global_set_cache[cache_key] = global_bonuses
     return group_id, ext.set_id + 1, bonuses, global_bonuses
@@ -459,14 +438,12 @@ def _apply_shield_base_stats(
     acc: _PropAcc,
     slot: str,
     item_info: object | None,
-    *,
-    char_class: int,
-    resolved_offense: str,
+    ctx: ExtractionContext,
 ) -> None:
     if slot != "shield" or item_info is None:
         return
     acc.block_pct += getattr(item_info, "block", 0)
-    if char_class == int(CharClass.PALADIN) and resolved_offense == "smite":
+    if ctx.char_class == int(CharClass.PALADIN) and ctx.pal_offense == "smite":
         acc.flat_phys_2x += getattr(item_info, "mindam", 0) + getattr(item_info, "maxdam", 0)
 
 
@@ -475,8 +452,9 @@ def item_to_spec(
     loc: str,
     resolver: GameDataResolver,
     version: int,
-    char_level: int,
+    char_level: int = 1,
     *,
+    ctx: ExtractionContext | None = None,
     char_class: int = int(CharClass.SORCERESS),
     pal_spec: str = "leveling",
     pal_offense: str | None = None,
@@ -494,29 +472,23 @@ def item_to_spec(
     name_override: str | None = None,
     ignore_reqs: bool = False,
 ) -> ItemSpec | CharmSpec | None:
+    eff_ctx = _make_extraction_context(
+        char_level,
+        ctx=ctx,
+        char_class=char_class,
+        pal_spec=pal_spec,
+        pal_offense=pal_offense,
+        sorc_filler_id=sorc_filler_id,
+        sorc_armor_id=sorc_armor_id,
+        pal_aura_id=pal_aura_id,
+    )
     if item.location == ItemLocation.SOCKET:
         return None
-    if max(item_levelreq(item, resolver), extra_levelreq) > char_level:
+    if max(item_levelreq(item, resolver), extra_levelreq) > eff_ctx.char_level:
         return None
-    resolved_offense = (
-        pal_offense
-        if pal_offense is not None
-        else (
-            paladin_offense_profile(pal_spec) if char_class == int(CharClass.PALADIN) else "caster"
-        )
-    )
     code = item.code_str.strip().lower()
     if code in _CHARM_SIZES:
-        acc = _extract_prop_acc(
-            item,
-            resolver,
-            version,
-            char_level,
-            char_class=char_class,
-            pal_spec=pal_spec,
-            pal_offense=resolved_offense,
-            pal_aura_id=pal_aura_id,
-        )
+        acc = _extract_prop_acc(item, resolver, version, ctx=eff_ctx)
         name = get_item_display_name(item, resolver=resolver, version=version)
         ext = item.ext_info
         unique_id = ext.unique_id if ext and ext.unique_id is not None else None
@@ -525,10 +497,10 @@ def item_to_spec(
             size=_CHARM_SIZES[code],
             loc=loc,
             unique_id=unique_id,
-            char_class=char_class,
+            char_class=eff_ctx.char_class,
         )
 
-    classified = classify_slot(item, resolver, char_class=char_class)
+    classified = classify_slot(item, resolver, char_class=eff_ctx.char_class)
     if classified is None:
         return None
     slot, base_req_str, base_req_dex = classified
@@ -539,32 +511,15 @@ def item_to_spec(
     if extra_props:
         props.extend(extra_props)
     acc = _PropAcc()
-    _apply_props_to_acc(
-        acc,
-        props,
-        resolver,
-        char_level,
-        char_class=char_class,
-        pal_spec=pal_spec,
-        pal_offense=resolved_offense,
-        is_weapon=is_weapon,
-        sorc_filler_id=sorc_filler_id,
-        sorc_armor_id=sorc_armor_id,
-        pal_aura_id=pal_aura_id,
-    )
-    acc.defense = _compute_item_defense(item, props, resolver, char_level)
+    _apply_props_to_acc(acc, props, resolver, ctx=eff_ctx, is_weapon=is_weapon)
+    acc.defense = _compute_item_defense(item, props, resolver, eff_ctx.char_level)
     set_group, set_item_id, set_bonuses, global_set_bonuses = _resolve_item_set_info(
         item,
         resolver,
         version,
-        char_level,
-        char_class=char_class,
-        pal_spec=pal_spec,
-        pal_offense=resolved_offense,
+        eff_ctx,
         set_group_ids=set_group_ids,
         global_set_cache=global_set_cache,
-        pal_aura_id=pal_aura_id,
-        sorc_armor_id=sorc_armor_id,
         is_weapon=is_weapon,
         slot=slot,
         code=code,
@@ -576,23 +531,17 @@ def item_to_spec(
         is_weapon
         and item_info is not None
         and item_info.type
-        and char_class == int(CharClass.PALADIN)
-        and resolved_offense in ("zeal", "melee")
+        and eff_ctx.char_class == int(CharClass.PALADIN)
+        and eff_ctx.pal_offense in ("zeal", "melee")
         and resolver.is_descendant(item_info.type.lower(), "blun")
     ):
         acc.ed_undead += 50
     if not keep_slot and item_info is not None and _is_eth_breakable(item, item_info, props):
         if slot in _ARMOR_SLOTS:
             return None
-        if is_weapon and not allow_eth_melee and resolved_offense in ("zeal", "melee", "smite"):
+        if is_weapon and not allow_eth_melee and eff_ctx.pal_offense in ("zeal", "melee", "smite"):
             return None
-    _apply_shield_base_stats(
-        acc,
-        slot,
-        item_info,
-        char_class=char_class,
-        resolved_offense=resolved_offense,
-    )
+    _apply_shield_base_stats(acc, slot, item_info, eff_ctx)
     belt_slots = resolver.get_belt_rows(code) * 4 if slot == "belt" else 0
     wsm = 0
     wclass = ""
@@ -609,7 +558,7 @@ def item_to_spec(
             item,
             props,
             resolver,
-            char_level,
+            eff_ctx.char_level,
             slot=slot,
             code=code,
             version=version,
@@ -626,9 +575,9 @@ def item_to_spec(
     has_useful_stat = any(getattr(acc, attr) != 0 for attr in _USEFUL_ITEM_STATS)
     has_weapon_dps = (
         is_weapon
-        and resolved_offense in ("zeal", "melee")
+        and eff_ctx.pal_offense in ("zeal", "melee")
         and wep_phys_2x > 0
-        and char_class == int(CharClass.PALADIN)
+        and eff_ctx.char_class == int(CharClass.PALADIN)
     )
     if not keep_slot and set_group == 0 and not has_useful_stat and not has_weapon_dps:
         return None
@@ -666,15 +615,16 @@ def item_to_spec(
     )
 
 
-def _resolve_pool_context(
+def resolve_extraction_context(
     primary_char: D2SStruct,
     *,
-    pal_spec: str | None,
-    left_skill: int | None,
-    right_skill: int | None,
-    targets: int,
-    char_level_override: int | None,
-) -> tuple[int, int, str, str, int | None, int | None, int | None]:
+    pal_spec: str | None = None,
+    left_skill: int | None = None,
+    right_skill: int | None = None,
+    targets: int = 1,
+    char_level_override: int | None = None,
+) -> ExtractionContext:
+    """Resolve class-specific skill/spec context once for item and socket extraction."""
     char_level = (
         char_level_override
         if char_level_override is not None
@@ -712,14 +662,14 @@ def _resolve_pool_context(
         if is_pal
         else None
     )
-    return (
-        char_level,
-        char_class,
-        resolved_pal_spec,
-        resolved_pal_offense,
-        sorc_filler_id,
-        sorc_armor_id,
-        pal_aura_id,
+    return ExtractionContext(
+        char_class=char_class,
+        char_level=char_level,
+        pal_spec=resolved_pal_spec,
+        pal_offense=resolved_pal_offense,
+        sorc_filler_id=sorc_filler_id,
+        sorc_armor_id=sorc_armor_id,
+        pal_aura_id=pal_aura_id,
     )
 
 
@@ -737,6 +687,7 @@ def extract_pool_with_context(
     stashes: Sequence[SharedStash] = (),
     resolver: GameDataResolver | None = None,
     *,
+    ctx: ExtractionContext | None = None,
     pal_spec: str | None = None,
     keep_equipped: bool | str | None = False,
     allow_eth_melee: bool = False,
@@ -757,21 +708,17 @@ def extract_pool_with_context(
 
     kept_slots = parse_keep_gear(keep_equipped)
     keep_all = kept_slots == ALL_GEAR_SLOTS
-    (
-        char_level,
-        char_class,
-        resolved_pal_spec,
-        resolved_pal_offense,
-        sorc_filler_id,
-        sorc_armor_id,
-        pal_aura_id,
-    ) = _resolve_pool_context(
-        primary_char,
-        pal_spec=pal_spec,
-        left_skill=left_skill,
-        right_skill=right_skill,
-        targets=targets,
-        char_level_override=char_level_override,
+    eff_ctx = (
+        ctx
+        if ctx is not None
+        else resolve_extraction_context(
+            primary_char,
+            pal_spec=pal_spec,
+            left_skill=left_skill,
+            right_skill=right_skill,
+            targets=targets,
+            char_level_override=char_level_override,
+        )
     )
     set_group_ids: dict[str, int] = {}
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]] = {}
@@ -795,18 +742,12 @@ def extract_pool_with_context(
             entry.loc,
             entry.resolver,
             version=entry.version,
-            char_level=char_level,
-            char_class=char_class,
-            pal_spec=resolved_pal_spec,
-            pal_offense=resolved_pal_offense,
+            ctx=eff_ctx,
             set_group_ids=set_group_ids,
             global_set_cache=global_set_cache,
             skip_useful_slots=skip_useful_slots,
             exclude_slots=exclude_slots,
             allow_eth_melee=allow_eth_melee,
-            sorc_filler_id=sorc_filler_id,
-            sorc_armor_id=sorc_armor_id,
-            pal_aura_id=pal_aura_id,
             ignore_reqs=ignore_reqs,
         )
         if isinstance(spec, ItemSpec):
