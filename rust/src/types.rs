@@ -19,8 +19,9 @@ pub(crate) const PALADIN_FBR_FRAMES: &[i32] = &[5, 4, 3, 2, 1];
 pub(crate) const PALADIN_HS_FBR_BPS: &[i32] = &[0, 86];
 pub(crate) const PALADIN_HS_FBR_FRAMES: &[i32] = &[2, 1];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum CharClass {
+    #[default]
     Sorceress,
     Paladin,
 }
@@ -938,6 +939,7 @@ pub struct BuildConstraints {
     pub min_ll: i32,
     pub min_pdr: i32,
     pub min_mf: i32,
+    pub min_dps: i32,
     pub character: CharacterStats,
     pub target: TargetProfile,
     pub skills: SkillModel,
@@ -967,6 +969,7 @@ impl Default for BuildConstraints {
             min_ll: 0,
             min_pdr: 0,
             min_mf: 0,
+            min_dps: 0,
             character: CharacterStats::default(),
             target: TargetProfile::default(),
             skills: SkillModel::default(),
@@ -1000,6 +1003,7 @@ impl BuildConstraints {
         min_ll = 0,
         min_pdr = 0,
         min_mf = 0,
+        min_dps = 0,
         character = None,
         target = None,
         skills = None,
@@ -1027,6 +1031,7 @@ impl BuildConstraints {
         min_ll: i32,
         min_pdr: i32,
         min_mf: i32,
+        min_dps: i32,
         character: Option<CharacterStats>,
         target: Option<TargetProfile>,
         skills: Option<SkillModel>,
@@ -1053,6 +1058,7 @@ impl BuildConstraints {
             min_ll,
             min_pdr,
             min_mf,
+            min_dps,
             character: character.unwrap_or_default(),
             target: target.unwrap_or_default(),
             skills: skills.unwrap_or_default(),

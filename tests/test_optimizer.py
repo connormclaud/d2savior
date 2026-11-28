@@ -2312,6 +2312,7 @@ def test_charmspec_eq_hash_frozen_and_constraints_with_limit() -> None:
         min_ll=7,
         min_pdr=15,
         min_mf=25,
+        min_dps=12000,
         character=char,
         target=target,
         skills=skills,
@@ -2335,6 +2336,7 @@ def test_charmspec_eq_hash_frozen_and_constraints_with_limit() -> None:
         cloned.min_ll,
         cloned.min_pdr,
         cloned.min_mf,
+        cloned.min_dps,
     ) == (
         20,
         30,
@@ -2342,6 +2344,7 @@ def test_charmspec_eq_hash_frozen_and_constraints_with_limit() -> None:
         7,
         15,
         25,
+        12000,
     )
     with pytest.raises(AttributeError):
         orig.limit = 10  # type: ignore[misc]

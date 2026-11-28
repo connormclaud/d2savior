@@ -522,9 +522,9 @@ fn build_hands(
     });
 
     let empty_hand = ItemSpec::empty("weapon").hand_weapon();
-    let empty_anim = offense.weapon_anim_key(mode, empty_hand);
+    let empty_anim = offense.weapon_anim_key(mode, c.min_dps, empty_hand);
     let fold_wep_phys = matches!(offense, OffenseProfile::Melee | OffenseProfile::Zeal)
-        && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes);
+        && (matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) || c.min_dps > 0);
     let wep_prune_stats = |it: &ItemSpec| {
         let mut s = it.stats().for_mode(c);
         if fold_wep_phys {
@@ -544,7 +544,7 @@ fn build_hands(
                 wep_prune_stats(it),
                 item_eff_reqs(it),
                 (
-                    offense.weapon_anim_key(mode, it.hand_weapon()),
+                    offense.weapon_anim_key(mode, c.min_dps, it.hand_weapon()),
                     single_set_sig(it),
                 ),
             )
@@ -563,7 +563,7 @@ fn build_hands(
                 wep_prune_stats(it),
                 item_eff_reqs(it),
                 (
-                    offense.weapon_anim_key(mode, it.hand_weapon()),
+                    offense.weapon_anim_key(mode, c.min_dps, it.hand_weapon()),
                     single_set_sig(it),
                 ),
             )
@@ -594,7 +594,7 @@ fn build_hands(
         } else {
             let has_empty_dom = hands.iter().any(|h| {
                 h.set_sig.is_none()
-                    && offense.weapon_anim_key(mode, h.first.hand_weapon()) == empty_anim
+                    && offense.weapon_anim_key(mode, c.min_dps, h.first.hand_weapon()) == empty_anim
                     && dominates_empty(
                         wep_prune_stats(&h.combined),
                         normalize_reqs(h.reqs, c.character.base_str, c.character.base_dex),
@@ -631,7 +631,7 @@ fn build_hands(
                 wep_prune_stats(&h.combined),
                 h.reqs,
                 (
-                    offense.weapon_anim_key(mode, h.first.hand_weapon()),
+                    offense.weapon_anim_key(mode, c.min_dps, h.first.hand_weapon()),
                     h.set_sig.clone(),
                 ),
             )
@@ -951,6 +951,22 @@ impl<'a> SearchState<'a> {
         if ub_ch.str_bonus < reqs.0 || ub_ch.dex_bonus < reqs.1 {
             return true;
         }
+        if self.c.min_dps > 0 {
+            let min_dps_f = self.c.min_dps as f64 - 1e-6;
+            if self.c.offense.uses_dps_tables(&self.c) {
+                if let Some(hw) = hand
+                    && self.c.offense.compute_eff_dps(hw, ub_ch, &self.c) < min_dps_f
+                {
+                    return true;
+                }
+            } else if self.c.offense.uses_caster_dps(&self.c) {
+                if self.c.offense.compute_caster_dps(ub_ch, &self.c) < min_dps_f {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        }
         self.can_prune_by_score(ub_ch, hand, caps_ub)
     }
 
@@ -1057,9 +1073,19 @@ impl<'a> SearchState<'a> {
             let items_ref = items_ref_opt
                 .unwrap_or_else(|| leaf_items_ref(hand, self.groups, &self.chosen_slots, rp));
             score.locality = items_ref.iter().map(|it| item_locality_score(&it.loc)).sum();
-            if offense.uses_dps_tables(&self.c)
-                && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes)
-            {
+            let min_dps_f = self.c.min_dps as f64;
+            let need_dps_refine = if offense.uses_dps_tables(&self.c) {
+                matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes)
+                    || (self.c.min_dps > 0 && sum.dps < min_dps_f)
+            } else if offense.uses_caster_dps(&self.c) {
+                self.c.min_dps > 0 && mode != SearchMode::Power && sum.dps < min_dps_f
+            } else {
+                false
+            };
+            if need_dps_refine {
+                if self.c.min_dps > 0 && sum.dps < min_dps_f {
+                    score = BuildScore::min_sentinel(score.locality);
+                }
                 self.charm_solver.improve_for_dps(
                     gear,
                     all_sk_non_wep,
@@ -1072,6 +1098,9 @@ impl<'a> SearchState<'a> {
                     &mut sum,
                     &mut score,
                 );
+            }
+            if self.c.min_dps > 0 && sum.dps < min_dps_f {
+                continue;
             }
             if !self.top_results.would_accept(score) {
                 continue;
@@ -1396,7 +1425,7 @@ pub fn optimize_builds_with_baseline(
         raw_pool: &raw_pool,
     };
     let strict_floor = baseline
-        .filter(|b| b.cr >= rc.min_cr)
+        .filter(|b| b.cr >= rc.min_cr && (rc.min_dps <= 0 || b.dps >= rc.min_dps as f64))
         .map(|b| build_score_of_result(b, &rc));
     let (results, has_cold_sunder) = run_search_pass(&pool, rc, strict_floor);
     if results.is_empty()

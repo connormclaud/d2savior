@@ -65,10 +65,11 @@ impl<'a> CharmSolver<'a> {
         let ub = StatTotals::from_pool_ub(&pool, max_slots);
 
         let non_dps = build_non_dps_index(&pool, &c, max_slots);
-        let dps = if build_dps_refiner_flag
-            && matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes)
-            && c.offense.uses_dps_tables(&c)
-        {
+        let need_dps_refiner = ((matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes)
+            || c.min_dps > 0)
+            && c.offense.uses_dps_tables(&c))
+            || (c.min_dps > 0 && mode != SearchMode::Power && c.offense.uses_caster_dps(&c));
+        let dps = if build_dps_refiner_flag && need_dps_refiner {
             Some(Box::new(build_dps_refiner(&pool, c, max_slots)))
         } else {
             None
@@ -491,12 +492,14 @@ fn build_dps_refiner<'a>(
     max_slots: i32,
 ) -> DpsRefiner<'a> {
     let class = c.class;
+    let caster_mode = c.offense.uses_caster_dps(&c);
     let is_pure_dps = |ch: &CharmSpec| {
-        (ch.ar > 0
-            || ch.flat_phys_2x > 0
-            || ch.flat_fire_2x > 0
-            || ch.flat_elem_2x > 0
-            || ch.psn_dps_2x > 0)
+        !caster_mode
+            && (ch.ar > 0
+                || ch.flat_phys_2x > 0
+                || ch.flat_fire_2x > 0
+                || ch.flat_elem_2x > 0
+                || ch.psn_dps_2x > 0)
             && ch.ar >= 0
             && ch.flat_phys_2x >= 0
             && ch.flat_fire_2x >= 0
@@ -520,14 +523,18 @@ fn build_dps_refiner<'a>(
             && ch.skills_total() == 0
     };
     let is_dps_stat = |ch: &CharmSpec| {
-        ch.ar > 0
-            || ch.dex_bonus > 0
-            || ch.str_bonus > 0
-            || ch.skills_total() > 0
-            || ch.flat_phys_2x > 0
-            || ch.flat_fire_2x > 0
-            || ch.flat_elem_2x > 0
-            || ch.psn_dps_2x > 0
+        if caster_mode {
+            ch.skills_total() > 0
+        } else {
+            ch.ar > 0
+                || ch.dex_bonus > 0
+                || ch.str_bonus > 0
+                || ch.skills_total() > 0
+                || ch.flat_phys_2x > 0
+                || ch.flat_fire_2x > 0
+                || ch.flat_elem_2x > 0
+                || ch.psn_dps_2x > 0
+        }
     };
     let dps_uids: HashSet<i32> = pool
         .iter()

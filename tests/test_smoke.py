@@ -369,6 +369,41 @@ class TestSmokeAPI:
             report + "\n\n", SMITE_OPTIMIZE_MAX_RES_GOLDEN, "smite_optimize_max_res_api"
         )
 
+    def test_smite_optimize_min_dps(self, game_data_resolver):
+        """Leveling optimize with --min-dps enforces the DPS floor on every option."""
+        pytest.importorskip("d2savior._native")
+        from d2savior.optimizer import ConstraintOverrides
+
+        smite, extras, stashes = self._load_paladin_snapshot(game_data_resolver)
+        items, charms = extract_pool(
+            smite, extra_chars=extras, stashes=stashes, resolver=game_data_resolver
+        )
+        # First get baseline opt1 DPS, then set min_dps strictly above opt1 to force a higher-DPS build.
+        _, base_opts, _, _ = optimize_paladin_leveling(
+            smite,
+            items,
+            charms,
+            limit=3,
+            extra_chars=extras,
+            stashes=stashes,
+            resolver=game_data_resolver,
+        )
+        assert len(base_opts) >= 2
+        floor_dps = int(base_opts[0][1].dps) + 1
+        _, options, _, _ = optimize_paladin_leveling(
+            smite,
+            items,
+            charms,
+            limit=3,
+            extra_chars=extras,
+            stashes=stashes,
+            resolver=game_data_resolver,
+            overrides=ConstraintOverrides(min_dps=floor_dps),
+        )
+        assert options
+        for _label, res in options:
+            assert res.dps >= floor_dps, f"DPS floor violated: {res.dps} < {floor_dps}"
+
     def test_smite_optimize_cbf_frw30(self, game_data_resolver):
         """Leveling optimize with --cbf and --min-frw 30: every option must satisfy both floors."""
         pytest.importorskip("d2savior._native")

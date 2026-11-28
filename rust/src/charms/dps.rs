@@ -27,11 +27,30 @@ impl<'a> CharmSolver<'a> {
             return;
         }
         let offense = self.c.offense;
-        let base_fast = offense.fast_leaf_dps(hw, leaf, &self.c);
-        let gear_bucket = OffenseProfile::dps_bucket(base_fast.eval_eff_dps());
+        let is_leveling = matches!(self.c.mode, SearchMode::Leveling | SearchMode::LevelingRes);
+        let caster_mode = offense.uses_caster_dps(&self.c);
+        let min_dps_f = self.c.min_dps as f64;
+        let min_dps_ub_f = min_dps_f - 1e-6;
+        let base_fast = if caster_mode {
+            FastLeafDps::default()
+        } else {
+            offense.fast_leaf_dps(hw, leaf, &self.c)
+        };
+        let gear_bucket = if caster_mode {
+            0
+        } else {
+            OffenseProfile::dps_bucket(base_fast.eval_eff_dps())
+        };
         let ub_leaf = leaf.add(self.charm_ub_stats());
-        let global_ub_bucket =
-            OffenseProfile::dps_bucket(offense.compute_eff_dps(hw, ub_leaf, &self.c));
+        let global_ub_dps = if caster_mode {
+            offense.compute_caster_dps(ub_leaf, &self.c)
+        } else {
+            offense.compute_eff_dps(hw, ub_leaf, &self.c)
+        };
+        if self.c.min_dps > 0 && global_ub_dps < min_dps_ub_f {
+            return;
+        }
+        let global_ub_bucket = OffenseProfile::dps_bucket(global_ub_dps);
         let caps_t = res_caps(leaf, &self.c);
         let bc_t = base_res_caps(&self.c);
         let base_caps = [
@@ -42,7 +61,7 @@ impl<'a> CharmSolver<'a> {
         ];
         let res_axes: usize = if self.c.ignore_pr { 3 } else { 4 };
         let cbf_val = i32::from(leaf.cbf > 0);
-        if let Some(cut) = cutoff {
+        if is_leveling && let Some(cut) = cutoff {
             let ub_res_vals = [ub_leaf.fr, ub_leaf.lr, ub_leaf.cr, ub_leaf.pr];
             let max_res_base: i32 = (0..res_axes).map(|r| ub_res_vals[r].min(base_caps[r])).sum();
             let global_top3 = match self.c.mode {
@@ -59,8 +78,21 @@ impl<'a> CharmSolver<'a> {
         };
         let dps = &dps_refiner.index;
         let non_dps_solver = &mut dps_refiner.non_dps_solver;
+        let non_dps_str_ub = if caster_mode {
+            non_dps_solver.ub.str_bonus
+        } else {
+            0
+        };
+        let non_dps_dex_ub = if caster_mode {
+            non_dps_solver.ub.dex_bonus
+        } else {
+            0
+        };
         if dps.groups.is_empty()
-            && (dps.pure_dps.is_empty() || gear_bucket >= global_ub_bucket)
+            && (dps.pure_dps.is_empty()
+                || (is_leveling
+                    && gear_bucket >= global_ub_bucket
+                    && (self.c.min_dps <= 0 || best_sum.dps >= min_dps_f)))
         {
             return;
         }
@@ -68,6 +100,13 @@ impl<'a> CharmSolver<'a> {
         struct DpsStatic<'b, 'a> {
             pool: &'b [&'a CharmSpec],
             c: ResolvedConstraints<'a>,
+            is_leveling: bool,
+            caster_mode: bool,
+            min_dps_f: f64,
+            min_dps_ub_f: f64,
+            prepicked_sunder: Option<&'a CharmSpec>,
+            non_dps_str_ub: i32,
+            non_dps_dex_ub: i32,
             max_slots: i32,
             gear: Stats,
             all_sk_non_wep: i32,
@@ -177,8 +216,8 @@ impl<'a> CharmSolver<'a> {
             } else {
                 0
             };
-            if leaf.str_bonus + cur.str_bonus + rem_str_all < st.reqs.0
-                || leaf.dex_bonus + cur.dex_bonus + rem_dex_all < st.reqs.1
+            if leaf.str_bonus + cur.str_bonus + rem_str_all + st.non_dps_str_ub < st.reqs.0
+                || leaf.dex_bonus + cur.dex_bonus + rem_dex_all + st.non_dps_dex_ub < st.reqs.1
             {
                 return;
             }
@@ -313,6 +352,53 @@ impl<'a> CharmSolver<'a> {
                 {
                     return;
                 }
+                if st.caster_mode {
+                    let cand_dps = st.c.offense.compute_caster_dps(leaf_d, &st.c);
+                    if st.c.min_dps > 0 && cand_dps < st.min_dps_ub_f {
+                        return;
+                    }
+                    let Some(mut cand_charms) =
+                        mut_ctx
+                            .non_dps_solver
+                            .solve_with_budget(leaf_d, st.reqs, rem_slots, 0)
+                    else {
+                        return;
+                    };
+                    if let Some(sunder) = st.prepicked_sunder {
+                        cand_charms.push(sunder);
+                    }
+                    for &idx in &mut_ctx.cur_indices {
+                        cand_charms.push(st.pool[idx]);
+                    }
+                    let cand_sum = eval_build_summary(
+                        st.gear,
+                        st.all_sk_non_wep,
+                        st.hw,
+                        st.has_shield,
+                        &cand_charms,
+                        &st.c,
+                    );
+                    if (!st.c.allow_mf && cand_sum.mf > 0)
+                        || cand_sum.fhr < st.c.min_fhr
+                        || cand_sum.frw < st.c.min_frw
+                        || cand_sum.mf < st.c.min_mf
+                        || cand_sum.fr < st.c.min_fr
+                        || cand_sum.lr < st.c.min_lr
+                        || cand_sum.cr < st.c.min_cr
+                        || cand_sum.pr < st.c.min_pr
+                        || (st.c.min_dps > 0 && cand_sum.dps < st.min_dps_f)
+                    {
+                        return;
+                    }
+                    let mut cand_score = score_eval_summary(&cand_sum, &st.c);
+                    cand_score.locality = mut_ctx.best_score.locality;
+                    if cand_score > *mut_ctx.best_score {
+                        *mut_ctx.best_charms = cand_charms;
+                        *mut_ctx.best_sum = cand_sum;
+                        *mut_ctx.best_score = cand_score;
+                    }
+                    return;
+                }
                 let fast = if cur.all_skills == 0
                     && cur.class_skills == 0
                     && cur.action_skills == 0
@@ -332,33 +418,39 @@ impl<'a> CharmSolver<'a> {
                 };
                 let max_pure_s = (dps_rem_slots.max(0) as usize).min(st.max_slots.max(0) as usize);
                 let leaf_d_res = [leaf_d.fr, leaf_d.lr, leaf_d.cr, leaf_d.pr];
-                let leaf_res_ub_0: i32 = (0..st.res_axes)
-                    .map(|r| (leaf_d_res[r] + dps.nd_res_at[rs_idx][r]).min(st.base_caps[r]))
-                    .sum();
-                let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
-                let Some(req_bkt) = required_dps_bucket(
-                    st.c.mode,
-                    leaf_res_ub_0,
-                    st.cbf_val,
-                    st.cutoff,
-                    best_top2,
-                ) else {
-                    return;
-                };
                 let leaf_ub_dps = dps.pure_dps.max_dps_ub(&fast, max_pure_s);
-                if req_bkt > 0 && leaf_ub_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt) {
+                if st.c.min_dps > 0 && leaf_ub_dps < st.min_dps_ub_f {
                     return;
                 }
-                let leaf_ub_bucket = OffenseProfile::dps_bucket(leaf_ub_dps);
-                let leaf_top3 = match st.c.mode {
-                    SearchMode::Leveling => (leaf_ub_bucket, leaf_res_ub_0, st.cbf_val),
-                    SearchMode::LevelingRes => (leaf_res_ub_0, leaf_ub_bucket, st.cbf_val),
-                    _ => return,
-                };
-                if st.cutoff.is_some_and(|cut| leaf_top3 < cut)
-                    || (leaf_top3.0, leaf_top3.1) < best_top2
-                {
-                    return;
+                if st.is_leveling {
+                    let leaf_res_ub_0: i32 = (0..st.res_axes)
+                        .map(|r| (leaf_d_res[r] + dps.nd_res_at[rs_idx][r]).min(st.base_caps[r]))
+                        .sum();
+                    let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
+                    let Some(req_bkt) = required_dps_bucket(
+                        st.c.mode,
+                        leaf_res_ub_0,
+                        st.cbf_val,
+                        st.cutoff,
+                        best_top2,
+                    ) else {
+                        return;
+                    };
+                    if req_bkt > 0 && leaf_ub_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt)
+                    {
+                        return;
+                    }
+                    let leaf_ub_bucket = OffenseProfile::dps_bucket(leaf_ub_dps);
+                    let leaf_top3 = match st.c.mode {
+                        SearchMode::Leveling => (leaf_ub_bucket, leaf_res_ub_0, st.cbf_val),
+                        SearchMode::LevelingRes => (leaf_res_ub_0, leaf_ub_bucket, st.cbf_val),
+                        _ => return,
+                    };
+                    if st.cutoff.is_some_and(|cut| leaf_top3 < cut)
+                        || (leaf_top3.0, leaf_top3.1) < best_top2
+                    {
+                        return;
+                    }
                 }
                 dps.pure_dps.solve_for_leaf_into(
                     &fast,
@@ -383,39 +475,47 @@ impl<'a> CharmSolver<'a> {
                     {
                         continue;
                     }
-                    let cand_res_ub: i32 = (0..st.res_axes)
-                        .map(|r| (leaf_d_res[r] + dps.nd_res_at[nd_idx][r]).min(st.base_caps[r]))
-                        .sum();
-                    let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
-                    let Some(req_bkt) = required_dps_bucket(
-                        st.c.mode,
-                        cand_res_ub,
-                        st.cbf_val,
-                        st.cutoff,
-                        best_top2,
-                    ) else {
-                        continue;
-                    };
                     let cand_dps = mut_ctx.pure_buf[pure_s].0;
-                    if req_bkt > 0 && cand_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt)
-                    {
+                    if st.c.min_dps > 0 && cand_dps < st.min_dps_ub_f {
                         continue;
                     }
-                    let cand_bucket = OffenseProfile::dps_bucket(cand_dps);
-                    if prev_tested_bucket == Some(cand_bucket) {
-                        continue;
+                    if st.is_leveling {
+                        let cand_res_ub: i32 = (0..st.res_axes)
+                            .map(|r| {
+                                (leaf_d_res[r] + dps.nd_res_at[nd_idx][r]).min(st.base_caps[r])
+                            })
+                            .sum();
+                        let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
+                        let Some(req_bkt) = required_dps_bucket(
+                            st.c.mode,
+                            cand_res_ub,
+                            st.cbf_val,
+                            st.cutoff,
+                            best_top2,
+                        ) else {
+                            continue;
+                        };
+                        if req_bkt > 0
+                            && cand_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt)
+                        {
+                            continue;
+                        }
+                        let cand_bucket = OffenseProfile::dps_bucket(cand_dps);
+                        if prev_tested_bucket == Some(cand_bucket) {
+                            continue;
+                        }
+                        let cand_top3 = match st.c.mode {
+                            SearchMode::Leveling => (cand_bucket, cand_res_ub, st.cbf_val),
+                            SearchMode::LevelingRes => (cand_res_ub, cand_bucket, st.cbf_val),
+                            _ => continue,
+                        };
+                        if st.cutoff.is_some_and(|cut| cand_top3 < cut)
+                            || (cand_top3.0, cand_top3.1) < best_top2
+                        {
+                            continue;
+                        }
+                        prev_tested_bucket = Some(cand_bucket);
                     }
-                    let cand_top3 = match st.c.mode {
-                        SearchMode::Leveling => (cand_bucket, cand_res_ub, st.cbf_val),
-                        SearchMode::LevelingRes => (cand_res_ub, cand_bucket, st.cbf_val),
-                        _ => continue,
-                    };
-                    if st.cutoff.is_some_and(|cut| cand_top3 < cut)
-                        || (cand_top3.0, cand_top3.1) < best_top2
-                    {
-                        continue;
-                    }
-                    prev_tested_bucket = Some(cand_bucket);
                     let Some(mut cand_charms) =
                         mut_ctx
                             .non_dps_solver
@@ -423,6 +523,9 @@ impl<'a> CharmSolver<'a> {
                     else {
                         continue;
                     };
+                    if let Some(sunder) = st.prepicked_sunder {
+                        cand_charms.push(sunder);
+                    }
                     for &idx in &mut_ctx.cur_indices {
                         cand_charms.push(st.pool[idx]);
                     }
@@ -448,6 +551,7 @@ impl<'a> CharmSolver<'a> {
                         || cand_sum.lr < st.c.min_lr
                         || cand_sum.cr < st.c.min_cr
                         || cand_sum.pr < st.c.min_pr
+                        || (st.c.min_dps > 0 && cand_sum.dps < st.min_dps_f)
                     {
                         continue;
                     }
@@ -457,6 +561,9 @@ impl<'a> CharmSolver<'a> {
                         *mut_ctx.best_charms = cand_charms;
                         *mut_ctx.best_sum = cand_sum;
                         *mut_ctx.best_score = cand_score;
+                    }
+                    if !st.is_leveling {
+                        break;
                     }
                 }
                 return;
@@ -483,7 +590,16 @@ impl<'a> CharmSolver<'a> {
             let rem_fire = eval_sorted_ub(&dps.order_fire, g_idx, dps_rem_slots);
             let rem_elem = eval_sorted_ub(&dps.order_elem, g_idx, dps_rem_slots);
             let rem_psn = eval_sorted_ub(&dps.order_psn, g_idx, dps_rem_slots);
-            let ub_dps = if cur.all_skills + rem_all_sk == 0
+            let ub_dps = if st.caster_mode {
+                let ub_dps_stats = StatTotals {
+                    all_skills: cur.all_skills + rem_all_sk,
+                    class_skills: cur.class_skills + rem_cls_sk,
+                    action_skills: cur.action_skills + rem_act_sk,
+                    ..Default::default()
+                }
+                .add_to_stats(leaf);
+                st.c.offense.compute_caster_dps(ub_dps_stats, &st.c)
+            } else if cur.all_skills + rem_all_sk == 0
                 && cur.class_skills + rem_cls_sk == 0
                 && cur.action_skills + rem_act_sk == 0
                 && cur.aura_skills + rem_aura_sk == 0
@@ -517,27 +633,32 @@ impl<'a> CharmSolver<'a> {
                 .add_to_stats(leaf);
                 st.c.offense.compute_eff_dps(st.hw, ub_dps_stats, &st.c)
             };
-            let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
-            let Some(req_bkt) = required_dps_bucket(
-                st.c.mode,
-                ub_res_base,
-                st.cbf_val,
-                st.cutoff,
-                best_top2,
-            ) else {
-                return;
-            };
-            if req_bkt > 0 && ub_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt) {
+            if st.c.min_dps > 0 && ub_dps < st.min_dps_ub_f {
                 return;
             }
-            let ub_bucket = OffenseProfile::dps_bucket(ub_dps);
-            let ub_top3 = match st.c.mode {
-                SearchMode::Leveling => (ub_bucket, ub_res_base, st.cbf_val),
-                SearchMode::LevelingRes => (ub_res_base, ub_bucket, st.cbf_val),
-                _ => return,
-            };
-            if st.cutoff.is_some_and(|cut| ub_top3 < cut) || (ub_top3.0, ub_top3.1) < best_top2 {
-                return;
+            if st.is_leveling {
+                let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
+                let Some(req_bkt) = required_dps_bucket(
+                    st.c.mode,
+                    ub_res_base,
+                    st.cbf_val,
+                    st.cutoff,
+                    best_top2,
+                ) else {
+                    return;
+                };
+                if req_bkt > 0 && ub_dps < OffenseProfile::dps_bucket_safe_min_dps(req_bkt) {
+                    return;
+                }
+                let ub_bucket = OffenseProfile::dps_bucket(ub_dps);
+                let ub_top3 = match st.c.mode {
+                    SearchMode::Leveling => (ub_bucket, ub_res_base, st.cbf_val),
+                    SearchMode::LevelingRes => (ub_res_base, ub_bucket, st.cbf_val),
+                    _ => return,
+                };
+                if st.cutoff.is_some_and(|cut| ub_top3 < cut) || (ub_top3.0, ub_top3.1) < best_top2 {
+                    return;
+                }
             }
 
             match &dps.groups[g_idx] {
@@ -601,23 +722,6 @@ impl<'a> CharmSolver<'a> {
             }
         }
 
-        let st = DpsStatic {
-            pool: &self.pool,
-            c: self.c,
-            max_slots: self.max_slots,
-            gear,
-            all_sk_non_wep,
-            hw,
-            has_shield,
-            leaf,
-            reqs,
-            cutoff,
-            cbf_val,
-            dps,
-            base_caps,
-            res_axes,
-            base_fast,
-        };
         let mut mut_ctx = DpsMut {
             non_dps_solver,
             cur_indices: Vec::new(),
@@ -627,12 +731,70 @@ impl<'a> CharmSolver<'a> {
             best_sum,
             best_score,
         };
-        dfs_dps(
-            &st,
-            &mut mut_ctx,
-            0,
-            self.max_slots.max(0),
-            StatTotals::default(),
-        );
+        if self.sunder_opts.is_empty() {
+            let st = DpsStatic {
+                pool: &self.pool,
+                c: self.c,
+                is_leveling,
+                caster_mode,
+                min_dps_f,
+                min_dps_ub_f,
+                prepicked_sunder: None,
+                non_dps_str_ub,
+                non_dps_dex_ub,
+                max_slots: self.max_slots,
+                gear,
+                all_sk_non_wep,
+                hw,
+                has_shield,
+                leaf,
+                reqs,
+                cutoff,
+                cbf_val,
+                dps,
+                base_caps,
+                res_axes,
+                base_fast,
+            };
+            dfs_dps(
+                &st,
+                &mut mut_ctx,
+                0,
+                self.max_slots.max(0),
+                StatTotals::default(),
+            );
+        } else {
+            for &sunder in &self.sunder_opts {
+                let rem = self.raw_max_slots - sunder.size;
+                if rem < 0 {
+                    continue;
+                }
+                let st = DpsStatic {
+                    pool: &self.pool,
+                    c: self.c,
+                    is_leveling,
+                    caster_mode,
+                    min_dps_f,
+                    min_dps_ub_f,
+                    prepicked_sunder: Some(sunder),
+                    non_dps_str_ub,
+                    non_dps_dex_ub,
+                    max_slots: rem,
+                    gear,
+                    all_sk_non_wep,
+                    hw,
+                    has_shield,
+                    leaf: leaf.add(sunder.to_stats()),
+                    reqs,
+                    cutoff,
+                    cbf_val,
+                    dps,
+                    base_caps,
+                    res_axes,
+                    base_fast,
+                };
+                dfs_dps(&st, &mut mut_ctx, 0, rem, StatTotals::default());
+            }
+        }
     }
 }

@@ -369,6 +369,7 @@ class BuildConstraints:
     min_ll: int
     min_pdr: int
     min_mf: int
+    min_dps: int
     character: CharacterStats
     target: TargetProfile
     skills: SkillModel
@@ -396,6 +397,7 @@ class BuildConstraints:
         min_ll: int = 0,
         min_pdr: int = 0,
         min_mf: int = 0,
+        min_dps: int = 0,
         character: CharacterStats | None = None,
         target: TargetProfile | None = None,
         skills: SkillModel | None = None,

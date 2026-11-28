@@ -4703,3 +4703,187 @@ fn test_ignore_pr_excludes_poison_resist_from_leveling_res_base() {
     assert!(res_ignore_pr[0].items.iter().any(|it| it.name == "IAS Armor"));
     assert!(res_ignore_pr[0].charms.iter().any(|ch| ch.name == "Vita SC"));
 }
+
+#[test]
+fn test_min_dps_filters_gear_and_uses_dps_charms_across_modes() {
+    // 1) Melee in leveling-res & mf modes: verifies min_dps enforces DPS floor,
+    // preserves DPS stats/weapon damage in non-leveling dominance pruning, and uses
+    // DPS charms when gear alone is below min_dps.
+    let weak_sword = ItemSpec {
+        name: "Weak Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 100,
+        can_zeal: true,
+        itd: 1,
+        mf: 50,
+        ..Default::default()
+    };
+    let strong_sword = ItemSpec {
+        name: "Strong Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 240,
+        can_zeal: true,
+        itd: 1,
+        mf: 0,
+        ..Default::default()
+    };
+    let res_armor = ItemSpec {
+        name: "Res Armor".into(),
+        slot: "armor".into(),
+        fr: 60,
+        lr: 60,
+        cr: 60,
+        pr: 60,
+        mf: 40,
+        ..Default::default()
+    };
+    let fire_sc = CharmSpec {
+        name: "Flaming SC".into(),
+        size: 1,
+        flat_fire_2x: 60, // +30 avg fire dmg per hit
+        ..Default::default()
+    };
+    let mf_sc = CharmSpec {
+        name: "Fortune SC".into(),
+        size: 1,
+        mf: 7,
+        ..Default::default()
+    };
+    let base_melee_c = BuildConstraints {
+        offense: "melee".into(),
+        mode: "mf".into(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 1,
+        limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            char_level: 30,
+            base_str: 50,
+            base_dex: 50,
+            base_hell_res: 0,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_def: 0,
+            target_type: "trash".into(),
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![1],
+            action_ed: vec![0],
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    // Baseline MF mode picks Weak Sword (50 MF) + Fortune SC (7 MF).
+    let mf_base = optimize_builds_core(
+        &[weak_sword.clone(), strong_sword.clone(), res_armor.clone()],
+        &[fire_sc.clone(), mf_sc.clone()],
+        &base_melee_c,
+    )
+    .unwrap();
+    assert!(mf_base[0].items.iter().any(|it| it.name == "Weak Sword"));
+    assert!(mf_base[0].charms.iter().any(|ch| ch.name == "Fortune SC"));
+    let weak_dps = mf_base[0].dps;
+
+    // Setting min_dps just above Weak Sword + Fortune SC forces Flaming SC while keeping Weak Sword (50 MF).
+    let mut mf_charm_c = base_melee_c.clone();
+    mf_charm_c.min_dps = (weak_dps + 20.0) as i32;
+    let mf_charm = optimize_builds_core(
+        &[weak_sword.clone(), strong_sword.clone(), res_armor.clone()],
+        &[fire_sc.clone(), mf_sc.clone()],
+        &mf_charm_c,
+    )
+    .unwrap();
+    assert_eq!(mf_charm.len(), 1);
+    assert!(mf_charm[0].dps >= mf_charm_c.min_dps as f64);
+    assert!(mf_charm[0].items.iter().any(|it| it.name == "Weak Sword"));
+    assert!(mf_charm[0].charms.iter().any(|ch| ch.name == "Flaming SC"));
+
+    // Setting min_dps above Weak Sword + Flaming SC forces Strong Sword (must not be dominance-pruned in MF mode!).
+    let mut mf_wep_c = base_melee_c.clone();
+    mf_wep_c.min_dps = (mf_charm[0].dps + 20.0) as i32;
+    let mf_wep = optimize_builds_core(
+        &[weak_sword.clone(), strong_sword.clone(), res_armor.clone()],
+        &[fire_sc.clone(), mf_sc.clone()],
+        &mf_wep_c,
+    )
+    .unwrap();
+    assert_eq!(mf_wep.len(), 1);
+    assert!(mf_wep[0].dps >= mf_wep_c.min_dps as f64);
+    assert!(mf_wep[0].items.iter().any(|it| it.name == "Strong Sword"));
+    assert!(mf_wep[0].charms.iter().any(|ch| ch.name == "Fortune SC"));
+
+    // Unreachable min_dps returns empty.
+    let mut impossible_c = base_melee_c.clone();
+    impossible_c.min_dps = 999_999;
+    let empty = optimize_builds_core(
+        &[weak_sword, strong_sword, res_armor],
+        &[fire_sc, mf_sc],
+        &impossible_c,
+    )
+    .unwrap();
+    assert!(empty.is_empty());
+
+    // 2) Caster in MF mode with min_dps: must use Cold Skiller charm to lift caster DPS over floor.
+    let mf_wand = ItemSpec {
+        name: "MF Wand".into(),
+        slot: "weapon".into(),
+        mf: 50,
+        ..Default::default()
+    };
+    let skiller_gc = CharmSpec {
+        name: "Chilling GC".into(),
+        size: 3,
+        skills: 1,
+        ..Default::default()
+    };
+    let mf_sc_sorc = CharmSpec {
+        name: "MF SC".into(),
+        size: 1,
+        mf: 7,
+        ..Default::default()
+    };
+    let mut sorc_c = BuildConstraints {
+        offense: "caster".into(),
+        mode: "mf".into(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        max_charm_slots: 3,
+        limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::SORCERESS_ID,
+            char_level: 80,
+            base_str: 50,
+            base_dex: 50,
+            base_hell_res: 0,
+            ..Default::default()
+        },
+        skills: SkillModel::Caster(CasterSkillModel {
+            blizz_dmg: vec![1000.0, 1500.0, 2000.0],
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let sorc_base = optimize_builds_core(&[mf_wand.clone()], &[skiller_gc.clone(), mf_sc_sorc.clone()], &sorc_c).unwrap();
+    assert!(sorc_base[0].charms.iter().any(|ch| ch.name == "MF SC"));
+    let base_caster_dps = sorc_base[0].dps;
+
+    sorc_c.min_dps = (base_caster_dps + 100.0) as i32;
+    let sorc_min = optimize_builds_core(&[mf_wand], &[skiller_gc, mf_sc_sorc], &sorc_c).unwrap();
+    assert_eq!(sorc_min.len(), 1);
+    assert!(sorc_min[0].dps >= sorc_c.min_dps as f64);
+    assert!(sorc_min[0].charms.iter().any(|ch| ch.name == "Chilling GC"));
+}

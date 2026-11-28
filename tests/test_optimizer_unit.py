@@ -254,6 +254,7 @@ class _FakeConstraints:
     min_ll: int = 0
     min_pdr: int = 0
     min_mf: int = 0
+    min_dps: int = 0
     character: _FakeCharacterStats = field(default_factory=_FakeCharacterStats)
     target: _FakeTargetProfile = field(default_factory=_FakeTargetProfile)
     skills: _FakeCasterSkillModel | _FakeMeleeSkillModel = field(

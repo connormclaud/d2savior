@@ -155,6 +155,8 @@ impl Stats {
         let offense = c.offense;
         let is_leveling = matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes);
         let caster_dps = offense.uses_caster_dps(c);
+        let need_caster_dps = (mode == SearchMode::Power || c.min_dps > 0) && caster_dps;
+        let need_melee_dps = (is_leveling || c.min_dps > 0) && offense.uses_dps_tables(c);
         if !(c.min_fcr > 0
             || (offense.uses_fcr() && (mode != SearchMode::Power || caster_dps)))
         {
@@ -163,23 +165,21 @@ impl Stats {
         if mode == SearchMode::Power && c.min_fhr <= 0 {
             self.fhr = 0;
         }
-        if !(mode == SearchMode::Power && caster_dps) {
+        if !need_caster_dps {
             self.cold_dmg_pct = 0;
         }
         if !(mode == SearchMode::Power && offense == OffenseProfile::Caster) {
             self.cm_skills = 0;
         }
         if !(offense.is_melee_dps()
-            || (mode == SearchMode::Power
-                && caster_dps
-                && c.skills.caster().is_some_and(|m| !m.filler_dmg.is_empty())))
+            || (need_caster_dps && c.skills.caster().is_some_and(|m| !m.filler_dmg.is_empty())))
         {
             self.action_skill_bonus = 0;
         }
         if !offense.is_melee_dps() {
             self.aura_skill_bonus = 0;
         }
-        if !(is_leveling && offense.uses_dps_tables(c)) {
+        if !need_melee_dps {
             self.off_ed = 0;
             self.flat_phys_2x = 0;
             self.flat_fire_2x = 0;
@@ -240,17 +240,20 @@ impl Stats {
         if !(is_leveling || c.min_frw > 0) {
             self.frw = 0;
         }
-        if !((is_leveling && offense != OffenseProfile::Caster) || c.min_ias > 0) {
+        if !((is_leveling && offense != OffenseProfile::Caster)
+            || need_melee_dps
+            || c.min_ias > 0)
+        {
             self.ias = 0;
         }
-        if !((is_leveling
+        if !(((is_leveling || c.min_dps > 0)
             && (offense == OffenseProfile::Smite
                 || (offense.uses_dps_tables(c) && c.target.target_hp > 0)))
             || c.min_cb > 0)
         {
             self.cb = 0;
         }
-        if !(is_leveling || c.require_cbf) {
+        if !(is_leveling || need_melee_dps || c.require_cbf) {
             self.cbf = 0;
         }
         if !((mode == SearchMode::Leveling && offense == OffenseProfile::Smite) || c.min_pdr > 0) {
@@ -266,7 +269,7 @@ impl Stats {
         self.defense = 0;
         self.block_pct = 0;
         self.fbr = 0;
-        if !(is_leveling
+        if !((is_leveling || c.min_dps > 0)
             && offense == OffenseProfile::Smite
             && c.skills.melee().is_some_and(|m| m.holy_shield_base_lvl > 0))
         {

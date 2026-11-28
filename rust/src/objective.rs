@@ -31,6 +31,17 @@ impl BuildScore {
     }
 
     #[inline]
+    pub(crate) fn min_sentinel(locality: i32) -> Self {
+        Self {
+            primary: i32::MIN,
+            secondary: i32::MIN,
+            tertiary: i32::MIN,
+            tiebreakers: [i32::MIN; 7],
+            locality,
+        }
+    }
+
+    #[inline]
     pub(crate) fn top3(self) -> (i32, i32, i32) {
         (self.primary, self.secondary, self.tertiary)
     }

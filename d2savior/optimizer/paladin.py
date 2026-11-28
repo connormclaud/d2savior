@@ -662,6 +662,7 @@ def optimize_paladin_leveling(
             "min_ll",
             "min_pdr",
             "min_mf",
+            "min_dps",
             "min_fcr",
             "min_fhr",
             "min_fr",

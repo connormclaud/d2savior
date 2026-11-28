@@ -216,9 +216,12 @@ impl OffenseProfile {
     pub(crate) fn weapon_anim_key(
         self,
         mode: SearchMode,
+        min_dps: i32,
         hand: HandWeapon,
     ) -> (bool, WeaponClass, i32, i32, i32, bool, i32) {
-        if !matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) || self == Self::Caster {
+        if !(matches!(mode, SearchMode::Leveling | SearchMode::LevelingRes) || min_dps > 0)
+            || self == Self::Caster
+        {
             return (false, WeaponClass::OneHandSwing, 0, 0, 0, false, 0);
         }
         if self == Self::Smite {
@@ -658,7 +661,7 @@ impl OffenseProfile {
 /// Models ~30% chill uptime in combat with ~50% attack-speed loss while chilled (~15% net loss).
 pub(crate) const NO_CBF_CHILL_RATE_MULT: f64 = 0.85;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub(crate) struct FastLeafDps {
     pub(crate) is_smite: bool,
     pub(crate) rate: f64,

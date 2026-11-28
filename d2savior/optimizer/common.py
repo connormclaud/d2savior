@@ -434,6 +434,7 @@ class CharacterBaseline:
         min_ll: int = 0,
         min_pdr: int = 0,
         min_mf: int = 0,
+        min_dps: int = 0,
     ) -> BuildConstraints:
         return BuildConstraints(
             allow_mf=allow_mf,
@@ -457,6 +458,7 @@ class CharacterBaseline:
             min_ll=min_ll,
             min_pdr=min_pdr,
             min_mf=min_mf,
+            min_dps=min_dps,
             character=self.character,
             target=self.target,
             skills=self.skills,

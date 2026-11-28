@@ -90,13 +90,27 @@ def test_user_presets_extends_and_merge_syntax(tmp_path: Path) -> None:
 
 def test_overrides_and_validation_errors(tmp_path: Path) -> None:
     ov = ConstraintOverrides(
-        require_cbf=True, min_frw=55, min_pr=0, min_cb=35, min_ll=7, min_pdr=15, min_mf=100
+        require_cbf=True,
+        min_frw=55,
+        min_pr=0,
+        min_cb=35,
+        min_ll=7,
+        min_pdr=15,
+        min_mf=100,
+        min_dps=25000,
     )
     res = resolve_build_expr("tz", CharClass.SORCERESS, overrides=ov, user_dir=tmp_path)[0]
     assert (res.require_cbf, res.min_frw, res.min_pr) == (True, 55, 0)
-    assert (res.min_cb, res.min_ll, res.min_pdr, res.min_mf) == (35, 7, 15, 100)
+    assert (res.min_cb, res.min_ll, res.min_pdr, res.min_mf, res.min_dps) == (
+        35,
+        7,
+        15,
+        100,
+        25000,
+    )
     assert "CBF" in ov.summary_tags()
     assert "FRW>=55" in ov.summary_tags()
+    assert "DPS>=25000" in ov.summary_tags()
 
     # to_overrides preserves resolved preset fields.
     round_ov = res.to_overrides()

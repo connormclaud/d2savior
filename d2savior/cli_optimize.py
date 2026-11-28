@@ -130,6 +130,7 @@ _OPTIMIZE_VALUE_OPTS: frozenset[str] = COMMON_VALUE_OPTS | frozenset(
         "--min-ll",
         "--min-pdr",
         "--min-mf",
+        "--min-dps",
     }
 )
 
@@ -361,6 +362,9 @@ def _build_optimize_parser(
     parser.add_argument(
         "--min-mf", type=int, default=None, metavar="N", help="Minimum Magic Find floor"
     )
+    parser.add_argument(
+        "--min-dps", type=int, default=None, metavar="N", help="Minimum effective DPS floor"
+    )
     if include_socket_flags:
         parser.add_argument(
             "--theoretical",
@@ -434,6 +438,7 @@ def _prepare_optimize_run(
         min_ll=args.min_ll,
         min_pdr=args.min_pdr,
         min_mf=args.min_mf,
+        min_dps=args.min_dps,
     )
     active_overrides = overrides if overrides.as_kwargs() else None
 

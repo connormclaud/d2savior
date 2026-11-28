@@ -33,6 +33,7 @@ _INT_CONSTRAINT_KEYS: tuple[str, ...] = (
     "min_ll",
     "min_pdr",
     "min_mf",
+    "min_dps",
 )
 _BOOL_CONSTRAINT_KEYS: tuple[str, ...] = ("allow_mf", "require_cbf", "ignore_pr")
 _META_KEYS: frozenset[str] = frozenset({"title", "class", "strategy", "extends", "presets", "mode"})
@@ -61,6 +62,7 @@ class ConstraintOverrides:
     min_ll: int | None = None
     min_pdr: int | None = None
     min_mf: int | None = None
+    min_dps: int | None = None
 
     def summary_tags(self) -> list[str]:
         """Return short human-readable tags for active overrides (for report titles)."""
@@ -88,6 +90,7 @@ class ConstraintOverrides:
             ("min_ll", "LL"),
             ("min_pdr", "PDR"),
             ("min_mf", "MF"),
+            ("min_dps", "DPS"),
         ):
             val = getattr(self, key)
             if val is not None:
@@ -128,6 +131,7 @@ class ResolvedPreset:
     min_ll: int = 0
     min_pdr: int = 0
     min_mf: int = 0
+    min_dps: int = 0
 
     def apply_overrides(self, overrides: ConstraintOverrides | None) -> ResolvedPreset:
         """Return a copy with any non-None override fields applied."""
@@ -168,6 +172,7 @@ class ResolvedPreset:
             min_ll=self.min_ll,
             min_pdr=self.min_pdr,
             min_mf=self.min_mf,
+            min_dps=self.min_dps,
         )
 
     def constraint_kwargs(self) -> dict[str, Any]:
@@ -189,6 +194,7 @@ class ResolvedPreset:
             "min_ll": self.min_ll,
             "min_pdr": self.min_pdr,
             "min_mf": self.min_mf,
+            "min_dps": self.min_dps,
         }
 
 
@@ -414,6 +420,7 @@ def _dict_to_resolved(name: str, doc: dict[str, Any], class_name: str) -> Resolv
         min_ll=int(doc.get("min_ll", 0)),
         min_pdr=int(doc.get("min_pdr", 0)),
         min_mf=int(doc.get("min_mf", 0)),
+        min_dps=int(doc.get("min_dps", 0)),
     )
 
 
