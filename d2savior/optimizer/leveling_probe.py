@@ -310,6 +310,7 @@ def collect_leveling_alternatives(
         return step
 
     fhr_below = _clamped_below(opt1.fhr_bp, fhr_bps, floor_fhr)
+    fhr_below_2 = _clamped_below(fhr_below, fhr_bps, floor_fhr) if fhr_below is not None else None
     fcr_below = _clamped_below(opt1.fcr_bp, fcr_bps, floor_fcr) if is_caster else None
     caster_fcr_floor = max(opt1.fcr_bp, floor_fcr) if is_caster else floor_fcr
 
@@ -317,17 +318,15 @@ def collect_leveling_alternatives(
         try_add(build_c(mode="leveling-res", min_fcr=caster_fcr_floor, min_fhr=fhr_below))
     if is_caster and fcr_below is not None:
         try_add(build_c(mode="leveling-res", min_fcr=fcr_below, min_fhr=fhr_below or 0))
-    if (fhr_below is not None and fhr_below > floor_fhr) or (
+    if fhr_below_2 is not None:
+        try_add(build_c(mode="leveling-res", min_fcr=caster_fcr_floor, min_fhr=fhr_below_2))
+    if (fhr_below_2 is not None and fhr_below_2 > floor_fhr) or (
         is_caster and fcr_below is not None and fcr_below > floor_fcr
     ):
         try_add(build_c(mode="leveling-res"))
 
     try_add(build_c(mode="leveling", extra_res_floors=dps_res_floors))
     try_add(build_c(mode="max-res", min_fhr=fhr_below or 0))
-    if fhr_below is not None:
-        fhr_below_2 = _clamped_below(fhr_below, fhr_bps, floor_fhr)
-        if fhr_below_2 is not None:
-            try_add(build_c(mode="leveling-res", min_fhr=fhr_below_2))
 
     if len(collected) < limit and not baseline.fixed_gear:
         try_add(build_c(mode="leveling-res", res_limit=limit))

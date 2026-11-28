@@ -39,10 +39,10 @@ Option #2: Lower FHR BP (15%, 7f) — Better Resists (evaluated 1 pruned sets):
       - remove: Iron Large Charm of Inertia, Small Charm of Balance, Ocher Small Charm, Lapis Small Charm, Lapis Small Charm, Grand Charm of Balance
       - keep  : Tangerine Small Charm of Balance, Russet Small Charm, Ocher Small Charm of Sustenance, Shimmering Large Charm, Shimmering Large Charm, Russet Grand Charm, Bronze Small Charm of Balance, Sapphire Grand Charm
       - add   : Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Jade Grand Charm of Thunder [Stash Tab 5], Amber Large Charm of Greed [Stash Tab 5], Sapphire Large Charm [Stash Tab 5], Jade Large Charm of Balance [Stash Tab 5]
-Option #3: Lower FHR BP (0%, 9f) — Better Resists (evaluated 1 pruned sets):
+Option #3: Lower FHR BP (7%, 8f) — Better Resists (evaluated 1 pruned sets):
   DPS: 1078 (Attack) | AR: 832 (82%) | Skills: +2 (Holy Fire lvl 22) | CBF: Yes | IAS: 30% (BP 30%, 12f) | CB: 0% | DR: 0% | LL: 10%
-  FHR: 5% (BP 0%, 9f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
-  Normal Res: F:76%(76) L:55%(55) C:75%(75) P:74%(74)
+  FHR: 8% (BP 7%, 8f) | FCR: 10% (BP 9%, 14f) | FRW: 35% | MF: 0%
+  Normal Res: F:76%(76) L:52%(52) C:75%(76) P:75%(77)
   Def: 557 (58% hit)
   Life: 694 | Mana: 88 | Charm slots: 26
     - weapon2h: Raven Claw (Long Bow) (smite Equipped)
@@ -56,7 +56,7 @@ Option #3: Lower FHR BP (0%, 9f) — Better Resists (evaluated 1 pruned sets):
     - ring    : Manald Heal (Ring) (smite Equipped)
     - ring    : Angelic Halo (Ring) (smite Equipped)
     - Charms  :
-      - remove: Iron Large Charm of Inertia, Small Charm of Balance, Bronze Small Charm of Balance, Grand Charm of Balance
-      - keep  : Tangerine Small Charm of Balance, Ocher Small Charm, Russet Small Charm, Ocher Small Charm of Sustenance, Lapis Small Charm, Shimmering Large Charm, Shimmering Large Charm, Russet Grand Charm, Sapphire Grand Charm, Lapis Small Charm
-      - add   : Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Amber Large Charm of Greed [Stash Tab 5], Crimson Small Charm of Shock [smite Stash], Jade Grand Charm of Thunder [Stash Tab 5]
+      - remove: Iron Large Charm of Inertia, Tangerine Small Charm of Balance, Small Charm of Balance, Lapis Small Charm, Bronze Small Charm of Balance, Lapis Small Charm, Grand Charm of Balance
+      - keep  : Ocher Small Charm, Russet Small Charm, Ocher Small Charm of Sustenance, Shimmering Large Charm, Shimmering Large Charm, Russet Grand Charm, Sapphire Grand Charm
+      - add   : Cobalt Small Charm of Life [Stash Tab 5], Jade Small Charm [smite Stash], Jade Small Charm [smite Stash], Amber Large Charm of Greed [Stash Tab 5], Sapphire Large Charm [Stash Tab 5], Jade Large Charm of Balance [Stash Tab 5], Crimson Small Charm of Shock [smite Stash], Jade Grand Charm of Thunder [Stash Tab 5]
 
