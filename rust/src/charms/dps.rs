@@ -40,16 +40,11 @@ impl<'a> CharmSolver<'a> {
             caps_t.2.min(bc_t.2),
             caps_t.3.min(bc_t.3),
         ];
+        let res_axes: usize = if self.c.ignore_pr { 3 } else { 4 };
         let cbf_val = i32::from(leaf.cbf > 0);
         if let Some(cut) = cutoff {
-            let max_res_base: i32 = [
-                (ub_leaf.fr).min(base_caps[0]),
-                (ub_leaf.lr).min(base_caps[1]),
-                (ub_leaf.cr).min(base_caps[2]),
-                (ub_leaf.pr).min(base_caps[3]),
-            ]
-            .iter()
-            .sum();
+            let ub_res_vals = [ub_leaf.fr, ub_leaf.lr, ub_leaf.cr, ub_leaf.pr];
+            let max_res_base: i32 = (0..res_axes).map(|r| ub_res_vals[r].min(base_caps[r])).sum();
             let global_top3 = match self.c.mode {
                 SearchMode::Leveling => (global_ub_bucket, max_res_base, cbf_val),
                 SearchMode::LevelingRes => (max_res_base, global_ub_bucket, cbf_val),
@@ -84,6 +79,7 @@ impl<'a> CharmSolver<'a> {
             cbf_val: i32,
             dps: &'b DpsIndex,
             base_caps: [i32; 4],
+            res_axes: usize,
             base_fast: FastLeafDps,
         }
 
@@ -220,10 +216,18 @@ impl<'a> CharmSolver<'a> {
             let mut ub_res_base = 0i32;
             for r in 0..4 {
                 let cap_r = st.base_caps[r];
+                let counts_in_base = r < st.res_axes;
                 let base_r = leaf_res[r] + cur.res[r];
                 let cur_plus_nd = base_r + dps.nd_res_at[rs_idx][r];
-                if cur_plus_nd >= cap_r.max(min_res[r]) {
-                    ub_res_base += cur_plus_nd.min(cap_r);
+                let need_r = if counts_in_base {
+                    cap_r.max(min_res[r])
+                } else {
+                    min_res[r]
+                };
+                if cur_plus_nd >= need_r {
+                    if counts_in_base {
+                        ub_res_base += cur_plus_nd.min(cap_r);
+                    }
                 } else {
                     let rem_r = ub_rem_at(g_idx, sp.res[r], &dps.order_res[r], rem_slots);
                     rem_r_opt[r] = Some(rem_r);
@@ -231,7 +235,9 @@ impl<'a> CharmSolver<'a> {
                     if total_r < min_res[r] {
                         return;
                     }
-                    ub_res_base += total_r.min(cap_r);
+                    if counts_in_base {
+                        ub_res_base += total_r.min(cap_r);
+                    }
                 }
                 if base_r < min_res[r] {
                     let rem_r = *rem_r_opt[r].get_or_insert_with(|| {
@@ -257,7 +263,7 @@ impl<'a> CharmSolver<'a> {
                     return;
                 }
                 let mut rem_r_full = [0i32; 4];
-                for r in 0..4 {
+                for r in 0..st.res_axes {
                     let cap_r = st.base_caps[r];
                     if leaf_res[r] + cur.res[r] < cap_r {
                         rem_r_full[r] = *rem_r_opt[r].get_or_insert_with(|| {
@@ -275,7 +281,7 @@ impl<'a> CharmSolver<'a> {
                     .skip(s_req as usize)
                 {
                     let mut sum_r = 0i32;
-                    for r in 0..4 {
+                    for r in 0..st.res_axes {
                         let cap_r = st.base_caps[r];
                         sum_r +=
                             (leaf_res[r] + cur.res[r] + rem_r_full[r] + nd_res[r]).min(cap_r);
@@ -325,14 +331,10 @@ impl<'a> CharmSolver<'a> {
                     st.c.offense.fast_leaf_dps(st.hw, leaf_d, &st.c)
                 };
                 let max_pure_s = (dps_rem_slots.max(0) as usize).min(st.max_slots.max(0) as usize);
-                let leaf_res_ub_0: i32 = [
-                    (leaf_d.fr + dps.nd_res_at[rs_idx][0]).min(st.base_caps[0]),
-                    (leaf_d.lr + dps.nd_res_at[rs_idx][1]).min(st.base_caps[1]),
-                    (leaf_d.cr + dps.nd_res_at[rs_idx][2]).min(st.base_caps[2]),
-                    (leaf_d.pr + dps.nd_res_at[rs_idx][3]).min(st.base_caps[3]),
-                ]
-                .iter()
-                .sum();
+                let leaf_d_res = [leaf_d.fr, leaf_d.lr, leaf_d.cr, leaf_d.pr];
+                let leaf_res_ub_0: i32 = (0..st.res_axes)
+                    .map(|r| (leaf_d_res[r] + dps.nd_res_at[rs_idx][r]).min(st.base_caps[r]))
+                    .sum();
                 let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
                 let Some(req_bkt) = required_dps_bucket(
                     st.c.mode,
@@ -381,14 +383,9 @@ impl<'a> CharmSolver<'a> {
                     {
                         continue;
                     }
-                    let cand_res_ub: i32 = [
-                        (leaf_d.fr + dps.nd_res_at[nd_idx][0]).min(st.base_caps[0]),
-                        (leaf_d.lr + dps.nd_res_at[nd_idx][1]).min(st.base_caps[1]),
-                        (leaf_d.cr + dps.nd_res_at[nd_idx][2]).min(st.base_caps[2]),
-                        (leaf_d.pr + dps.nd_res_at[nd_idx][3]).min(st.base_caps[3]),
-                    ]
-                    .iter()
-                    .sum();
+                    let cand_res_ub: i32 = (0..st.res_axes)
+                        .map(|r| (leaf_d_res[r] + dps.nd_res_at[nd_idx][r]).min(st.base_caps[r]))
+                        .sum();
                     let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);
                     let Some(req_bkt) = required_dps_bucket(
                         st.c.mode,
@@ -618,6 +615,7 @@ impl<'a> CharmSolver<'a> {
             cbf_val,
             dps,
             base_caps,
+            res_axes,
             base_fast,
         };
         let mut mut_ctx = DpsMut {

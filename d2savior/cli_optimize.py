@@ -339,7 +339,7 @@ def _build_optimize_parser(
     parser.add_argument(
         "--ignore-pr",
         action="store_true",
-        help="Ignore poison resist floor (shorthand for --min-pr 0)",
+        help="Ignore poison resist floor and exclude poison resist from leveling resist optimization",
     )
     parser.add_argument(
         "--min-frw", type=int, default=None, metavar="N", help="Minimum Faster Run/Walk floor"
@@ -427,6 +427,7 @@ def _prepare_optimize_run(
         min_lr=args.min_lr,
         min_cr=args.min_cr,
         min_pr=min_pr,
+        ignore_pr=True if args.ignore_pr else None,
         min_frw=args.min_frw,
         min_ias=args.min_ias,
         min_cb=args.min_cb,

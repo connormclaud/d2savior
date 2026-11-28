@@ -21,7 +21,11 @@ pub(super) fn res_opt_caps(caps: [i32; 4], mode: SearchMode, c: &BuildConstraint
                 caps[0].min(bc.0),
                 caps[1].min(bc.1),
                 caps[2].min(bc.2),
-                caps[3].min(bc.3),
+                if c.ignore_pr {
+                    -10_000
+                } else {
+                    caps[3].min(bc.3)
+                },
             ]
         }
         _ => [0; 4],
@@ -132,10 +136,10 @@ fn greedy_res_loop(
 ) {
     loop {
         let deficits = [
-            (targets[0] - state.cur_res[0]).max(0),
-            (targets[1] - state.cur_res[1]).max(0),
-            (targets[2] - state.cur_res[2]).max(0),
-            (targets[3] - state.cur_res[3]).max(0),
+            targets[0].saturating_sub(state.cur_res[0]).max(0),
+            targets[1].saturating_sub(state.cur_res[1]).max(0),
+            targets[2].saturating_sub(state.cur_res[2]).max(0),
+            targets[3].saturating_sub(state.cur_res[3]).max(0),
         ];
         if deficits.iter().sum::<i32>() == 0 {
             break;

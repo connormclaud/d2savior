@@ -74,23 +74,22 @@ fn capped_res_sum(fr: i32, lr: i32, cr: i32, pr: i32, caps: (i32, i32, i32, i32)
 }
 
 fn res_base_sum(fr: i32, lr: i32, cr: i32, pr: i32, c: &BuildConstraints) -> i32 {
-    capped_res_sum(fr, lr, cr, pr, base_res_caps(c))
+    let bc = base_res_caps(c);
+    let pr_term = if c.ignore_pr { 0 } else { pr.min(bc.3) };
+    fr.min(bc.0) + lr.min(bc.1) + cr.min(bc.2) + pr_term
 }
 
 fn res_base_ub(s: Stats, caps: (i32, i32, i32, i32), c: &BuildConstraints) -> i32 {
     let bc = base_res_caps(c);
-    capped_res_sum(
-        s.fr,
-        s.lr,
-        s.cr,
-        s.pr,
-        (
-            caps.0.min(bc.0),
-            caps.1.min(bc.1),
-            caps.2.min(bc.2),
-            caps.3.min(bc.3),
-        ),
-    )
+    let pr_term = if c.ignore_pr {
+        0
+    } else {
+        s.pr.min(caps.3.min(bc.3))
+    };
+    s.fr.min(caps.0.min(bc.0))
+        + s.lr.min(caps.1.min(bc.1))
+        + s.cr.min(caps.2.min(bc.2))
+        + pr_term
 }
 
 impl SearchMode {
@@ -140,7 +139,11 @@ impl SearchMode {
                     eff_primary
                 },
                 secondary: sum.skills,
-                tertiary: i32::from(sum.pr >= base_res_caps(c).3),
+                tertiary: if c.ignore_pr {
+                    0
+                } else {
+                    i32::from(sum.pr >= base_res_caps(c).3)
+                },
                 tiebreakers: [
                     sum.pr,
                     sum.life_bo,

@@ -355,6 +355,7 @@ class BuildConstraints:
     min_lr: int
     min_cr: int
     min_pr: int
+    ignore_pr: bool
     max_charm_slots: int
     mode: SearchModeStr
     limit: int
@@ -381,6 +382,7 @@ class BuildConstraints:
         min_lr: int = 75,
         min_cr: int = 75,
         min_pr: int = 0,
+        ignore_pr: bool = False,
         max_charm_slots: int = 23,
         mode: SearchModeStr = "power",
         limit: int = 5,

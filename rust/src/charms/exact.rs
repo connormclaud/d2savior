@@ -13,6 +13,15 @@ use crate::types::ItemSpec;
 use crate::types::{CharmSpec, SearchMode};
 
 impl<'a> CharmSolver<'a> {
+    #[inline]
+    fn res_main_axes(&self) -> usize {
+        if self.c.ignore_pr && self.c.mode == SearchMode::LevelingRes {
+            3
+        } else {
+            4
+        }
+    }
+
     fn main_score_of_indices(&self, idxs: &[usize], room: [i32; 4]) -> i32 {
         match self.c.mode {
             SearchMode::Power | SearchMode::Leveling => {
@@ -28,7 +37,9 @@ impl<'a> CharmSolver<'a> {
                     sum_r[2] += ch.cr;
                     sum_r[3] += ch.pr;
                 }
-                (0..4).map(|r| sum_r[r].min(room[r]) - room[r].min(0)).sum()
+                (0..self.res_main_axes())
+                    .map(|r| sum_r[r].min(room[r]) - room[r].min(0))
+                    .sum()
             }
         }
     }
@@ -169,7 +180,7 @@ impl<'a> CharmSolver<'a> {
             let cur_main = match s.c.mode {
                 SearchMode::Power | SearchMode::Leveling => cur_skills,
                 SearchMode::Mf => cur_mf,
-                SearchMode::MaxRes | SearchMode::LevelingRes => (0..4)
+                SearchMode::MaxRes | SearchMode::LevelingRes => (0..s.res_main_axes())
                     .map(|r| cur_res_added[r].min(ctx.room[r]) - ctx.room[r].min(0))
                     .sum(),
             };
@@ -262,7 +273,11 @@ impl<'a> CharmSolver<'a> {
                                 (ctx.room[0] - cur_res_added[0]).max(0),
                                 (ctx.room[1] - cur_res_added[1]).max(0),
                                 (ctx.room[2] - cur_res_added[2]).max(0),
-                                (ctx.room[3] - cur_res_added[3]).max(0),
+                                if s.res_main_axes() == 4 {
+                                    (ctx.room[3] - cur_res_added[3]).max(0)
+                                } else {
+                                    0
+                                },
                             ];
                             cur_gain
                                 + s.max_res_gain_ub(
@@ -362,7 +377,7 @@ impl<'a> CharmSolver<'a> {
                         SearchMode::Mf => stats.mf > 0,
                         SearchMode::MaxRes | SearchMode::LevelingRes => {
                             let neg_next = nd.suf_neg_res[g_idx + 1];
-                            (0..4).any(|r| {
+                            (0..s.res_main_axes()).any(|r| {
                                 stats.res[r] > 0 && cur_res_added[r] + neg_next[r] < ctx.room[r]
                             })
                         }
@@ -633,7 +648,11 @@ impl<'a> CharmSolver<'a> {
                 (opt_caps[0] - leaf.fr).max(self.sum_neg[0]),
                 (opt_caps[1] - leaf.lr).max(self.sum_neg[1]),
                 (opt_caps[2] - leaf.cr).max(self.sum_neg[2]),
-                (opt_caps[3] - leaf.pr).max(self.sum_neg[3]),
+                if self.res_main_axes() == 4 {
+                    (opt_caps[3] - leaf.pr).max(self.sum_neg[3])
+                } else {
+                    0
+                },
             ]
         } else if self.c.mode == SearchMode::Leveling {
             [
@@ -708,7 +727,9 @@ impl<'a> CharmSolver<'a> {
             }
             SearchMode::Mf => eval_sorted_ub(&self.non_dps.order_mf, 0, slot_budget),
             SearchMode::MaxRes | SearchMode::LevelingRes => {
-                (0..4).map(|r| room[r].max(0).min(self.ub.res[r])).sum()
+                (0..self.res_main_axes())
+                    .map(|r| room[r].max(0).min(self.ub.res[r]))
+                    .sum()
             }
         };
         if ub_main < min_main_needed {
@@ -721,7 +742,11 @@ impl<'a> CharmSolver<'a> {
                 room[0].max(0),
                 room[1].max(0),
                 room[2].max(0),
-                room[3].max(0),
+                if self.res_main_axes() == 4 {
+                    room[3].max(0)
+                } else {
+                    0
+                },
             ];
             let mut scratch = Vec::new();
             if self.max_res_gain_ub(0, slot_budget, rem_room_init, min_main_needed, &mut scratch)

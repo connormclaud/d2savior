@@ -4610,3 +4610,96 @@ fn test_no_cbf_chill_penalty_affects_dps_ranking() {
     assert!(res_big[0].items.iter().any(|it| it.name == "Big ED Armor"));
     assert!(res_big[0].dps < res_big[0].raw_dps);
 }
+
+#[test]
+fn test_ignore_pr_excludes_poison_resist_from_leveling_res_base() {
+    let sword = ItemSpec {
+        name: "Plain Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 200,
+        can_zeal: true,
+        itd: 1,
+        ..Default::default()
+    };
+    let pr_armor = ItemSpec {
+        name: "Poison Armor".into(),
+        slot: "armor".into(),
+        fr: 75,
+        lr: 75,
+        cr: 75,
+        pr: 75,
+        ..Default::default()
+    };
+    let ias_armor = ItemSpec {
+        name: "IAS Armor".into(),
+        slot: "armor".into(),
+        fr: 75,
+        lr: 75,
+        cr: 75,
+        pr: 0,
+        ias: 20,
+        ..Default::default()
+    };
+    let pr_sc = CharmSpec {
+        name: "Emerald SC".into(),
+        size: 1,
+        pr: 11,
+        ..Default::default()
+    };
+    let life_sc = CharmSpec {
+        name: "Vita SC".into(),
+        size: 1,
+        life: 20,
+        ..Default::default()
+    };
+    let mut c = BuildConstraints {
+        offense: "melee".into(),
+        mode: "leveling-res".into(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        ignore_pr: false,
+        max_charm_slots: 1,
+        limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            char_level: 30,
+            base_str: 50,
+            base_dex: 50,
+            base_hell_res: 0,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_def: 0,
+            target_type: "trash".into(),
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![1],
+            action_ed: vec![0],
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    // With ignore_pr=false, Poison Armor wins on res_base (300 vs 225) over IAS Armor.
+    let res_with_pr = optimize_builds_core(
+        &[sword.clone(), pr_armor.clone(), ias_armor.clone()],
+        &[pr_sc.clone(), life_sc.clone()],
+        &c,
+    )
+    .unwrap();
+    assert!(res_with_pr[0].items.iter().any(|it| it.name == "Poison Armor"));
+
+    // With ignore_pr=true, both armors tie on F/L/C res_base (225), so IAS Armor wins on DPS
+    // and Vita SC beats Emerald SC instead of wasting charm slots on PR.
+    c.ignore_pr = true;
+    let res_ignore_pr =
+        optimize_builds_core(&[sword, pr_armor, ias_armor], &[pr_sc, life_sc], &c).unwrap();
+    assert!(res_ignore_pr[0].items.iter().any(|it| it.name == "IAS Armor"));
+    assert!(res_ignore_pr[0].charms.iter().any(|ch| ch.name == "Vita SC"));
+}

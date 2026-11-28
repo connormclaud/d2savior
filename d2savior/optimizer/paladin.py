@@ -668,6 +668,7 @@ def optimize_paladin_leveling(
             "min_lr",
             "min_cr",
             "min_pr",
+            "ignore_pr",
         ):
             val = getattr(overrides, key)
             if val is not None:

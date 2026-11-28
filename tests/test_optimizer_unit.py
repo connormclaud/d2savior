@@ -240,6 +240,7 @@ class _FakeConstraints:
     min_lr: int = 0
     min_cr: int = 0
     min_pr: int = 0
+    ignore_pr: bool = False
     max_charm_slots: int = 23
     mode: str = "power"
     limit: int = 3

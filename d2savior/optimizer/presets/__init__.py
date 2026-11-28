@@ -34,7 +34,7 @@ _INT_CONSTRAINT_KEYS: tuple[str, ...] = (
     "min_pdr",
     "min_mf",
 )
-_BOOL_CONSTRAINT_KEYS: tuple[str, ...] = ("allow_mf", "require_cbf")
+_BOOL_CONSTRAINT_KEYS: tuple[str, ...] = ("allow_mf", "require_cbf", "ignore_pr")
 _META_KEYS: frozenset[str] = frozenset({"title", "class", "strategy", "extends", "presets", "mode"})
 _ALLOWED_KEYS: frozenset[str] = (
     _META_KEYS | frozenset(_INT_CONSTRAINT_KEYS) | frozenset(_BOOL_CONSTRAINT_KEYS) | VALID_CLASSES
@@ -53,6 +53,7 @@ class ConstraintOverrides:
     min_lr: int | None = None
     min_cr: int | None = None
     min_pr: int | None = None
+    ignore_pr: bool | None = None
     require_cbf: bool | None = None
     min_frw: int | None = None
     min_ias: int | None = None
@@ -72,6 +73,8 @@ class ConstraintOverrides:
             tags.append("CBF")
         elif self.require_cbf is False:
             tags.append("no-CBF")
+        if self.ignore_pr is True:
+            tags.append("ignore-PR")
         for key, label in (
             ("min_fcr", "FCR"),
             ("min_fhr", "FHR"),
@@ -117,6 +120,7 @@ class ResolvedPreset:
     min_lr: int = 0
     min_cr: int = 0
     min_pr: int = 0
+    ignore_pr: bool = False
     require_cbf: bool = False
     min_frw: int = 0
     min_ias: int = 0
@@ -156,6 +160,7 @@ class ResolvedPreset:
             min_lr=self.min_lr,
             min_cr=self.min_cr,
             min_pr=self.min_pr,
+            ignore_pr=self.ignore_pr,
             require_cbf=self.require_cbf,
             min_frw=self.min_frw,
             min_ias=self.min_ias,
@@ -176,6 +181,7 @@ class ResolvedPreset:
             "min_lr": self.min_lr,
             "min_cr": self.min_cr,
             "min_pr": self.min_pr,
+            "ignore_pr": self.ignore_pr,
             "require_cbf": self.require_cbf,
             "min_frw": self.min_frw,
             "min_ias": self.min_ias,
@@ -400,6 +406,7 @@ def _dict_to_resolved(name: str, doc: dict[str, Any], class_name: str) -> Resolv
         min_lr=int(doc.get("min_lr", 0)),
         min_cr=int(doc.get("min_cr", 0)),
         min_pr=int(doc.get("min_pr", 0)),
+        ignore_pr=bool(doc.get("ignore_pr", False)),
         require_cbf=bool(doc.get("require_cbf", False)),
         min_frw=int(doc.get("min_frw", 0)),
         min_ias=int(doc.get("min_ias", 0)),
