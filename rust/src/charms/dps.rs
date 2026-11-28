@@ -4,7 +4,7 @@ use super::dp::{
 use super::solver::{CharmSolver, DpsIndex};
 use crate::dps::{CthEval, FastLeafDps, HandWeapon, OffenseProfile};
 use crate::eval::{EvalSummary, base_res_caps, eval_build_summary, res_caps};
-use crate::search::{BuildScore, score_eval_summary};
+use crate::objective::{score_eval_summary, BuildScore};
 use crate::stats::Stats;
 use crate::types::{CharClass, CharmSpec, ResolvedConstraints, SearchMode};
 

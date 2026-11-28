@@ -11,7 +11,7 @@ use crate::dps::{HandWeapon, OffenseProfile};
 #[cfg(test)]
 use crate::eval::eval_build_summary;
 #[cfg(test)]
-use crate::search::score_eval_summary;
+use crate::objective::score_eval_summary;
 #[cfg(test)]
 use crate::stats::Stats;
 #[cfg(test)]

@@ -8,7 +8,8 @@ use pyo3::prelude::*;
 
 use crate::charms::CharmSolver;
 use crate::dps::{HandWeapon, OffenseProfile, WeaponClass};
-use crate::eval::{base_res_caps, eval_build_summary, res_caps, EvalSummary};
+use crate::eval::{eval_build_summary, res_caps};
+use crate::objective::{score_eval_summary, BuildScore, ScoreTuple};
 use crate::stats::{
     compute_effective_gear_stats, compute_effective_gear_stats_and_reqs, eff_req,
     equipped_hand_weapon, SetBonusSig, Stats,
@@ -89,34 +90,6 @@ fn item_locality_score(loc: &str) -> i32 {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct BuildScore {
-    pub(crate) primary: i32,
-    pub(crate) secondary: i32,
-    pub(crate) tertiary: i32,
-    pub(crate) tiebreakers: [i32; 7],
-    pub(crate) locality: i32,
-}
-
-pub type ScoreTuple = (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32);
-
-impl BuildScore {
-    pub(crate) fn without_locality_tuple(self) -> ScoreTuple {
-        (
-            self.primary,
-            self.secondary,
-            self.tertiary,
-            self.tiebreakers[0],
-            self.tiebreakers[1],
-            self.tiebreakers[2],
-            self.tiebreakers[3],
-            self.tiebreakers[4],
-            self.tiebreakers[5],
-            self.tiebreakers[6],
-        )
-    }
-}
-
 type BuildSig = (i32, i32, i32, i32, Vec<String>);
 
 fn build_sig(res: &BuildResult, offense: OffenseProfile) -> BuildSig {
@@ -127,13 +100,6 @@ fn build_sig(res: &BuildResult, offense: OffenseProfile) -> BuildSig {
         res.mf,
         res.items.iter().map(|i| i.name.clone()).collect(),
     )
-}
-
-fn combine_cut<T: Ord>(a: Option<T>, b: Option<T>) -> Option<T> {
-    match (a, b) {
-        (Some(x), Some(y)) => Some(x.max(y)),
-        (x, y) => x.or(y),
-    }
 }
 
 /// Deduplicating result collector bounded to `limit` distinct signatures when `limit > 0`.
@@ -163,36 +129,13 @@ impl TopResults {
             || self.entries.last().is_some_and(|worst| score > worst.0)
     }
 
-    fn nth_primary(&self) -> Option<i32> {
+    fn kth_cutoff(&self) -> Option<BuildScore> {
         let entry_cut = if self.limit > 0 && self.entries.len() >= self.limit {
-            self.entries.last().map(|e| e.0.primary)
+            self.entries.last().map(|e| e.0)
         } else {
             None
         };
-        combine_cut(entry_cut, self.score_floor.map(|f| f.primary))
-    }
-
-    fn nth_top2(&self) -> Option<(i32, i32)> {
-        let entry_cut = if self.limit > 0 && self.entries.len() >= self.limit {
-            self.entries.last().map(|e| (e.0.primary, e.0.secondary))
-        } else {
-            None
-        };
-        combine_cut(entry_cut, self.score_floor.map(|f| (f.primary, f.secondary)))
-    }
-
-    fn nth_top3(&self) -> Option<(i32, i32, i32)> {
-        let entry_cut = if self.limit > 0 && self.entries.len() >= self.limit {
-            self.entries
-                .last()
-                .map(|e| (e.0.primary, e.0.secondary, e.0.tertiary))
-        } else {
-            None
-        };
-        combine_cut(
-            entry_cut,
-            self.score_floor.map(|f| (f.primary, f.secondary, f.tertiary)),
-        )
+        entry_cut.max(self.score_floor)
     }
 
     fn push(&mut self, score: BuildScore, res: BuildResult, offense: OffenseProfile) {
@@ -302,133 +245,6 @@ fn dominates_empty(stats: Stats, norm_reqs: (i32, i32)) -> bool {
     stats.dominates(Stats::default())
         && norm_reqs == (0, 0)
         && stats != Stats::default()
-}
-
-fn capped_res_sum(fr: i32, lr: i32, cr: i32, pr: i32, caps: (i32, i32, i32, i32)) -> i32 {
-    fr.min(caps.0) + lr.min(caps.1) + cr.min(caps.2) + pr.min(caps.3)
-}
-
-fn res_base_sum(fr: i32, lr: i32, cr: i32, pr: i32, c: &BuildConstraints) -> i32 {
-    capped_res_sum(fr, lr, cr, pr, base_res_caps(c))
-}
-
-fn res_base_ub(s: Stats, caps: (i32, i32, i32, i32), c: &BuildConstraints) -> i32 {
-    let bc = base_res_caps(c);
-    capped_res_sum(
-        s.fr,
-        s.lr,
-        s.cr,
-        s.pr,
-        (
-            caps.0.min(bc.0),
-            caps.1.min(bc.1),
-            caps.2.min(bc.2),
-            caps.3.min(bc.3),
-        ),
-    )
-}
-
-pub(crate) fn score_eval_summary(sum: &EvalSummary, c: &ResolvedConstraints<'_>) -> BuildScore {
-    let mode = c.mode;
-    let offense = c.offense;
-    let has_aura = c.skills.has_aura();
-    let eff_primary = if offense.is_melee_dps()
-        && (has_aura || sum.action_skill_bonus != 0 || sum.aura_skill_bonus != 0)
-    {
-        let bonus = if has_aura {
-            sum.aura_skill_bonus
-        } else {
-            sum.action_skill_bonus.max(sum.aura_skill_bonus)
-        };
-        sum.skills + sum.blizz_skills + sum.primary_skill_bonus + bonus
-    } else {
-        sum.skills + sum.blizz_skills + sum.primary_skill_bonus
-    };
-    let res_sum = sum.fr + sum.lr + sum.cr + sum.pr;
-    let res_base = res_base_sum(sum.fr, sum.lr, sum.cr, sum.pr, c);
-    let off = if offense.uses_dps_tables(c) {
-        OffenseProfile::dps_bucket(sum.dps)
-    } else {
-        offense.score(eff_primary, sum.ias_bp, sum.cb)
-    };
-    let eff_fcr_bp = if offense.uses_fcr() { sum.fcr_bp } else { 0 };
-    match mode {
-        SearchMode::Mf => BuildScore {
-            primary: sum.mf,
-            secondary: eff_primary,
-            tertiary: eff_fcr_bp,
-            tiebreakers: [sum.fhr_bp, sum.pr, sum.life_bo, sum.belt_slots, sum.gear_defense, 0, 0],
-            locality: 0,
-        },
-        SearchMode::Power => BuildScore {
-            primary: if offense.uses_caster_dps(c) {
-                sum.dps.floor() as i32
-            } else {
-                eff_primary
-            },
-            secondary: sum.skills,
-            tertiary: i32::from(sum.pr >= base_res_caps(c).3),
-            tiebreakers: [sum.pr, sum.life_bo, sum.mana_bo, sum.belt_slots, sum.gear_defense, 0, 0],
-            locality: 0,
-        },
-        SearchMode::MaxRes => BuildScore {
-            primary: res_sum,
-            secondary: eff_primary,
-            tertiary: eff_fcr_bp,
-            tiebreakers: [
-                sum.fhr_bp,
-                sum.life_bo,
-                sum.fr_raw + sum.lr_raw + sum.cr_raw + sum.pr_raw,
-                sum.belt_slots,
-                sum.gear_defense,
-                0,
-                0,
-            ],
-            locality: 0,
-        },
-        SearchMode::Leveling => BuildScore {
-            primary: off,
-            secondary: res_base,
-            tertiary: i32::from(sum.cbf),
-            tiebreakers: if offense == OffenseProfile::Smite {
-                [
-                    sum.life_bo,
-                    sum.pdr_pct,
-                    sum.frw,
-                    sum.fhr_bp,
-                    res_sum,
-                    sum.belt_slots,
-                    sum.gear_defense,
-                ]
-            } else {
-                [
-                    sum.life_bo,
-                    sum.frw,
-                    res_sum,
-                    sum.fhr_bp,
-                    eff_fcr_bp,
-                    sum.belt_slots,
-                    sum.gear_defense,
-                ]
-            },
-            locality: 0,
-        },
-        SearchMode::LevelingRes => BuildScore {
-            primary: res_base,
-            secondary: off,
-            tertiary: i32::from(sum.cbf),
-            tiebreakers: [
-                sum.life_bo,
-                sum.frw,
-                sum.fhr_bp,
-                eff_fcr_bp,
-                res_sum,
-                sum.belt_slots,
-                sum.gear_defense,
-            ],
-            locality: 0,
-        },
-    }
 }
 
 fn item_sort_key(
@@ -1094,56 +910,12 @@ impl<'a> SearchState<'a> {
         hand: Option<HandWeapon>,
         caps: (i32, i32, i32, i32),
     ) -> bool {
-        let offense = self.c.offense;
-        let has_aura = self.c.skills.has_aura();
-        let level_scores = || {
-            let eff_primary_ub = ub_ch.primary_power_skills_for(offense, has_aura);
-            let off_ub = if offense.uses_dps_tables(&self.c) {
-                match hand {
-                    Some(hw) => {
-                        OffenseProfile::dps_bucket(offense.compute_dps(hw, ub_ch, &self.c).0)
-                    }
-                    None => self.max_hand_ub_dps,
-                }
-            } else {
-                let ub_ias = match hand {
-                    Some(hw) => offense.attack_speed(hw.wclass, hw.wsm, ub_ch.ias).0,
-                    None => ub_ch.ias,
-                };
-                offense.score(eff_primary_ub, ub_ias, ub_ch.cb)
-            };
-            let res_base = res_base_ub(ub_ch, caps, &self.c);
-            let cbf_ub = i32::from(ub_ch.cbf > 0);
-            (off_ub, res_base, cbf_ub)
-        };
-        match self.c.mode {
-            SearchMode::Power => self.top_results.nth_primary().is_some_and(|cutoff| {
-                let power_ub = if offense.uses_caster_dps(&self.c) {
-                    offense.compute_caster_dps(ub_ch, &self.c).floor() as i32
-                } else {
-                    ub_ch.primary_power_skills_for(offense, has_aura)
-                };
-                power_ub < cutoff
-            }),
-            SearchMode::Mf => self
-                .top_results
-                .nth_primary()
-                .is_some_and(|cutoff| ub_ch.mf < cutoff),
-            SearchMode::MaxRes => self.top_results.nth_top2().is_some_and(|cutoff| {
-                (
-                    capped_res_sum(ub_ch.fr, ub_ch.lr, ub_ch.cr, ub_ch.pr, caps),
-                    ub_ch.primary_power_skills_for(offense, has_aura),
-                ) < cutoff
-            }),
-            SearchMode::Leveling => self
-                .top_results
-                .nth_top3()
-                .is_some_and(|cutoff| level_scores() < cutoff),
-            SearchMode::LevelingRes => self.top_results.nth_top3().is_some_and(|cutoff| {
-                let (off_ub, res_base, cbf_ub) = level_scores();
-                (res_base, off_ub, cbf_ub) < cutoff
-            }),
-        }
+        self.top_results.kth_cutoff().is_some_and(|cutoff| {
+            self.c
+                .mode
+                .score_upper_bound(ub_ch, hand, self.max_hand_ub_dps, caps, &self.c)
+                < cutoff
+        })
     }
 
     #[inline]
@@ -1248,44 +1020,9 @@ impl<'a> SearchState<'a> {
             }
             self.evals += 1;
 
-            let min_main_needed = match mode {
-                SearchMode::LevelingRes => self.top_results.nth_primary().map_or(0, |cut| {
-                    let caps_l = res_caps(leaf, &self.c);
-                    let cur_sum = res_base_ub(leaf, caps_l, &self.c);
-                    (cut - cur_sum).max(0)
-                }),
-                SearchMode::MaxRes => self.top_results.nth_primary().map_or(0, |cut| {
-                    let caps_l = res_caps(leaf, &self.c);
-                    let cur_sum = capped_res_sum(leaf.fr, leaf.lr, leaf.cr, leaf.pr, caps_l);
-                    (cut - cur_sum).max(0)
-                }),
-                SearchMode::Mf => self
-                    .top_results
-                    .nth_primary()
-                    .map_or(0, |cut| (cut - leaf.mf).max(0)),
-                SearchMode::Power => self.top_results.nth_primary().map_or(0, |cut| {
-                    if offense.uses_caster_dps(&self.c) {
-                        let max_k = (self.ch.all_skills
-                            + self.ch.action_skill_bonus
-                            + self.ch.aura_skill_bonus)
-                            .max(0);
-                        (0..=max_k)
-                            .find(|&k| {
-                                let s = Stats {
-                                    all_skills: leaf.all_skills + k,
-                                    ..leaf
-                                };
-                                offense.compute_caster_dps(s, &self.c).floor() as i32 >= cut
-                            })
-                            .unwrap_or(max_k + 1)
-                    } else {
-                        let cur_sk =
-                            leaf.primary_power_skills_for(offense, self.c.skills.has_aura());
-                        (cut - cur_sk).max(0)
-                    }
-                }),
-                SearchMode::Leveling => 0,
-            };
+            let min_main_needed = self.top_results.kth_cutoff().map_or(0, |cut| {
+                mode.min_charm_main_needed(leaf, self.ch, cut.primary, &self.c)
+            });
             let Some(mut charms_sel) = self.charm_solver.solve_with_min_main(
                 leaf,
                 (final_req_str, final_req_dex),
@@ -1330,7 +1067,7 @@ impl<'a> SearchState<'a> {
                     has_shield,
                     leaf,
                     (final_req_str, final_req_dex),
-                    self.top_results.nth_top3(),
+                    self.top_results.kth_cutoff().map(BuildScore::top3),
                     &mut charms_sel,
                     &mut sum,
                     &mut score,
