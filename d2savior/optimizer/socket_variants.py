@@ -15,7 +15,8 @@ from d2savior.optimizer.native import ItemSpec
 from d2savior.optimizer.socket_candidates import CandidateItem, SocketableOption
 
 _MAX_MIXED_SOCKETS = 3
-_MAX_COMBO_FRONTIER = 64
+_MAX_MIXED_BASIS = 24
+_MAX_COMBO_FRONTIER = 32
 
 _COMPARE_POS_STATS: tuple[str, ...] = (
     "all_skills",
@@ -113,15 +114,19 @@ def _spec_stat_vec(spec: ItemSpec) -> tuple[int, ...]:
     return cast(tuple[int, ...], _SPEC_STAT_GETTER(spec))
 
 
-def _vec_dominates(
-    mf_a: bool,
+def _pvec_dominates(
     va: tuple[int, ...],
     req_a: tuple[int, int],
-    mf_b: bool,
+    sum_a: int,
+    mask_a: int,
     vb: tuple[int, ...],
     req_b: tuple[int, int],
+    sum_b: int,
+    mask_b: int,
 ) -> bool:
-    if mf_a != mf_b or req_a[0] > req_b[0] or req_a[1] > req_b[1]:
+    if sum_a < sum_b or (mask_a & mask_b) != mask_b:
+        return False
+    if req_a[0] > req_b[0] or req_a[1] > req_b[1]:
         return False
     if va == vb and req_a == req_b:
         return False
@@ -132,41 +137,149 @@ def _pareto_prune_entries[T](
     entries: Sequence[tuple[T, SocketCandidateVariant, int]],
 ) -> list[tuple[T, SocketCandidateVariant]]:
     """Prune strictly dominated `(payload, variant, capacity)` entries, preferring owned & higher capacity."""
-    ordered = sorted(
-        entries,
-        key=lambda e: (not e[1].owned, -e[2], e[1].spec.req_str, e[1].spec.req_dex),
-    )
-    kept: list[tuple[T, SocketCandidateVariant, int, bool, tuple[int, ...], tuple[int, int]]] = []
+    if len(entries) <= 1:
+        return [(payload, v) for payload, v, _ in entries]
+
+    raw_vecs = [_spec_stat_vec(v.spec) for _, v, _ in entries]
+    n_cols = len(raw_vecs[0])
+    active_cols: list[int] = []
+    col_mins: list[int] = []
+    for col in range(n_cols):
+        first = raw_vecs[0][col]
+        cmin = first
+        varies = False
+        for vec in raw_vecs:
+            val = vec[col]
+            if val != first:
+                varies = True
+            if val < cmin:
+                cmin = val
+        if varies:
+            active_cols.append(col)
+            col_mins.append(cmin)
+
+    prepared: list[
+        tuple[T, SocketCandidateVariant, int, bool, tuple[int, ...], tuple[int, int], int, int]
+    ] = []
+    for (payload, v, cap), full_vec in zip(entries, raw_vecs, strict=True):
+        pvec = tuple(full_vec[c] for c in active_cols)
+        vsum = sum(pvec)
+        mask = 0
+        for bit, (val, cmin) in enumerate(zip(pvec, col_mins, strict=True)):
+            if val > cmin:
+                mask |= 1 << bit
+        prepared.append(
+            (payload, v, cap, v.spec.mf > 0, pvec, (v.spec.req_str, v.spec.req_dex), vsum, mask)
+        )
+
+    prepared.sort(key=lambda e: (not e[1].owned, -e[2], e[5][0], e[5][1], -e[6]))
+
+    kept_by_mf: dict[
+        bool,
+        list[tuple[T, SocketCandidateVariant, int, tuple[int, ...], tuple[int, int], int, int]],
+    ] = {False: [], True: []}
     seen_identical: set[tuple[bool, tuple[int, ...], int, int, int]] = set()
-    for payload, v, cap in ordered:
-        mf_flag = v.spec.mf > 0
-        vec = _spec_stat_vec(v.spec)
-        reqs = (v.spec.req_str, v.spec.req_dex)
-        sig = (mf_flag, vec, reqs[0], reqs[1], cap)
+
+    for payload, v, cap, mf_flag, pvec, reqs, vsum, mask in prepared:
+        sig = (mf_flag, pvec, reqs[0], reqs[1], cap)
         if sig in seen_identical:
             continue
         seen_identical.add(sig)
+        bucket = kept_by_mf[mf_flag]
         if any(
             (
-                _vec_dominates(kmf, kvec, kreqs, mf_flag, vec, reqs)
-                or (kmf == mf_flag and kvec == vec and kreqs == reqs)
+                _pvec_dominates(kvec, kreqs, ksum, kmask, pvec, reqs, vsum, mask)
+                or (kvec == pvec and kreqs == reqs)
             )
             and (kv.owned or not v.owned)
             and kcap >= cap
-            for _, kv, kcap, kmf, kvec, kreqs in kept
+            for _, kv, kcap, kvec, kreqs, ksum, kmask in bucket
         ):
             continue
-        kept = [
+        kept_by_mf[mf_flag] = [
             entry
-            for entry in kept
+            for entry in bucket
             if not (
-                _vec_dominates(mf_flag, vec, reqs, entry[3], entry[4], entry[5])
+                _pvec_dominates(pvec, reqs, vsum, mask, entry[3], entry[4], entry[5], entry[6])
                 and (v.owned or not entry[1].owned)
                 and cap >= entry[2]
             )
         ]
-        kept.append((payload, v, cap, mf_flag, vec, reqs))
-    return [(payload, v) for payload, v, _, _, _, _ in kept]
+        kept_by_mf[mf_flag].append((payload, v, cap, pvec, reqs, vsum, mask))
+
+    return [(payload, v) for bucket in kept_by_mf.values() for payload, v, _, _, _, _, _ in bucket]
+
+
+def _pick_best_indices(
+    frontier_1: Sequence[tuple[_SocketBasis, SocketCandidateVariant]],
+    values: Sequence[int],
+    floor: int,
+) -> list[int]:
+    """Return index of best owned and best overall item strictly above `floor`."""
+    picks: list[int] = []
+    for owned_only in (True, False):
+        best_idx = -1
+        best_val = floor
+        for i, (_, v) in enumerate(frontier_1):
+            if owned_only and not v.owned:
+                continue
+            val = values[i]
+            if val > best_val:
+                best_val = val
+                best_idx = i
+        if best_idx >= 0:
+            picks.append(best_idx)
+    return picks
+
+
+def _select_mixed_basis(
+    frontier_1: Sequence[tuple[_SocketBasis, SocketCandidateVariant]],
+    *,
+    limit: int = _MAX_MIXED_BASIS,
+) -> list[_SocketBasis]:
+    """Select the highest-leverage basis options (extreme points per stat) for mixed combos."""
+    if len(frontier_1) <= limit:
+        return [b for b, _ in frontier_1]
+
+    vecs = [_spec_stat_vec(v.spec) for _, v in frontier_1]
+    chosen: list[int] = []
+    chosen_set: set[int] = set()
+
+    def _add(idx: int) -> None:
+        if idx not in chosen_set and len(chosen) < limit:
+            chosen_set.add(idx)
+            chosen.append(idx)
+
+    # Pick extreme points per active stat dimension (best owned, then best overall).
+    for col in range(len(vecs[0])):
+        vals = [vec[col] for vec in vecs]
+        cmin = min(vals)
+        if max(vals) > cmin:
+            for idx in _pick_best_indices(frontier_1, vals, cmin):
+                _add(idx)
+
+    # Also include lowest req_str / req_dex (e.g. Hel / -req jewels) and highest all-res sum.
+    for vals in (
+        [-(v.spec.req_str + v.spec.req_dex) for _, v in frontier_1],
+        [v.spec.fr + v.spec.lr + v.spec.cr + v.spec.pr for _, v in frontier_1],
+    ):
+        for idx in _pick_best_indices(frontier_1, vals, min(vals) - 1):
+            _add(idx)
+
+    # Fill any remaining slots with highest-capacity non-jewels first, then remaining frontier.
+    if len(chosen) < limit:
+        order = sorted(
+            range(len(frontier_1)),
+            key=lambda i: (
+                not frontier_1[i][1].owned,
+                frontier_1[i][0].option.is_jewel,
+                -frontier_1[i][0].usable,
+            ),
+        )
+        for i in order:
+            _add(i)
+
+    return [frontier_1[i][0] for i in chosen]
 
 
 def pareto_prune_variants(variants: list[SocketCandidateVariant]) -> list[SocketCandidateVariant]:
@@ -475,10 +588,11 @@ def build_gear_socket_variants(
     basis_list = [b for b, _ in frontier_1]
     all_variants: list[SocketCandidateVariant] = [v for _, v in frontier_1]
     if max_sockets <= _MAX_MIXED_SOCKETS:
+        mixed_basis = _select_mixed_basis(frontier_1)
         all_variants.extend(
             _expand_mixed_socket_combos(
                 cand,
-                basis_list,
+                mixed_basis,
                 max_sockets=max_sockets,
                 ctx=ctx,
                 set_group_ids=set_group_ids,
@@ -488,6 +602,20 @@ def build_gear_socket_variants(
                 base_reqs=base_reqs,
             )
         )
+        if len(mixed_basis) < len(basis_list):
+            all_variants.extend(
+                _expand_homogeneous_socket_combos(
+                    cand,
+                    basis_list,
+                    theoretical=theoretical,
+                    ctx=ctx,
+                    set_group_ids=set_group_ids,
+                    global_set_cache=global_set_cache,
+                    ignore_reqs=ignore_reqs,
+                    base_vec=base_vec,
+                    base_reqs=base_reqs,
+                )
+            )
     else:
         all_variants.extend(
             _expand_homogeneous_socket_combos(
