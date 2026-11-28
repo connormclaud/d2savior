@@ -2,7 +2,7 @@
 
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from d2savior.core.constants import DIFFICULTY_NAMES
 from d2savior.core.d2s_struct import D2SStruct
@@ -80,6 +80,26 @@ def get_larzuk_socket_range(item: D2Item, resolver: GameDataResolver) -> tuple[i
     return (0, 0)
 
 
+def get_open_socket_info(item: D2Item) -> tuple[int, int]:
+    """Return `(open_sockets, total_sockets)` for an already-socketed item, or `(0, 0)`."""
+    if (
+        not item.is_socketed
+        or item.is_simple
+        or item.is_ear
+        or item.is_runeword
+        or item.is_disabled
+        or item.location == ItemLocation.SOCKET
+    ):
+        return (0, 0)
+
+    total = item.sockets()
+    filled = max(item.gems(), len(item.gem_items))
+    open_sockets = total - filled
+    if total <= 0 or open_sockets <= 0:
+        return (0, 0)
+    return (open_sockets, total)
+
+
 @dataclass(frozen=True, slots=True)
 class SocketableOption:
     """A gem, rune, or jewel candidate that can be placed into a single socket."""
@@ -91,6 +111,7 @@ class SocketableOption:
     owned: bool
     is_jewel: bool
     jewel_props: tuple[tuple[int, int, tuple[int, ...]], ...] = ()
+    count: int = 1
 
     def props_for_item(
         self, parent_item: D2Item, resolver: GameDataResolver
@@ -103,7 +124,7 @@ class SocketableOption:
 
 @dataclass(frozen=True, slots=True)
 class CandidateItem:
-    """An eligible unsocketed item discovered in the character/stash pool."""
+    """An eligible unsocketed or open-socket item discovered in the character/stash pool."""
 
     item: D2Item
     base_name: str
@@ -114,6 +135,8 @@ class CandidateItem:
     sockets_range: tuple[int, int]
     locality_rank: int
     base_spec: ItemSpec | None
+    open_sockets: int = 0
+    total_sockets: int = 0
 
 
 def _item_props_key(
@@ -145,6 +168,7 @@ def _record_socketable_item(
     gem_counts: Counter[str],
     code_locs: dict[str, tuple[int, str]],
     jewel_map: dict[tuple[object, ...], tuple[int, SocketableOption]],
+    jewel_counts: Counter[tuple[object, ...]],
 ) -> None:
     if item.location == ItemLocation.SOCKET:
         return
@@ -172,6 +196,7 @@ def _record_socketable_item(
         props_key = _item_props_key(raw_props)
         lvlreq = item_levelreq(item, ver_res)
         dedup_key = (props_key, lvlreq)
+        jewel_counts[dedup_key] += 1
         prev_j = jewel_map.get(dedup_key)
         if prev_j is None or rank < prev_j[0]:
             label = _format_jewel_label(item, ver_res, ver)
@@ -183,8 +208,12 @@ def _record_socketable_item(
                 owned=True,
                 is_jewel=True,
                 jewel_props=props_key,
+                count=jewel_counts[dedup_key],
             )
             jewel_map[dedup_key] = (rank, opt)
+        else:
+            prev_rank, prev_opt = prev_j
+            jewel_map[dedup_key] = (prev_rank, replace(prev_opt, count=jewel_counts[dedup_key]))
 
 
 def extract_socketables(
@@ -203,6 +232,7 @@ def extract_socketables(
     gem_counts: Counter[str] = Counter()
     code_locs: dict[str, tuple[int, str]] = {}
     jewel_map: dict[tuple[object, ...], tuple[int, SocketableOption]] = {}
+    jewel_counts: Counter[tuple[object, ...]] = Counter()
     jewel_count = 0
 
     for entry in iter_pool_items(
@@ -227,6 +257,7 @@ def extract_socketables(
             gem_counts=gem_counts,
             code_locs=code_locs,
             jewel_map=jewel_map,
+            jewel_counts=jewel_counts,
         )
 
     options: list[SocketableOption] = []
@@ -243,6 +274,7 @@ def extract_socketables(
                 levelreq=info.levelreq if info else 0,
                 owned=True,
                 is_jewel=False,
+                count=count,
             )
         )
 
@@ -262,6 +294,7 @@ def extract_socketables(
                     levelreq=info.levelreq,
                     owned=False,
                     is_jewel=False,
+                    count=0,
                 )
             )
 
@@ -274,6 +307,8 @@ def _candidate_dedup_key(
     sock_range: tuple[int, int],
     ver_res: GameDataResolver,
     ver: int,
+    *,
+    total_sockets: int = 0,
 ) -> tuple[object, ...]:
     base_props = collect_item_properties(it, resolver=ver_res, version=ver)
     tp = it.type_specific_info
@@ -281,7 +316,15 @@ def _candidate_dedup_key(
     quality = it.quality()
     code = it.code_str.strip().lower()
     if quality in (ItemQuality.LOW, ItemQuality.NORMAL, ItemQuality.HIGH):
-        return ("base", code, it.is_ethereal, sock_range, defence, _item_props_key(base_props))
+        return (
+            "base",
+            code,
+            it.is_ethereal,
+            sock_range,
+            total_sockets,
+            defence,
+            _item_props_key(base_props),
+        )
     return (
         "magic+",
         display_name,
@@ -289,6 +332,7 @@ def _candidate_dedup_key(
         it.is_ethereal,
         quality,
         sock_range,
+        total_sockets,
         defence,
         _item_props_key(base_props),
     )
@@ -309,14 +353,22 @@ def _consider_candidate_item(
     global_set_cache: dict[tuple[str, int], list[tuple[int, ItemSpec]]],
     dedup: dict[tuple[object, ...], CandidateItem],
     ignore_reqs: bool = False,
+    no_quest: bool = False,
 ) -> None:
     if it.location == ItemLocation.SOCKET or (keep_all and not is_active_primary):
         return
     if item_levelreq(it, ver_res) > ctx.char_level:
         return
-    sock_range = get_larzuk_socket_range(it, ver_res)
-    if sock_range[1] <= 0:
-        return
+    if no_quest:
+        open_s, total_s = get_open_socket_info(it)
+        if open_s <= 0:
+            return
+        sock_range = (open_s, open_s)
+    else:
+        sock_range = get_larzuk_socket_range(it, ver_res)
+        if sock_range[1] <= 0:
+            return
+        open_s, total_s = 0, 0
     classified = classify_slot(it, ver_res, char_class=ctx.char_class)
     if classified is None:
         return
@@ -325,7 +377,7 @@ def _consider_candidate_item(
         return
 
     display_name = get_item_display_name(it, resolver=ver_res, version=ver)
-    d_key = _candidate_dedup_key(it, display_name, sock_range, ver_res, ver)
+    d_key = _candidate_dedup_key(it, display_name, sock_range, ver_res, ver, total_sockets=total_s)
     prev = dedup.get(d_key)
     if prev is not None and rank >= prev.locality_rank:
         return
@@ -351,6 +403,8 @@ def _consider_candidate_item(
         sockets_range=sock_range,
         locality_rank=rank,
         base_spec=base_spec_raw if isinstance(base_spec_raw, ItemSpec) else None,
+        open_sockets=open_s,
+        total_sockets=total_s,
     )
 
 
@@ -371,8 +425,9 @@ def collect_eligible_items(
     sorc_armor_id: int | None = None,
     char_level_override: int | None = None,
     ignore_reqs: bool = False,
+    no_quest: bool = False,
 ) -> list[CandidateItem]:
-    """Find deduplicated, class-equippable, unsocketed items eligible for Larzuk."""
+    """Find deduplicated, class-equippable items eligible for Larzuk or open-socket filling."""
     if ctx is None:
         char_level = (
             char_level_override
@@ -414,6 +469,7 @@ def collect_eligible_items(
             global_set_cache=global_set_cache,
             dedup=dedup,
             ignore_reqs=ignore_reqs,
+            no_quest=no_quest,
         )
 
     return sorted(dedup.values(), key=lambda c: (c.locality_rank, c.base_name))

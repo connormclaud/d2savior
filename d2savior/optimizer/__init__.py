@@ -58,6 +58,7 @@ from d2savior.optimizer.socket_candidates import (
     extract_socketables,
     find_unclaimed_socket_quests,
     get_larzuk_socket_range,
+    get_open_socket_info,
     get_socket_quest_status,
 )
 from d2savior.optimizer.socket_eval import optimize_socket_quests
@@ -123,6 +124,7 @@ __all__ = [
     "format_socket_report",
     "get_class_profile",
     "get_larzuk_socket_range",
+    "get_open_socket_info",
     "get_socket_quest_status",
     "list_presets",
     "optimize_builds",

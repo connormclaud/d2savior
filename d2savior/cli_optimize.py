@@ -369,6 +369,12 @@ def _build_optimize_parser(
             action="store_true",
             help="Evaluate theoretical runes, perfect gems, and runewords for a lvl 99 respec unbound by current level and Str/Dex requirements",
         )
+        parser.add_argument(
+            "--no-quest",
+            dest="no_quest",
+            action="store_true",
+            help="Evaluate only existing open sockets on already-socketed items without using Larzuk's Socket Quest",
+        )
     return parser
 
 
@@ -484,6 +490,7 @@ def cmd_optimize_socket(argv: list[str]) -> int:
             right_skill=right_skill,
             overrides=active_overrides,
             theoretical=args.theoretical,
+            no_quest=args.no_quest,
         )
         print(format_socket_report(report))
     except (RuntimeError, ValueError) as exc:

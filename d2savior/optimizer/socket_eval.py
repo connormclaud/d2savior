@@ -193,6 +193,7 @@ def optimize_socket_quests(
     right_skill: int | None = None,
     overrides: ConstraintOverrides | None = None,
     theoretical: bool = False,
+    no_quest: bool = False,
 ) -> SocketQuestReport:
     """Evaluate all socket-quest-eligible items across saves/stashes for the target character."""
     if resolver is None:
@@ -240,6 +241,7 @@ def optimize_socket_quests(
         set_group_ids=set_group_ids,
         global_set_cache=global_set_cache,
         ignore_reqs=theoretical,
+        no_quest=no_quest,
     )
 
     candidate_groups = build_candidate_groups(
@@ -251,6 +253,7 @@ def optimize_socket_quests(
         set_group_ids=set_group_ids,
         global_set_cache=global_set_cache,
         ignore_reqs=theoretical,
+        no_quest=no_quest,
     )
 
     preset_specs = profile.resolve_socket_presets(
@@ -302,4 +305,5 @@ def optimize_socket_quests(
         theoretical=theoretical,
         eligible_item_count=len(eligible),
         presets=preset_reports,
+        no_quest=no_quest,
     )

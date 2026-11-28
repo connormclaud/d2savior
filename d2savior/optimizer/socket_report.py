@@ -49,6 +49,7 @@ class SocketQuestReport:
     theoretical: bool
     eligible_item_count: int
     presets: list[PresetSocketReport]
+    no_quest: bool = False
 
 
 def _format_build_brief(res: BuildResult, *, diff_name: str, offense: str) -> str:
@@ -142,17 +143,32 @@ def _format_gear_diff_note(cand: SocketUpgradeResult) -> str | None:
     return f"Gear changes: {'; '.join(swaps)}" if swaps else None
 
 
+def _format_socket_tag(v: SocketCandidateVariant, *, no_quest: bool) -> str:
+    min_s, max_s = v.sockets_range
+    if no_quest:
+        if v.total_sockets > min_s:
+            return f"{min_s}/{v.total_sockets} open"
+        return "1 open socket" if min_s == 1 else f"{min_s} open sockets"
+    if min_s == max_s == 1:
+        return "1 socket"
+    if min_s != max_s:
+        return f"Magic: {min_s}-{max_s} sockets"
+    return f"{max_s} sockets"
+
+
 def format_socket_report(report: SocketQuestReport) -> str:
     """Format a `SocketQuestReport` into a concise, actionable human-readable report."""
+    header_title = "Socket Filler Optimizer" if report.no_quest else "Socket Quest Optimizer"
     lines: list[str] = [
-        f"=== Socket Quest Optimizer: {report.char_name} "
+        f"=== {header_title}: {report.char_name} "
         f"({report.char_class_name} lvl {report.char_level}, {report.diff_name}) ==="
     ]
-    quest_parts = [f"{d}: {s}" for d, s in report.quest_status]
-    lines.append(f"Socket Quests ({report.char_name}): {' | '.join(quest_parts)}")
-    if report.other_unclaimed:
-        other_str = ", ".join(f"{name} ({diff})" for name, diff in report.other_unclaimed)
-        lines.append(f"Other unclaimed Socket Quests: {other_str}")
+    if not report.no_quest:
+        quest_parts = [f"{d}: {s}" for d, s in report.quest_status]
+        lines.append(f"Socket Quests ({report.char_name}): {' | '.join(quest_parts)}")
+        if report.other_unclaimed:
+            other_str = ", ".join(f"{name} ({diff})" for name, diff in report.other_unclaimed)
+            lines.append(f"Other unclaimed Socket Quests: {other_str}")
     mode_tag = (
         f"owned + theoretical, lvl {THEORETICAL_CHAR_LEVEL} unbound Str/Dex"
         if report.theoretical
@@ -174,17 +190,17 @@ def format_socket_report(report: SocketQuestReport) -> str:
                 f"Baseline: {_format_build_brief(p.baseline, diff_name=p.diff_name, offense=p.offense)}"
             )
         if not p.candidates:
-            lines.append("  No socket quest candidate improves this build.")
+            empty_msg = (
+                "  No open-socket fill improves this build."
+                if report.no_quest
+                else "  No socket quest candidate improves this build."
+            )
+            lines.append(empty_msg)
             continue
 
         for idx, cand in enumerate(p.candidates, start=1):
             v = cand.variant
-            min_s, max_s = v.sockets_range
-            sock_tag = (
-                f"{min_s} socket"
-                if min_s == max_s == 1
-                else (f"Magic: {min_s}-{max_s} sockets" if min_s != max_s else f"{max_s} sockets")
-            )
+            sock_tag = _format_socket_tag(v, no_quest=report.no_quest)
             arrow = "->" if v.kind == "runeword" else "+"
             missing_note = (
                 f" [need: {', '.join(v.missing_runes)}]"
@@ -216,7 +232,12 @@ def format_socket_report(report: SocketQuestReport) -> str:
                     best_action[key] = (rank, v.action_label)
         if summary_counts:
             lines.append("")
-            lines.append("=== Overall Best Socket Quest Targets ===")
+            summary_title = (
+                "=== Overall Best Open-Socket Targets ==="
+                if report.no_quest
+                else "=== Overall Best Socket Quest Targets ==="
+            )
+            lines.append(summary_title)
             ranked_targets = sorted(
                 summary_counts.items(),
                 key=lambda kv: (-kv[1], best_action[kv[0]][0], kv[0][0]),

@@ -1,30 +1,39 @@
 """Unit and integration tests for Larzuk Socket Quest optimization."""
 
+from collections import Counter
 from pathlib import Path
 
 import pytest
 
 from d2savior.cli import main, parse_d2i_file, parse_d2s_file
 from d2savior.core.enums import CharClass, EquipSlot, ItemLocation, ItemQuality
-from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo
+from d2savior.core.item import D2Item, ExtItemInfo, ItemInfo, TypeSpecificInfo
 from d2savior.core.resolver import GameDataResolver
 from d2savior.core.stash import SharedStash
 from d2savior.optimizer import (
     HAS_NATIVE,
     ItemSpec,
+    SocketableOption,
     extract_pool,
     extract_socketables,
     find_unclaimed_socket_quests,
     format_socket_report,
     get_larzuk_socket_range,
+    get_open_socket_info,
     get_socket_quest_status,
     optimize_socket_quests,
 )
 from d2savior.optimizer.common import iter_pool_items
+from d2savior.optimizer.extract_props import ExtractionContext
 from d2savior.optimizer.paladin import build_paladin_preset_constraints
 from d2savior.optimizer.presets import resolve_build_expr
-from d2savior.optimizer.socket_candidates import collect_eligible_items
-from d2savior.optimizer.socket_variants import SocketCandidateVariant, pareto_prune_variants
+from d2savior.optimizer.socket_candidates import CandidateItem, collect_eligible_items
+from d2savior.optimizer.socket_variants import (
+    SocketCandidateVariant,
+    build_candidate_groups,
+    build_gear_socket_variants,
+    pareto_prune_variants,
+)
 
 requires_native = pytest.mark.skipif(not HAS_NATIVE, reason="d2savior._native is not built")
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -608,3 +617,255 @@ def test_iter_pool_items_edge_cases(
     )
     assert all(not e.is_primary and not e.is_active_primary for e in no_primary)
     assert {e.source_idx for e in no_primary} == {1, 2}
+
+
+def _make_socketed_item(
+    code: str,
+    total_sockets: int,
+    *,
+    filled: int = 0,
+    quality: ItemQuality = ItemQuality.NORMAL,
+    ilvl: int = 85,
+    is_runeword: bool = False,
+) -> D2Item:
+    item = _make_item(
+        code,
+        quality=quality,
+        ilvl=ilvl,
+        is_socketed=total_sockets > 0,
+        is_runeword=is_runeword,
+    )
+    assert item.item_info is not None
+    assert item.item_info.ext_info is not None
+    tp = TypeSpecificInfo()
+    tp.sockets_count = total_sockets
+    item.item_info.type_specific_info = tp
+    item.item_info.ext_info.gems = filled
+    item.gem_items = [_make_item("gpy", is_simple=True) for _ in range(filled)]
+    return item
+
+
+def test_get_open_socket_info() -> None:
+    assert get_open_socket_info(_make_item("msk", is_socketed=False)) == (0, 0)
+    assert get_open_socket_info(_make_socketed_item("uit", 4, filled=4, is_runeword=True)) == (0, 0)
+    assert get_open_socket_info(_make_socketed_item("msk", 3, filled=3)) == (0, 0)
+    assert get_open_socket_info(_make_item("gpy", is_simple=True, is_socketed=True)) == (0, 0)
+
+    assert get_open_socket_info(_make_socketed_item("msk", 3, filled=0)) == (3, 3)
+    assert get_open_socket_info(_make_socketed_item("msk", 3, filled=1)) == (2, 3)
+    assert get_open_socket_info(_make_socketed_item("uit", 4, filled=0)) == (4, 4)
+
+
+@requires_native
+def test_multi_socket_mixed_and_homogeneous_variants(
+    game_data_resolver: GameDataResolver,
+) -> None:
+    ctx = ExtractionContext(char_class=int(CharClass.SORCERESS), char_level=75)
+    opts = [
+        SocketableOption(
+            label="Perfect Topaz",
+            code="gpy",
+            loc="Stash",
+            levelreq=18,
+            owned=True,
+            is_jewel=False,
+            count=1,
+        ),
+        SocketableOption(
+            label="Flawless Topaz",
+            code="gly",
+            loc="Stash",
+            levelreq=15,
+            owned=True,
+            is_jewel=False,
+            count=2,
+        ),
+        SocketableOption(
+            label="Ral Rune",
+            code="r08",
+            loc="Stash",
+            levelreq=19,
+            owned=True,
+            is_jewel=False,
+            count=4,
+        ),
+    ]
+
+    helm_3os = _make_socketed_item("msk", 3, quality=ItemQuality.NORMAL)
+    cand_3os = CandidateItem(
+        item=helm_3os,
+        base_name="Mask",
+        loc="Stash",
+        slot="helm",
+        version=0x63,
+        resolver=game_data_resolver,
+        sockets_range=(3, 3),
+        locality_rank=10,
+        base_spec=None,
+        open_sockets=3,
+        total_sockets=3,
+    )
+    vars_3os = build_gear_socket_variants(
+        cand_3os,
+        socketables=opts,
+        ctx=ctx,
+        set_group_ids={},
+        global_set_cache={},
+        max_sockets=3,
+    )
+    assert max(v.spec.mf for v in vars_3os) == 64
+    assert any(v.spec.mf == 64 and v.owned for v in vars_3os)
+    assert any(v.spec.mf == 24 and v.spec.fr == 60 for v in vars_3os)
+    assert any(v.spec.mf == 0 and v.spec.fr == 90 for v in vars_3os)
+
+    armor_4os = _make_socketed_item("xui", 4, quality=ItemQuality.NORMAL)
+    cand_4os = CandidateItem(
+        item=armor_4os,
+        base_name="Mage Plate",
+        loc="Stash",
+        slot="armor",
+        version=0x63,
+        resolver=game_data_resolver,
+        sockets_range=(4, 4),
+        locality_rank=10,
+        base_spec=None,
+        open_sockets=4,
+        total_sockets=4,
+    )
+    vars_4os = build_gear_socket_variants(
+        cand_4os,
+        socketables=opts,
+        ctx=ctx,
+        set_group_ids={},
+        global_set_cache={},
+        max_sockets=4,
+    )
+    assert any(v.spec.fr == 120 and "4x Ral Rune" in v.action_label and v.owned for v in vars_4os)
+    assert max(v.spec.mf for v in vars_4os) == 40
+
+    vars_4os_theo = build_gear_socket_variants(
+        cand_4os,
+        socketables=opts,
+        ctx=ctx,
+        set_group_ids={},
+        global_set_cache={},
+        max_sockets=4,
+        theoretical=True,
+    )
+    assert any(
+        v.spec.mf == 96 and "4x Perfect Topaz" in v.action_label and not v.owned
+        for v in vars_4os_theo
+    )
+
+
+@requires_native
+def test_no_quest_white_base_builds_both_runewords_and_fillers(
+    game_data_resolver: GameDataResolver,
+) -> None:
+    ctx = ExtractionContext(char_class=int(CharClass.SORCERESS), char_level=75)
+    helm_2os = _make_socketed_item("msk", 2, filled=0, quality=ItemQuality.NORMAL)
+    cand_empty = CandidateItem(
+        item=helm_2os,
+        base_name="Mask",
+        loc="Stash",
+        slot="helm",
+        version=0x63,
+        resolver=game_data_resolver,
+        sockets_range=(2, 2),
+        locality_rank=10,
+        base_spec=None,
+        open_sockets=2,
+        total_sockets=2,
+    )
+    helm_partial = _make_socketed_item("msk", 3, filled=1, quality=ItemQuality.NORMAL)
+    cand_partial = CandidateItem(
+        item=helm_partial,
+        base_name="Mask",
+        loc="Stash",
+        slot="helm",
+        version=0x63,
+        resolver=game_data_resolver,
+        sockets_range=(2, 2),
+        locality_rank=10,
+        base_spec=None,
+        open_sockets=2,
+        total_sockets=3,
+    )
+    rune_counts = Counter({"r09": 2, "r12": 2})
+    socketables = [
+        SocketableOption(
+            label="Perfect Topaz",
+            code="gpy",
+            loc="Stash",
+            levelreq=18,
+            owned=True,
+            is_jewel=False,
+            count=2,
+        ),
+    ]
+    groups = build_candidate_groups(
+        [cand_empty, cand_partial],
+        rune_counts=rune_counts,
+        socketables=socketables,
+        theoretical=False,
+        ctx=ctx,
+        set_group_ids={},
+        global_set_cache={},
+        no_quest=True,
+    )
+    assert len(groups) == 2
+    empty_kinds = {v.kind for v in groups[0][1]}
+    assert empty_kinds == {"runeword", "socket"}
+    assert any("Lore" in v.action_label for v in groups[0][1])
+    assert any("2x Perfect Topaz" in v.action_label for v in groups[0][1])
+
+    partial_kinds = {v.kind for v in groups[1][1]}
+    assert partial_kinds == {"socket"}
+
+
+@requires_native
+def test_optimize_socket_no_quest_integration_and_cli(
+    game_data_resolver: GameDataResolver,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _, sork, _ = parse_d2s_file(str(FIXTURES_DIR / "sork.d2s"), resolver=game_data_resolver)
+    _, stash, _, _ = parse_d2i_file(
+        str(FIXTURES_DIR / "ModernSharedStashSoftCoreV2.d2i"), resolver=game_data_resolver
+    )
+    assert sork is not None
+    assert isinstance(stash, SharedStash)
+
+    sork.item_list.items.append(_make_socketed_item("msk", 3, filled=0, quality=ItemQuality.NORMAL))
+    sork.item_list.items.append(_make_socketed_item("ci0", 3, filled=1, quality=ItemQuality.MAGIC))
+
+    report = optimize_socket_quests(
+        sork,
+        stashes=[stash],
+        resolver=game_data_resolver,
+        build="mf-pure",
+        no_quest=True,
+        limit=5,
+    )
+    assert report.no_quest is True
+    assert report.eligible_item_count >= 2
+    text = format_socket_report(report)
+    assert "Socket Filler Optimizer: sork" in text
+    assert "Socket Quests (sork):" not in text
+    assert "open" in text
+
+    main(
+        [
+            "optimize",
+            "socket",
+            "--no-config",
+            "--no-quest",
+            "--char",
+            "sork",
+            "-b",
+            "mf-pure",
+            str(FIXTURES_DIR),
+        ]
+    )
+    out = capsys.readouterr().out
+    assert "Socket Filler Optimizer: sork" in out
+    assert "Socket Quests (sork):" not in out
