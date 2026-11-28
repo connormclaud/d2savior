@@ -3,7 +3,7 @@ use pyo3::exceptions::PyValueError;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use crate::dps::{HandWeapon, OffenseProfile};
+use crate::dps::{DpsBreakdown, HandWeapon, OffenseProfile};
 use crate::stats::{compute_effective_gear_stats, equipped_hand_weapon, Stats};
 use crate::types::{
     BuildConstraints, BuildResult, CasterSkillModel, CharClass, CharacterStats, CharmSpec,
@@ -351,34 +351,34 @@ pub(crate) fn eval_build_summary(
         psn_dps_2x: gear.psn_dps_2x + charm_psn_dps_2x,
         ..gear
     };
-    let (dps, raw_dps, ar, cth, ias_bp, ias_frames, ias_last_frames, used_zeal) =
-        if offense.uses_dps_tables(c) {
-            offense.compute_dps_detailed(hand, combined_ar_stats, c)
-        } else if offense.uses_caster_dps(c) {
-            let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
-            (
-                offense.compute_caster_dps(combined_ar_stats, c),
-                0.0,
-                0,
-                0,
-                bp,
-                frames,
-                0,
-                false,
-            )
-        } else {
-            let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
-            (
-                0.0,
-                0.0,
-                0,
-                0,
-                bp,
-                frames,
-                0,
-                offense == OffenseProfile::Zeal && hand.can_zeal,
-            )
-        };
+    let DpsBreakdown {
+        eff_dps: dps,
+        raw_dps,
+        total_ar: ar,
+        cth_pct: cth,
+        ias_bp,
+        display_frames: ias_frames,
+        last_frames: ias_last_frames,
+        used_zeal,
+    } = if offense.uses_dps_tables(c) {
+        offense.compute_dps_detailed(hand, combined_ar_stats, c)
+    } else if offense.uses_caster_dps(c) {
+        let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
+        DpsBreakdown {
+            eff_dps: offense.compute_caster_dps(combined_ar_stats, c),
+            ias_bp: bp,
+            display_frames: frames,
+            ..Default::default()
+        }
+    } else {
+        let (bp, frames) = offense.attack_speed(hand.wclass, hand.wsm, gear.ias);
+        DpsBreakdown {
+            ias_bp: bp,
+            display_frames: frames,
+            used_zeal: offense == OffenseProfile::Zeal && hand.can_zeal,
+            ..Default::default()
+        }
+    };
 
     let total_dex = c.character.base_dex + gear.dex_bonus + charm_dex;
     let base_def = (gear.defense + total_dex.max(0) / 4).max(0);

@@ -319,7 +319,7 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
                 psn_dps_2x: leaf.psn_dps_2x + add_psn,
                 ..*leaf
             };
-            let exact = offense.compute_dps_detailed(*hand, s, &rc).0;
+            let exact = offense.compute_dps_detailed(*hand, s, &rc).eff_dps;
             let approx = fast.eval_dps(add_ar, add_phys, add_elem, add_fire, add_psn);
             assert!(
                 (exact - approx).abs() <= 1e-9 * exact.abs().max(1.0),
@@ -401,17 +401,16 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
         ..base_c.clone()
     };
     let trash_rc = ResolvedConstraints::resolve(&trash_c).unwrap();
-    let (_, _, total_ar, cth_pct, ias_bp, display_frames, last_frames, used_zeal) =
-        OffenseProfile::Zeal.compute_dps_detailed(sword, itd_stats, &trash_rc);
-    assert!(total_ar > 0);
-    assert_eq!(cth_pct, 95);
+    let itd = OffenseProfile::Zeal.compute_dps_detailed(sword, itd_stats, &trash_rc);
+    assert!(itd.total_ar > 0);
+    assert_eq!(itd.cth_pct, 95);
     let (_, exp_ias, exp_disp, exp_last, exp_zeal) =
         OffenseProfile::Zeal.attack_rate_and_frames(sword, itd_stats.ias, 3, 0);
     assert_eq!(
-        (ias_bp, display_frames, last_frames, used_zeal),
+        (itd.ias_bp, itd.display_frames, itd.last_frames, itd.used_zeal),
         (exp_ias, exp_disp, exp_last, exp_zeal)
     );
-    assert!(used_zeal);
+    assert!(itd.used_zeal);
 
     // 2. Combined pierce + ow + psn + splash_fire + aura_is_fire: raw_dps > eff_dps.
     let bow_stats = Stats {
@@ -441,12 +440,12 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
     };
     let bow_rc = ResolvedConstraints::resolve(&bow_c).unwrap();
     let fast_bow = OffenseProfile::Melee.fast_leaf_dps(bow, bow_stats, &bow_rc);
-    let (eff_dps, raw_dps, bow_ar, bow_cth_pct, _, _, _, bow_zeal) = fast_bow.eval_detailed();
-    assert_eq!(eff_dps, fast_bow.eval_dps(0, 0, 0, 0, 0));
-    assert!(raw_dps > eff_dps);
-    assert!(bow_ar > 0);
-    assert!((5..=95).contains(&bow_cth_pct));
-    assert!(!bow_zeal);
+    let bow_d = fast_bow.eval_detailed();
+    assert_eq!(bow_d.eff_dps, fast_bow.eval_dps(0, 0, 0, 0, 0));
+    assert!(bow_d.raw_dps > bow_d.eff_dps);
+    assert!(bow_d.total_ar > 0);
+    assert!((5..=95).contains(&bow_d.cth_pct));
+    assert!(!bow_d.used_zeal);
 
     // 3. Negative base inputs clamp cleanly to non-negative outputs.
     let neg_weapon = HandWeapon {
@@ -462,11 +461,10 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
         ..Default::default()
     };
     let base_rc = ResolvedConstraints::resolve(&base_c).unwrap();
-    let (neg_eff, neg_raw, neg_ar, neg_cth, ..) =
-        OffenseProfile::Melee.compute_dps_detailed(neg_weapon, neg_stats, &base_rc);
-    assert!(neg_eff >= 0.0 && neg_raw >= 0.0);
-    assert!(neg_ar >= 0);
-    assert!((5..=95).contains(&neg_cth));
+    let neg = OffenseProfile::Melee.compute_dps_detailed(neg_weapon, neg_stats, &base_rc);
+    assert!(neg.eff_dps >= 0.0 && neg.raw_dps >= 0.0);
+    assert!(neg.total_ar >= 0);
+    assert!((5..=95).contains(&neg.cth_pct));
 }
 
 #[test]

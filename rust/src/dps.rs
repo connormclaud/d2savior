@@ -337,7 +337,7 @@ impl OffenseProfile {
         }
     }
 
-    /// Compute `(eff_dps, raw_dps, total_ar, cth_pct, ias_bp, display_frames, last_frames, used_zeal)`.
+    /// Compute detailed melee DPS breakdown (`eff_dps`, `raw_dps`, AR, CTH, IAS/frames, Zeal flag).
     ///
     /// Expects `s.str_bonus` and `s.dex_bonus` to be total character strength/dexterity
     /// (`c.character.base_str + gear + charms`), matching `ub_ch` in `search.rs`.
@@ -346,7 +346,7 @@ impl OffenseProfile {
         hand: HandWeapon,
         s: Stats,
         c: &ResolvedConstraints<'_>,
-    ) -> (f64, f64, i32, i32, i32, i32, i32, bool) {
+    ) -> DpsBreakdown {
         self.fast_leaf_dps(hand, s, c).eval_detailed()
     }
 
@@ -356,9 +356,8 @@ impl OffenseProfile {
         s: Stats,
         c: &ResolvedConstraints<'_>,
     ) -> (f64, i32, i32, i32, bool) {
-        let (eff_dps, _, _, _, ias_bp, display_frames, last_frames, used_zeal) =
-            self.compute_dps_detailed(hand, s, c);
-        (eff_dps, ias_bp, display_frames, last_frames, used_zeal)
+        let d = self.compute_dps_detailed(hand, s, c);
+        (d.eff_dps, d.ias_bp, d.display_frames, d.last_frames, d.used_zeal)
     }
 
     pub(crate) fn compute_eff_dps(
@@ -815,9 +814,9 @@ impl FastLeafDps {
     }
 
     #[inline(always)]
-    fn eval_core(
+    fn eval_core_with_cth(
         &self,
-        add_ar: i32,
+        c: &mut CthEval,
         add_phys_2x: i32,
         add_elem_2x: i32,
         add_fire_2x: i32,
@@ -825,9 +824,9 @@ impl FastLeafDps {
     ) -> EvalCore {
         if self.is_smite {
             let phys_avg = self.phys_2x_0.max(0) as f64 / 2.0;
-            let direct_hit = phys_avg * self.phys_scale * self.const_decrep_mult
-                + self.base_direct_non_phys;
-            let eff_dps = direct_hit * self.rate + self.const_ow_dps;
+            let direct_hit =
+                phys_avg * self.phys_scale * c.decrep_mult + self.base_direct_non_phys;
+            let eff_dps = direct_hit * self.rate + c.d_ow_dps;
             return EvalCore {
                 cth: 1.0,
                 direct_hit,
@@ -836,20 +835,8 @@ impl FastLeafDps {
                 eff_dps,
             };
         }
-        let (cth, decrep_mult, pierce_mult, d_ow_dps) = if self.cth_is_const {
-            (
-                0.95,
-                self.const_decrep_mult,
-                self.const_pierce_mult,
-                self.const_ow_dps,
-            )
-        } else {
-            let cth = self.cth_for_add_ar(add_ar);
-            let (decrep_mult, pierce_mult, d_ow_dps) = self.compute_cth_multipliers(cth);
-            (cth, decrep_mult, pierce_mult, d_ow_dps)
-        };
         let phys_avg = (self.phys_2x_0 + add_phys_2x).max(0) as f64 / 2.0;
-        let d_phys = phys_avg * self.phys_scale * decrep_mult;
+        let d_phys = phys_avg * self.phys_scale * c.decrep_mult;
         let d_flat_fire = (self.flat_fire_2x_0 + add_fire_2x).max(0) as f64 / 2.0;
         let d_elem_other = (self.flat_elem_2x_0 + add_elem_2x).max(0) as f64 / 2.0;
         let (direct_hit, auto_hit_attack) = if self.splash_fire {
@@ -865,25 +852,37 @@ impl FastLeafDps {
         };
         let psn_base = ((self.psn_2x_0 + add_psn_2x).max(0) + self.ctc_venom_2x) as f64 / 2.0;
         let d_psn_dps = if psn_base > 0.0 {
-            if self.cth_is_const {
-                psn_base * self.const_psn_prob
-            } else {
-                psn_base * (1.0 - (1.0 - cth).powf(self.psn_exp))
+            if c.psn_prob < 0.0 {
+                c.psn_prob = 1.0 - (1.0 - c.cth).powf(self.psn_exp);
             }
+            psn_base * c.psn_prob
         } else {
             0.0
         };
-        let eff_dps = (direct_hit * cth + auto_hit_attack) * pierce_mult * self.rate
+        let eff_dps = (direct_hit * c.cth + auto_hit_attack) * c.pierce_mult * self.rate
             + self.base_aura_pulse_dps
-            + d_ow_dps
+            + c.d_ow_dps
             + d_psn_dps;
         EvalCore {
-            cth,
+            cth: c.cth,
             direct_hit,
             auto_hit_attack,
             psn_base,
             eff_dps,
         }
+    }
+
+    #[inline(always)]
+    fn eval_core(
+        &self,
+        add_ar: i32,
+        add_phys_2x: i32,
+        add_elem_2x: i32,
+        add_fire_2x: i32,
+        add_psn_2x: i32,
+    ) -> EvalCore {
+        let mut cth = self.eval_cth_no_psn(add_ar);
+        self.eval_core_with_cth(&mut cth, add_phys_2x, add_elem_2x, add_fire_2x, add_psn_2x)
     }
 
     #[inline]
@@ -940,43 +939,11 @@ impl FastLeafDps {
         add_fire_2x: i32,
         add_psn_2x: i32,
     ) -> f64 {
-        if self.is_smite {
-            let phys_avg = self.phys_2x_0.max(0) as f64 / 2.0;
-            let direct_hit =
-                phys_avg * self.phys_scale * c.decrep_mult + self.base_direct_non_phys;
-            return direct_hit * self.rate + c.d_ow_dps;
-        }
-        let phys_avg = (self.phys_2x_0 + add_phys_2x).max(0) as f64 / 2.0;
-        let d_phys = phys_avg * self.phys_scale * c.decrep_mult;
-        let d_flat_fire = (self.flat_fire_2x_0 + add_fire_2x).max(0) as f64 / 2.0;
-        let d_elem_other = (self.flat_elem_2x_0 + add_elem_2x).max(0) as f64 / 2.0;
-        let (direct_hit, auto_hit_attack) = if self.splash_fire {
-            (
-                d_phys + d_elem_other + self.base_direct_non_phys,
-                self.base_auto_hit + d_flat_fire * self.targets,
-            )
-        } else {
-            (
-                d_phys + d_flat_fire + d_elem_other + self.base_direct_non_phys,
-                self.base_auto_hit,
-            )
-        };
-        let psn_base = ((self.psn_2x_0 + add_psn_2x).max(0) + self.ctc_venom_2x) as f64 / 2.0;
-        let d_psn_dps = if psn_base > 0.0 {
-            if c.psn_prob < 0.0 {
-                c.psn_prob = 1.0 - (1.0 - c.cth).powf(self.psn_exp);
-            }
-            psn_base * c.psn_prob
-        } else {
-            0.0
-        };
-        (direct_hit * c.cth + auto_hit_attack) * c.pierce_mult * self.rate
-            + self.base_aura_pulse_dps
-            + c.d_ow_dps
-            + d_psn_dps
+        self.eval_core_with_cth(c, add_phys_2x, add_elem_2x, add_fire_2x, add_psn_2x)
+            .eff_dps
     }
 
-    pub(crate) fn eval_detailed(&self) -> (f64, f64, i32, i32, i32, i32, i32, bool) {
+    pub(crate) fn eval_detailed(&self) -> DpsBreakdown {
         let core = self.eval_core(0, 0, 0, 0, 0);
         let (_, raw_pierce_mult, d_ow_dps_raw) = self.compute_cth_multipliers(1.0);
         let (total_ar, cth_pct, psn_raw) = if self.is_smite {
@@ -992,15 +959,27 @@ impl FastLeafDps {
             + self.base_aura_pulse_dps
             + d_ow_dps_raw
             + psn_raw;
-        (
-            core.eff_dps,
+        DpsBreakdown {
+            eff_dps: core.eff_dps,
             raw_dps,
             total_ar,
             cth_pct,
-            self.ias_bp,
-            self.display_frames,
-            self.last_frames,
-            self.used_zeal,
-        )
+            ias_bp: self.ias_bp,
+            display_frames: self.display_frames,
+            last_frames: self.last_frames,
+            used_zeal: self.used_zeal,
+        }
     }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct DpsBreakdown {
+    pub(crate) eff_dps: f64,
+    pub(crate) raw_dps: f64,
+    pub(crate) total_ar: i32,
+    pub(crate) cth_pct: i32,
+    pub(crate) ias_bp: i32,
+    pub(crate) display_frames: i32,
+    pub(crate) last_frames: i32,
+    pub(crate) used_zeal: bool,
 }
