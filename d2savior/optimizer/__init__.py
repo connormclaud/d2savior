@@ -55,7 +55,6 @@ from d2savior.optimizer.profiles import CLASS_PROFILES, ClassProfile, get_class_
 from d2savior.optimizer.report import format_build_report, format_paladin_leveling_report
 from d2savior.optimizer.socket_candidates import (
     SocketableOption,
-    SocketCandidateVariant,
     extract_socketables,
     find_unclaimed_socket_quests,
     get_larzuk_socket_range,
@@ -68,6 +67,7 @@ from d2savior.optimizer.socket_report import (
     SocketUpgradeResult,
     format_socket_report,
 )
+from d2savior.optimizer.socket_variants import SocketCandidateVariant
 from d2savior.optimizer.sorc import (
     BUILD_PRESET_ALIASES,
     SORC_ONLY_BUILD_CHOICES,

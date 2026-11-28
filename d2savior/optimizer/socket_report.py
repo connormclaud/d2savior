@@ -4,7 +4,8 @@ from collections import Counter
 from dataclasses import dataclass
 
 from d2savior.optimizer.native import BuildResult
-from d2savior.optimizer.socket_candidates import THEORETICAL_CHAR_LEVEL, SocketCandidateVariant
+from d2savior.optimizer.socket_candidates import THEORETICAL_CHAR_LEVEL
+from d2savior.optimizer.socket_variants import SocketCandidateVariant
 
 
 @dataclass(frozen=True, slots=True)

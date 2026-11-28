@@ -28,8 +28,6 @@ from d2savior.optimizer.profiles import get_class_profile
 from d2savior.optimizer.socket_candidates import (
     THEORETICAL_CHAR_LEVEL,
     CandidateItem,
-    SocketCandidateVariant,
-    build_candidate_groups,
     collect_eligible_items,
     extract_socketables,
     find_unclaimed_socket_quests,
@@ -39,6 +37,10 @@ from d2savior.optimizer.socket_report import (
     PresetSocketReport,
     SocketQuestReport,
     SocketUpgradeResult,
+)
+from d2savior.optimizer.socket_variants import (
+    SocketCandidateVariant,
+    build_candidate_groups,
 )
 
 _EXCLUDED_SLOTS_FOR_CAND: dict[str, frozenset[str]] = {

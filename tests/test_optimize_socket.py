@@ -23,11 +23,8 @@ from d2savior.optimizer import (
 from d2savior.optimizer.common import iter_pool_items
 from d2savior.optimizer.paladin import build_paladin_preset_constraints
 from d2savior.optimizer.presets import resolve_build_expr
-from d2savior.optimizer.socket_candidates import (
-    SocketCandidateVariant,
-    collect_eligible_items,
-    pareto_prune_variants,
-)
+from d2savior.optimizer.socket_candidates import collect_eligible_items
+from d2savior.optimizer.socket_variants import SocketCandidateVariant, pareto_prune_variants
 
 requires_native = pytest.mark.skipif(not HAS_NATIVE, reason="d2savior._native is not built")
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
