@@ -219,14 +219,8 @@ class CharmSpec:
         life: int = 0,
         mana: int = 0,
         frw: int = 0,
-        light_skills: int = 0,
         str_bonus: int = 0,
         dex_bonus: int = 0,
-        skills: int = 0,
-        unique_id: int | None = None,
-        cold_sunder: bool = False,
-        action_skills: int = 0,
-        aura_skills: int = 0,
         all_skills: int = 0,
         vit: int = 0,
         ene: int = 0,
@@ -235,6 +229,12 @@ class CharmSpec:
         flat_fire_2x: int = 0,
         flat_elem_2x: int = 0,
         psn_dps_2x: int = 0,
+        light_skills: int = 0,
+        skills: int = 0,
+        action_skills: int = 0,
+        aura_skills: int = 0,
+        unique_id: int | None = None,
+        cold_sunder: bool = False,
     ) -> None: ...
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...

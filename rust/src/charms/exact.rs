@@ -526,7 +526,7 @@ impl<'a> CharmSolver<'a> {
         if self.sunder_opts.len() == 1 {
             let sunder = self.sunder_opts[0];
             let slot_budget = (self.raw_max_slots - sunder.size).max(0);
-            let leaf_s = add_charm_to_leaf(leaf, sunder);
+            let leaf_s = leaf.add(sunder.to_stats(self.c.class));
             let rem_min = (min_main_needed - sunder_main(sunder)).max(0);
             return self
                 .solve_for_sunder(leaf_s, caps, reqs, 0, slot_budget, Some(sunder), rem_min)
@@ -551,7 +551,7 @@ impl<'a> CharmSolver<'a> {
                 .map_or(min_main_needed, |b| b.score.0.max(min_main_needed));
             let rem_min = (target_main - s_main).max(0);
             let slot_budget = (self.raw_max_slots - sunder.size).max(0);
-            let leaf_s = add_charm_to_leaf(leaf, sunder);
+            let leaf_s = leaf.add(sunder.to_stats(self.c.class));
             let Some(idxs) = self.solve_for_sunder(
                 leaf_s,
                 caps,
@@ -681,15 +681,15 @@ impl<'a> CharmSolver<'a> {
             return None;
         }
 
-        if need_str > self.ub_str
-            || need_dex > self.ub_dex
-            || need_fhr > self.ub_fhr
-            || need_frw > self.ub_frw
-            || need_mf > self.ub_mf
-            || -delta_res[0] > self.ub_res[0]
-            || -delta_res[1] > self.ub_res[1]
-            || -delta_res[2] > self.ub_res[2]
-            || -delta_res[3] > self.ub_res[3]
+        if need_str > self.ub.str_bonus
+            || need_dex > self.ub.dex_bonus
+            || need_fhr > self.ub.fhr
+            || need_frw > self.ub.frw
+            || need_mf > self.ub.mf
+            || -delta_res[0] > self.ub.res[0]
+            || -delta_res[1] > self.ub.res[1]
+            || -delta_res[2] > self.ub.res[2]
+            || -delta_res[3] > self.ub.res[3]
         {
             self.cache.insert(key, None);
             return None;
@@ -708,7 +708,7 @@ impl<'a> CharmSolver<'a> {
             }
             SearchMode::Mf => eval_sorted_ub(&self.non_dps.order_mf, 0, slot_budget),
             SearchMode::MaxRes | SearchMode::LevelingRes => {
-                (0..4).map(|r| room[r].max(0).min(self.ub_res[r])).sum()
+                (0..4).map(|r| room[r].max(0).min(self.ub.res[r])).sum()
             }
         };
         if ub_main < min_main_needed {
@@ -855,17 +855,4 @@ impl<'a> CharmSolver<'a> {
         );
         state.chosen_indices
     }
-}
-
-fn add_charm_to_leaf(mut leaf: Stats, ch: &CharmSpec) -> Stats {
-    leaf.str_bonus += ch.str_bonus;
-    leaf.dex_bonus += ch.dex_bonus;
-    leaf.fhr += ch.fhr;
-    leaf.frw += ch.frw;
-    leaf.mf += ch.mf;
-    leaf.fr += ch.fr;
-    leaf.lr += ch.lr;
-    leaf.cr += ch.cr;
-    leaf.pr += ch.pr;
-    leaf
 }

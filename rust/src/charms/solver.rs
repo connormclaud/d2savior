@@ -5,8 +5,7 @@ use super::dp::{
     sorted_ub_entries,
 };
 use super::greedy::{
-    charm_eff_life, charm_eff_mana, charm_stat_ub, is_res_mode, shrink_charm_pool,
-    shrink_sunder_pool,
+    charm_eff_life, charm_eff_mana, is_res_mode, shrink_charm_pool, shrink_sunder_pool,
 };
 use crate::stats::Stats;
 use crate::types::{CharClass, CharmSpec, ResolvedConstraints, SearchMode};
@@ -18,21 +17,7 @@ pub(crate) struct CharmSolver<'a> {
     pub(super) raw_max_slots: i32,
     pub(super) max_slots: i32,
     pub(super) sum_neg: [i32; 4],
-    pub(super) ub_str: i32,
-    pub(super) ub_dex: i32,
-    pub(super) ub_fhr: i32,
-    pub(super) ub_frw: i32,
-    pub(super) ub_res: [i32; 4],
-    pub(super) ub_all_skills: i32,
-    pub(super) ub_class_skills: i32,
-    pub(super) ub_action_skills: i32,
-    pub(super) ub_aura_skills: i32,
-    pub(super) ub_mf: i32,
-    pub(super) ub_ar: i32,
-    pub(super) ub_flat_phys_2x: i32,
-    pub(super) ub_flat_fire_2x: i32,
-    pub(super) ub_flat_elem_2x: i32,
-    pub(super) ub_psn_dps_2x: i32,
+    pub(super) ub: StatTotals,
     pub(super) non_dps: NonDpsIndex,
     pub(super) cache: HashMap<CharmCacheKey, Option<(i32, Vec<usize>)>>,
     pub(super) failed_floor: HashMap<CharmCacheKey, i32>,
@@ -45,87 +30,13 @@ impl<'a> CharmSolver<'a> {
     }
 
     pub(crate) fn charm_ub_stats(&self) -> Stats {
-        let class_splits = |skills: i32| match self.c.class {
-            CharClass::Sorceress => (skills, 0),
-            CharClass::Paladin => (0, skills),
-        };
-        let base = if let Some(&first) = self.sunder_opts.first() {
-            let (s_sk, p_sk) = class_splits(first.skills);
-            let mut acc = Stats {
-                all_skills: first.all_skills,
-                sorc_skills: s_sk,
-                pal_skills: p_sk,
-                action_skill_bonus: first.action_skills,
-                aura_skill_bonus: first.aura_skills,
-                fhr: first.fhr,
-                frw: first.frw,
-                fr: first.fr,
-                lr: first.lr,
-                cr: first.cr,
-                pr: first.pr,
-                mf: first.mf,
-                str_bonus: first.str_bonus,
-                dex_bonus: first.dex_bonus,
-                ar: first.ar,
-                flat_phys_2x: first.flat_phys_2x,
-                flat_fire_2x: first.flat_fire_2x,
-                flat_elem_2x: first.flat_elem_2x,
-                psn_dps_2x: first.psn_dps_2x,
-                ..Default::default()
-            };
-            for &s in &self.sunder_opts[1..] {
-                let (ss_sk, sp_sk) = class_splits(s.skills);
-                acc = acc.max_each(Stats {
-                    all_skills: s.all_skills,
-                    sorc_skills: ss_sk,
-                    pal_skills: sp_sk,
-                    action_skill_bonus: s.action_skills,
-                    aura_skill_bonus: s.aura_skills,
-                    fhr: s.fhr,
-                    frw: s.frw,
-                    fr: s.fr,
-                    lr: s.lr,
-                    cr: s.cr,
-                    pr: s.pr,
-                    mf: s.mf,
-                    str_bonus: s.str_bonus,
-                    dex_bonus: s.dex_bonus,
-                    ar: s.ar,
-                    flat_phys_2x: s.flat_phys_2x,
-                    flat_fire_2x: s.flat_fire_2x,
-                    flat_elem_2x: s.flat_elem_2x,
-                    psn_dps_2x: s.psn_dps_2x,
-                    ..Default::default()
-                });
-            }
-            acc
-        } else {
-            Stats::default()
-        };
-        let (ub_sorc, ub_pal) = class_splits(self.ub_class_skills);
-        Stats {
-            all_skills: base.all_skills + self.ub_all_skills,
-            sorc_skills: base.sorc_skills + ub_sorc,
-            pal_skills: base.pal_skills + ub_pal,
-            action_skill_bonus: base.action_skill_bonus + self.ub_action_skills,
-            aura_skill_bonus: base.aura_skill_bonus + self.ub_aura_skills,
-            def_skill: base.action_skill_bonus + self.ub_action_skills,
-            fhr: base.fhr + self.ub_fhr,
-            frw: base.frw + self.ub_frw,
-            fr: base.fr + self.ub_res[0],
-            lr: base.lr + self.ub_res[1],
-            cr: base.cr + self.ub_res[2],
-            pr: base.pr + self.ub_res[3],
-            mf: base.mf + self.ub_mf,
-            str_bonus: base.str_bonus + self.ub_str,
-            dex_bonus: base.dex_bonus + self.ub_dex,
-            ar: base.ar + self.ub_ar,
-            flat_phys_2x: base.flat_phys_2x + self.ub_flat_phys_2x,
-            flat_fire_2x: base.flat_fire_2x + self.ub_flat_fire_2x,
-            flat_elem_2x: base.flat_elem_2x + self.ub_flat_elem_2x,
-            psn_dps_2x: base.psn_dps_2x + self.ub_psn_dps_2x,
-            ..Default::default()
-        }
+        let base = self
+            .sunder_opts
+            .iter()
+            .map(|s| s.to_stats(self.c.class))
+            .reduce(|acc, s| acc.max_each(s))
+            .unwrap_or_default();
+        self.ub.add_to_stats(base, self.c.class)
     }
 
     pub(crate) fn new(raw_pool: &[&'a CharmSpec], c: ResolvedConstraints<'a>) -> Self {
@@ -151,26 +62,7 @@ impl<'a> CharmSolver<'a> {
             sum_neg[3] += ch.pr.min(0);
         }
 
-        let ub_str = charm_stat_ub(&pool, max_slots, |ch| ch.str_bonus);
-        let ub_dex = charm_stat_ub(&pool, max_slots, |ch| ch.dex_bonus);
-        let ub_fhr = charm_stat_ub(&pool, max_slots, |ch| ch.fhr);
-        let ub_frw = charm_stat_ub(&pool, max_slots, |ch| ch.frw);
-        let ub_res = [
-            charm_stat_ub(&pool, max_slots, |ch| ch.fr),
-            charm_stat_ub(&pool, max_slots, |ch| ch.lr),
-            charm_stat_ub(&pool, max_slots, |ch| ch.cr),
-            charm_stat_ub(&pool, max_slots, |ch| ch.pr),
-        ];
-        let ub_all_skills = charm_stat_ub(&pool, max_slots, |ch| ch.all_skills);
-        let ub_class_skills = charm_stat_ub(&pool, max_slots, |ch| ch.skills);
-        let ub_action_skills = charm_stat_ub(&pool, max_slots, |ch| ch.action_skills);
-        let ub_aura_skills = charm_stat_ub(&pool, max_slots, |ch| ch.aura_skills);
-        let ub_mf = charm_stat_ub(&pool, max_slots, |ch| ch.mf);
-        let ub_ar = charm_stat_ub(&pool, max_slots, |ch| ch.ar);
-        let ub_flat_phys_2x = charm_stat_ub(&pool, max_slots, |ch| ch.flat_phys_2x);
-        let ub_flat_fire_2x = charm_stat_ub(&pool, max_slots, |ch| ch.flat_fire_2x);
-        let ub_flat_elem_2x = charm_stat_ub(&pool, max_slots, |ch| ch.flat_elem_2x);
-        let ub_psn_dps_2x = charm_stat_ub(&pool, max_slots, |ch| ch.psn_dps_2x);
+        let ub = StatTotals::from_pool_ub(&pool, max_slots);
 
         let non_dps = build_non_dps_index(&pool, &c, max_slots);
         let dps = if build_dps_refiner_flag
@@ -189,21 +81,7 @@ impl<'a> CharmSolver<'a> {
             raw_max_slots,
             max_slots,
             sum_neg,
-            ub_str,
-            ub_dex,
-            ub_fhr,
-            ub_frw,
-            ub_res,
-            ub_all_skills,
-            ub_class_skills,
-            ub_action_skills,
-            ub_aura_skills,
-            ub_mf,
-            ub_ar,
-            ub_flat_phys_2x,
-            ub_flat_fire_2x,
-            ub_flat_elem_2x,
-            ub_psn_dps_2x,
+            ub,
             non_dps,
             cache: HashMap::new(),
             failed_floor: HashMap::new(),

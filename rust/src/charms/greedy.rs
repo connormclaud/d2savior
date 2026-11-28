@@ -587,34 +587,24 @@ pub(super) fn greedy_charms_indices(
     None
 }
 
-fn charm_dom_vector(c: &CharmSpec) -> [i32; 24] {
-    [
-        i32::from(c.cold_sunder),
-        -c.size,
-        c.fhr,
-        c.fr,
-        c.lr,
-        c.cr,
-        c.pr,
-        c.mf,
-        c.life,
-        c.mana,
-        c.vit,
-        c.ene,
-        c.ar,
-        c.flat_phys_2x,
-        c.flat_fire_2x,
-        c.flat_elem_2x,
-        c.psn_dps_2x,
-        c.frw,
-        c.str_bonus,
-        c.dex_bonus,
-        c.general_skills(),
-        c.all_skills,
-        c.action_skills,
-        c.aura_skills,
-    ]
+macro_rules! define_charm_dom_vector {
+    ($( $field:ident ),* $(,)?) => {
+        const CHARM_DOM_LEN: usize = 5 $( + { let _ = stringify!($field); 1 } )*;
+
+        fn charm_dom_vector(c: &CharmSpec) -> [i32; CHARM_DOM_LEN] {
+            [
+                i32::from(c.cold_sunder),
+                -c.size,
+                $( c.$field, )*
+                c.general_skills(),
+                c.action_skills,
+                c.aura_skills,
+            ]
+        }
+    };
 }
+
+crate::types::with_charm_direct_stats!(define_charm_dom_vector);
 
 fn charm_dominates(a: &CharmSpec, b: &CharmSpec, a_idx: usize, b_idx: usize) -> bool {
     let va = charm_dom_vector(a);

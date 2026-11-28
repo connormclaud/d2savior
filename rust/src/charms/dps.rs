@@ -147,33 +147,7 @@ impl<'a> CharmSolver<'a> {
         }
 
         fn leaf_with_cur(leaf: Stats, cur: StatTotals, class: CharClass) -> Stats {
-            let (cur_sorc, cur_pal) = match class {
-                CharClass::Sorceress => (cur.class_skills, 0),
-                CharClass::Paladin => (0, cur.class_skills),
-            };
-            Stats {
-                all_skills: leaf.all_skills + cur.all_skills,
-                sorc_skills: leaf.sorc_skills + cur_sorc,
-                pal_skills: leaf.pal_skills + cur_pal,
-                action_skill_bonus: leaf.action_skill_bonus + cur.action_skills,
-                aura_skill_bonus: leaf.aura_skill_bonus + cur.aura_skills,
-                def_skill: leaf.def_skill + cur.action_skills,
-                str_bonus: leaf.str_bonus + cur.str_bonus,
-                dex_bonus: leaf.dex_bonus + cur.dex_bonus,
-                fhr: leaf.fhr + cur.fhr,
-                frw: leaf.frw + cur.frw,
-                mf: leaf.mf + cur.mf,
-                fr: leaf.fr + cur.res[0],
-                lr: leaf.lr + cur.res[1],
-                cr: leaf.cr + cur.res[2],
-                pr: leaf.pr + cur.res[3],
-                ar: leaf.ar + cur.ar,
-                flat_phys_2x: leaf.flat_phys_2x + cur.flat_phys_2x,
-                flat_fire_2x: leaf.flat_fire_2x + cur.flat_fire_2x,
-                flat_elem_2x: leaf.flat_elem_2x + cur.flat_elem_2x,
-                psn_dps_2x: leaf.psn_dps_2x + cur.psn_dps_2x,
-                ..leaf
-            }
+            cur.add_to_stats(leaf, class)
         }
 
         fn dfs_dps<'b, 'a>(
@@ -529,26 +503,21 @@ impl<'a> CharmSolver<'a> {
                     )
                     .eval_eff_dps()
             } else {
-                let (cur_sorc_ub, cur_pal_ub) = match st.c.class {
-                    CharClass::Sorceress => (cur.class_skills + rem_cls_sk, 0),
-                    CharClass::Paladin => (0, cur.class_skills + rem_cls_sk),
-                };
-                let ub_dps_stats = Stats {
-                    all_skills: leaf.all_skills + cur.all_skills + rem_all_sk,
-                    sorc_skills: leaf.sorc_skills + cur_sorc_ub,
-                    pal_skills: leaf.pal_skills + cur_pal_ub,
-                    action_skill_bonus: leaf.action_skill_bonus + cur.action_skills + rem_act_sk,
-                    aura_skill_bonus: leaf.aura_skill_bonus + cur.aura_skills + rem_aura_sk,
-                    def_skill: leaf.def_skill + cur.action_skills + rem_act_sk,
-                    str_bonus: leaf.str_bonus + cur.str_bonus + rem_str,
-                    dex_bonus: leaf.dex_bonus + cur.dex_bonus + rem_dex,
-                    ar: leaf.ar + cur.ar + rem_ar,
-                    flat_phys_2x: leaf.flat_phys_2x + cur.flat_phys_2x + rem_phys,
-                    flat_fire_2x: leaf.flat_fire_2x + cur.flat_fire_2x + rem_fire,
-                    flat_elem_2x: leaf.flat_elem_2x + cur.flat_elem_2x + rem_elem,
-                    psn_dps_2x: leaf.psn_dps_2x + cur.psn_dps_2x + rem_psn,
-                    ..leaf
-                };
+                let ub_dps_stats = StatTotals {
+                    all_skills: cur.all_skills + rem_all_sk,
+                    class_skills: cur.class_skills + rem_cls_sk,
+                    action_skills: cur.action_skills + rem_act_sk,
+                    aura_skills: cur.aura_skills + rem_aura_sk,
+                    str_bonus: cur.str_bonus + rem_str,
+                    dex_bonus: cur.dex_bonus + rem_dex,
+                    ar: cur.ar + rem_ar,
+                    flat_phys_2x: cur.flat_phys_2x + rem_phys,
+                    flat_fire_2x: cur.flat_fire_2x + rem_fire,
+                    flat_elem_2x: cur.flat_elem_2x + rem_elem,
+                    psn_dps_2x: cur.psn_dps_2x + rem_psn,
+                    ..Default::default()
+                }
+                .add_to_stats(leaf, st.c.class);
                 st.c.offense.compute_eff_dps(st.hw, ub_dps_stats, &st.c)
             };
             let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);

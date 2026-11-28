@@ -465,119 +465,9 @@ impl ItemSpec {
     }
 }
 
-/// Charm specification passed between Python (`d2savior`) and Rust.
-#[cfg_attr(feature = "python", pyclass(get_all, eq, hash, frozen))]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct CharmSpec {
-    pub name: String,
-    pub size: i32,
-    pub loc: String,
-    pub fhr: i32,
-    pub fr: i32,
-    pub lr: i32,
-    pub cr: i32,
-    pub pr: i32,
-    pub mf: i32,
-    pub life: i32,
-    pub mana: i32,
-    pub frw: i32,
-    pub light_skills: i32,
-    pub str_bonus: i32,
-    pub dex_bonus: i32,
-    pub skills: i32,
-    pub action_skills: i32,
-    pub aura_skills: i32,
-    pub unique_id: Option<i32>,
-    pub cold_sunder: bool,
-    pub all_skills: i32,
-    pub vit: i32,
-    pub ene: i32,
-    pub ar: i32,
-    pub flat_phys_2x: i32,
-    pub flat_fire_2x: i32,
-    pub flat_elem_2x: i32,
-    pub psn_dps_2x: i32,
-}
-
-impl CharmSpec {
-    pub(crate) fn general_skills(&self) -> i32 {
-        self.all_skills + self.skills
-    }
-
-    pub(crate) fn skills_total(&self) -> i32 {
-        self.general_skills() + self.action_skills + self.aura_skills
-    }
-}
-
-#[cfg(feature = "python")]
-#[pymethods]
-impl CharmSpec {
-    #[new]
-    #[pyo3(signature = (
-        name,
-        size,
-        loc = String::new(),
-        fhr = 0,
-        fr = 0,
-        lr = 0,
-        cr = 0,
-        pr = 0,
-        mf = 0,
-        life = 0,
-        mana = 0,
-        frw = 0,
-        light_skills = 0,
-        str_bonus = 0,
-        dex_bonus = 0,
-        skills = 0,
-        unique_id = None,
-        cold_sunder = false,
-        action_skills = 0,
-        aura_skills = 0,
-        all_skills = 0,
-        vit = 0,
-        ene = 0,
-        ar = 0,
-        flat_phys_2x = 0,
-        flat_fire_2x = 0,
-        flat_elem_2x = 0,
-        psn_dps_2x = 0,
-    ))]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        name: String,
-        size: i32,
-        loc: String,
-        fhr: i32,
-        fr: i32,
-        lr: i32,
-        cr: i32,
-        pr: i32,
-        mf: i32,
-        life: i32,
-        mana: i32,
-        frw: i32,
-        light_skills: i32,
-        str_bonus: i32,
-        dex_bonus: i32,
-        skills: i32,
-        unique_id: Option<i32>,
-        cold_sunder: bool,
-        action_skills: i32,
-        aura_skills: i32,
-        all_skills: i32,
-        vit: i32,
-        ene: i32,
-        ar: i32,
-        flat_phys_2x: i32,
-        flat_fire_2x: i32,
-        flat_elem_2x: i32,
-        psn_dps_2x: i32,
-    ) -> Self {
-        Self {
-            name,
-            size,
-            loc,
+macro_rules! with_charm_direct_stats {
+    ($mac:ident) => {
+        $mac!(
             fhr,
             fr,
             lr,
@@ -587,14 +477,8 @@ impl CharmSpec {
             life,
             mana,
             frw,
-            light_skills,
             str_bonus,
             dex_bonus,
-            skills,
-            action_skills,
-            aura_skills,
-            unique_id,
-            cold_sunder,
             all_skills,
             vit,
             ene,
@@ -603,21 +487,115 @@ impl CharmSpec {
             flat_fire_2x,
             flat_elem_2x,
             psn_dps_2x,
-        }
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "CharmSpec(name={:?}, size={}, skills={}, fhr={}, mf={}, life={})",
-            self.name,
-            self.size,
-            self.general_skills(),
-            self.fhr,
-            self.mf,
-            self.life
-        )
-    }
+        );
+    };
 }
+
+pub(crate) use with_charm_direct_stats;
+
+macro_rules! define_charm_spec {
+    ($( $field:ident ),* $(,)?) => {
+        /// Charm specification passed between Python (`d2savior`) and Rust.
+        #[cfg_attr(feature = "python", pyclass(get_all, eq, hash, frozen))]
+        #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+        pub struct CharmSpec {
+            pub name: String,
+            pub size: i32,
+            pub loc: String,
+            $( pub $field: i32, )*
+            pub light_skills: i32,
+            pub skills: i32,
+            pub action_skills: i32,
+            pub aura_skills: i32,
+            pub unique_id: Option<i32>,
+            pub cold_sunder: bool,
+        }
+
+        impl CharmSpec {
+            pub(crate) fn general_skills(&self) -> i32 {
+                self.all_skills + self.skills
+            }
+
+            pub(crate) fn skills_total(&self) -> i32 {
+                self.general_skills() + self.action_skills + self.aura_skills
+            }
+
+            pub(crate) fn to_stats(&self, class: CharClass) -> Stats {
+                let (sorc_skills, pal_skills) = match class {
+                    CharClass::Sorceress => (self.skills, 0),
+                    CharClass::Paladin => (0, self.skills),
+                };
+                Stats {
+                    $( $field: self.$field, )*
+                    sorc_skills,
+                    pal_skills,
+                    action_skill_bonus: self.action_skills,
+                    aura_skill_bonus: self.aura_skills,
+                    def_skill: self.action_skills,
+                    ..Default::default()
+                }
+            }
+        }
+
+        #[cfg(feature = "python")]
+        #[pymethods]
+        impl CharmSpec {
+            #[new]
+            #[pyo3(signature = (
+                name,
+                size,
+                loc = String::new(),
+                $( $field = 0, )*
+                light_skills = 0,
+                skills = 0,
+                action_skills = 0,
+                aura_skills = 0,
+                unique_id = None,
+                cold_sunder = false,
+            ))]
+            #[allow(clippy::too_many_arguments)]
+            pub fn new(
+                name: String,
+                size: i32,
+                loc: String,
+                $( $field: i32, )*
+                light_skills: i32,
+                skills: i32,
+                action_skills: i32,
+                aura_skills: i32,
+                unique_id: Option<i32>,
+                cold_sunder: bool,
+            ) -> Self {
+                Self {
+                    name,
+                    size,
+                    loc,
+                    $( $field, )*
+                    light_skills,
+                    skills,
+                    action_skills,
+                    aura_skills,
+                    unique_id,
+                    cold_sunder,
+                }
+            }
+
+            fn __repr__(&self) -> String {
+                format!(
+                    "CharmSpec(name={:?}, size={}, skills={}, fhr={}, mf={}, life={})",
+                    self.name,
+                    self.size,
+                    self.general_skills(),
+                    self.fhr,
+                    self.mf,
+                    self.life
+                )
+            }
+        }
+    };
+}
+
+with_charm_direct_stats!(define_charm_spec);
 
 /// Character baseline stats and passive modifiers.
 #[cfg_attr(feature = "python", pyclass(get_all, eq, frozen))]
