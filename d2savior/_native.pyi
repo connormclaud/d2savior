@@ -10,8 +10,7 @@ class ItemSpec:
     slot: str
     loc: str
     all_skills: int
-    sorc_skills: int
-    pal_skills: int
+    class_skills: int
     blizz_skills: int
     cm_skills: int
     primary_skill: int
@@ -94,8 +93,7 @@ class ItemSpec:
         slot: str,
         loc: str = "",
         all_skills: int = 0,
-        sorc_skills: int = 0,
-        pal_skills: int = 0,
+        class_skills: int = 0,
         blizz_skills: int = 0,
         cm_skills: int = 0,
         primary_skill: int = 0,

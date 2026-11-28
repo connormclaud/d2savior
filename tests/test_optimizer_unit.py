@@ -65,7 +65,7 @@ class _FakeItemSpec:
     slot: str
     loc: str
     all_skills: int = 0
-    sorc_skills: int = 0
+    class_skills: int = 0
     fcr: int = 0
     fhr: int = 0
     frw: int = 0
@@ -100,7 +100,6 @@ class _FakeItemSpec:
     block_pct: int = 0
     fbr: int = 0
     def_skill: int = 0
-    pal_skills: int = 0
     primary_skill: int = 0
     ias: int = 0
     cb: int = 0
@@ -1244,7 +1243,7 @@ def test_extract_pure_helpers_and_pool_with_stubs(
     _apply_sorc_prop(sorc_acc, 188, [1, int(CharClass.SORCERESS), 1])
     _apply_sorc_prop(sorc_acc, 188, [2, int(CharClass.SORCERESS), 2])
     assert (
-        sorc_acc.sorc_skills,
+        sorc_acc.class_skills,
         sorc_acc.blizz_skills,
         sorc_acc.cm_skills,
         sorc_acc.light_skills,
@@ -1761,8 +1760,7 @@ def test_to_charm_spec_preserves_all_skills_vit_and_ene(monkeypatch: pytest.Monk
     monkeypatch.setattr("d2savior.optimizer.extract_props.CharmSpec", _FakeCharmSpec)
     acc = _PropAcc(
         all_skills=1,
-        sorc_skills=3,
-        pal_skills=2,
+        class_skills=3,
         str_bonus=15,
         dex_bonus=15,
         vit=18,
@@ -1778,7 +1776,19 @@ def test_to_charm_spec_preserves_all_skills_vit_and_ene(monkeypatch: pytest.Monk
     assert sorc_ch.vit == 18
     assert sorc_ch.ene == 14
 
-    pal_ch = acc.to_charm_spec("Torch+Anni", 3, "smite Inv", 400, int(CharClass.PALADIN))
+    pal_acc = _PropAcc(
+        all_skills=1,
+        class_skills=2,
+        str_bonus=15,
+        dex_bonus=15,
+        vit=18,
+        ene=14,
+        fr=12,
+        lr=12,
+        cr=12,
+        pr=12,
+    )
+    pal_ch = pal_acc.to_charm_spec("Torch+Anni", 3, "smite Inv", 400, int(CharClass.PALADIN))
     assert pal_ch.all_skills == 1
     assert pal_ch.skills == 2
     assert pal_ch.vit == 18
@@ -2433,7 +2443,7 @@ def test_defense_block_and_cold_armor_extraction(
     _apply_paladin_prop(
         acc_hf, 126, 3, [1, 3], d2r, 85, "holy-fire", 102, frozenset({1}), pal_offense="caster"
     )
-    assert (acc_hf.pal_skills, acc_hf.def_skill) == (3, -1)
+    assert (acc_hf.class_skills, acc_hf.def_skill) == (3, -1)
 
     acc_lvl = _PropAcc()
     _apply_paladin_prop(
@@ -2448,7 +2458,7 @@ def test_defense_block_and_cold_armor_extraction(
         frozenset({0, 1}),
         pal_offense="caster",
     )
-    assert (acc_lvl.pal_skills, acc_lvl.def_skill) == (1, -1)
+    assert (acc_lvl.class_skills, acc_lvl.def_skill) == (1, -1)
 
 
 def test_paladin_passive_max_res_cap_in_alternatives(

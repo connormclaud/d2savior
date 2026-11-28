@@ -129,7 +129,7 @@ fn test_blizzard_damage_with_custom_base_skills() {
 #[test]
 fn test_paladin_eval_breakpoints_vit_ene_no_bo_and_passive_max_res() {
     let mut armor = mk_test_item("Paladin Armor", "armor", 30, 27, 1, 20, 0);
-    armor.pal_skills = 1;
+    armor.class_skills = 1;
     armor.primary_skill = 3;
     armor.vit = 10;
     armor.ene = 7;

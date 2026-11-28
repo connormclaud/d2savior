@@ -28,8 +28,7 @@ THEORETICAL_CHAR_LEVEL = 99
 
 _COMPARE_POS_STATS: tuple[str, ...] = (
     "all_skills",
-    "sorc_skills",
-    "pal_skills",
+    "class_skills",
     "blizz_skills",
     "cm_skills",
     "primary_skill",

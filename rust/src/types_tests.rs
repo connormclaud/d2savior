@@ -160,7 +160,7 @@ fn test_fast_leaf_dps_matches_compute_dps_detailed() {
             bow,
             Stats {
                 all_skills: 1,
-                pal_skills: 1,
+                class_skills: 1,
                 dex_bonus: 120,
                 ar: 200,
                 ar_pct: 50,
@@ -416,7 +416,7 @@ fn test_fast_leaf_dps_eval_detailed_fields() {
     // 2. Combined pierce + ow + psn + splash_fire + aura_is_fire: raw_dps > eff_dps.
     let bow_stats = Stats {
         all_skills: 1,
-        pal_skills: 1,
+        class_skills: 1,
         dex_bonus: 120,
         ar: 200,
         ar_pct: 50,

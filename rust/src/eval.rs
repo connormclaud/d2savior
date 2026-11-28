@@ -327,14 +327,9 @@ pub(crate) fn eval_build_summary(
     let offense = c.offense;
     let action_skill_bonus = gear.action_skill_bonus + charm_action_skills;
     let aura_skill_bonus = gear.aura_skill_bonus + charm_aura_skills;
-    let (charm_sorc_skills, charm_pal_skills) = match class {
-        CharClass::Sorceress => (charm_class_skills, 0),
-        CharClass::Paladin => (0, charm_class_skills),
-    };
     let combined_ar_stats = Stats {
         all_skills: gear.all_skills + charm_all_skills,
-        sorc_skills: gear.sorc_skills + charm_sorc_skills,
-        pal_skills: gear.pal_skills + charm_pal_skills,
+        class_skills: gear.class_skills + charm_class_skills,
         action_skill_bonus,
         aura_skill_bonus,
         def_skill: gear.def_skill

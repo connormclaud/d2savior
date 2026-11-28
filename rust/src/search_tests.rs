@@ -239,13 +239,13 @@ fn test_result_and_ring_pair_deduplication_preserves_distinct_slots() {
     let mut ring_plain = mk_item("Ring Plain", "ring", 10, 0, 0, 20, 0);
     let mut ring_soj = mk_item("SoJ", "ring", 0, 0, 1, 0, 0);
     ring_soj.all_skills = 1;
-    ring_soj.sorc_skills = 0;
+    ring_soj.class_skills = 0;
     ring_soj.mana = 20;
     ring_soj.pct_mana = 25;
 
     let mut ring_caster = mk_item("Ring Caster", "ring", 0, 0, 1, 0, 0);
     ring_caster.all_skills = 0;
-    ring_caster.sorc_skills = 1;
+    ring_caster.class_skills = 1;
     ring_caster.mana = 0;
     ring_caster.pct_mana = 0;
 
@@ -579,12 +579,12 @@ fn test_dominated_items_do_not_inflate_evaluated_candidates() {
 #[test]
 fn test_blizz_and_cm_single_skills_rank_and_damage() {
     let mut orb_blizz = mk_item("Sorc +2/+3 Blizz Orb", "weapon", 30, 0, 0, 20, 0);
-    orb_blizz.sorc_skills = 2;
+    orb_blizz.class_skills = 2;
     orb_blizz.blizz_skills = 3;
     orb_blizz.cm_skills = 1;
 
     let mut orb_plain = mk_item("Sorc +3 Orb", "weapon", 30, 0, 0, 20, 0);
-    orb_plain.sorc_skills = 3;
+    orb_plain.class_skills = 3;
 
     let items = vec![
         orb_plain,
@@ -1335,7 +1335,7 @@ fn test_two_handed_weapon_competes_and_excludes_bo_all_skills() {
     mang_song.req_str = 44;
 
     let mut weak_orb = mk_item("Weak Orb", "weapon", 20, 0, 2, 0, 0);
-    weak_orb.sorc_skills = 0;
+    weak_orb.class_skills = 0;
     let weak_shield = mk_item("Weak Shield", "shield", 20, 0, 2, 10, 0);
 
     let items = vec![
@@ -2113,7 +2113,7 @@ fn test_exhaustive_brute_force_paladin_leveling_modes() {
                     rng.gen_range(0, 25),
                     0,
                 );
-                it.pal_skills = rng.pick(&[0, 0, 1]);
+                it.class_skills = rng.pick(&[0, 0, 1]);
                 it.primary_skill = rng.pick(&[0, 0, 2, 4]);
                 it.ias = rng.pick(&[0, 10, 20]);
                 it.cb = rng.pick(&[0, 15, 25]);
@@ -2301,7 +2301,7 @@ fn test_set_bonus_2pc_unlocks_ias_and_ignores_duplicate_rings() {
     sigon_boots.set_bonuses = vec![(3, b3_mf)];
 
     let mut magefist = mk_item("Magefist", "gloves", 20, 0, 0, 0, 0);
-    magefist.pal_skills = 1;
+    magefist.class_skills = 1;
 
     let mut halo_1 = mk_item("Angelic Halo A", "ring", 0, 0, 0, 0, 0);
     halo_1.life = 20;

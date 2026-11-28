@@ -106,8 +106,7 @@ _PAL_SIMPLE_STAT_MAP: frozendict[int, str] = frozendict({93: "ias", 136: "cb", 6
 
 _USEFUL_ITEM_STATS: tuple[str, ...] = (
     "all_skills",
-    "sorc_skills",
-    "pal_skills",
+    "class_skills",
     "blizz_skills",
     "cm_skills",
     "primary_skill",
@@ -170,8 +169,7 @@ _USEFUL_ITEM_STATS: tuple[str, ...] = (
 @dataclass
 class _PropAcc:
     all_skills: int = 0
-    sorc_skills: int = 0
-    pal_skills: int = 0
+    class_skills: int = 0
     blizz_skills: int = 0
     cm_skills: int = 0
     primary_skill: int = 0
@@ -263,7 +261,7 @@ class _PropAcc:
             slot=slot,
             loc=loc,
             all_skills=self.all_skills,
-            sorc_skills=self.sorc_skills,
+            class_skills=self.class_skills,
             fcr=self.fcr,
             fhr=self.fhr,
             frw=self.frw,
@@ -294,7 +292,6 @@ class _PropAcc:
             cm_skills=self.cm_skills,
             defense=self.defense,
             belt_slots=belt_slots,
-            pal_skills=self.pal_skills,
             primary_skill=self.primary_skill,
             ias=self.ias,
             cb=self.cb,
@@ -350,7 +347,6 @@ class _PropAcc:
         unique_id: int | None,
         char_class: int = int(CharClass.SORCERESS),
     ) -> CharmSpec:
-        cls_skills = self.pal_skills if char_class == int(CharClass.PALADIN) else self.sorc_skills
         return CharmSpec(
             name=name,
             size=size,
@@ -367,7 +363,7 @@ class _PropAcc:
             light_skills=self.light_skills,
             str_bonus=self.str_bonus,
             dex_bonus=self.dex_bonus,
-            skills=cls_skills,
+            skills=self.class_skills,
             unique_id=unique_id,
             cold_sunder=bool(self.cold_sunder) and char_class == int(CharClass.SORCERESS),
             action_skills=self.action_skill_bonus,
@@ -403,7 +399,7 @@ def _apply_sorc_prop(
 ) -> None:
     sorc_id = int(CharClass.SORCERESS)
     if pid == 83 and len(params) >= 2 and params[0] == sorc_id:
-        acc.sorc_skills += params[1]
+        acc.class_skills += params[1]
     elif pid == 331:
         acc.cold_dmg_pct += pval if pval is not None else (params[0] if params else 0)
     elif pid == 107 and len(params) >= 2:
@@ -420,7 +416,7 @@ def _apply_sorc_prop(
         if params[0] == 1:
             acc.light_skills += params[2]
         elif params[0] == 2:
-            acc.sorc_skills += params[2]
+            acc.class_skills += params[2]
 
 
 def _apply_paladin_staffmod(
@@ -471,7 +467,7 @@ def _apply_paladin_skill_prop(
     pal_id = int(CharClass.PALADIN)
     split_skills = pal_offense in ("zeal", "melee", "smite")
     if pid == 83 and len(params) >= 2 and params[0] == pal_id:
-        acc.pal_skills += params[1]
+        acc.class_skills += params[1]
         return True
     if pid == 188 and len(params) >= 3 and params[1] == pal_id:
         if split_skills:
@@ -481,7 +477,7 @@ def _apply_paladin_skill_prop(
             elif params[0] == 1:
                 acc.aura_skill_bonus += params[2]
         elif params[0] in pal_tabs:
-            acc.pal_skills += params[2]
+            acc.class_skills += params[2]
             if params[0] != 0:
                 acc.def_skill -= params[2]
         elif params[0] == 0:
@@ -491,7 +487,7 @@ def _apply_paladin_skill_prop(
         if split_skills:
             acc.aura_skill_bonus += params[1]
         else:
-            acc.pal_skills += params[1]
+            acc.class_skills += params[1]
             acc.def_skill -= params[1]
         return True
     if pid == 107 and len(params) >= 2:

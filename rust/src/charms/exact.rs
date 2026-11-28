@@ -526,7 +526,7 @@ impl<'a> CharmSolver<'a> {
         if self.sunder_opts.len() == 1 {
             let sunder = self.sunder_opts[0];
             let slot_budget = (self.raw_max_slots - sunder.size).max(0);
-            let leaf_s = leaf.add(sunder.to_stats(self.c.class));
+            let leaf_s = leaf.add(sunder.to_stats());
             let rem_min = (min_main_needed - sunder_main(sunder)).max(0);
             return self
                 .solve_for_sunder(leaf_s, caps, reqs, 0, slot_budget, Some(sunder), rem_min)
@@ -551,7 +551,7 @@ impl<'a> CharmSolver<'a> {
                 .map_or(min_main_needed, |b| b.score.0.max(min_main_needed));
             let rem_min = (target_main - s_main).max(0);
             let slot_budget = (self.raw_max_slots - sunder.size).max(0);
-            let leaf_s = leaf.add(sunder.to_stats(self.c.class));
+            let leaf_s = leaf.add(sunder.to_stats());
             let Some(idxs) = self.solve_for_sunder(
                 leaf_s,
                 caps,

@@ -180,7 +180,7 @@ impl OffenseProfile {
         }
         let targets = c.target.targets.max(1) as f64;
         let cold_mult = 1.0 + s.cold_dmg_pct.max(0) as f64 / 100.0;
-        let eff_blizz = (s.all_skills + s.sorc_skills + s.blizz_skills).max(0) as usize;
+        let eff_blizz = (s.all_skills + s.class_skills + s.blizz_skills).max(0) as usize;
         let blizz_per_cast = caster.blizz_dmg[eff_blizz.min(caster.blizz_dmg.len() - 1)]
             * cold_mult
             * 3.0
@@ -193,7 +193,7 @@ impl OffenseProfile {
             return blizz_per_cast * (25.0 / cd_ready as f64);
         }
 
-        let eff_filler = (s.all_skills + s.sorc_skills + s.action_skill_bonus).max(0) as usize;
+        let eff_filler = (s.all_skills + s.class_skills + s.action_skill_bonus).max(0) as usize;
         let filler_mult = if caster.filler_is_aoe { targets } else { 1.0 };
         let filler_per_cast = caster.filler_dmg[eff_filler.min(caster.filler_dmg.len() - 1)]
             * cold_mult
@@ -391,8 +391,8 @@ impl OffenseProfile {
         let aura_is_fire = !is_smite && melee.is_some_and(|m| m.aura_is_fire);
         let holy_shield_base_lvl = melee.map_or(0, |m| m.holy_shield_base_lvl);
 
-        let eff_action = (leaf.all_skills + leaf.pal_skills + leaf.action_skill_bonus).max(0) as usize;
-        let eff_aura = (leaf.all_skills + leaf.pal_skills + leaf.aura_skill_bonus).max(0) as usize;
+        let eff_action = (leaf.all_skills + leaf.class_skills + leaf.action_skill_bonus).max(0) as usize;
+        let eff_aura = (leaf.all_skills + leaf.class_skills + leaf.aura_skill_bonus).max(0) as usize;
 
         let hits = if action_hits.is_empty() {
             1
@@ -575,7 +575,7 @@ impl OffenseProfile {
         let hs_dmg_2x = if is_smite && holy_shield_base_lvl > 0 {
             let hs_slvl = (holy_shield_base_lvl
                 + leaf.all_skills
-                + leaf.pal_skills
+                + leaf.class_skills
                 + leaf.def_skill)
                 .max(1);
             holy_shield_smite_dmg_2x(hs_slvl)

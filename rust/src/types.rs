@@ -371,7 +371,7 @@ with_stat_fields!(define_item_spec);
 
 impl ItemSpec {
     pub fn total_skills(&self) -> i32 {
-        self.all_skills + self.sorc_skills + self.pal_skills
+        self.all_skills + self.class_skills
     }
 
     pub(crate) fn weapon_class(&self) -> WeaponClass {
@@ -520,15 +520,10 @@ macro_rules! define_charm_spec {
                 self.general_skills() + self.action_skills + self.aura_skills
             }
 
-            pub(crate) fn to_stats(&self, class: CharClass) -> Stats {
-                let (sorc_skills, pal_skills) = match class {
-                    CharClass::Sorceress => (self.skills, 0),
-                    CharClass::Paladin => (0, self.skills),
-                };
+            pub(crate) fn to_stats(&self) -> Stats {
                 Stats {
                     $( $field: self.$field, )*
-                    sorc_skills,
-                    pal_skills,
+                    class_skills: self.skills,
                     action_skill_bonus: self.action_skills,
                     aura_skill_bonus: self.aura_skills,
                     def_skill: self.action_skills,

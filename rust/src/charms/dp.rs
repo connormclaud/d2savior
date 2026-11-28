@@ -122,15 +122,10 @@ macro_rules! define_stat_totals {
                 }
             }
 
-            pub(super) fn add_to_stats(self, leaf: Stats, class: CharClass) -> Stats {
-                let (cur_sorc, cur_pal) = match class {
-                    CharClass::Sorceress => (self.class_skills, 0),
-                    CharClass::Paladin => (0, self.class_skills),
-                };
+            pub(super) fn add_to_stats(self, leaf: Stats) -> Stats {
                 Stats {
                     all_skills: leaf.all_skills + self.all_skills,
-                    sorc_skills: leaf.sorc_skills + cur_sorc,
-                    pal_skills: leaf.pal_skills + cur_pal,
+                    class_skills: leaf.class_skills + self.class_skills,
                     action_skill_bonus: leaf.action_skill_bonus + self.action_skills,
                     aura_skill_bonus: leaf.aura_skill_bonus + self.aura_skills,
                     def_skill: leaf.def_skill + self.action_skills,

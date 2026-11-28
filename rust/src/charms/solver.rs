@@ -33,10 +33,10 @@ impl<'a> CharmSolver<'a> {
         let base = self
             .sunder_opts
             .iter()
-            .map(|s| s.to_stats(self.c.class))
+            .map(|s| s.to_stats())
             .reduce(|acc, s| acc.max_each(s))
             .unwrap_or_default();
-        self.ub.add_to_stats(base, self.c.class)
+        self.ub.add_to_stats(base)
     }
 
     pub(crate) fn new(raw_pool: &[&'a CharmSpec], c: ResolvedConstraints<'a>) -> Self {

@@ -146,8 +146,8 @@ impl<'a> CharmSolver<'a> {
             }
         }
 
-        fn leaf_with_cur(leaf: Stats, cur: StatTotals, class: CharClass) -> Stats {
-            cur.add_to_stats(leaf, class)
+        fn leaf_with_cur(leaf: Stats, cur: StatTotals, _class: CharClass) -> Stats {
+            cur.add_to_stats(leaf)
         }
 
         fn dfs_dps<'b, 'a>(
@@ -517,7 +517,7 @@ impl<'a> CharmSolver<'a> {
                     psn_dps_2x: cur.psn_dps_2x + rem_psn,
                     ..Default::default()
                 }
-                .add_to_stats(leaf, st.c.class);
+                .add_to_stats(leaf);
                 st.c.offense.compute_eff_dps(st.hw, ub_dps_stats, &st.c)
             };
             let best_top2 = (mut_ctx.best_score.primary, mut_ctx.best_score.secondary);

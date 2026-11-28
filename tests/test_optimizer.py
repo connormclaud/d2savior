@@ -73,9 +73,9 @@ def test_evaluate_build_and_constraints_validation() -> None:
         ItemSpec(
             "Spirit Shield", "shield", "test", all_skills=2, fcr=34, fhr=55, lr=35, cr=35, pr=35
         ),
-        ItemSpec("Tiara", "helm", "test", sorc_skills=2),
+        ItemSpec("Tiara", "helm", "test", class_skills=2),
         ItemSpec("Smoke", "armor", "test", fhr=20, fr=50, lr=50, cr=50, pr=50),
-        ItemSpec("Grim Noose", "amulet", "test", sorc_skills=1, fcr=5, lr=30),
+        ItemSpec("Grim Noose", "amulet", "test", class_skills=1, fcr=5, lr=30),
         ItemSpec("Belt", "belt", "test", fcr=10, life=50, cr=27),
         ItemSpec("Trang-Oul's", "gloves", "test", fcr=20, cr=30),
         ItemSpec("Aldur's", "boots", "test", frw=40, life=50, fr=48),
@@ -138,7 +138,7 @@ def test_str_dex_requirements_pyo3() -> None:
             pr=35,
             req_str=156,
         ),
-        ItemSpec("Tiara", "helm", "test", sorc_skills=2, fr=40, lr=40, cr=50, pr=40),
+        ItemSpec("Tiara", "helm", "test", class_skills=2, fr=40, lr=40, cr=50, pr=40),
         ItemSpec("Skullder's", "armor", "test", all_skills=1, mf=111, req_str=97),
         ItemSpec("Amulet", "amulet", "test", fcr=20, fr=30, lr=30, cr=30),
         ItemSpec("Tal's Belt", "belt", "test", mf=15, dex_bonus=20),
@@ -394,7 +394,7 @@ def test_extract_prop_acc_per_level_and_cold_tab(
     assert acc.life == 0
     assert acc.mana == 0
     assert acc.mf == (10 * 89) >> 3
-    assert acc.sorc_skills == 1
+    assert acc.class_skills == 1
 
 
 @requires_native
@@ -490,9 +490,9 @@ def test_max_resistance_cap_in_evaluate_and_optimize() -> None:
         ItemSpec(
             "Spirit Shield", "shield", "test", all_skills=2, fcr=34, fhr=55, lr=35, cr=35, pr=35
         ),
-        ItemSpec("Tiara", "helm", "test", sorc_skills=2, fr=40, lr=40, cr=40, pr=40),
+        ItemSpec("Tiara", "helm", "test", class_skills=2, fr=40, lr=40, cr=40, pr=40),
         ItemSpec("Guardian Angel", "armor", "test", max_fr=15, max_lr=15, max_cr=15, max_pr=15),
-        ItemSpec("Amulet", "amulet", "test", sorc_skills=1, fcr=10, fr=30, lr=30, cr=30, pr=30),
+        ItemSpec("Amulet", "amulet", "test", class_skills=1, fcr=10, fr=30, lr=30, cr=30, pr=30),
         ItemSpec("Belt", "belt", "test", fcr=10, fr=20),
         ItemSpec("Magefist", "gloves", "test", fcr=20, fr=30),
         ItemSpec("Hotspur", "boots", "test", fr=45, max_fr=15),
@@ -589,9 +589,9 @@ def test_unique_charm_limit_prevents_duplicates() -> None:
         ItemSpec(
             "Spirit Shield", "shield", "test", all_skills=2, fcr=35, fhr=55, lr=35, cr=35, pr=35
         ),
-        ItemSpec("Tiara", "helm", "test", sorc_skills=2, fcr=20, fr=40, lr=40, cr=40, pr=40),
+        ItemSpec("Tiara", "helm", "test", class_skills=2, fcr=20, fr=40, lr=40, cr=40, pr=40),
         ItemSpec("Skin", "armor", "test", all_skills=1, fcr=30, fr=35, lr=35, cr=35, pr=35),
-        ItemSpec("Amulet", "amulet", "test", sorc_skills=2, fcr=15, fr=30, lr=30, cr=30, pr=30),
+        ItemSpec("Amulet", "amulet", "test", class_skills=2, fcr=15, fr=30, lr=30, cr=30, pr=30),
         ItemSpec("Belt", "belt", "test", fr=20, lr=20, cr=20, pr=20),
         ItemSpec("Trangs", "gloves", "test", fcr=20, cr=30),
         ItemSpec("Boots", "boots", "test", fr=20, lr=20, cr=20, pr=20),
@@ -769,19 +769,19 @@ def test_single_skill_blizzard_orb_extraction_and_ranking(
     )
     orb_spec = item_to_spec(orb, "test", resolver, 0x63, char_level=99)
     assert isinstance(orb_spec, ItemSpec)
-    assert orb_spec.sorc_skills == 2
+    assert orb_spec.class_skills == 2
     assert orb_spec.blizz_skills == 3
     assert orb_spec.cm_skills == 1
 
     items = [
         ItemSpec(
-            "Sorc +3 Orb", "weapon", "test", sorc_skills=3, fcr=30, fr=20, lr=20, cr=20, pr=20
+            "Sorc +3 Orb", "weapon", "test", class_skills=3, fcr=30, fr=20, lr=20, cr=20, pr=20
         ),
         ItemSpec(
             "Sorc +2/+3 Blizz Orb",
             "weapon",
             "test",
-            sorc_skills=2,
+            class_skills=2,
             blizz_skills=3,
             cm_skills=1,
             fcr=30,
@@ -794,12 +794,12 @@ def test_single_skill_blizzard_orb_extraction_and_ranking(
             "Spirit Shield", "shield", "test", all_skills=2, fcr=35, fhr=55, lr=35, cr=35, pr=35
         ),
         ItemSpec(
-            "Tiara", "helm", "test", sorc_skills=2, fcr=20, fhr=20, fr=30, lr=30, cr=30, pr=30
+            "Tiara", "helm", "test", class_skills=2, fcr=20, fhr=20, fr=30, lr=30, cr=30, pr=30
         ),
         ItemSpec(
             "Armor", "armor", "test", all_skills=1, fcr=20, fhr=20, fr=40, lr=40, cr=40, pr=40
         ),
-        ItemSpec("Amulet", "amulet", "test", sorc_skills=2, fcr=10, fr=30, lr=30, cr=30, pr=30),
+        ItemSpec("Amulet", "amulet", "test", class_skills=2, fcr=10, fr=30, lr=30, cr=30, pr=30),
         ItemSpec("Belt", "belt", "test", fr=30, lr=30, cr=30, pr=30),
         ItemSpec("Trangs", "gloves", "test", fcr=20, fr=30, lr=30, cr=30, pr=30),
         ItemSpec("Boots", "boots", "test", fr=40, lr=40, cr=40, pr=40),
@@ -903,9 +903,9 @@ def test_belt_slots_and_defense_prefer_upped_goldwrap(
             pr=35,
             req_str=156,
         ),
-        ItemSpec("Helm", "helm", "test", sorc_skills=2, fcr=20, fr=40, lr=40, cr=40),
+        ItemSpec("Helm", "helm", "test", class_skills=2, fcr=20, fr=40, lr=40, cr=40),
         ItemSpec("Skullder", "armor", "test", all_skills=1, mf=110),
-        ItemSpec("Amulet", "amulet", "test", sorc_skills=2, fcr=15, fr=30, lr=30, cr=30),
+        ItemSpec("Amulet", "amulet", "test", class_skills=2, fcr=15, fr=30, lr=30, cr=30),
         non_upped,
         upped,
         ItemSpec("Trangs", "gloves", "test", fcr=20, cr=30),
@@ -1128,7 +1128,7 @@ def test_paladin_prop_extraction_and_detect_spec(
     )
 
     hf_acc = _extract_prop_acc(dummy_item, d2r, 0x63, 29, char_class=3, pal_spec="holy-fire")
-    assert hf_acc.pal_skills == 2  # +2 pal only (tabs/fire/single split for melee/zeal)
+    assert hf_acc.class_skills == 2  # +2 pal only (tabs/fire/single split for melee/zeal)
     assert hf_acc.primary_skill == 0
     assert hf_acc.action_skill_bonus == 1  # +1 combat tab
     assert hf_acc.aura_skill_bonus == 8  # +1 off aura +1 fire +6 Holy Fire
@@ -1139,7 +1139,7 @@ def test_paladin_prop_extraction_and_detect_spec(
     assert hf_acc.life_leech == 7
 
     smite_acc = _extract_prop_acc(dummy_item, d2r, 0x63, 29, char_class=3, pal_spec="smite")
-    assert smite_acc.pal_skills == 2  # +2 pal only (tabs split for Smite vs Fanaticism)
+    assert smite_acc.class_skills == 2  # +2 pal only (tabs split for Smite vs Fanaticism)
     assert smite_acc.primary_skill == 0
     assert smite_acc.action_skill_bonus == 1  # +1 combat tab
     assert smite_acc.def_skill == 1  # +1 combat tab also boosts Holy Shield
@@ -1704,9 +1704,9 @@ def test_torch_and_annihilus_vit_ene_and_bo_all_skills() -> None:
     items = [
         ItemSpec("Spirit Sword", "weapon", "test", all_skills=2, fcr=35, fhr=55),
         ItemSpec("Spirit Shield", "shield", "test", all_skills=2, fcr=35, fhr=55),
-        ItemSpec("Tiara", "helm", "test", sorc_skills=2),
+        ItemSpec("Tiara", "helm", "test", class_skills=2),
         ItemSpec("Smoke", "armor", "test", fhr=20, fr=180, lr=180, cr=180, pr=180),
-        ItemSpec("Grim Noose", "amulet", "test", sorc_skills=1, fcr=20),
+        ItemSpec("Grim Noose", "amulet", "test", class_skills=1, fcr=20),
         ItemSpec("Belt", "belt", "test", fcr=20),
         ItemSpec("Trang-Oul's", "gloves", "test", fcr=20),
         ItemSpec("Aldur's", "boots", "test", frw=40),

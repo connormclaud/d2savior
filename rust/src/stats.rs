@@ -5,8 +5,7 @@ macro_rules! with_stat_fields {
     ($mac:ident) => {
         $mac!(
             all_skills => add,
-            sorc_skills => add,
-            pal_skills => add,
+            class_skills => add,
             blizz_skills => add,
             cm_skills => add,
             primary_skill => add,
@@ -120,7 +119,7 @@ with_stat_fields!(define_stats);
 
 impl Stats {
     pub(crate) fn total_skills(self) -> i32 {
-        self.all_skills + self.sorc_skills + self.pal_skills
+        self.all_skills + self.class_skills
     }
 
     pub(crate) fn primary_power_skills(self) -> i32 {
