@@ -3,24 +3,24 @@ Socket Quests (smite): Normal: Locked | Nightmare: Locked | Hell: Locked
 Socketables (owned + theoretical, lvl 99 unbound Str/Dex): 23 runes, 31 gem types, 34 jewels | Eligible items: 71
 
 --- Paladin Leveling (lvl 99, Normal) ---
-Baseline: DPS: 1228 | Skills: +0 | IAS: 50% (BP 39%) | CB: 95% | FHR: 201% (BP 200%) | MF: 36% | Normal Res: F:86 L:75 C:75 P:75 | Life: 584
+Baseline: DPS: 1067 | Skills: +0 | IAS: 50% (BP 39%) | CB: 95% | FHR: 201% (BP 200%) | MF: 36% | Normal Res: F:86 L:75 C:75 P:75 | Life: 565
   #1 Sacred Targe [Stash Tab 3] (shield, 4 sockets) -> Spirit (Tal+Thul+Ort+Amn)
-     Gain  : Skills +0->+5, DPS 1228->2047, IAS BP 39%->19%, MF 36%->22%, Normal Res F:86->76, Life 584->801
-     Result: DPS: 2047 | Skills: +5 | IAS: 30% (BP 19%) | CB: 60% | FHR: 201% (BP 200%) | MF: 22% | Normal Res: F:76 L:75 C:75 P:75 | Life: 801
+     Gain  : Skills +0->+5, DPS 1067->1783, IAS BP 39%->19%, MF 36%->22%, Normal Res F:86->76, Life 565->779
+     Result: DPS: 1783 | Skills: +5 | IAS: 30% (BP 19%) | CB: 60% | FHR: 201% (BP 200%) | MF: 22% | Normal Res: F:76 L:75 C:75 P:75 | Life: 779
      Gear changes: weapon: (empty) -> Spirit (Broad Sword); shield: replaces (empty); armor: Smoke (Mage Plate) -> Silks of the Victor (Ancient Armor); amulet: Nokozan Relic (Amulet) -> Angelic Wings (Amulet); boots: Storm Blazer (Rare Scarabshell Boots) -> Gore Rider (War Boots)
   #2 Superior Rondache [smite Stash] (shield, 4 sockets) -> Spirit (Tal+Thul+Ort+Amn)
-     Gain  : Skills +0->+5, DPS 1228->2047, IAS BP 39%->19%, MF 36%->22%, Normal Res F:86->76, Life 584->801
-     Result: DPS: 2047 | Skills: +5 | IAS: 30% (BP 19%) | CB: 60% | FHR: 201% (BP 200%) | MF: 22% | Normal Res: F:76 L:75 C:75 P:75 | Life: 801
+     Gain  : Skills +0->+5, DPS 1067->1783, IAS BP 39%->19%, MF 36%->22%, Normal Res F:86->76, Life 565->779
+     Result: DPS: 1783 | Skills: +5 | IAS: 30% (BP 19%) | CB: 60% | FHR: 201% (BP 200%) | MF: 22% | Normal Res: F:76 L:75 C:75 P:75 | Life: 779
      Gear changes: weapon: (empty) -> Spirit (Broad Sword); shield: replaces (empty); armor: Smoke (Mage Plate) -> Silks of the Victor (Ancient Armor); amulet: Nokozan Relic (Amulet) -> Angelic Wings (Amulet); boots: Storm Blazer (Rare Scarabshell Boots) -> Gore Rider (War Boots)
   #3 Guillaume's Face (Winged Helm) [mule_sets Inv] (helm, 1 socket) + Shael Rune [Stash Tab 6]
-     Gain  : DPS 1228->1765, IAS BP 39%->58%, MF 36%->7%, Normal Res F:86->76, Life 584->654
-     Result: DPS: 1765 | Skills: +0 | IAS: 70% (BP 58%) | CB: 85% | FHR: 201% (BP 200%) | MF: 7% | Normal Res: F:76 L:75 C:75 P:75 | Life: 654
-     Gear changes: armor: Smoke (Mage Plate) -> Stealth (Studded Leather); amulet: Nokozan Relic (Amulet) -> Angelic Wings (Amulet); gloves: Horazon's Hold (Demonhide Gloves) -> Laying of Hands (Bramble Mitts)
+     Gain  : Skills +0->+2, DPS 1067->1522, IAS BP 39%->0%, CBF gained, MF 36%->25%, Normal Res F:86->76, Life 565->760
+     Result: DPS: 1522 | Skills: +2 | IAS: 0% (BP 0%) | CB: 60% | FHR: 201% (BP 200%) | MF: 25% | Normal Res: F:76 L:75 C:75 P:75 | Life: 760
+     Gear changes: weapon: (empty) -> Spirit (Broad Sword); shield: (empty) -> Rhyme (Kite Shield); armor: Smoke (Mage Plate) -> Stealth (Studded Leather); amulet: Nokozan Relic (Amulet) -> Angelic Wings (Amulet); boots: Storm Blazer (Rare Scarabshell Boots) -> Gore Rider (War Boots)
   #4 Rockstopper (Sallet) [Stash Tab 4] (helm, 1 socket) + Shael Rune [Stash Tab 6]
-     Gain  : DPS 1228->1619, MF 36%->14%, Normal Res F:86->76, Life 584->732
-     Result: DPS: 1619 | Skills: +0 | IAS: 50% (BP 39%) | CB: 60% | FHR: 201% (BP 200%) | MF: 14% | Normal Res: F:76 L:75 C:75 P:75 | Life: 732
-     Gear changes: helm: replaces Guillaume's Face (Winged Helm); armor: Smoke (Mage Plate) -> Stealth (Studded Leather); amulet: Nokozan Relic (Amulet) -> Angelic Wings (Amulet)
+     Gain  : Skills +0->+2, DPS 1067->1407, IAS BP 39%->0%, CBF gained, MF 36%->32%, Normal Res F:86->76, Life 565->798
+     Result: DPS: 1407 | Skills: +2 | IAS: 0% (BP 0%) | CB: 25% | FHR: 201% (BP 200%) | MF: 32% | Normal Res: F:76 L:75 C:75 P:75 | Life: 798
+     Gear changes: weapon: (empty) -> Spirit (Broad Sword); shield: (empty) -> Rhyme (Kite Shield); helm: replaces Guillaume's Face (Winged Helm); armor: Smoke (Mage Plate) -> Stealth (Studded Leather); amulet: Nokozan Relic (Amulet) -> Angelic Wings (Amulet); boots: Storm Blazer (Rare Scarabshell Boots) -> Gore Rider (War Boots)
   #5 Rockstopper (Sallet) [mule_unique Stash] (helm, 1 socket) + Shael Rune [Stash Tab 6]
-     Gain  : DPS 1228->1629, MF 36%->14%, Normal Res F:86->76, Life 584->729
-     Result: DPS: 1629 | Skills: +0 | IAS: 50% (BP 39%) | CB: 60% | FHR: 201% (BP 200%) | MF: 14% | Normal Res: F:76 L:75 C:75 P:75 | Life: 729
-     Gear changes: helm: replaces Guillaume's Face (Winged Helm); armor: Smoke (Mage Plate) -> Stealth (Studded Leather); amulet: Nokozan Relic (Amulet) -> Angelic Wings (Amulet)
+     Gain  : Skills +0->+2, DPS 1067->1407, IAS BP 39%->0%, CBF gained, MF 36%->32%, Normal Res F:86->76, Life 565->798
+     Result: DPS: 1407 | Skills: +2 | IAS: 0% (BP 0%) | CB: 25% | FHR: 201% (BP 200%) | MF: 32% | Normal Res: F:76 L:75 C:75 P:75 | Life: 798
+     Gear changes: weapon: (empty) -> Spirit (Broad Sword); shield: (empty) -> Rhyme (Kite Shield); helm: replaces Guillaume's Face (Winged Helm); armor: Smoke (Mage Plate) -> Stealth (Studded Leather); amulet: Nokozan Relic (Amulet) -> Angelic Wings (Amulet); boots: Storm Blazer (Rare Scarabshell Boots) -> Gore Rider (War Boots)

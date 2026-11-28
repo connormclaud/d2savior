@@ -588,9 +588,15 @@ impl OffenseProfile {
         };
 
         let psn_exp = (2.0 * rate).max(1.0);
+        let eff_rate = if leaf.cbf > 0 {
+            rate
+        } else {
+            rate * NO_CBF_CHILL_RATE_MULT
+        };
         let mut fast = FastLeafDps {
             is_smite,
             rate,
+            eff_rate,
             ias_bp,
             display_frames,
             last_frames,
@@ -648,10 +654,15 @@ impl OffenseProfile {
     }
 }
 
+/// Effective attack-rate multiplier when lacking Cannot Be Frozen (CBF).
+/// Models ~30% chill uptime in combat with ~50% attack-speed loss while chilled (~15% net loss).
+pub(crate) const NO_CBF_CHILL_RATE_MULT: f64 = 0.85;
+
 #[derive(Clone, Copy)]
 pub(crate) struct FastLeafDps {
     pub(crate) is_smite: bool,
     pub(crate) rate: f64,
+    pub(crate) eff_rate: f64,
     pub(crate) ias_bp: i32,
     pub(crate) display_frames: i32,
     pub(crate) last_frames: i32,
@@ -826,7 +837,7 @@ impl FastLeafDps {
             let phys_avg = self.phys_2x_0.max(0) as f64 / 2.0;
             let direct_hit =
                 phys_avg * self.phys_scale * c.decrep_mult + self.base_direct_non_phys;
-            let eff_dps = direct_hit * self.rate + c.d_ow_dps;
+            let eff_dps = direct_hit * self.eff_rate + c.d_ow_dps;
             return EvalCore {
                 cth: 1.0,
                 direct_hit,
@@ -859,7 +870,7 @@ impl FastLeafDps {
         } else {
             0.0
         };
-        let eff_dps = (direct_hit * c.cth + auto_hit_attack) * c.pierce_mult * self.rate
+        let eff_dps = (direct_hit * c.cth + auto_hit_attack) * c.pierce_mult * self.eff_rate
             + self.base_aura_pulse_dps
             + c.d_ow_dps
             + d_psn_dps;

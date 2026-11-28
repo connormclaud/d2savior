@@ -1,5 +1,5 @@
 === Paladin Leveling — Holy Fire (lvl 30, Normal) ===
-Option #1: High Breakpoint (86% FHR, 4f) (evaluated 834 pruned sets):
+Option #1: High Breakpoint (86% FHR, 4f) (evaluated 985 pruned sets):
   DPS: 1424 (Attack) | AR: 1009 (85%) | Skills: +4 (Holy Fire lvl 24) | CBF: Yes | IAS: 40% (BP 32%, 11f) | CB: 0% | DR: 0% | LL: 17%
   FHR: 90% (BP 86%, 4f) | FCR: 34% (BP 30%, 12f) | FRW: 35% | MF: 30%
   Normal Res: F:76%(80) L:75%(75) C:75%(97) P:75%(77)
@@ -19,7 +19,7 @@ Option #1: High Breakpoint (86% FHR, 4f) (evaluated 834 pruned sets):
       - remove: Iron Large Charm of Inertia, Ocher Small Charm, Ocher Small Charm of Sustenance, Lapis Small Charm, Shimmering Large Charm, Russet Grand Charm, Sapphire Grand Charm, Lapis Small Charm
       - keep  : Tangerine Small Charm of Balance, Small Charm of Balance, Russet Small Charm, Shimmering Large Charm, Bronze Small Charm of Balance, Grand Charm of Balance
       - add   : Jade Small Charm [smite Stash], Amber Large Charm of Greed [Stash Tab 5], Russet Small Charm [smite Stash], Jade Large Charm of Balance [Stash Tab 5], Crimson Small Charm of Shock [smite Stash], Crimson Small Charm of Flame [smite Stash], Fine Grand Charm of Greed [mule_charms Inv], Fine Small Charm [mule_charms Stash], Fine Small Charm [mule_charms Inv], Fine Small Charm [Stash Tab 5]
-Option #2: Lower FHR BP (48%, 5f) — More Life / FRW (evaluated 1121 pruned sets):
+Option #2: Lower FHR BP (48%, 5f) — More Life / FRW (evaluated 1086 pruned sets):
   DPS: 1442 (Attack) | AR: 1061 (85%) | Skills: +4 (Holy Fire lvl 24) | CBF: Yes | IAS: 40% (BP 32%, 11f) | CB: 0% | DR: 0% | LL: 17%
   FHR: 55% (BP 48%, 5f) | FCR: 34% (BP 30%, 12f) | FRW: 40% | MF: 30%
   Normal Res: F:76%(79) L:75%(79) C:75%(106) P:75%(81)

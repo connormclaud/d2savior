@@ -370,8 +370,9 @@ fn test_ar_and_chance_to_hit_scaling() {
     assert_eq!(res_plain.cth, 63);
     assert!(res_plain.used_zeal);
     let zeal_rate = 25.0 * 2.0 / (res_plain.ias_frames + res_plain.ias_last_frames) as f64;
+    let zeal_eff_rate = zeal_rate * crate::dps::NO_CBF_CHILL_RATE_MULT;
     let expected_cth_plain = 518.0 / (518.0 + 300.0);
-    let expected_dps_plain = 100.0 * expected_cth_plain * zeal_rate;
+    let expected_dps_plain = 100.0 * expected_cth_plain * zeal_eff_rate;
     let expected_raw_dps_plain = 100.0 * zeal_rate;
     assert!((res_plain.dps - expected_dps_plain).abs() < 1e-6);
     assert!((res_plain.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
@@ -385,7 +386,7 @@ fn test_ar_and_chance_to_hit_scaling() {
     // +1 aura gives aura_ar_pct=60% => total_ar_pct = 20 + 10 + 60 = 90 => 305 * 190 / 100 = 579.
     assert_eq!(res_eth_conv_champ.ar, 579);
     assert_eq!(res_eth_conv_champ.cth, 84);
-    let expected_dps_eth_conv_champ = 100.0 * (579.0 / (579.0 + 112.5)) * zeal_rate;
+    let expected_dps_eth_conv_champ = 100.0 * (579.0 / (579.0 + 112.5)) * zeal_eff_rate;
     assert!((res_eth_conv_champ.dps - expected_dps_eth_conv_champ).abs() < 1e-6);
     assert!((res_eth_conv_champ.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
 
@@ -413,7 +414,7 @@ fn test_ar_and_chance_to_hit_scaling() {
     let res_eth_conv = eval_build_core(&[&wep_eth, &ring_sk], &[&charm_ar], &c_trash, 1);
     assert_eq!(res_eth_conv.ar, 579);
     assert_eq!(res_eth_conv.cth, 89);
-    let expected_dps_eth_conv = 100.0 * (579.0 / (579.0 + 75.0)) * zeal_rate;
+    let expected_dps_eth_conv = 100.0 * (579.0 / (579.0 + 75.0)) * zeal_eff_rate;
     assert!((res_eth_conv.dps - expected_dps_eth_conv).abs() < 1e-6);
     assert!((res_eth_conv.raw_dps - expected_raw_dps_plain).abs() < 1e-6);
 
@@ -422,7 +423,7 @@ fn test_ar_and_chance_to_hit_scaling() {
     let expected_cth_champ: f64 = 127.0 / (127.0 + 300.0);
     assert_eq!(res_itd_champ.ar, 127);
     assert_eq!(res_itd_champ.cth, (expected_cth_champ * 100.0).round() as i32);
-    assert!((res_itd_champ.dps - 100.0 * expected_cth_champ * zeal_rate).abs() < 1e-6);
+    assert!((res_itd_champ.dps - 100.0 * expected_cth_champ * zeal_eff_rate).abs() < 1e-6);
 
     let res_itd_boss = eval_build_core(&[&wep_itd], &[], &c_boss, 1);
     assert_eq!(res_itd_boss.cth, res_itd_champ.cth);
@@ -431,7 +432,7 @@ fn test_ar_and_chance_to_hit_scaling() {
     let res_itd = eval_build_core(&[&wep_itd], &[], &c_trash, 1);
     assert_eq!(res_itd.ar, 85 * 150 / 100); // 127
     assert_eq!(res_itd.cth, 95);
-    let expected_dps_itd = 100.0 * 0.95 * zeal_rate;
+    let expected_dps_itd = 100.0 * 0.95 * zeal_eff_rate;
     assert!((res_itd.dps - expected_dps_itd).abs() < 1e-6);
 
     // Explicit target_def=0 honors 0 enemy defense (clamped to 95% CTH) instead of defaulting to 180.
@@ -480,10 +481,24 @@ fn test_ar_and_chance_to_hit_scaling() {
     // base_ar = 85 vs target_def = 300 => cth = 85 / 385
     let bow_rate = 25.0 / res_exp.ias_frames as f64;
     let exp_cth = 85.0 / 385.0;
-    let expected_exp_eff = (20.0 * exp_cth + (40.0 + 50.0) * 3.0) * bow_rate + 10.0 * 3.0;
+    let expected_exp_eff =
+        (20.0 * exp_cth + (40.0 + 50.0) * 3.0) * bow_rate * crate::dps::NO_CBF_CHILL_RATE_MULT
+            + 10.0 * 3.0;
     let expected_exp_raw = (20.0 + (40.0 + 50.0) * 3.0) * bow_rate + 10.0 * 3.0;
     assert!((res_exp.dps - expected_exp_eff).abs() < 1e-6);
     assert!((res_exp.raw_dps - expected_exp_raw).abs() < 1e-6);
+
+    // With CBF, chill penalty disappears while raw_dps and aura_pulse_dps remain unchanged.
+    let cbf_ring = ItemSpec {
+        name: "Raven Frost".into(),
+        slot: "ring".into(),
+        cbf: 1,
+        ..Default::default()
+    };
+    let res_exp_cbf = eval_build_core(&[&bow, &cbf_ring], &[], &c_exp, 1);
+    let expected_exp_eff_cbf = (20.0 * exp_cth + (40.0 + 50.0) * 3.0) * bow_rate + 10.0 * 3.0;
+    assert!((res_exp_cbf.dps - expected_exp_eff_cbf).abs() < 1e-6);
+    assert!((res_exp_cbf.raw_dps - expected_exp_raw).abs() < 1e-6);
 }
 
 #[test]
@@ -620,6 +635,7 @@ fn test_cb_ow_poison_venom_ctc_and_exploding_arrow_pierce() {
     };
     let res = eval_build_core(&[&wep, &armor], &[], &c_trash, 1);
     let rate = 25.0 / res.ias_frames as f64;
+    let eff_rate = rate * crate::dps::NO_CBF_CHILL_RATE_MULT;
     let cth: f64 = 0.95;
     // CB: 100% * 0.25 * (0.5 * 1000) = 125/hit; Static: 0.5 * 0.25 * (0.25 * 1000) * 4 = 125/hit; Orb: 100 * 3 = 300/hit.
     let direct_hit = 125.0 + 125.0 + 300.0;
@@ -628,7 +644,7 @@ fn test_cb_ow_poison_venom_ctc_and_exploding_arrow_pierce() {
     // Poison: (50 + 200) * (1 - 0.05^(2*rate)).
     let psn_base = 250.0;
     let psn_dps = psn_base * (1.0 - (1.0 - cth).powf((2.0 * rate).max(1.0)));
-    assert!((res.dps - (direct_hit * cth * rate + ow_dps + psn_dps)).abs() < 1e-6);
+    assert!((res.dps - (direct_hit * cth * eff_rate + ow_dps + psn_dps)).abs() < 1e-6);
 
     // Champion halves CB (12.5%) and halves OW.
     let c_champ = BuildConstraints {
@@ -642,7 +658,7 @@ fn test_cb_ow_poison_venom_ctc_and_exploding_arrow_pierce() {
     let res_champ = eval_build_core(&[&wep, &armor], &[], &c_champ, 1);
     let direct_champ = 62.5 + 125.0 + 300.0;
     assert!(
-        (res_champ.dps - (direct_champ * 0.95 * rate + ow_dps * 0.5 + psn_dps)).abs() < 1e-6
+        (res_champ.dps - (direct_champ * 0.95 * eff_rate + ow_dps * 0.5 + psn_dps)).abs() < 1e-6
     );
 
     // Decrepify multiplier tests:
@@ -689,7 +705,11 @@ fn test_cb_ow_poison_venom_ctc_and_exploding_arrow_pierce() {
         pierce_eff += p_pow;
     }
     let auto_hit = (10.0 + 20.0) * 10.0;
-    assert!((res_kuko.dps - auto_hit * pierce_eff * kuko_rate).abs() < 1e-6);
+    assert!(
+        (res_kuko.dps - auto_hit * pierce_eff * kuko_rate * crate::dps::NO_CBF_CHILL_RATE_MULT)
+            .abs()
+            < 1e-6
+    );
     assert!((res_kuko.raw_dps - auto_hit * 5.0 * kuko_rate).abs() < 1e-6);
 }
 
@@ -943,17 +963,31 @@ fn test_smite_dps_and_crushing_blow() {
     assert_eq!(res_champ.ar, 0);
     assert!(!res_champ.used_zeal);
     assert_eq!((res_champ.ias_bp, res_champ.ias_frames), (30, 6));
-    assert!((res_champ.raw_dps - res_champ.dps).abs() < 1e-6);
 
     // Base phys avg = (760 + 92 + HS_22(133)) / 2 = 492.5
     // eff_action = 1 (all_skills) + 1 (shield Combat) + 1 (charm Combat) = 3 -> Smite ED = 60%
     // ED = 100 (Str) + 60 (Smite@idx3) + 67 (Fanat@idx1) + 300 (Fort) = 527% -> 6.27x
     // Decrep (100% @ cth=1.0) = 1.5x -> CB(champ) = 0.5*0.125*5000 = 312.5
     let rate = 25.0 / 6.0;
+    let eff_rate = rate * crate::dps::NO_CBF_CHILL_RATE_MULT;
     let ow_raw_tick = 36.0 * 60.0 - 770.0;
     let ow_champ = (25.0 * ow_raw_tick / 256.0 * 0.5) * (1.0 - 0.5_f64.powf(8.0 * rate));
-    let expected_champ = (492.5 * 6.27 * 1.5 + 312.5) * rate + ow_champ;
+    let expected_champ_raw = (492.5 * 6.27 * 1.5 + 312.5) * rate + ow_champ;
+    let expected_champ = (492.5 * 6.27 * 1.5 + 312.5) * eff_rate + ow_champ;
+    assert!((res_champ.raw_dps - expected_champ_raw).abs() < 1e-6);
     assert!((res_champ.dps - expected_champ).abs() < 1e-6);
+
+    // Adding CBF removes the chill penalty so Smite raw_dps == dps.
+    let cbf_ring = ItemSpec {
+        name: "Raven Frost".into(),
+        slot: "ring".into(),
+        cbf: 1,
+        ..Default::default()
+    };
+    let res_champ_cbf =
+        eval_build_core(&[&grief, &shield, &armor, &cbf_ring], &[&combat_gc], &c_champ, 1);
+    assert!((res_champ_cbf.raw_dps - res_champ_cbf.dps).abs() < 1e-6);
+    assert!((res_champ_cbf.dps - expected_champ_raw).abs() < 1e-6);
 
     // Trash target doubles CB fraction (0.25) and OW target multiplier (1.0).
     let c_trash = BuildConstraints {
@@ -965,6 +999,6 @@ fn test_smite_dps_and_crushing_blow() {
     };
     let res_trash = eval_build_core(&[&grief, &shield, &armor], &[&combat_gc], &c_trash, 1);
     let ow_trash = (25.0 * ow_raw_tick / 256.0 * 1.0) * (1.0 - 0.5_f64.powf(8.0 * rate));
-    let expected_trash = (492.5 * 6.27 * 1.5 + 625.0) * rate + ow_trash;
+    let expected_trash = (492.5 * 6.27 * 1.5 + 625.0) * eff_rate + ow_trash;
     assert!((res_trash.dps - expected_trash).abs() < 1e-6);
 }

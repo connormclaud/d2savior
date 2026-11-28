@@ -4535,3 +4535,78 @@ fn test_score_of_result_core_parity_and_no_locality() {
         assert!(score_of_result_core(&r_eq, &bad).is_err());
     }
 }
+
+#[test]
+fn test_no_cbf_chill_penalty_affects_dps_ranking() {
+    let sword = ItemSpec {
+        name: "Plain Sword".into(),
+        slot: "weapon".into(),
+        wclass: "1hs".into(),
+        wep_phys_2x: 200,
+        can_zeal: true,
+        itd: 1,
+        ..Default::default()
+    };
+    let cbf_armor = ItemSpec {
+        name: "CBF Armor".into(),
+        slot: "armor".into(),
+        cbf: 1,
+        ..Default::default()
+    };
+    // +10% off-weapon ED without CBF is weaker than 0% ED with CBF (0.85 * 1.10 = 0.935 < 1.0).
+    let ed10_armor = ItemSpec {
+        name: "Small ED Armor".into(),
+        slot: "armor".into(),
+        off_ed: 10,
+        ..Default::default()
+    };
+    // +30% off-weapon ED without CBF overcomes the 15% chill penalty (0.85 * 1.30 = 1.105 > 1.0).
+    let ed30_armor = ItemSpec {
+        name: "Big ED Armor".into(),
+        slot: "armor".into(),
+        off_ed: 30,
+        ..Default::default()
+    };
+    let c = BuildConstraints {
+        offense: "melee".into(),
+        mode: "leveling".into(),
+        min_fcr: 0,
+        min_fhr: 0,
+        min_fr: 0,
+        min_lr: 0,
+        min_cr: 0,
+        min_pr: 0,
+        limit: 1,
+        character: CharacterStats {
+            char_class: CharClass::PALADIN_ID,
+            char_level: 30,
+            base_str: 0,
+            base_dex: 50,
+            base_hell_res: 0,
+            ..Default::default()
+        },
+        target: TargetProfile {
+            target_def: 0,
+            target_type: "trash".into(),
+            ..Default::default()
+        },
+        skills: SkillModel::Melee(MeleeSkillModel {
+            action_hits: vec![1],
+            action_ed: vec![0],
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    let res_small =
+        optimize_builds_core(&[sword.clone(), cbf_armor.clone(), ed10_armor], &[], &c).unwrap();
+    assert_eq!(res_small.len(), 1);
+    assert!(res_small[0].cbf);
+    assert!(res_small[0].items.iter().any(|it| it.name == "CBF Armor"));
+
+    let res_big = optimize_builds_core(&[sword, cbf_armor, ed30_armor], &[], &c).unwrap();
+    assert_eq!(res_big.len(), 1);
+    assert!(!res_big[0].cbf);
+    assert!(res_big[0].items.iter().any(|it| it.name == "Big ED Armor"));
+    assert!(res_big[0].dps < res_big[0].raw_dps);
+}
